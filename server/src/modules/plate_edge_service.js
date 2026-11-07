@@ -496,7 +496,7 @@ export async function recordManagerPlateEvent({ siteCode, body }) {
             `SELECT sd.id AS door_id, sd.door_name, d.device_uid
                FROM site_doors sd
                JOIN devices d ON d.id = sd.assigned_device_id
-              WHERE sd.site_code = $1 AND sd.is_active AND d.is_active
+              WHERE sd.site_code = $1 AND sd.is_active
               ORDER BY sd.id LIMIT 1`,
             [siteCode],
           )

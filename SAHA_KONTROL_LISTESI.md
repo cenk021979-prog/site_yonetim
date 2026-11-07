@@ -4745,3 +4745,10 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
        - Sol üst **Menüler & Diğer Bilgiler** kartında kapı/site seçimi, sistem AI motor durumu (tıklanınca kapı ve motor tanı ayrıntıları açılır) ve hızlı operatör menüleri yer alır.
        - Sol alt **Canlı Otopark Durum Bilgisi** kartında içerideki araç sayısı, sakin/misafir dağılımı ve içerideki araç listesi anlık akar; karta veya araca tıklandığında aranabilir otopark ve daire kontenjan ayrıntı penceresi açılır.
        - Sağ üst **Giriş Olayları** ve sağ alt **Çıkış Olayları** kartlarında giriş ve çıkış tespitleri gerçek zamanlı akar; herhangi bir olaya tıklandığında anlık kamera karesi, güven yüzdesi, daire/kişi bilgisi ve hızlı izin/kara liste aksiyonlarını içeren ayrıntı penceresi açılır.
+
+- [ ] **165.23. Kapı Geçiş Süre Ayarlarının Cihaz Durumundan Bağımsız Kaydedilmesi ve Kapıya Atanmış Cihaz Site Kodu Eşitlemesi:**
+  - **Nasıl Test Edilir:** Tam ekran Canlı Akış Komuta Merkezi (veya Geçiş Noktaları sekmesi) üzerinden **"Kapı Geçiş Süre Ayarları"** penceresini açın. Sonraki araç bekleme süresi veya arka plaka engelleme sürelerini değiştirip **Kaydet** butonuna basın (cihaz çevrimiçi/çevrimdışı veya `site_doors` üzerinden atanmışken).
+  - **Beklenen Sonuç:**
+    1. **Cihazdan Bağımsız Süre Kaydı:** Kapı geçiş süreleri kaydedilirken yalnızca süre alanları (`consecutive_vehicle_delay_seconds`, `entry_rear_suppress_seconds`, `exit_rear_suppress_seconds`) güncellenir; cihazın online olması veya kapıya fiziksel cihaz bağlı olması şartı aranmaz ve `"SmartKeyPass cihazı bulunamadı ya da erişiminiz yok."` hatası oluşmaz.
+    2. **Kapı Üzerinden Atanan Cihazların Otomatik Tanınması:** `site_doors.assigned_device_id` ile kapıya bağlı olan SmartKeyPass cihazları (`devices.site_code` boş kalmış olsa dahi) otomatik olarak ilgili siteyle eşitlenir ve kapı durumunda çevrimiçi/çevrimdışı durumu doğru gösterilir.
+

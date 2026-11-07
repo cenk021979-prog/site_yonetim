@@ -105,6 +105,17 @@ export async function saveSiteSettings({ siteCode, body, authUser }) {
 export async function syncDoorsFromSmartKeyPass(db, siteCode) {
   try {
     await db.query(
+      `UPDATE devices d
+          SET site_code = sd.site_code
+         FROM site_doors sd
+        WHERE sd.assigned_device_id = d.id
+          AND sd.site_code = $1
+          AND d.site_code IS NULL`,
+      [siteCode],
+    );
+  } catch (_) {}
+  try {
+    await db.query(
       `INSERT INTO plate_gates (site_code, name, direction_mode, device_uid, door_id, sort_order, is_active, consecutive_vehicle_delay_seconds, entry_rear_suppress_seconds, exit_rear_suppress_seconds)
        SELECT d.site_code, d.door_name, 'cift', dev.device_uid, d.id, d.door_index, d.is_active, 10, 60, 60
        FROM site_doors d
@@ -158,7 +169,21 @@ export async function getGatesOverview(siteCode) {
   const [settings, config, devices, edge, unassigned, inside] = await Promise.all([
     loadSiteSettings(pool, siteCode),
     loadGateConfig(pool, siteCode),
-    pool.query(`SELECT device_uid, gate_name, is_online, last_online_at FROM devices WHERE site_code = $1 ORDER BY device_uid LIMIT 500`, [siteCode]),
+    pool.query(
+      `SELECT DISTINCT ON (d.device_uid)
+              d.device_uid,
+              COALESCE(sd.door_name, d.gate_name) AS gate_name,
+              d.is_online,
+              d.last_online_at
+         FROM devices d
+         LEFT JOIN site_doors sd ON sd.assigned_device_id = d.id AND sd.site_code = $1
+        WHERE d.site_code = $1
+           OR sd.id IS NOT NULL
+           OR EXISTS (SELECT 1 FROM plate_gates pg WHERE pg.site_code = $1 AND pg.device_uid = d.device_uid)
+        ORDER BY d.device_uid, sd.id NULLS LAST
+        LIMIT 500`,
+      [siteCode],
+    ),
     pool.query(
       `SELECT id, name, is_active, app_version, schema_version, claimed_at, last_seen_at, last_sync_at, queue_depth, created_at
          FROM plate_edge_clients WHERE site_code = $1 AND revoked_at IS NULL ORDER BY id`,
@@ -233,7 +258,15 @@ export async function getGatesOverview(siteCode) {
 
 async function assertGateRefs(db, siteCode, input, cameras, gateId) {
   if (input.device_uid) {
-    const device = await db.query(`SELECT 1 FROM devices WHERE device_uid = $1 AND site_code = $2 LIMIT 1`, [input.device_uid, siteCode]);
+    const device = await db.query(
+      `SELECT 1 FROM devices d
+        WHERE d.device_uid = $1
+          AND (d.site_code = $2
+               OR EXISTS (SELECT 1 FROM site_doors sd WHERE sd.site_code = $2 AND sd.assigned_device_id = d.id)
+               OR EXISTS (SELECT 1 FROM plate_gates pg WHERE pg.id = $3 AND pg.site_code = $2 AND pg.device_uid = d.device_uid))
+        LIMIT 1`,
+      [input.device_uid, siteCode, gateId ?? 0],
+    );
     if (!device.rows[0]) throw notFound('SmartKeyPass cihazı', 'DEVICE_NOT_FOUND');
     const taken = await db.query(`SELECT 1 FROM plate_gates WHERE site_code = $1 AND device_uid = $2 AND id <> $3 LIMIT 1`, [siteCode, input.device_uid, gateId ?? 0]);
     if (taken.rows[0]) throw new PlatformError(409, 'DEVICE_ALREADY_MAPPED', 'Bu cihaz başka bir kapıya bağlı.');

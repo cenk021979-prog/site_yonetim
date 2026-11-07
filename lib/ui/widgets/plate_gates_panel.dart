@@ -110,19 +110,6 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     );
     if (result == null) return;
 
-    final draft = GateDraft(
-      name: gate.name,
-      directionMode: gate.directionMode,
-      deviceUid: gate.deviceUid,
-      consecutiveVehicleDelaySeconds: result.consecutiveVehicleDelaySeconds,
-      entryRearSuppressSeconds: result.entryRearSuppressSeconds,
-      exitRearSuppressSeconds: result.exitRearSuppressSeconds,
-      cameras: <GateCameraDraft>[
-        for (final c in gate.cameras)
-          GateCameraDraft(cameraId: c.cameraId, direction: c.direction),
-      ],
-    );
-
     PlateRecognitionEngine.instance.updateGateCooldowns(
       gateId: gate.id,
       consecutiveVehicleDelaySeconds: result.consecutiveVehicleDelaySeconds,
@@ -131,7 +118,13 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     );
 
     await _run(
-      () => widget.service.updateGatePoint(widget.siteCode, gate.id, draft),
+      () => widget.service.updateGateTimings(
+        widget.siteCode,
+        gate.id,
+        consecutiveVehicleDelaySeconds: result.consecutiveVehicleDelaySeconds,
+        entryRearSuppressSeconds: result.entryRearSuppressSeconds,
+        exitRearSuppressSeconds: result.exitRearSuppressSeconds,
+      ),
       '${gate.name} geçiş süreleri güncellendi (Yeni ayarlarla çalışıyor).',
     );
   }

@@ -436,6 +436,28 @@ class PlateRecognitionApi {
   Future<PlateGatesOverview> updateGatePoint(String token, int site, int id, GateDraft draft) async =>
       PlateGatesOverview.fromJson(await _send('PUT', _site(site, 'gates/$id'), token, body: draft.toBody()));
 
+  /// Yalnızca geçiş ve arka plaka engelleme sürelerini günceller (cihaz, yön veya kameralara dokunmaz).
+  Future<PlateGatesOverview> updateGateTimings(
+    String token,
+    int site,
+    int id, {
+    required int consecutiveVehicleDelaySeconds,
+    required int entryRearSuppressSeconds,
+    required int exitRearSuppressSeconds,
+  }) async =>
+      PlateGatesOverview.fromJson(
+        await _send(
+          'PUT',
+          _site(site, 'gates/$id'),
+          token,
+          body: <String, Object?>{
+            'consecutive_vehicle_delay_seconds': consecutiveVehicleDelaySeconds,
+            'entry_rear_suppress_seconds': entryRearSuppressSeconds,
+            'exit_rear_suppress_seconds': exitRearSuppressSeconds,
+          },
+        ),
+      );
+
   Future<PlateGatesOverview> deleteGatePoint(String token, int site, int id) async => PlateGatesOverview.fromJson(await _send('DELETE', _site(site, 'gates/$id'), token));
 
   Future<void> saveGateSettings(
@@ -618,6 +640,23 @@ class PlateRecognitionService {
   Future<PlateGatesOverview> gatesOverview(int site) => _guard((t) => api.gatesOverview(t, site));
   Future<PlateGatesOverview> createGatePoint(int site, GateDraft draft) => _guard((t) => api.createGatePoint(t, site, draft));
   Future<PlateGatesOverview> updateGatePoint(int site, int id, GateDraft draft) => _guard((t) => api.updateGatePoint(t, site, id, draft));
+  Future<PlateGatesOverview> updateGateTimings(
+    int site,
+    int id, {
+    required int consecutiveVehicleDelaySeconds,
+    required int entryRearSuppressSeconds,
+    required int exitRearSuppressSeconds,
+  }) =>
+      _guard(
+        (t) => api.updateGateTimings(
+          t,
+          site,
+          id,
+          consecutiveVehicleDelaySeconds: consecutiveVehicleDelaySeconds,
+          entryRearSuppressSeconds: entryRearSuppressSeconds,
+          exitRearSuppressSeconds: exitRearSuppressSeconds,
+        ),
+      );
   Future<PlateGatesOverview> deleteGatePoint(int site, int id) => _guard((t) => api.deleteGatePoint(t, site, id));
   Future<void> saveGateSettings(
     int site, {

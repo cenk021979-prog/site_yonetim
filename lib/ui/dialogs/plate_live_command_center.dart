@@ -523,20 +523,12 @@ class _PlateLiveCommandCenterPageState extends State<PlateLiveCommandCenterPage>
     );
 
     try {
-      final updated = await _service.updateGatePoint(
+      final updated = await _service.updateGateTimings(
         _site.code,
         gate.id,
-        GateDraft(
-          name: gate.name,
-          directionMode: gate.directionMode,
-          deviceUid: gate.deviceUid,
-          consecutiveVehicleDelaySeconds: result.consecutiveVehicleDelaySeconds,
-          entryRearSuppressSeconds: result.entryRearSuppressSeconds,
-          exitRearSuppressSeconds: result.exitRearSuppressSeconds,
-          cameras: <GateCameraDraft>[
-            for (final c in gate.cameras) GateCameraDraft(cameraId: c.cameraId, direction: c.direction),
-          ],
-        ),
+        consecutiveVehicleDelaySeconds: result.consecutiveVehicleDelaySeconds,
+        entryRearSuppressSeconds: result.entryRearSuppressSeconds,
+        exitRearSuppressSeconds: result.exitRearSuppressSeconds,
       );
       if (!mounted) return;
       setState(() => _gatesOverview = updated);
