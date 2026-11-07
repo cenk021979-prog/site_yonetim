@@ -6052,7 +6052,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case SirketMenuItem.odemeKamera:
         await _plateRecognitionKey.currentState?.reload();
         break;
-        break;
       case SirketMenuItem.ekipmanBakim:
         await _equipmentKey.currentState?.reload();
         break;

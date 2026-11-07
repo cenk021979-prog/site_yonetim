@@ -300,7 +300,6 @@ class DeviceIntegrationsViewState extends State<DeviceIntegrationsView> with Wid
   Widget _autoOpenCard(BuildContext context, PlateCamerasOverview overview) {
     final p = context.palette;
     final theme = Theme.of(context).textTheme;
-    final hasCameras = overview.cameras.any((c) => c.isActive && c.host.isNotEmpty);
     final isLocalStation = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     final active = isLocalStation || overview.autoOpen.active;
     final tone = active ? AppTone.success : AppTone.warning;
@@ -359,7 +358,6 @@ class DeviceIntegrationsViewState extends State<DeviceIntegrationsView> with Wid
 
   Widget _mainBody(BuildContext context, DeviceSite site, PlateCamerasOverview overview) {
     final theme = Theme.of(context).textTheme;
-    final hasCameras = overview.cameras.any((c) => c.isActive && c.host.isNotEmpty);
     final isLocalStation = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
