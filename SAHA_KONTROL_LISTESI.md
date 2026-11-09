@@ -4752,3 +4752,22 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
     1. **Cihazdan Bağımsız Süre Kaydı:** Kapı geçiş süreleri kaydedilirken yalnızca süre alanları (`consecutive_vehicle_delay_seconds`, `entry_rear_suppress_seconds`, `exit_rear_suppress_seconds`) güncellenir; cihazın online olması veya kapıya fiziksel cihaz bağlı olması şartı aranmaz ve `"SmartKeyPass cihazı bulunamadı ya da erişiminiz yok."` hatası oluşmaz.
     2. **Kapı Üzerinden Atanan Cihazların Otomatik Tanınması:** `site_doors.assigned_device_id` ile kapıya bağlı olan SmartKeyPass cihazları (`devices.site_code` boş kalmış olsa dahi) otomatik olarak ilgili siteyle eşitlenir ve kapı durumunda çevrimiçi/çevrimdışı durumu doğru gösterilir.
 
+---
+
+## 166. 🍓 Raspberry Pi 5 Desteği, Custom-Device Entegrasyonu ve Linux ARM64 Çalışma Ortamı
+*Mevcut Windows, mobil ve ESP32 mimarisini bozmadan Raspberry Pi 5'in Flutter cihaz seçicisine eklenmesi, tek tıklama kurulum betikleri ve ARM64 çalışma ortamı doğrulaması.*
+
+- [ ] **166.1. Flutter Cihaz Seçicide Raspberry Pi 5 Görünürlüğü:**
+  - **Nasıl Test Edilir:** Windows terminalinde `flutter devices` komutunu çalıştırın veya VS Code sağ altındaki cihaz seçici menüsünü açın.
+  - **Beklenen Sonuç:** Listede `Raspberry Pi 5 (mobile) • raspberry-pi-5 • linux-arm64 • Raspberry Pi OS (Bookworm ARM64)` cihazı aktif ve bağlı olarak görünmeli; seçim yapıldığında VS Code alt çubuğunda hedef cihaz olarak Raspberry Pi 5 seçilebilmelidir.
+- [ ] **166.2. Tek Tıklamayla Kurulum Betiği (`enable_rpi5_device.ps1`):**
+  - **Nasıl Test Edilir:** PowerShell'de `.\tools\rpi\enable_rpi5_device.ps1` betiğini çalıştırın.
+  - **Beklenen Sonuç:** Betik `flutter config --enable-custom-devices` ayarını açmalı, `.flutter_custom_devices.json` dosyasını oluşturup doğrulamalı ve yeşil renkli başarı bildirimi vermelidir.
+- [ ] **166.3. Raspberry Pi 5 OS Hazırlık Betiği (`setup_rpi5.sh`):**
+  - **Nasıl Test Edilir:** Raspberry Pi 5 üzerinde `tools/rpi/setup_rpi5.sh` betiğini çalıştırın.
+  - **Beklenen Sonuç:** Gerekli GTK3, EGL, Mesa, DRM ve libgpiod kütüphaneleri eksiksiz kurulmalı, kullanıcı izinleri ayarlanmalı ve cihaz IP adresi terminalde gösterilmelidir.
+- [ ] **166.4. Geriye Dönük Uyumluluk ve Sıfır Regresyon:**
+  - **Nasıl Test Edilir:** Windows üzerinde mevcut plaka komuta merkezi testlerini (`flutter test test/plate_live_command_center_test.dart`) çalıştırın.
+  - **Beklenen Sonuç:** Tüm 60 test pürüzsüz geçmeli; Windows Win32 API, D3D11VA GPU akışı ve ESP32 haberleşmesi hiçbir aksama yaşamamalıdır.
+
+
