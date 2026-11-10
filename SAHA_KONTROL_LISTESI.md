@@ -4770,4 +4770,23 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
   - **Nasıl Test Edilir:** Windows üzerinde mevcut plaka komuta merkezi testlerini (`flutter test test/plate_live_command_center_test.dart`) çalıştırın.
   - **Beklenen Sonuç:** Tüm 60 test pürüzsüz geçmeli; Windows Win32 API, D3D11VA GPU akışı ve ESP32 haberleşmesi hiçbir aksama yaşamamalıdır.
 
+---
+
+## 167. 📲 Sahadaki Eski AHBU Cihazlarının Bluetooth (BLE) ile Keşfi, Wi-Fi Bağlantısı ve Kapı Anahtarlaması
+*Sahada aktif çalışan eski AHBU ve yeni SmartKeyPass donanımlarının Bluetooth üzerinden kesintisiz bulunabilmesi, Wi-Fi ve MQTT kimliğiyle internete bağlanması ve röle anahtarlama görevini eksiksiz yürütmesi.*
+
+- [ ] **167.1. BLE Taramasında AHBU Donanımlarının Görünmesi (Donanım Filtresi Engeli Kaldırıldı):**
+  - **Nasıl Test Edilir:** Sahada üzerinde eski firmware bulunan veya adı `AHBU...` ile başlayan bir kapı kontrol kartını açın (veya butona 3 saniye basarak BLE kurulum moduna geçirin). Mobil uygulamada "Bluetooth ile Wi-Fi Kurulumu" sayfasına girip taramayı başlatın.
+  - **Beklenen Sonuç:** 128-bit servis UUID'si donanım tarama filtresinden kaynaklı paket kaybı yaşamadan `AHBUxxxxxxxxxxxx` cihazı BLE listesinde anında listelenmeli; sinyal gücü rozeti ve cihaz adı doğru görüntülenmelidir.
+- [ ] **167.2. Otomatik UID Çıkarımı ve Bağlantı (Fallback UID Desteği):**
+  - **Nasıl Test Edilir:** Listeden AHBU cihazına dokunarak bağlanın.
+  - **Beklenen Sonuç:** Cihaz durumu JSON'unda `device_uid` boş kalsa veya eski formatta (`uid`/`id`) olsa bile cihaz adından veya Bluetooth MAC adresinden 12 karakterlik benzersiz donanım UID'si (`240AC4E2E001`) otomatik olarak çözümlenmeli; `"Cihaz unique id okunamadı"` hatası oluşmadan cihazla bağlantı kurulmalıdır.
+- [ ] **167.3. Wi-Fi ve MQTT Kimlik Aktarımı ile İnternete Bağlanma:**
+  - **Nasıl Test Edilir:** Listeden Wi-Fi ağını seçip şifreyi girin (veya modemin Wi-Fi karekodunu okutun) ve "Wi-Fi Bilgilerini Cihaza Kaydet" butonuna dokunun.
+  - **Beklenen Sonuç:** Şirket/site hesabı üzerinden cihazın MQTT kimliği (`mqtt_host`, `mqtt_username`, `mqtt_password`) sunucudan çekilerek BLE üzerinden cihaza yazılmalı; cihaz başarıyla Wi-Fi'a ve MQTT broker'a bağlanarak online duruma geçmelidir.
+- [ ] **167.4. Kapı Anahtarlama (Röle Tetikleme) Görevi Doğrulaması:**
+  - **Nasıl Test Edilir:** İnternete bağlanan AHBU cihazı kapıya atandıktan sonra mobil uygulamadan "Kapıyı Aç" butonuna basın veya tanımlı bir plaka/QR ile geçiş yapın.
+  - **Beklenen Sonuç:** Hem yerel UDP (port 8765) hem de bulut MQTT (`device/<UID>/cmd`) üzerinden gelen kapı açma komutu AHBU kartı tarafından anında işlenmeli; röle kontağı çekip kapı motorunu/kilidini tetiklemeli (anahtarlama görevini eksiksiz yapmalı) ve durum güncellenmelidir.
+
+
 

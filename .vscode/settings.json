@@ -51,5 +51,6 @@
   },
   "git.autorefresh": true,
   "git.autoFetch": false,
-  "git.openRepositoryInParentFolders": "never"
+  "git.openRepositoryInParentFolders": "never",
+  "java.configuration.updateBuildConfiguration": "interactive"
 }

@@ -173,7 +173,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
       setState(() => _devices = devices);
       if (devices.isEmpty) {
         _showMessage(
-          'Kurulum modunda cihaz bulunamadı. Gerekirse cihazdaki butona 3 saniye basın.',
+          'Kurulum modunda AHBU / SmartKeyPass cihazı bulunamadı. Cihazdaki butona 3 saniye basıp LED yanıp sönerken tekrar deneyin.',
           kind: AppSnackKind.warning,
         );
       }
@@ -198,7 +198,14 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
     });
 
     try {
-      final BleWifiState state = await _service.connect(device);
+      BleWifiState state = await _service.connect(device);
+      if (state.deviceUid.isEmpty) {
+        final String fallbackUid =
+            extractBleDeviceUid(device.name, deviceId: device.id);
+        if (fallbackUid.isNotEmpty) {
+          state = state.copyWith(deviceUid: fallbackUid);
+        }
+      }
       final BleWifiResult result = await _service.readResult();
       if (!mounted) return;
       setState(() {
@@ -306,7 +313,16 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
 
     setState(() => _savingWifi = true);
     try {
-      final String deviceUid = (_deviceState?.deviceUid ?? '').trim();
+      String deviceUid = (_deviceState?.deviceUid ?? '').trim();
+      if (deviceUid.isEmpty && _selectedDevice != null) {
+        deviceUid = extractBleDeviceUid(
+          _selectedDevice!.name,
+          deviceId: _selectedDevice!.id,
+        );
+        if (deviceUid.isNotEmpty && _deviceState != null) {
+          _deviceState = _deviceState!.copyWith(deviceUid: deviceUid);
+        }
+      }
       if (deviceUid.isEmpty) {
         throw const BleProvisionException(
           'Cihaz unique id okunamadı. Önce Bluetooth cihazına bağlanın.',
@@ -473,7 +489,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
             )
           else if (_devices.isEmpty && !_loadingDevices)
             const Text(
-              'Kurulum modunda cihaz bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
+              'Kurulum modunda AHBU / SmartKeyPass cihazı bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
             )
           else if (_devices.isEmpty)
             // Tarama sürüyor: cihaz satırı iskeletleri (yalnız tarama süresince ağaçta).
