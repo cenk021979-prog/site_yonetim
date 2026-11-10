@@ -249,7 +249,7 @@ class _ResidentLeaveDialogState extends State<ResidentLeaveDialog> {
             const InlineNotice(
               tone: AppTone.danger,
               icon: Icons.warning_amber_rounded,
-              message: 'Daireden ayrılma işlemi geri alınamaz. Yeniden katılmak için yöneticiden veya ev sahibinden davet almanız gerekir.',
+              message: 'Daireden ayrılma işlemi geri alınamaz. Diğer üyelere bildirim gitmez. Yeniden katılmak için yöneticiden veya ev sahibinden davet almanız gerekir.',
             ),
           ],
         ),
@@ -275,7 +275,7 @@ class _ResidentLeaveDialogState extends State<ResidentLeaveDialog> {
                 foregroundColor: Colors.white,
               ),
               onPressed: _submitting ? null : _submit,
-              child: Text(_submitting ? 'İşleniyor...' : 'Ayrılmayı Onayla'),
+              child: Text(_submitting ? 'İşleniyor...' : 'Ayrıl'),
             ),
         ],
         child: body,

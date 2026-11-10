@@ -140,8 +140,11 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
                     },
             ),
             const SizedBox(height: AppSpace.md),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
               children: [
                 Text(
                   'Site Kapısı',
@@ -227,39 +230,6 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
       // İlk yükleme sürerken ipucu yerine iskelet; yükleme bitince ipucu.
       if (widget.isLoadingSites || widget.isLoadingStructure) {
         return const _StatusSkeleton();
-      }
-      if (widget.doors.isEmpty) {
-        return Center(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(Icons.meeting_room_outlined, size: 48, color: p.textSecondary),
-                const SizedBox(height: AppSpace.sm),
-                Text(
-                  'Bu sitede henüz tanımlı bir kapı bulunmuyor.',
-                  style: th.bodyMedium?.copyWith(color: p.textSecondary),
-                  textAlign: TextAlign.center,
-                ),
-                if (widget.onOpenAddDoor != null) ...[
-                  const SizedBox(height: AppSpace.md),
-                  ElevatedButton.icon(
-                    onPressed: widget.onOpenAddDoor,
-                    icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
-                    label: const Text('Yeni Kapı Oluştur'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: AppSpace.lg,
-                        vertical: AppSpace.sm,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
-        );
       }
       return const EmptyState.compact(
         icon: Icons.touch_app_rounded,

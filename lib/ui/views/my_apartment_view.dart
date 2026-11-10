@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:site_kapi_kontrol/models/apartment_management.dart';
 import 'package:site_kapi_kontrol/services/apartment_management_api.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
+import 'package:site_kapi_kontrol/ui/design/app_action_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
@@ -456,24 +457,31 @@ class MyApartmentViewState extends State<MyApartmentView> {
         for (final m in apt.family)
           Padding(
             padding: const EdgeInsets.only(bottom: AppSpace.xs),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Wrap(
-                  spacing: AppSpace.sm,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Text(m.name, style: th.bodyMedium),
-                    if (m.isMinor) const StatusChip(label: '18 yaş altı', tone: AppTone.info),
-                  ],
-                ),
+            child: AppActionCard(
+              padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+              leading: CardAvatarIcon(
+                icon: m.isMinor ? Icons.child_care_rounded : Icons.person_rounded,
+                tone: m.isMinor ? AppTone.info : AppTone.primary,
+              ),
+              title: m.name,
+              badges: [
+                if (m.isMinor) const StatusChip(label: '18 yaş altı', tone: AppTone.info),
+              ],
+              actions: [
                 if (m.canRemove)
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: _busy ? null : () => unawaited(_removeFamily(apt, m)),
-                      child: Text(m.removalNeedsConsent ? 'Çıkarma isteği' : 'Çıkar'),
-                    ),
+                  CardActionItem(
+                    label: m.removalNeedsConsent ? 'Çıkarma isteği' : 'Çıkar',
+                    icon: Icons.person_remove_rounded,
+                    isDestructive: true,
+                    enabled: !_busy,
+                    onTap: () => unawaited(_removeFamily(apt, m)),
+                  ),
+              ],
+              inlineActions: [
+                if (m.canRemove)
+                  TextButton(
+                    onPressed: _busy ? null : () => unawaited(_removeFamily(apt, m)),
+                    child: Text(m.removalNeedsConsent ? 'Çıkarma isteği' : 'Çıkar'),
                   ),
               ],
             ),
