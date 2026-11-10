@@ -362,14 +362,36 @@ class PersonSearchResult {
 
 @immutable
 class ExitPreview {
-  const ExitPreview({this.hasDebt = false, this.totalMinor = 0, this.familyCount = 0});
+  const ExitPreview({
+    this.hasDebt = false,
+    this.totalMinor = 0,
+    this.familyCount = 0,
+    this.isTenant = false,
+    this.isAdmin = false,
+    this.vehiclesCount = 0,
+    this.reservationsCount = 0,
+    this.guestPassesCount = 0,
+  });
 
-  factory ExitPreview.fromJson(Map<String, dynamic> j) =>
-      ExitPreview(hasDebt: _b(j['has_debt']), totalMinor: _i(j['total_minor']), familyCount: _i(j['family_count']));
+  factory ExitPreview.fromJson(Map<String, dynamic> j) => ExitPreview(
+        hasDebt: _b(j['has_debt']),
+        totalMinor: _i(j['total_minor']),
+        familyCount: _i(j['family_count']),
+        isTenant: _b(j['is_tenant']),
+        isAdmin: _b(j['is_admin']),
+        vehiclesCount: _i(j['vehicles_count']),
+        reservationsCount: _i(j['reservations_count']),
+        guestPassesCount: _i(j['guest_passes_count']),
+      );
 
   final bool hasDebt;
   final int totalMinor;
   final int familyCount;
+  final bool isTenant;
+  final bool isAdmin;
+  final int vehiclesCount;
+  final int reservationsCount;
+  final int guestPassesCount;
 
   String get debtText {
     final lira = totalMinor ~/ 100;

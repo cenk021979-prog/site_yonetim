@@ -15,6 +15,7 @@ import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_mgmt_dialogs.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/crm_confirm_dialog.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/resident_leave_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/connectivity_error.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dial_call.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
@@ -158,27 +159,11 @@ class MyApartmentViewState extends State<MyApartmentView> {
   }
 
   Future<void> _exit(MyApartment apt) async {
-    ExitPreview? preview;
-    try {
-      preview = await _service.exitPreview(apt.apartmentId);
-    } catch (e) {
-      if (mounted) AppSnack.show(context, crmMessageOf(e, 'Çıkış özeti alınamadı.'), kind: AppSnackKind.error);
-      return;
+    final done = await ResidentLeaveDialog.show(context, service: _service, apartment: apt);
+    if (done == true && mounted) {
+      widget.onChanged?.call();
+      await reload();
     }
-    if (!mounted) return;
-    final debt = preview.hasDebt
-        ? '\n\nUyarı: Hesabınızda ${preview.debtText} açık borç var. Çıkışı engellemez; borç sizin hesabınızda kalır.'
-        : '';
-    final family = preview.familyCount > 0 ? '\nEklediğiniz ${preview.familyCount} aile üyesinin bağı da sona erer.' : '';
-    final ok = await confirmCrmAction(
-      context,
-      title: 'Daireyi devret / çıkış',
-      message: 'Bu dairedeki kiracılığınız sona erer, daire yönetimi malike döner. Hesabınız silinmez.$family$debt',
-      confirmLabel: 'Çıkış yap',
-      tone: AppTone.danger,
-    );
-    if (!ok || !mounted) return;
-    await _run(() => _service.exitTenancy(apt.apartmentId), success: 'Daireden çıkış yapıldı.', notifyParent: true);
   }
 
   Future<void> _disconnect(MyApartment apt) async {
@@ -193,16 +178,11 @@ class MyApartmentViewState extends State<MyApartmentView> {
   }
 
   Future<void> _leave(MyApartment apt) async {
-    final ok = await confirmCrmAction(
-      context,
-      title: 'Bu daireden ayrıl',
-      message:
-          'Bu dairedeki bağınız ve kapı erişiminiz sona erer. Onay gerekmez. Diğer üyelere bildirim gitmez. Hesabınız silinmez; sonra yeniden katılmak isterseniz davet gerekir.',
-      confirmLabel: 'Ayrıl',
-      tone: AppTone.danger,
-    );
-    if (!ok || !mounted) return;
-    await _run(() => _service.leave(apt.apartmentId), success: 'Daireden ayrıldınız.', notifyParent: true);
+    final done = await ResidentLeaveDialog.show(context, service: _service, apartment: apt);
+    if (done == true && mounted) {
+      widget.onChanged?.call();
+      await reload();
+    }
   }
 
   Future<void> _giveProxy(MyApartment apt) async {

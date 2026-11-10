@@ -4811,6 +4811,10 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
 - [ ] **168.6. Flutter Mobil ve Web UI Daireden Ayrılma Sihirbazı (ResidencyTerminationDialog):**
   - **Nasıl Test Edilir:** Daire Detay kartından (`ApartmentCardDialog`) veya Kişi Detay kartından (`PersonCardDialog`) bir sakinin yanındaki "Daireden Ayrıldı / Taşındı" düğmesine tıklayın.
   - **Beklenen Sonuç:** Açılan 360° sihirbazda araçlar, rezervasyonlar, vadesi geçmiş borçlar, sayaçlar, daire admini halef seçimi ve yönetim kurulu görevleri net kartlar halinde listelenmeli; onaylandığında tüm işlemler tek seferde icra edilip sayfa anında otomatik yenilenmelidir. Taşma (overflow) hatası yaşanmamalıdır.
+- [ ] **168.7. Sakin Tarafı 'Bu Daireden Ayrıl' ve 'Daireyi Devret / Çıkış' 360° Temizliği (ResidentLeaveDialog):**
+  - **Nasıl Test Edilir:** Sakin olarak oturum açıp "Dairem" (`MyApartmentView`) ekranından "Bu daireden ayrıl" veya "Daireyi devret / çıkış" butonuna tıklayın.
+  - **Beklenen Sonuç:** Açılan onay kartında sakinin kapı erişiminin sona ereceği, kayıtlı araçlarının PTS bariyer geçiş izinlerinin iptal edileceği, bekleyen misafir linkleri ve tesis rezervasyonlarının temizleneceği, aidat borcu varsa uyarılacağı ve hesabının silinmeyeceği net maddeler halinde gösterilmeli; onaylandığında tüm bağlı varlıklar temizlenerek daireden ayrılma tamamlanmalıdır.
+
 
 
 

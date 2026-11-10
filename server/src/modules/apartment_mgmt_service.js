@@ -68,6 +68,7 @@ import { sendInvitation } from './person_invite_service.js';
 import { ensureTenantIsAdmin } from './apartment_tenant_admin.js';
 import { logResidencyEvent } from './residency_log.js';
 import { cleanupDoorOverridesIfNoMembership, handOverApartmentResident } from '../services/membership_service.js';
+import { releaseUserReservations } from './reservation_service.js';
 
 export { SEARCH_HOURLY_LIMIT };
 
@@ -998,10 +999,31 @@ async function endTenancy(client, authUser, state, reason) {
      WHERE apartment_id = $1 AND status = 'pending' AND (kind = 'disconnect' OR (kind = 'family_invite' AND requested_by = $2))`,
     [apartment.id, tenant.user_code],
   );
+
+  // 360° Temizlik: PTS Araç Plakalarını pasife al
+  const allEndingPersonIds = ending.map((e) => e.person_id).filter(Boolean);
+  if (allEndingPersonIds.length > 0) {
+    await client.query(
+      `UPDATE vehicles SET is_active = FALSE WHERE site_code = $1 AND person_id = ANY($2::int[]) AND is_active = TRUE`,
+      [siteCode, allEndingPersonIds],
+    );
+  }
+  // Geçici misafir linklerini kapat & Tesis rezervasyonlarını iptal et
+  const allEndingUserCodes = ending.map((e) => e.user_code).filter(Boolean);
+  if (allEndingUserCodes.length > 0) {
+    await client.query(
+      `UPDATE guest_passes SET is_active = FALSE WHERE site_code = $1 AND created_by_user_code = ANY($2::bigint[]) AND is_active = TRUE`,
+      [siteCode, allEndingUserCodes],
+    );
+    for (const u of allEndingUserCodes) {
+      await releaseUserReservations(client, u).catch(() => {});
+    }
+  }
+
   return accessClosed;
 }
 
-/** GET /app/apartments/:id/exit-preview  (kiraci): acik borc uyarisi + etkilenecek aile uyesi sayisi. Engellemez. */
+/** GET /app/apartments/:id/exit-preview  (sakin / kiracı): açık borç, araç, rezervasyon ve aile üyesi özeti. Engellemez. */
 export async function exitPreview({ authUser, apartmentId }) {
   const uc = userCodeOf(authUser);
   const aptId = parsePositiveId(apartmentId);
@@ -1010,16 +1032,50 @@ export async function exitPreview({ authUser, apartmentId }) {
     throw aptNotFound();
   }
   const me = await meOf(pool, state, uc);
-  if (!me.is_tenant) {
-    throw forbidden('Bu işlem yalnızca kiracı içindir.');
-  }
   const debts = (await ownOpenDebts(pool, uc)).filter((d) => Number(d.apartment_id) === state.apartment.id);
   const total = debts.reduce((sum, d) => sum + Number(d.balance_minor), 0);
+
+  const pId = me.person_id || state.residencies.find((r) => r.user_code === uc)?.person_id || null;
+  let vehicleCount = 0;
+  if (pId) {
+    const vRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM vehicles WHERE site_code = $1 AND is_active = TRUE AND (person_id = $2 OR (apartment_id = $3 AND $4::boolean = TRUE))`,
+      [state.apartment.site_code, pId, state.apartment.id, me.is_tenant],
+    );
+    vehicleCount = vRes.rows?.[0]?.n ?? 0;
+  }
+
+  let reservationCount = 0;
+  const hasRes = await pool.query("SELECT (to_regclass('public.reservations') IS NOT NULL) AS ok");
+  if (hasRes.rows?.[0]?.ok === true && uc !== null) {
+    const rRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM reservations WHERE site_code = $1 AND user_code = $2 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW()`,
+      [state.apartment.site_code, uc],
+    );
+    reservationCount = rRes.rows?.[0]?.n ?? 0;
+  }
+
+  let guestPassCount = 0;
+  if (uc !== null) {
+    const gpRes = await pool.query(
+      `SELECT COUNT(*)::int AS n FROM guest_passes WHERE site_code = $1 AND created_by_user_code = $2 AND is_active = TRUE AND expires_at > NOW()`,
+      [state.apartment.site_code, uc],
+    );
+    guestPassCount = gpRes.rows?.[0]?.n ?? 0;
+  }
+
   return {
+    is_tenant: me.is_tenant,
+    is_admin: me.is_admin,
     has_debt: total > 0,
     total_minor: total,
     currency: 'TRY',
-    family_count: familyEndingWithTenant(state.roles.family, state.roles.tenant.person_id).length,
+    vehicles_count: vehicleCount,
+    reservations_count: reservationCount,
+    guest_passes_count: guestPassCount,
+    family_count: me.is_tenant && state.roles.tenant
+        ? familyEndingWithTenant(state.roles.family, state.roles.tenant.person_id).length
+        : 0,
   };
 }
 
@@ -1099,6 +1155,23 @@ export async function leaveApartment({ authUser, apartmentId }) {
       });
       closed = res.accessClosed;
     }
+
+    // 360° Temizlik: Ayrılan sakinin PTS araç plakalarını, misafir linklerini ve rezervasyonlarını temizle
+    const pId = me.person_id || state.residencies.find((r) => r.user_code === uc)?.person_id || null;
+    if (pId) {
+      await client.query(
+        `UPDATE vehicles SET is_active = FALSE WHERE site_code = $1 AND person_id = $2 AND is_active = TRUE`,
+        [site, pId],
+      );
+    }
+    if (uc !== null) {
+      await client.query(
+        `UPDATE guest_passes SET is_active = FALSE WHERE site_code = $1 AND created_by_user_code = $2 AND is_active = TRUE`,
+        [site, uc],
+      );
+      await releaseUserReservations(client, uc).catch(() => {});
+    }
+
     await client.query(
       `UPDATE apartment_link_requests SET status = 'cancelled', responded_at = NOW(), updated_at = NOW()
        WHERE apartment_id = $1 AND status = 'pending' AND (requested_by = $2 OR target_user_code = $2)`,
