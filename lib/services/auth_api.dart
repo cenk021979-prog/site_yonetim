@@ -4640,6 +4640,18 @@ class AuthApi {
     return list.map((item) => JoinRequestRecord.fromJson(item as Map<String, dynamic>)).toList();
   }
 
+  Future<void> dismissJoinRequest({
+    required String token,
+    required int requestId,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'POST',
+      path: '/membership/my-join-requests/$requestId/dismiss',
+      token: token,
+    );
+    _ensureStatus(response, 200);
+  }
+
   Future<List<JoinRequestRecord>> getSiteJoinRequests({
     required String token,
     required int siteCode,

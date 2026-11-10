@@ -3912,6 +3912,17 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  Future<bool> dismissJoinRequest(int requestId) async {
+    final active = session;
+    if (active == null) return false;
+    try {
+      await api.dismissJoinRequest(token: active.token, requestId: requestId);
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   Future<(List<JoinRequestRecord>?, String?)> getSiteJoinRequests({
     required int siteCode,
     String? status,

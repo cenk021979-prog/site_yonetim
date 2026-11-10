@@ -236,3 +236,13 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
     - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
       - Kullanıcı açıkça talep etmedikçe ManagementTypeSelector içinde İş Merkezi, Kooperatif ve Alışveriş Merkezi seçeneklerini varsayılan olarak tekrar görünür yapma (showAllTypes: false varsayılanını koru).
       - Veritabanından veya backendden bu türleri silme; mevcut siteler ve veri modeli bozulmamalıdır.
+
+31. **Onaylanan ve Kapatılan Başvuruların (Katılım & Site Kurulum) Kalıcı Olarak Gizlenmesi:**
+    - **Neden Yapıldı:**
+      - Bir sakinin veya kullanıcının başvurusu (site kurulumu için süper kullanıcı, daire/siteye katılım için site yöneticisi/daire admini tarafından) onaylandığında ya da kullanıcı daireden ayrıldığında, eski onaylanmış başvuruların ekranda ("Katılım Başvurularım -> Onaylandı", "Site başvurunuz onaylandı") kalıcı olarak kalması kullanıcı deneyimini bozuyordu.
+      - Kullanıcı onaylandığını görüp "Anladım" dediğinde (veya reddedilen başvurusunu kapattığında) bu bildirim kalıcı olarak (SharedPreferences ve veritabanı dismissed_at ile) gizlenir ve bir daha asla ekranda çıkmaz.
+      - Ayrıca kullanıcı daireden ayrılmışsa (partment_residencies.is_current = false veya partment_memberships.is_active = false), o daireye ait eski onaylı katılım başvurusu sunucu sorgusunda otomatik olarak elenir (WHERE jr.dismissed_at IS NULL AND (jr.status != 'APPROVED' OR EXISTS (aktif sakinlik))).
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Daireden ayrılmış kişilerin eski katılım başvurularını listelerde tekrar gösteren sorgular yazma.
+      - Katılım ve site başvurularından "Anladım" / kapatma mekanizmasını (JoinRequestTracker, SiteApplicationTracker.consumeApproval, dismissJoinRequest) kaldırma.
+      - Onaylanan veya reddedilen başvuruların ekranda asılı kalarak kullanıcıyı rahatsız etmesine izin verme.
