@@ -681,6 +681,12 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
                 icon: const Icon(Icons.sync_outlined),
                 label: const Text('Durumu Yenile'),
               ),
+              if (state != null && state.deviceUid.isNotEmpty)
+                FilledButton.tonalIcon(
+                  onPressed: () => Navigator.of(context).pop(state.deviceUid),
+                  icon: const Icon(Icons.meeting_room_outlined),
+                  label: const Text('Bu Cihazla Kapı Oluştur'),
+                ),
             ],
           ),
           const SizedBox(height: 16),

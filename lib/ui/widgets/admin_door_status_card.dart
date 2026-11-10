@@ -40,6 +40,7 @@ class AdminDoorStatusCard extends StatefulWidget {
     required this.onCreateGuestPass,
     this.onDownloadCredentialsPdf,
     this.onDownloadLogsPdf,
+    this.onOpenAddDoor,
     this.voiceDoorService,
     this.authService,
     this.successTick = 0,
@@ -64,6 +65,7 @@ class AdminDoorStatusCard extends StatefulWidget {
   final VoidCallback onCreateGuestPass;
   final VoidCallback? onDownloadCredentialsPdf;
   final VoidCallback? onDownloadLogsPdf;
+  final VoidCallback? onOpenAddDoor;
   final VoiceDoorService? voiceDoorService;
   final AuthService? authService;
 
@@ -138,6 +140,29 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
                     },
             ),
             const SizedBox(height: AppSpace.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Site Kapısı',
+                  style: th.labelLarge?.copyWith(
+                    color: p.textSubtle,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                if (widget.onOpenAddDoor != null)
+                  TextButton.icon(
+                    onPressed: widget.onOpenAddDoor,
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                    label: const Text('Yeni Kapı Ekle'),
+                    style: TextButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                      padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: AppSpace.xs),
             // Kapı Seçimi Dropdown
             DropdownButtonFormField<int>(
               isExpanded: true,
@@ -202,6 +227,39 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
       // İlk yükleme sürerken ipucu yerine iskelet; yükleme bitince ipucu.
       if (widget.isLoadingSites || widget.isLoadingStructure) {
         return const _StatusSkeleton();
+      }
+      if (widget.doors.isEmpty) {
+        return Center(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.meeting_room_outlined, size: 48, color: p.textSubtle),
+                const SizedBox(height: AppSpace.sm),
+                Text(
+                  'Bu sitede henüz tanımlı bir kapı bulunmuyor.',
+                  style: th.bodyMedium?.copyWith(color: p.textSubtle),
+                  textAlign: TextAlign.center,
+                ),
+                if (widget.onOpenAddDoor != null) ...[
+                  const SizedBox(height: AppSpace.md),
+                  ElevatedButton.icon(
+                    onPressed: widget.onOpenAddDoor,
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 18),
+                    label: const Text('Yeni Kapı Oluştur'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpace.lg,
+                        vertical: AppSpace.sm,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
       }
       return const EmptyState.compact(
         icon: Icons.touch_app_rounded,

@@ -16,6 +16,7 @@ class DoorEditDialog extends StatefulWidget {
     this.door,
     this.blocks = const [],
     this.availableDevices = const [],
+    this.initialDeviceUid,
   });
 
   final AuthService authService;
@@ -23,6 +24,7 @@ class DoorEditDialog extends StatefulWidget {
   final DoorRecord? door;
   final List<SiteBlockRecord> blocks;
   final List<Map<String, dynamic>> availableDevices;
+  final String? initialDeviceUid;
 
   static Future<bool?> show(
     BuildContext context, {
@@ -31,6 +33,7 @@ class DoorEditDialog extends StatefulWidget {
     DoorRecord? door,
     List<SiteBlockRecord> blocks = const [],
     List<Map<String, dynamic>> availableDevices = const [],
+    String? initialDeviceUid,
   }) {
     return showDialog<bool>(
       context: context,
@@ -41,6 +44,7 @@ class DoorEditDialog extends StatefulWidget {
         door: door,
         blocks: blocks,
         availableDevices: availableDevices,
+        initialDeviceUid: initialDeviceUid,
       ),
     );
   }
@@ -69,6 +73,7 @@ class _DoorEditDialogState extends State<DoorEditDialog> {
     _nameController = TextEditingController(text: d?.doorName ?? '');
     _selectedScope = d?.accessScope ?? 'SITE_COMMON';
     _selectedBlockId = d?.blockId;
+    _selectedDeviceUid = widget.initialDeviceUid;
 
     if (_selectedBlockId == null && widget.blocks.isNotEmpty && _selectedScope == 'BLOCK') {
       _selectedBlockId = widget.blocks.first.id;
@@ -285,8 +290,8 @@ class _DoorEditDialogState extends State<DoorEditDialog> {
                           ),
                       ],
 
-                      // Yeni kapı ekleniyorsa ve boşta cihaz varsa hızlı atama seçeneği
-                      if (!_isEditing && widget.availableDevices.isNotEmpty) ...[
+                      // Yeni kapı ekleniyorsa ve boşta cihaz varsa (veya önceden seçilmişse) hızlı atama seçeneği
+                      if (!_isEditing && (widget.availableDevices.isNotEmpty || (_selectedDeviceUid != null && _selectedDeviceUid!.isNotEmpty))) ...[
                         const SizedBox(height: AppSpace.lg),
                         DropdownButtonFormField<String?>(
                           initialValue: _selectedDeviceUid,
@@ -309,6 +314,17 @@ class _DoorEditDialogState extends State<DoorEditDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
+                            if (_selectedDeviceUid != null &&
+                                _selectedDeviceUid!.isNotEmpty &&
+                                !widget.availableDevices.any((d) => d['device_uid']?.toString() == _selectedDeviceUid))
+                              DropdownMenuItem<String?>(
+                                value: _selectedDeviceUid,
+                                child: Text(
+                                  '$_selectedDeviceUid (Seçilen Cihaz)',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
                             ...widget.availableDevices.map((dev) {
                               final uid = dev['device_uid']?.toString() ?? '';
                               final hw = dev['hardware_type']?.toString() ?? '';

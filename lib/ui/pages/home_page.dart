@@ -4702,10 +4702,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openDoorDialog({DoorRecord? door}) async {
-    final site = _selectedSite;
-    if (site == null) return;
-    final structure = _selectedSiteStructure;
+  Future<void> _openDoorDialog({
+    DoorRecord? door,
+    SiteRecord? siteOverride,
+    String? initialDeviceUid,
+  }) async {
+    final site = siteOverride ?? _doorControlSite ?? _selectedSite;
+    if (site == null) {
+      _showMessage('Kapı eklemek için önce bir site seçiniz.');
+      return;
+    }
+    SiteStructureRecord? structure = _selectedSiteStructure;
+    if (structure == null || structure.site.id != site.id) {
+      if (_doorControlStructure?.site.id == site.id) {
+        structure = _doorControlStructure;
+      } else {
+        try {
+          final res = await widget.authService.getSiteStructure(siteCode: site.id);
+          structure = SiteStructureRecord.fromJson(res);
+        } catch (_) {}
+      }
+    }
     final blocks = structure?.blocks ?? const <SiteBlockRecord>[];
 
     final availableDevices = await widget.authService.getAssignableDevices(siteCode: site.id);
@@ -4718,12 +4735,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       door: door,
       blocks: blocks,
       availableDevices: availableDevices,
+      initialDeviceUid: initialDeviceUid,
     );
 
     if (result == true) {
       _showMessage(door == null ? 'Yeni kapı oluşturuldu.' : 'Kapı güncellendi.');
-      _selectSite(site);
+      if (_selectedSite?.id == site.id) {
+        _selectSite(site);
+      }
       _loadDoorControlSites();
+      _loadCompanyDevices(force: true);
     }
   }
 
@@ -4799,6 +4820,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _loadInitialData();
         } else if (result == SetupSiteOutcome.applied) {
           unawaited(_siteApplications.noteChanged());
+        }
+      } else {
+        if (mounted) {
+          AppSnack.show(
+            context,
+            'Cihaz ($claimedUid) hesabınıza bağlandı.',
+            kind: AppSnackKind.success,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Kapı Oluştur',
+              onPressed: () => _openDoorDialog(initialDeviceUid: claimedUid),
+            ),
+          );
         }
       }
     }
@@ -5446,25 +5480,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
 
   Future<void> _openWifiProvision() async {
-
-    Navigator.of(context).push(
-
+    final provisionedUid = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-
         builder: (_) => WifiProvisionPage(
-
           authService: widget.authService,
-
           accentColor: widget.authService.session?.role.accentColor,
-
           surfaceColor: widget.authService.session?.role.surfaceColor,
-
         ),
-
       ),
-
     );
 
+    if (provisionedUid != null && provisionedUid.isNotEmpty && mounted) {
+      final role = widget.authService.session?.role;
+      if (role == UserRole.superUser || (role == UserRole.siteManager && !_isResidentMode)) {
+        await _openDoorDialog(initialDeviceUid: provisionedUid);
+      }
+    }
   }
 
 
@@ -7048,6 +7079,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                   ? () => _exportSiteLogsPdf(_doorControlSite!)
 
                   : null),
+
+          onOpenAddDoor: (session.role == UserRole.superUser ||
+                  (session.role == UserRole.siteManager && !_isResidentMode))
+              ? () => _openDoorDialog()
+              : null,
 
           voiceDoorService: session.role == UserRole.apartmentOwner
 
