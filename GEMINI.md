@@ -226,3 +226,13 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       4. **CANLI SUNUCU DAĞITIMI (KURAL 8 ENTEGRASYONU):**
          - Backend tarafında (servisler, rotalar, DB vb.) bir değişiklik yapıldıysa, Kural 8 gereği sunucuya dağıtım ve PM2 yeniden başlatma doğrulaması eksiksiz uygulanacaktır.
 
+
+30. **Site Oluştururken Ticari/Kurumsal Seçeneklerin (İş Merkezi, Kooperatif, Alışveriş Merkezi) Gizlenmesi:**
+    - **Neden Yapıldı:**
+      - Kullanıcı kararı doğrultusunda, site oluşturma ve başvuru ekranlarında kafa karışıklığını önlemek ve sadeleştirmek amacıyla usiness_center (İş Merkezi), cooperative (Kooperatif) ve shopping_mall (Alışveriş Merkezi) yönetim türü seçenekleri gizlenmiştir.
+      - Arayüzde (ManagementTypeSelector.showAllTypes = false) yalnızca partment_site (Apartman ve Site) ile esidence (Rezidans) listelenir.
+      - Kullanıcı açıkça talep etmedikçe ("ben istersem açarsın" ilkesi) bu üç seçenek arayüzde gösterilmeyecektir.
+      - Geriye dönük uyumluluk gereği backend veri modeli, veritabanı kısıtları ve mevcut sitelerin türleri korunur.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Kullanıcı açıkça talep etmedikçe ManagementTypeSelector içinde İş Merkezi, Kooperatif ve Alışveriş Merkezi seçeneklerini varsayılan olarak tekrar görünür yapma (showAllTypes: false varsayılanını koru).
+      - Veritabanından veya backendden bu türleri silme; mevcut siteler ve veri modeli bozulmamalıdır.
