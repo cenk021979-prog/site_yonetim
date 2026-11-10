@@ -4815,6 +4815,34 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
   - **Nasıl Test Edilir:** Sakin olarak oturum açıp "Dairem" (`MyApartmentView`) ekranından "Bu daireden ayrıl" veya "Daireyi devret / çıkış" butonuna tıklayın.
   - **Beklenen Sonuç:** Açılan onay kartında sakinin kapı erişiminin sona ereceği, kayıtlı araçlarının PTS bariyer geçiş izinlerinin iptal edileceği, bekleyen misafir linkleri ve tesis rezervasyonlarının temizleneceği, aidat borcu varsa uyarılacağı ve hesabının silinmeyeceği net maddeler halinde gösterilmeli; onaylandığında tüm bağlı varlıklar temizlenerek daireden ayrılma tamamlanmalıdır.
 
+---
+
+## 169. 🎴 Proje Geneli Evrensel Menülü Kart Mimarisi (AppActionCard, Sadelik & Hızlı Erişim)
+*Tüm ekranlarda açık buton kalabalığını kaldıran, Fitts ve Hick-Hyman yasalarına uygun, her kartın sağında ergonomik 3-nokta (⋮) taşma menüsü ve sıfır taşma (Rule 6) garantili evrensel kart dönüşümü.*
+
+- [ ] **169.1. Daire Kartında Menülü Sakin Listesi (ApartmentCardDialog):**
+  - **Nasıl Test Edilir:** Daireler listesinden bir daireye dokunarak detay kartını açın. Sakinler bölümündeki sakin ve malik kartlarını inceleyin.
+  - **Beklenen Sonuç:** Sakin satırlarındaki açık ve dar alanda sıkışan butonlar yerine her sakinin sağında ergonomik `⋮` 3-nokta menüsü bulunmalı; menü tıklandığında "Daireden Ayrıldı / Taşındı", "Hesap Muhatabı Yap", "Maliki Çıkar" ve "PIN Sıfırla" eylemleri açılmalıdır. Kartlarda sıfır taşma olmalıdır.
+- [ ] **169.2. Kişi Kartında Daire İlişkileri ve Araçlar Menülü Kartı (PersonCardDialog):**
+  - **Nasıl Test Edilir:** Kişiler listesinden bir kişiye tıklayarak kişi detay penceresini açın. Daire ilişkileri ve kayıtlı araçlar kartlarını inceleyin.
+  - **Beklenen Sonuç:** Her daire ilişkisi ve her kayıtlı araç `AppActionCard` formatında listelenmeli; sağ üstteki `⋮` menüden araç çıkarma, düzenleme veya pasife alma işlemleri yapılabilmelidir.
+- [ ] **169.3. Sakin Portalı Dairem Ekranı Hane & Araçlar (MyApartmentView & MyApartmentVehicles):**
+  - **Nasıl Test Edilir:** Sakin olarak giriş yapıp "Dairem" sekmesine geçin. Hane halkı ve araçlarım listelerini kontrol edin.
+  - **Beklenen Sonuç:** Aile üyeleri ve araçlar derli toplu `AppActionCard` yapısıyla görünmeli; sağdaki `⋮` menüsünden silme veya pasife alma işlemleri kolayca yönetilebilmelidir.
+- [ ] **169.4. Geçiş Kontrol & Kapı Kartları (AdminDoorStatusCard):**
+  - **Nasıl Test Edilir:** Yönetici olarak Kapı Kontrolü & Telemetri kartını 320px dar ekranda ve 2.0x büyük yazı tipinde inceleyin.
+  - **Beklenen Sonuç:** Kapı başlığı ve eylemleri esnek `Wrap` yapısıyla kırılmadan yerleşmeli, hiçbir taşma (RenderFlex overflow) oluşmamalıdır.
+- [ ] **169.5. PTS Plaka Tanıma & Canlı Kamera Kartları (PlateGatesPanel):**
+  - **Nasıl Test Edilir:** Plaka Tanıma modülünde Geçiş Noktaları sekmesine gidin. Kapı başlığını ve bağlı kameraları inceleyin.
+  - **Beklenen Sonuç:** Her kapının ve her kameranın sağında `⋮` 3-nokta menüsü yer almalı; "Süreleri Ayarla", "Canlı Akış", "Kamera Ekle", "Sına", "Düzenle", "Kapıdan Ayır", "Durdur/Başlat" ve "Sil" seçenekleri güvenle ve tek tıkla çalışmalıdır. İçerideki araçlar `AppActionCard` ile listelenmelidir.
+- [ ] **169.6. Finans, Kasa/Banka ve Makbuz Kartları (Finance 4b):**
+  - **Nasıl Test Edilir:** Finans sekmesinden Kasa / Banka hesaplarını ve Makbuzlar listesini açın.
+  - **Beklenen Sonuç:** Kasa kartlarında ve makbuzlarda sağ üst `⋮` menüsüyle "Hareketler", "Düzeltme", "Banka/Kasa Kontrolü", "Düzenle" ve "Makbuzu Görüntüle" seçeneklerine doğrudan erişilebilmelidir.
+- [ ] **169.7. İş Takibi & Görevler ve Ziyaretçi/Kargo Kartları:**
+  - **Nasıl Test Edilir:** İş Takibi ve Ziyaretçi & Kargo listelerini açın.
+  - **Beklenen Sonuç:** Görevler (`WorkResidentCard`, `WorkManagedCard`) ve ziyaretçi kartları (`VisitorManagedCard`, `VisitorResidentCard`) sağdaki `⋮` 3-nokta menüsüyle durum değiştirme ve detay işlemlerini sade, anlaşılır ve parmak dostu olarak sunmalıdır.
+
+
 
 
 
