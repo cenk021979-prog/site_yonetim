@@ -4788,5 +4788,24 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
   - **Nasıl Test Edilir:** İnternete bağlanan AHBU cihazı kapıya atandıktan sonra mobil uygulamadan "Kapıyı Aç" butonuna basın veya tanımlı bir plaka/QR ile geçiş yapın.
   - **Beklenen Sonuç:** Hem yerel UDP (port 8765) hem de bulut MQTT (`device/<UID>/cmd`) üzerinden gelen kapı açma komutu AHBU kartı tarafından anında işlenmeli; röle kontağı çekip kapı motorunu/kilidini tetiklemeli (anahtarlama görevini eksiksiz yapmalı) ve durum güncellenmelidir.
 
+---
+
+## 168. 🚪 360° Daireden Ayrılma, Otopark/Plaka, Borç Devri ve Site Yönetim Görevi Devir Sistemi
+*Sakin veya daire yöneticisi ayrıldığında kapı, araç plakası PTS beyaz listesi, ileri tarihli rezervasyonlar, geçici misafir linkleri, finansal borçlar ve site görevlerinin tek bir atomik işlemde güvenle yönetilmesi.*
+
+- [ ] **168.1. Ayrılma Önizlemesi (360° Termination Preview):**
+  - **Nasıl Test Edilir:** Yönetici olarak `GET /manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/termination-preview` uç noktasına istek atın.
+  - **Beklenen Sonuç:** Ayrılacak kişinin bağlı olduğu tüm aktif araç plakaları, bekleyen tesis rezervasyonları, aktif misafir linkleri, vadesi geçmiş aidat borcu, dairede kalan diğer sakinler ve site yönetim görevleri (`site_team_duties` / `site_manager_sites`) eksiksiz listelenmelidir.
+- [ ] **168.2. Otopark & Araç Plakalarının Otomatik Pasifleştirilmesi:**
+  - **Nasıl Test Edilir:** Daireden ayrılma işlemi tamamlandığında ayrılan kişiye ait araçların `vehicles.is_active` durumunu kontrol edin ve plaka tanıma kamerasıyla geçiş deneyin.
+  - **Beklenen Sonuç:** Kişiye (ve hane tamamen boşalıyorsa daireye) ait tüm araçlar `is_active = FALSE` durumuna geçmeli, PTS beyaz listesinden çıkarılmalı ve bariyer geçişi engellenmelidir. Dairenin otopark kotası serbest kalmalıdır.
+- [ ] **168.3. İleri Tarihli Rezervasyonlar ve Misafir Linklerinin İptali:**
+  - **Nasıl Test Edilir:** Ayrılan kişinin daha önce oluşturduğu aktif misafir linkini (`guest_passes`) ve ileri tarihli rezervasyonunu kontrol edin.
+  - **Beklenen Sonuç:** Misafir linki geçersiz kılınmalı (`is_active = FALSE`), rezervasyon takvimde iptal edilerek (`status = 'iptal'`) saatler diğer komşular için boşa çıkarılmalıdır.
+- [ ] **168.4. Daire Adminliği ve Site Yönetim Görevi Devri:**
+  - **Nasıl Test Edilir:** Daire admini olan bir kiracı veya malik ayrılırken yeni admin adayı seçilerek veya boş bırakılarak işlem icra edilsin. Kişinin yönetim kurulu üyeliği sonlandırılsın.
+  - **Beklenen Sonuç:** Seçilen aday (veya yoksa kurala göre malik) yeni `APARTMENT_ADMIN` olarak atanmalı; `terminateSiteRoles = true` seçildiyse `site_team_duties` ve `site_manager_sites` yetkileri tek seferde sonlandırılmalıdır.
+
+
 
 
