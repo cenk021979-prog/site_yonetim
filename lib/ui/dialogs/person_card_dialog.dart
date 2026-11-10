@@ -262,6 +262,7 @@ class _PersonCardDialogState extends State<PersonCardDialog> {
       residency: residency,
       personName: detail.fullName,
       hasAccount: detail.hasAccount,
+      personId: detail.id,
     );
     if (result == null || !mounted) return;
     _apply(result, 'Taşınma kaydedildi.');

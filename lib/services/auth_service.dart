@@ -1735,6 +1735,50 @@ class AuthService extends ChangeNotifier {
     );
   }
 
+  /// 360° Daireden Ayrılma ve İlişik Kesme Önizlemesi
+  Future<Map<String, dynamic>> getTerminationPreview(
+    int siteCode,
+    int apartmentId,
+    int residencyId,
+  ) {
+    return _runAuthorized(
+      (token) => api.getTerminationPreview(
+        token: token,
+        siteCode: siteCode,
+        apartmentId: apartmentId,
+        residencyId: residencyId,
+      ),
+    );
+  }
+
+  /// 360° Daireden Ayrılma ve İlişik Kesme İcrası
+  Future<Map<String, dynamic>> executeResidencyTermination(
+    int siteCode,
+    int apartmentId,
+    int residencyId, {
+    DateTime? moveOutDate,
+    int? successorUserCode,
+    bool terminateSiteRoles = false,
+    String debtDisposition = 'KEEP_ON_DEBTOR',
+    List<Map<String, dynamic>>? finalMeterReadings,
+    String? reason,
+  }) {
+    return _runAuthorized(
+      (token) => api.executeResidencyTermination(
+        token: token,
+        siteCode: siteCode,
+        apartmentId: apartmentId,
+        residencyId: residencyId,
+        moveOutDate: moveOutDate,
+        successorUserCode: successorUserCode,
+        terminateSiteRoles: terminateSiteRoles,
+        debtDisposition: debtDisposition,
+        finalMeterReadings: finalMeterReadings,
+        reason: reason,
+      ),
+    );
+  }
+
   Future<ApartmentPage> listApartments(
     int siteCode, {
     int? blockId,

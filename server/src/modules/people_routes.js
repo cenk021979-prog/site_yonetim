@@ -362,6 +362,7 @@ peopleRouter.post(
         successorUserCode: b.successor_user_code,
         terminateSiteRoles: b.terminate_site_roles === true,
         debtDisposition: b.debt_disposition,
+        finalMeterReadings: Array.isArray(b.final_meter_readings) ? b.final_meter_readings : [],
         actor: req.authUser,
         actorRole: access.role,
         reason: b.reason || 'move_out',

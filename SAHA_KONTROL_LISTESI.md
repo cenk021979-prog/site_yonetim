@@ -4805,6 +4805,13 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
 - [ ] **168.4. Daire Adminliği ve Site Yönetim Görevi Devri:**
   - **Nasıl Test Edilir:** Daire admini olan bir kiracı veya malik ayrılırken yeni admin adayı seçilerek veya boş bırakılarak işlem icra edilsin. Kişinin yönetim kurulu üyeliği sonlandırılsın.
   - **Beklenen Sonuç:** Seçilen aday (veya yoksa kurala göre malik) yeni `APARTMENT_ADMIN` olarak atanmalı; `terminateSiteRoles = true` seçildiyse `site_team_duties` ve `site_manager_sites` yetkileri tek seferde sonlandırılmalıdır.
+- [ ] **168.5. Finansal Mutabakat ve Kiracı Borcunun Malike Devri (KMK m.20):**
+  - **Nasıl Test Edilir:** Vadesi geçmiş aidat borcu olan bir kiracı daireden ayrılırken borç çözüm modunu `TRANSFER_TO_OWNER` seçin ve varsa sayaç son endeksini girin.
+  - **Beklenen Sonuç:** Kiracının açık borç bakiyesi ev sahibi hesabına aktarılmalı, finans defterine yansıtılmalı (`liability_transfer`), sayaç son okuma endeksi `meter_readings` tablosuna kaydedilmeli ve denetim kütüğüne işlenmelidir.
+- [ ] **168.6. Flutter Mobil ve Web UI Daireden Ayrılma Sihirbazı (ResidencyTerminationDialog):**
+  - **Nasıl Test Edilir:** Daire Detay kartından (`ApartmentCardDialog`) veya Kişi Detay kartından (`PersonCardDialog`) bir sakinin yanındaki "Daireden Ayrıldı / Taşındı" düğmesine tıklayın.
+  - **Beklenen Sonuç:** Açılan 360° sihirbazda araçlar, rezervasyonlar, vadesi geçmiş borçlar, sayaçlar, daire admini halef seçimi ve yönetim kurulu görevleri net kartlar halinde listelenmeli; onaylandığında tüm işlemler tek seferde icra edilip sayfa anında otomatik yenilenmelidir. Taşma (overflow) hatası yaşanmamalıdır.
+
 
 
 

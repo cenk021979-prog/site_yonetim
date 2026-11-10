@@ -11,6 +11,7 @@ import { tenantDebtMinor } from './finance_exit_notice.js';
 import { formatMinor } from './finance_4b_common.js';
 import { closeResidency } from './people_service.js';
 import { logResidencyEvent } from './residency_log.js';
+import { previewLiabilityTransfer, createLiabilityTransfer } from './finance_liability_service.js';
 
 /**
  * Ayrılma öncesi tüm bağlı varlıkları ve durumları listeleyen önizleme (Preview).
@@ -129,11 +130,26 @@ export async function previewResidencyTermination(db, { siteCode, apartmentId, r
     activeGuestPasses = passes.rows ?? [];
   }
 
-  // 7. Finansal Borç Durumu
+  // 7. Finansal Borç Durumu & Malike Devir Önizlemesi
   let openDebtMinor = 0n;
   try {
     openDebtMinor = await tenantDebtMinor(db, { siteCode: sCode, apartmentId: aId });
   } catch (_) {}
+
+  let liabilityTransfer = null;
+  if (row.relation === 'tenant' && openDebtMinor > 0n) {
+    try {
+      const p = await previewLiabilityTransfer(sCode, aId, new Date(), db);
+      liabilityTransfer = {
+        hasOwner: p.has_owner === true,
+        canTransfer: p.can_transfer === true,
+        itemCount: p.item_count ?? 0,
+        totalMinor: p.total_minor ?? '0',
+        previewHash: p.preview_hash ?? null,
+        ownerBalanceMinor: p.owner_balance_minor ?? '0',
+      };
+    } catch (_) {}
+  }
 
   // 8. Site Yönetim Görevleri (Yönetici, Denetçi, Kurul Üyesi, Görevli)
   let siteDuties = [];
@@ -156,6 +172,42 @@ export async function previewResidencyTermination(db, { siteCode, apartmentId, r
       [sCode, userCode],
     );
     isSiteManager = smRes.rowCount > 0;
+  }
+
+  // 9. Daireye Bağlı Sayaçlar (Meters)
+  let activeMeters = [];
+  const hasMeters = await db.query("SELECT (to_regclass('public.meters') IS NOT NULL) AS ok");
+  if (hasMeters.rows?.[0]?.ok === true) {
+    const mRes = await db.query(
+      `
+        SELECT m.id, m.kind, m.serial_no,
+               (
+                 SELECT r.reading_value
+                 FROM meter_readings r
+                 WHERE r.meter_id = m.id
+                 ORDER BY r.reading_date DESC, r.id DESC
+                 LIMIT 1
+               ) AS last_reading_value,
+               (
+                 SELECT r.reading_date
+                 FROM meter_readings r
+                 WHERE r.meter_id = m.id
+                 ORDER BY r.reading_date DESC, r.id DESC
+                 LIMIT 1
+               ) AS last_reading_date
+        FROM meters m
+        WHERE m.site_code = $1 AND m.apartment_id = $2 AND m.is_active = TRUE
+        ORDER BY m.kind, m.id
+      `,
+      [sCode, aId],
+    );
+    activeMeters = (mRes.rows ?? []).map((r) => ({
+      id: Number(r.id),
+      kind: r.kind,
+      serialNo: r.serial_no,
+      lastReadingValue: r.last_reading_value != null ? Number(r.last_reading_value) : null,
+      lastReadingDate: r.last_reading_date ? new Date(r.last_reading_date).toISOString().slice(0, 10) : null,
+    }));
   }
 
   return {
@@ -195,12 +247,14 @@ export async function previewResidencyTermination(db, { siteCode, apartmentId, r
       balanceMinor: openDebtMinor.toString(),
       balanceFormatted: formatMinor(openDebtMinor),
       hasDebt: openDebtMinor > 0n,
+      liabilityTransfer,
     },
     siteRoles: {
       isSiteManager,
       duties: siteDuties,
       hasRoles: isSiteManager || siteDuties.length > 0,
     },
+    meters: activeMeters,
   };
 }
 
@@ -215,6 +269,7 @@ export async function executeResidencyTermination(db, {
   successorUserCode = null,
   terminateSiteRoles = false,
   debtDisposition = 'KEEP_ON_DEBTOR', // 'PAID' | 'TRANSFER_TO_OWNER' | 'KEEP_ON_DEBTOR'
+  finalMeterReadings = [],
   actor,
   actorRole = null,
   reason = 'move_out',
@@ -225,12 +280,16 @@ export async function executeResidencyTermination(db, {
 
   const client = await db.connect();
   let accessClosed = false;
+  let residencyRelation = 'tenant';
+  let leavingFullName = '';
   const released = {
     vehicles: 0,
     reservations: 0,
     guestPasses: 0,
     siteRolesEnded: false,
     newAdminUserCode: null,
+    debtDisposition,
+    debtTransferred: null,
   };
 
   try {
@@ -263,6 +322,8 @@ export async function executeResidencyTermination(db, {
 
     const leavingUserCode = residencyRow.user_code ? Number(residencyRow.user_code) : null;
     const personId = Number(residencyRow.person_id);
+    residencyRelation = residencyRow.relation;
+    leavingFullName = residencyRow.full_name;
 
     // 2. Açık Yönetim / Daire Adminliği Devri (Eğer açıkça bir halef belirtilmişse)
     if (successorUserCode !== null && leavingUserCode !== null) {
@@ -382,7 +443,25 @@ export async function executeResidencyTermination(db, {
       released.siteRolesEnded = true;
     }
 
-    // 8. Finansal Tasfiye Notu & Denetim İzi (Audit)
+    // 8. Sayaç Son Okuma Kaydı (Varsa)
+    if (Array.isArray(finalMeterReadings) && finalMeterReadings.length > 0) {
+      const hasMeters = await client.query("SELECT (to_regclass('public.meter_readings') IS NOT NULL) AS ok");
+      if (hasMeters.rows?.[0]?.ok === true) {
+        for (const mr of finalMeterReadings) {
+          if (mr.meterId && mr.readingValue != null) {
+            await client.query(
+              `
+                INSERT INTO meter_readings (site_code, meter_id, reading_date, reading_value, created_by)
+                VALUES ($1, $2, $3, $4, $5)
+              `,
+              [sCode, Number(mr.meterId), mr.readingDate || new Date().toISOString().slice(0, 10), Number(mr.readingValue), actor?.userCode ?? null],
+            ).catch(() => {});
+          }
+        }
+      }
+    }
+
+    // 9. Finansal Tasfiye Notu & Denetim İzi (Audit)
     await recordAudit(
       client,
       {
@@ -413,6 +492,32 @@ export async function executeResidencyTermination(db, {
     throw err;
   } finally {
     client.release();
+  }
+
+  // 10. İşlem Sonrası: Kiracı Borcunu Malike Devret (Eğer seçildiyse)
+  if (debtDisposition === 'TRANSFER_TO_OWNER' && residencyRelation === 'tenant') {
+    try {
+      const p = await previewLiabilityTransfer(sCode, aId, new Date(), db);
+      if (p.can_transfer && BigInt(p.total_minor) > 0n) {
+        await createLiabilityTransfer({
+          siteCode: sCode,
+          rawApartmentId: aId,
+          body: {
+            expected_total_minor: p.total_minor,
+            expected_hash: p.preview_hash,
+            reason: `Daireden ayrılma (${leavingFullName || 'Kiracı'}) borç devri`,
+            idempotency_key: `term_debt_${rId}_${Date.now()}`,
+          },
+          actor,
+        });
+        released.debtTransferred = {
+          totalMinor: p.total_minor,
+          itemCount: p.item_count,
+        };
+      }
+    } catch (err) {
+      console.warn('[termination] liability transfer note:', err.message);
+    }
   }
 
   // Transaction dışı: Token döndürme

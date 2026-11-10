@@ -99,6 +99,23 @@ describe('Residency Termination Service (360° Departure)', () => {
             rowCount: 1,
           };
         }
+        if (text.includes("to_regclass('public.meters')")) {
+          return { rows: [{ ok: true }], rowCount: 1 };
+        }
+        if (text.includes('FROM meters m')) {
+          return {
+            rows: [
+              {
+                id: 8,
+                kind: 'water',
+                serial_no: 'SU-2026-99',
+                last_reading_value: 142.5,
+                last_reading_date: '2026-11-01',
+              },
+            ],
+            rowCount: 1,
+          };
+        }
         if (text.includes("to_regclass('public.site_team_duties')")) {
           return { rows: [{ ok: true }], rowCount: 1 };
         }
@@ -159,7 +176,24 @@ describe('Residency Termination Service (360° Departure)', () => {
             if (text.includes('UPDATE reservations')) {
               return { rows: [{ id: 10 }], rowCount: 1 };
             }
-            if (text.includes("to_regclass('public.site_team_duties')")) {
+            if (text.includes("to_regclass('public.meters')")) {
+          return { rows: [{ ok: true }], rowCount: 1 };
+        }
+        if (text.includes('FROM meters m')) {
+          return {
+            rows: [
+              {
+                id: 8,
+                kind: 'water',
+                serial_no: 'SU-2026-99',
+                last_reading_value: 142.5,
+                last_reading_date: '2026-11-01',
+              },
+            ],
+            rowCount: 1,
+          };
+        }
+        if (text.includes("to_regclass('public.site_team_duties')")) {
               return { rows: [{ ok: true }], rowCount: 1 };
             }
             if (text.includes('UPDATE site_team_duties')) {
@@ -199,6 +233,8 @@ describe('Residency Termination Service (360° Departure)', () => {
     assert.equal(preview.debt.hasDebt, true);
     assert.equal(preview.siteRoles.duties.length, 1);
     assert.equal(preview.siteRoles.duties[0].duty, 'board_member');
+    assert.equal(preview.meters.length, 1);
+    assert.equal(preview.meters[0].serialNo, 'SU-2026-99');
   });
 
   it('executeResidencyTermination should execute 360 departure inside a transaction', async () => {

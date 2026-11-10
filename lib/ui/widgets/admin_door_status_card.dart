@@ -146,7 +146,7 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
                 Text(
                   'Site Kapısı',
                   style: th.labelLarge?.copyWith(
-                    color: p.textSubtle,
+                    color: p.textSecondary,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -235,11 +235,11 @@ class _AdminDoorStatusCardState extends State<AdminDoorStatusCard> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.meeting_room_outlined, size: 48, color: p.textSubtle),
+                Icon(Icons.meeting_room_outlined, size: 48, color: p.textSecondary),
                 const SizedBox(height: AppSpace.sm),
                 Text(
                   'Bu sitede henüz tanımlı bir kapı bulunmuyor.',
-                  style: th.bodyMedium?.copyWith(color: p.textSubtle),
+                  style: th.bodyMedium?.copyWith(color: p.textSecondary),
                   textAlign: TextAlign.center,
                 ),
                 if (widget.onOpenAddDoor != null) ...[

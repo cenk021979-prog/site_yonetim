@@ -4718,8 +4718,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         structure = _doorControlStructure;
       } else {
         try {
-          final res = await widget.authService.getSiteStructure(siteCode: site.id);
-          structure = SiteStructureRecord.fromJson(res);
+          final (struct, _) = await widget.authService.getSiteStructure(siteCode: site.id);
+          structure = struct;
         } catch (_) {}
       }
     }

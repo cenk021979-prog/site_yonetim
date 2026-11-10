@@ -16,6 +16,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/apartment_owner_dialogs.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/crm_confirm_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/history_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/large_dialog_parts.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/residency_termination_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/date_input.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
@@ -247,6 +248,23 @@ class _ApartmentCardDialogState extends State<ApartmentCardDialog> {
     );
   }
 
+  Future<void> _terminateResidency(ApartmentResident resident) async {
+    final detail = _detail;
+    if (detail == null) return;
+    final done = await ResidencyTerminationDialog.show(
+      context,
+      scope: widget.scope,
+      apartmentId: detail.id,
+      residencyId: resident.residencyId,
+      personName: resident.fullName,
+      apartmentLabel: detail.fullLabel,
+    );
+    if (done == true && mounted) {
+      widget.onChanged?.call();
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final detail = _detail;
@@ -466,23 +484,38 @@ class _ApartmentCardDialogState extends State<ApartmentCardDialog> {
               ),
           ],
         ),
-        if (owner != null && widget.scope.canWrite)
+        if (!past && widget.scope.canWrite) ...[
+          const SizedBox(height: AppSpace.xs),
           Wrap(
             spacing: AppSpace.sm,
+            runSpacing: AppSpace.xs,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              if (!owner.isAccountHolder)
+              if (owner != null && !owner.isAccountHolder)
                 TextButton(
                   key: ValueKey<String>('owner_make_holder_${owner.residencyId}'),
                   onPressed: _ownerBusy ? null : () => _makeHolder(owner!),
                   child: const Text('Muhatap yap'),
                 ),
-              TextButton(
-                key: ValueKey<String>('owner_remove_${owner.residencyId}'),
-                onPressed: _ownerBusy ? null : () => _removeOwner(owner!),
-                child: const Text('Maliki çıkar'),
+              if (owner != null)
+                TextButton(
+                  key: ValueKey<String>('owner_remove_${owner.residencyId}'),
+                  onPressed: _ownerBusy ? null : () => _removeOwner(owner!),
+                  child: const Text('Maliki çıkar'),
+                ),
+              TextButton.icon(
+                key: ValueKey<String>('terminate_residency_${resident.residencyId}'),
+                icon: const Icon(Icons.logout_rounded, size: 16),
+                label: const Text('Daireden Ayrıldı'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.orange,
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => _terminateResidency(resident),
               ),
             ],
           ),
+        ],
       ],
     );
   }

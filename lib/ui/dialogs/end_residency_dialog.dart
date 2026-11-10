@@ -3,6 +3,7 @@ import 'package:site_kapi_kontrol/models/person_record.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_dialog.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/residency_termination_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/date_input.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dialog_guard.dart';
 import 'package:site_kapi_kontrol/ui/helpers/form_validation.dart';
@@ -36,17 +37,25 @@ class EndResidencyDialog extends StatefulWidget {
     required Residency residency,
     required String personName,
     required bool hasAccount,
-  }) {
-    return showDialog<PersonDetail>(
-      context: context,
-      barrierDismissible: false,
-      builder: (_) => EndResidencyDialog(
-        scope: scope,
-        residency: residency,
-        personName: personName,
-        hasAccount: hasAccount,
-      ),
+    int? personId,
+  }) async {
+    final completed = await ResidencyTerminationDialog.show(
+      context,
+      scope: scope,
+      apartmentId: residency.apartmentId,
+      residencyId: residency.id,
+      personId: personId,
+      personName: personName,
+      apartmentLabel: residency.fullLabel,
     );
+    if (completed == true && personId != null) {
+      try {
+        return await scope.authService.getPerson(scope.siteCode, personId);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
   }
 
   @override
