@@ -199,7 +199,7 @@ const base = (site = SITE_1) => `/manager/sites/${site}`;
 // ---------------------------------------------------------------------------
 
 describe('people rotalari: zincir', () => {
-  it('23 rota (4 tanesi cok malik, 104); hepsi authRequired ile baslar; /manager uclari ve my-records hiz sinirli (okuma 1200/saat, yazma 120/saat)', () => {
+  it('25 rota (4 tanesi cok malik, 2 tanesi 360 ayrilma, 104); hepsi authRequired ile baslar; /manager uclari ve my-records hiz sinirli (okuma 1200/saat, yazma 120/saat)', () => {
     const summary = ORIGINAL_ROUTES.map((r) => `${r.method.toUpperCase()} ${r.path}`).sort();
     assert.deepEqual(summary, [
       'DELETE /manager/sites/:siteCode/vehicles/:vehicleId',
@@ -207,6 +207,7 @@ describe('people rotalari: zincir', () => {
       'GET /manager/sites/:siteCode/apartments',
       'GET /manager/sites/:siteCode/apartments/:apartmentId',
       'GET /manager/sites/:siteCode/apartments/:apartmentId/owners',
+      'GET /manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/termination-preview',
       'GET /manager/sites/:siteCode/history',
       'GET /manager/sites/:siteCode/people',
       'GET /manager/sites/:siteCode/people/:personId',
@@ -216,6 +217,7 @@ describe('people rotalari: zincir', () => {
       'PATCH /manager/sites/:siteCode/residencies/:residencyId',
       'POST /manager/sites/:siteCode/apartments/:apartmentId/owners',
       'POST /manager/sites/:siteCode/apartments/:apartmentId/owners/:residencyId/remove',
+      'POST /manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/terminate',
       'POST /manager/sites/:siteCode/people',
       'POST /manager/sites/:siteCode/people/:personId/account',
       'POST /manager/sites/:siteCode/people/:personId/password-reset',

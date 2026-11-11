@@ -230,7 +230,8 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
 30. **Site Oluştururken Ticari/Kurumsal Seçeneklerin (İş Merkezi, Kooperatif, Alışveriş Merkezi) Gizlenmesi:**
     - **Neden Yapıldı:**
       - Kullanıcı kararı doğrultusunda, site oluşturma ve başvuru ekranlarında kafa karışıklığını önlemek ve sadeleştirmek amacıyla usiness_center (İş Merkezi), cooperative (Kooperatif) ve shopping_mall (Alışveriş Merkezi) yönetim türü seçenekleri gizlenmiştir.
-      - Arayüzde (ManagementTypeSelector.showAllTypes = false) yalnızca partment_site (Apartman ve Site) ile esidence (Rezidans) listelenir.
+      - Arayüzde (ManagementTypeSelector.showAllTypes = false) yalnızca partment_site (Apartman ve Site) ile 
+esidence (Rezidans) listelenir.
       - Kullanıcı açıkça talep etmedikçe ("ben istersem açarsın" ilkesi) bu üç seçenek arayüzde gösterilmeyecektir.
       - Geriye dönük uyumluluk gereği backend veri modeli, veritabanı kısıtları ve mevcut sitelerin türleri korunur.
     - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**

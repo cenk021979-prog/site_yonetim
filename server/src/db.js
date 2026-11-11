@@ -70,6 +70,12 @@ import { ensureEmergencySchema } from './modules/emergency_schema.js';
 import { ensureTrialAccessSchema } from './modules/trial_access_schema.js';
 import { ensureCheckMarkSchema } from './modules/check_mark_schema.js';
 import { ensureSiteLegalGateSchema } from './modules/site_legal_gate_schema.js';
+import { ensureDocumentAudienceSchema } from './modules/document_audience_schema.js';
+import { ensureEquipmentBlockSchema } from './modules/equipment_block_schema.js';
+import { ensureFinanceProrationSchema } from './modules/finance_proration_schema.js';
+import { ensureEmergencyAlarmSchema } from './modules/emergency_alarm_schema.js';
+import { ensurePlateMovementPolicySchema } from './modules/plate_movement_policy_schema.js';
+import { ensureParkingAccessSchema } from './modules/parking_access_schema.js';
 import { CORE_MODULES_BACKFILL_SQL } from './modules/core_modules.js';
 import { CARD_PAYMENTS_INTO_FINANCE_SQL } from './modules/card_payments_into_finance.js';
 import { ensureTenantAdminRule } from './modules/apartment_tenant_admin_sql.js';
@@ -1945,6 +1951,8 @@ export async function ensureDbSchema() {
     await ensureFinance4bSchema(client);
     // 039 (belgeler, faz 3b-A): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (document_schema.js = migrations/039).
     await ensureDocumentsSchema(client);
+    // 131 (belge kitlesi genisletmesi: 'all' audience): idempotent.
+    await ensureDocumentAudienceSchema(client);
     // 041 (telefon bildirimi, faz 3b-B): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (push_schema.js = migrations/041).
     // notification_preferences'a ALTER yalniz sutunlar eksikse calisir (normal acilista hic kilit yok).
     await ensurePushSchema(client);
@@ -1964,6 +1972,8 @@ export async function ensureDbSchema() {
     await ensureContractsSchema(client);
     // 068 (ekipman, bakim ve teklif): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (equipment_schema.js = migrations/068).
     await ensureEquipmentSchema(client);
+    // 132 (ekipman blok baglantisi): idempotent.
+    await ensureEquipmentBlockSchema(client);
     // 096 (is kaydi <-> ekipman bagi, fotograf once/sonra etiketi): 042 / 047 / 068'den SONRA; katalog kontrolu + her adim kendi otomatik onayli ifadesi (work_equipment_schema.js = migrations/096).
     await ensureWorkEquipmentSchema(client);
     // 111 (is kaydi <-> firma / tasaron yonlendirmesi, `firmada` durumu): 042'den SONRA; dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (work_vendor_schema.js = migrations/111).
@@ -2051,6 +2061,8 @@ export async function ensureDbSchema() {
     // 089 (kiraci borcunun malike devri, K1): 088'den SONRA (ledger_entries.source_kind 'liability_transfer' kabulu); dev blokta DEGIL; katalog kontrolu
     // + her adim kendi otomatik onayli ifadesi (finance_liability_schema.js = migrations/089).
     await ensureFinanceLiabilitySchema(client);
+    // 127 (gunluk aidat paylasimi: ledger_entries.proration): idempotent.
+    await ensureFinanceProrationSchema(client);
     // 090 (demirbas / fon tahakkukunun dayanagi: Karar Defteri kaydi ya da gerekce): 034 (fee_runs) ve 050 (board_decisions) SONRASI; dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli
     // ifadesi (finance_run_decision_schema.js = migrations/090). Her sey varsa hicbir ifade / kilit yok. Geri doldurma yok (eski calistirmalar dayanaksiz kalir).
     await ensureFinanceRunDecisionSchema(client);
@@ -2083,6 +2095,8 @@ export async function ensureDbSchema() {
     await ensureWorkCategoriesSchema(client);
     // 107 (acil durum akisi: site basina asansor bakim firmasi): sites'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade gonderilmez (emergency_schema.js = migrations/107).
     await ensureEmergencySchema(client);
+    // 128 + 129 (site ici acil alarm ve yangin yayini): idempotent.
+    await ensureEmergencyAlarmSchema(client);
     // 106 (deneme erisim kodu, P2-27 / K10): sites ve users'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade / kilit yok, yoksa her adim kendi otomatik onayli ifadesi
     // (trial_access_schema.js = migrations/106). Mevcut tablolara ALTER yok.
     await ensureTrialAccessSchema(client);
@@ -2108,6 +2122,10 @@ export async function ensureDbSchema() {
     // 122 (plaka tanima sozlesme surum 3: kamera RTSP + sinama sonucu, uzaktan komut kuyrugu, son goruntu karesi, olaya kimlik baglama + kapi komutu, site ayari sutunlari):
     // 120/121'den SONRA (plate_edge_clients, plate_site_settings, plate_events); katalog kontrolu + eksikse idempotent ifadeler (plate_cameras_schema.js = migrations/122). Mevcut satirlara dokunmaz.
     await ensurePlateCamerasSchema(client);
+    // 133 (plaka hareket bildirim politikasi): idempotent.
+    await ensurePlateMovementPolicySchema(client);
+    // 130 (otopark politikasi ve atomik tahsis): idempotent.
+    await ensureParkingAccessSchema(client);
 
     // 031 people_v1: mevcut sakinlerin CRM'e tek seferlik aktarimi. Savunmaci: hata sunucunun acilmasini ENGELLEMEZ
     // (kendi transaction'i geri alinir, isaret yazilmaz => sonraki acilista yeniden denenir; okuma anindaki

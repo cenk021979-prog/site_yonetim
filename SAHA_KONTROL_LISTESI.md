@@ -4842,6 +4842,31 @@ Güvenlik kulübesindeki kenar PC uygulaması artık sunucunun gerçek kenar sö
   - **Nasıl Test Edilir:** İş Takibi ve Ziyaretçi & Kargo listelerini açın.
   - **Beklenen Sonuç:** Görevler (`WorkResidentCard`, `WorkManagedCard`) ve ziyaretçi kartları (`VisitorManagedCard`, `VisitorResidentCard`) sağdaki `⋮` 3-nokta menüsüyle durum değiştirme ve detay işlemlerini sade, anlaşılır ve parmak dostu olarak sunmalıdır.
 
+---
+
+## 170. 🛡️ 11 Kasım Dört Rapor Uzlaşısı ve Güvenlik Bütünlüğü
+*11 Kasım 2026 denetim raporlarındaki bulguların (Rapor 3 & 4) giderilmesi; açılış şemaları, eşzamanlılık kilitleri, günlük aidat bildirim sırası ve 360° ayrılma dayanıklılığı.*
+
+- [ ] **170.1. db.js Açılış Şeması Bütünlüğü (6 Modül Şeması & Başvuru Kapatma):**
+  - **Nasıl Test Edilir:** Sunucuyu yeniden başlatın (`pm2 restart kapi-api`) ve açılış loglarını inceleyin.
+  - **Beklenen Sonuç:** `document_audience`, `equipment_blocks`, `finance_proration`, `emergency_alarms`, `plate_movement_policy` ve `parking_access` tabloları ile `join_requests.dismissed_at` kolonları eksiksiz ve idempotent olarak kurulmalı, boot hatası oluşmamalıdır.
+- [ ] **170.2. Üyelik İşlemlerinde Eşzamanlılık Kilitleri (membership_service):**
+  - **Nasıl Test Edilir:** Bir sitede eşzamanlı olarak daire sakini çıkarma (`removeApartmentMember`), daire admini değiştirme (`setApartmentPrimaryAdmin`) ve aidat tahakkuku işlemlerini simüle edin.
+  - **Beklenen Sonuç:** `peopleLockKey` ve `financeLockKey` danışma kilitleri (advisory locks) sırayla alınmalı, yarış durumu (race condition) ve çift bakiye/üye oluşturulması engellenmelidir.
+- [ ] **170.3. Kiracı Ayrılışında Günlük Aidat Paylaşımı Sonrası Doğru Bakiye Bildirimi:**
+  - **Nasıl Test Edilir:** Ay ortasında (örneğin 30 günlük ayın 18'inde) kiracının daireden ayrılışını (`exitTenancy`) onaylayın.
+  - **Beklenen Sonuç:** Günlük paylaşım motoru (`endTenancy`) önce çalışmalı; ardından güncel kalan borç (`tenantDebtMinorSafe`) okunarak bildirim ve WhatsApp mesajında tam doğru tutar gösterilmelidir.
+- [ ] **170.4. Ayrılmada Rezervasyon Temizliğinin Site Kapsamında İzolasyonu:**
+  - **Nasıl Test Edilir:** Kullanıcının iki farklı sitede (Site A ve Site B) daire kaydı ve ileri tarihli rezervasyonu varken, Site A'daki dairesinden ayrılma işlemini tamamlayın.
+  - **Beklenen Sonuç:** Yalnızca Site A'daki rezervasyonları iptal edilmeli, Site B'deki rezervasyonları kesinlikle etkilenmemelidir.
+- [ ] **170.5. 360° Ayrılma Servisi Şema ve Rol Uyumluluğu:**
+  - **Nasıl Test Edilir:** Yönetim kurulunda görevi bulunan ve sayacı olan bir sakinin ayrılma önizlemesini (`termination-preview`) ve ayrılmasını (`terminate`) çalıştırın.
+  - **Beklenen Sonuç:** `site_manager_sites.manager_user_code` ve `meter_readings.value` sütunları doğru okunmalı; SQL şema uyuşmazlığı hatası yaşanmadan işlem tamamlanmalıdır.
+- [ ] **170.6. Kiracı Borç Devrinde (TRANSFER_TO_OWNER) Kısmi Hata Güvenliği:**
+  - **Nasıl Test Edilir:** Ev sahibi hesabına borç devri sırasında finans defterinde bir kesinti/hata oluşursa ayrılma sonucunu inceleyin.
+  - **Beklenen Sonuç:** Hata yutulmamalı (`swallowed error` riski önlenmeli); `debtTransferFailed: true` ve `debtTransferError` kullanıcıya ve yöneticiye açıkça raporlanmalıdır.
+
+
 
 
 

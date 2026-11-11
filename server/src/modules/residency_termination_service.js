@@ -168,7 +168,7 @@ export async function previewResidencyTermination(db, { siteCode, apartmentId, r
   let isSiteManager = false;
   if (userCode !== null) {
     const smRes = await db.query(
-      `SELECT 1 FROM site_manager_sites WHERE site_code = $1 AND user_code = $2 LIMIT 1`,
+      `SELECT 1 FROM site_manager_sites WHERE site_code = $1 AND manager_user_code = $2 LIMIT 1`,
       [sCode, userCode],
     );
     isSiteManager = smRes.rowCount > 0;
@@ -182,7 +182,7 @@ export async function previewResidencyTermination(db, { siteCode, apartmentId, r
       `
         SELECT m.id, m.kind, m.serial_no,
                (
-                 SELECT r.reading_value
+                 SELECT r.value
                  FROM meter_readings r
                  WHERE r.meter_id = m.id
                  ORDER BY r.reading_date DESC, r.id DESC
@@ -408,7 +408,7 @@ export async function executeResidencyTermination(db, {
     // 6. İleri Tarihli Rezervasyonlar (Reservations) İptali
     if (leavingUserCode !== null) {
       try {
-        const resRel = await releaseUserReservations(client, leavingUserCode);
+        const resRel = await releaseUserReservations(client, leavingUserCode, sCode);
         released.reservations = resRel.reservations ?? 0;
       } catch (_) {}
     }
@@ -426,11 +426,11 @@ export async function executeResidencyTermination(db, {
       // 7b. site_manager_sites
       if (leavingUserCode !== null) {
         await client.query(
-          `DELETE FROM site_manager_sites WHERE site_code = $1 AND user_code = $2`,
+          `DELETE FROM site_manager_sites WHERE site_code = $1 AND manager_user_code = $2`,
           [sCode, leavingUserCode],
         );
         const otherSites = await client.query(
-          `SELECT 1 FROM site_manager_sites WHERE user_code = $1 LIMIT 1`,
+          `SELECT 1 FROM site_manager_sites WHERE manager_user_code = $1 LIMIT 1`,
           [leavingUserCode],
         );
         if (otherSites.rowCount === 0) {
@@ -451,7 +451,7 @@ export async function executeResidencyTermination(db, {
           if (mr.meterId && mr.readingValue != null) {
             await client.query(
               `
-                INSERT INTO meter_readings (site_code, meter_id, reading_date, reading_value, created_by)
+                INSERT INTO meter_readings (site_code, meter_id, reading_date, value, created_by)
                 VALUES ($1, $2, $3, $4, $5)
               `,
               [sCode, Number(mr.meterId), mr.readingDate || new Date().toISOString().slice(0, 10), Number(mr.readingValue), actor?.userCode ?? null],
@@ -495,6 +495,7 @@ export async function executeResidencyTermination(db, {
   }
 
   // 10. İşlem Sonrası: Kiracı Borcunu Malike Devret (Eğer seçildiyse)
+  let debtTransferError = null;
   if (debtDisposition === 'TRANSFER_TO_OWNER' && residencyRelation === 'tenant') {
     try {
       const p = await previewLiabilityTransfer(sCode, aId, new Date(), db);
@@ -517,6 +518,8 @@ export async function executeResidencyTermination(db, {
       }
     } catch (err) {
       console.warn('[termination] liability transfer note:', err.message);
+      debtTransferError = err.message;
+      released.debtTransferError = err.message;
     }
   }
 
@@ -527,6 +530,8 @@ export async function executeResidencyTermination(db, {
 
   return {
     ok: true,
+    debtTransferFailed: debtTransferError !== null,
+    debtTransferError,
     accessClosed,
     released,
   };

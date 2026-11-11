@@ -1016,7 +1016,7 @@ async function endTenancy(client, authUser, state, reason) {
       [siteCode, allEndingUserCodes],
     );
     for (const u of allEndingUserCodes) {
-      await releaseUserReservations(client, u).catch(() => {});
+      await releaseUserReservations(client, u, siteCode).catch(() => {});
     }
   }
 
@@ -1089,9 +1089,9 @@ export async function exitTenancy({ authUser, apartmentId }) {
     if (!me.is_tenant) {
       throw forbidden('Çıkış yalnızca dairenin kiracısı içindir.');
     }
-    // Çıkıştan sonraki genel bildirim metni borçlu / borçsuz ayrılır (K1 / P1-1): kiracı hesabındaki ödenmemiş borç çıkıştan önce okunur (çıkış bakiyeyi değiştirmez).
-    const debtMinor = await tenantDebtMinorSafe(client, site, state.apartment.id);
     closed = await endTenancy(client, authUser, state, 'tenant_exit');
+    // Çıkıştan sonraki genel bildirim metni borçlu / borçsuz ayrılır (K1 / P1-1): kiracı hesabındaki bakiye günlük paylaşımdan sonra okunur.
+    const debtMinor = await tenantDebtMinorSafe(client, site, state.apartment.id);
     await audit(client, authUser, 'apartment_mgmt.tenant_exit', state, { tenant_person_id: state.roles.tenant.person_id });
     await notify(client, state, [state.roles.owner?.user_code], 'tenant_exit', await exitDoneText(aptLabel(state.apartment), debtMinor));
   });
@@ -1169,7 +1169,7 @@ export async function leaveApartment({ authUser, apartmentId }) {
         `UPDATE guest_passes SET is_active = FALSE WHERE site_code = $1 AND created_by_user_code = $2 AND is_active = TRUE`,
         [site, uc],
       );
-      await releaseUserReservations(client, uc).catch(() => {});
+      await releaseUserReservations(client, uc, site).catch(() => {});
     }
 
     await client.query(

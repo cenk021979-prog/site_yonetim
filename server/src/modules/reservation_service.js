@@ -382,24 +382,41 @@ export async function decideReservation({ siteCode, rawId, actor, access, body }
  * Silinen kullanıcının GELECEKTEKİ (bitişi geçmemiş) beklemede / onaylandi rezervasyonları ve açık konsiyerj talepleri sistem tarafından iptal edilir;
  * geçmiş kayıtlar kalır (kullanıcı satırı tombstone). Satırlar id sırasıyla kilitlenir. Tablo yoksa atlanır. @returns { reservations, requests }
  */
-export async function releaseUserReservations(client, userCode) {
+export async function releaseUserReservations(client, userCode, siteCode = null) {
   const present = (await client.query(`SELECT to_regclass('public.reservations') IS NOT NULL AS present`)).rows?.[0];
   if (present?.present !== true) {
     return { reservations: 0, requests: 0 };
   }
-  const reservations = await client.query(
-    `
-      UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
-      WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
-    `,
-    [userCode],
-  );
-  const requests = await client.query(
-    `
-      UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
-      WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
-    `,
-    [userCode],
-  );
+  const sCode = siteCode !== null && siteCode !== undefined ? Number(siteCode) : null;
+  const reservations = sCode !== null
+    ? await client.query(
+        `
+          UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
+          WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND site_code = $2 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
+        `,
+        [userCode, sCode],
+      )
+    : await client.query(
+        `
+          UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
+          WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
+        `,
+        [userCode],
+      );
+  const requests = sCode !== null
+    ? await client.query(
+        `
+          UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
+          WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND site_code = $2 AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
+        `,
+        [userCode, sCode],
+      )
+    : await client.query(
+        `
+          UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
+          WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
+        `,
+        [userCode],
+      );
   return { reservations: reservations.rowCount ?? 0, requests: requests.rowCount ?? 0 };
 }

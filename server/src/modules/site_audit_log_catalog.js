@@ -134,6 +134,9 @@ export const SITE_AUDIT_LABELS = Object.freeze({
   'plate.edge_client_rotated': 'Plaka kenar istemcisi anahtarı yenilendi',
   'plate.edge_client_revoked': 'Plaka kenar istemcisi kaldırıldı',
   'plate.inside_cleared': 'İçerideki araç elle düşürüldü',
+  'plate.parking_policy_changed': 'Otopark kapasitesi ve kayıt tercihleri değişti',
+  'plate.apartment_parking_changed': 'Dairenin araç onayı ve eşzamanlı giriş hakkı değişti',
+  'plate.parking_record_released': 'Araç kontenjanı fiziksel kontrolden sonra düzeltildi',
   'plate.edge_disconnected': 'Plaka tanıma bağlantısı koptu (kenar PC / kamera)',
   'plate.inside_timeout': 'İçeride uzun süre kalan araçlar zaman aşımıyla düşürüldü',
   'plate.camera_created': 'Plaka kamerası eklendi',
@@ -186,6 +189,8 @@ export const SITE_AUDIT_LABELS = Object.freeze({
   'apartment_mgmt.management_delegated': 'Daire yönetimi devredildi',
   'apartment_mgmt.admin_changed_by_manager': 'Daire yöneticisi site yönetimince değiştirildi',
   'vehicle.added': 'Araç eklendi',
+  'vehicle.registration_photo_updated': 'İsteğe bağlı ruhsat fotoğrafı yüklendi',
+  'vehicle.registration_photo_removed': 'Ruhsat fotoğrafı kaldırıldı',
   'vehicle.removed': 'Araç kaldırıldı',
   'vehicle.updated': 'Araç bilgisi güncellendi',
   'directory.contact_created': 'Rehber kişisi eklendi',
@@ -222,6 +227,7 @@ export const SITE_AUDIT_LABELS = Object.freeze({
   'finance.fund_transfer.created': 'Kasalar arası aktarım yapıldı',
   'finance.fund_transfer.reversed': 'Kasalar arası aktarım ters çevrildi',
   'finance.reconciliation.recorded': 'Banka / kasa kontrolü kaydedildi',
+  'finance.aidat_proration.reconciled': 'Günlük aidat paylaşımı yeniden hesaplandı',
   'finance.expense.created': 'Gider eklendi',
   'finance.expense.corrected': 'Gider düzeltildi',
   'finance.expense.voided': 'Gider iptal edildi',
@@ -391,6 +397,10 @@ export const SITE_AUDIT_LABELS = Object.freeze({
   'management_company.member_removed': 'Yönetim firmasından üye çıkarıldı',
   'platform_rule.updated': 'Kural değeri güncellendi',
   'emergency.info_updated': 'Acil durum bilgisi güncellendi',
+  'emergency.responders_updated': 'Acil alarm alıcıları güncellendi',
+  'emergency.alarm_created': 'Site içi acil alarm oluşturuldu',
+  'emergency.alarm_resolved': 'Site içi acil alarm kapatıldı',
+  'emergency.alarm_acknowledged': 'Acil alarm görüldü',
 });
 
 /** `people.bulk_*` ailesi (eylem adı istekten gelir): tek başlık. */

@@ -101,8 +101,8 @@ describe('GET /app/reservations ve /app/reservations/:id (yazmaz)', () => {
     handlers.push(
       [MODULE_ENABLED, (sql, params) => ok([{ enabled: Number(params[0]) === SITE }])],
       [SITE_RELATION, ok([{ related: false }])],
-      [RES_LIST, ok([resRow(9)])],
-      [RES_COUNT, ok([{ n: 1 }])],
+      [RES_LIST, (sql, params) => ok(params.includes(SITE) || params.includes(String(SITE)) ? [resRow(9)] : [])],
+      [RES_COUNT, (sql, params) => ok(params.includes(SITE) || params.includes(String(SITE)) ? [{ n: 1 }] : [{ n: 0 }])],
     );
     const result = await listMyReservations(USER, { site_code: String(SITE) });
     assert.equal(result.unread_count, 1);
@@ -176,6 +176,8 @@ describe('GET /app/concierge-requests, GET /:id ve POST /:id/seen', () => {
     handlers.push(
       [MODULE_ENABLED, ok([{ enabled: false }])],
       [SITE_RELATION, ok([{ related: false }])],
+      [REQ_LIST, (sql, params) => ok(params.includes(SITE) || params.includes(String(SITE)) ? [reqRow(4)] : [])],
+      [REQ_COUNT, (sql, params) => ok(params.includes(SITE) || params.includes(String(SITE)) ? [{ n: 1 }] : [{ n: 0 }])],
       [REQ_DETAIL, (sql, params) => ok(Number(params[1]) === 4 ? [reqRow(4, { unread: true, status: 'hazirlaniyor', staff_note: 'Hazır' })] : [])],
     );
     assert.deepEqual(await listMyRequests(USER, { site_code: '1000000002' }), { items: [], next_before_id: null, unread_count: 0 });
