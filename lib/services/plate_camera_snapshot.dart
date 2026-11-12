@@ -41,9 +41,7 @@ class PlateCameraSnapshot {
   static bool _credsLoaded = false;
 
   /// Bilinen yerel kamera kimlik bilgileri önbelleği (host -> credentials).
-  static final Map<String, CameraCredentials> _credentials = <String, CameraCredentials>{
-    '192.168.1.64': const CameraCredentials(user: 'admin', pass: 'gude2134'),
-  };
+  static final Map<String, CameraCredentials> _credentials = <String, CameraCredentials>{};
 
   /// Kayıtlı kamera kimlik bilgilerini güvenli depolamadan belleğe yükler.
   static Future<void> loadPersistedCredentials() async {

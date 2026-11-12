@@ -1,6 +1,6 @@
 // Fotoğrafla sayaç okuma (görevli / yönetici): kamera açık kalır, ekranın üstünde sıradaki daire yazar, değer telefonda metin tanımayla
 // okunur, görevli onaylar ya da düzeltir. Okumalar önce cihaz kuyruğuna yazılır; internet yoksa orada bekler, gelince sunucuya
-// (Drive bağlıysa Drive'a) gönderilir. Web'de kamera yok: yalnız elle giriş. Sözleşme: docs/PLATFORM_SAYAC.md "Fotoğrafla okuma".
+// (Drive bağlıysa Drive'a) gönderilir. Web/masaüstünde dosyadan fotoğraf eklenir ve endeks elle onaylanır; otomatik OCR yoktur.
 //
 // Saha akışı (P1-6): blok seç -> dairelerin çekilen / çekilmeyen listesi -> eksikleri sırayla çek -> yanlış çekileni listeden seçip
 // YENİDEN ÇEK. Sıçrama uyarısı (P1-7, karar K12): değer son 3 dönem tüketim medyanının eşik katını aşarsa görevli sıradaki daireye
@@ -18,7 +18,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/meter_api.dart';
 import 'package:site_kapi_kontrol/services/meter_field_queue.dart';
 import 'package:site_kapi_kontrol/services/meter_ocr.dart';
-import 'package:site_kapi_kontrol/ui/design/empty_state.dart';
+import 'package:site_kapi_kontrol/services/meter_photo_picker.dart';
 import 'package:site_kapi_kontrol/ui/design/status_dot.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 
@@ -33,6 +33,9 @@ class MeterFieldView extends StatefulWidget {
     this.ocr,
     this.enableCamera,
     this.clock,
+    this.pickPhoto,
+    this.initialKind,
+    this.preparePhoto,
   });
 
   final AuthService authService;
@@ -45,6 +48,9 @@ class MeterFieldView extends StatefulWidget {
   /// Kamerayı kullan; varsayılan: yalnız Android/iOS.
   final bool? enableCamera;
   final DateTime Function()? clock;
+  final MeterPhotoPicker? pickPhoto;
+  final MeterKind? initialKind;
+  final Future<Uint8List?> Function(Uint8List)? preparePhoto;
 
   @override
   State<MeterFieldView> createState() => _MeterFieldViewState();
@@ -66,7 +72,12 @@ class _MeterRow {
 
 class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObserver {
   late final MeterService _service = widget.service ?? MeterService(authService: widget.authService);
-  late final MeterFieldQueue _queue = widget.queue ?? MeterFieldQueue();
+  late final MeterFieldQueue _queue = widget.queue ?? MeterFieldQueue(
+    store: LocalMeterFieldStore(scope: 'u${widget.authService.session?.id ?? 0}_s${widget.siteCode}'),
+  );
+  late final String _boundScope;
+  String get _scope => '${widget.siteCode}:${widget.authService.session?.id}:${widget.authService.session?.token}';
+  bool get _sameScope => mounted && widget.authService.session != null && _scope == _boundScope;
   late final MeterOcr _ocr = widget.ocr ?? MlKitMeterOcr();
   late final bool _useCamera = widget.enableCamera ?? MlKitMeterOcr.supported;
   final TextEditingController _value = TextEditingController();
@@ -74,7 +85,11 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   String? _cameraError;
   Timer? _timer;
 
-  MeterKind _kind = MeterKind.water;
+  late MeterKind _kind = widget.initialKind ?? MeterKind.water;
+  List<MeterKind> _availableKinds = const [];
+  int _loadToken = 0;
+  int _photoToken = 0;
+  int _legacyPendingCount = 0;
   List<FieldMeter> _meters = const <FieldMeter>[];
   final Set<int> _done = <int>{};
   final Set<int> _skipped = <int>{};
@@ -89,6 +104,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   bool _loading = true;
   String? _loadError;
   bool _busy = false;
+  bool _preparingPhoto = false;
   bool _offline = false;
   String? _notice;
 
@@ -126,21 +142,43 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   @override
   void initState() {
     super.initState();
+    _boundScope = _scope;
+    widget.authService.addListener(_authChanged);
     WidgetsBinding.instance.addObserver(this);
     unawaited(_loadMeters());
     unawaited(_refreshPending(flush: true));
     if (_useCamera) unawaited(_startCamera());
+    if (widget.queue == null) unawaited(_loadLegacyCount());
     _timer = Timer.periodic(const Duration(seconds: 30), (_) => unawaited(_refreshPending(flush: true)));
   }
 
   @override
   void dispose() {
+    ++_loadToken;
+    ++_photoToken;
     WidgetsBinding.instance.removeObserver(this);
+    widget.authService.removeListener(_authChanged);
     _timer?.cancel();
     _value.dispose();
     unawaited(_camera?.dispose());
     if (widget.ocr == null) unawaited(_ocr.close());
     super.dispose();
+  }
+
+  void _authChanged() { if (mounted) setState(() {}); }
+
+  @override
+  void didUpdateWidget(covariant MeterFieldView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.authService != widget.authService) {
+      oldWidget.authService.removeListener(_authChanged);
+      widget.authService.addListener(_authChanged);
+    }
+  }
+
+  Future<void> _loadLegacyCount() async {
+    final count = (await LocalMeterFieldStore().load()).length;
+    if (_sameScope) setState(() => _legacyPendingCount = count);
   }
 
   @override
@@ -168,38 +206,45 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   }
 
   Future<void> _loadMeters() async {
+    final token = ++_loadToken;
+    if (!_sameScope) return;
     setState(() {
       _loading = true;
       _loadError = null;
     });
     try {
-      final all = await _service.listFieldMeters(widget.siteCode, kind: _kind, date: _today);
-      if (mounted) {
+      final all = await _service.listFieldMeters(widget.siteCode, date: _today);
+      if (_sameScope && token == _loadToken) {
         setState(() {
-          _meters = all;
-          if (_block != null && !fieldBlocks(all).contains(_block)) _block = null;
+          _availableKinds = [for (final kind in MeterKind.values) if (all.any((m) => m.kind == kind)) kind];
+          if (!_availableKinds.contains(_kind) && _availableKinds.isNotEmpty) _kind = _availableKinds.first;
+          _meters = [for (final meter in all) if (meter.kind == _kind) meter];
+          if (_block != null && !fieldBlocks(_meters).contains(_block)) _block = null;
           _picked = null;
         });
       }
     } on ApiException catch (e) {
-      if (mounted) setState(() => _loadError = e.message);
+      if (_sameScope && token == _loadToken) setState(() => _loadError = e.message);
+    } catch (_) {
+      if (_sameScope && token == _loadToken) setState(() => _loadError = 'Sayaçlar yüklenemedi. Yenileyerek tekrar deneyin.');
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (_sameScope && token == _loadToken) setState(() => _loading = false);
     }
   }
 
   Future<void> _refreshPending({bool flush = false}) async {
+    if (!_sameScope) return;
     MeterFlushReport? report;
     if (flush) {
       try {
-        report = await _queue.flush(_service);
+        report = await _queue.flush(_service, canSend: () => _sameScope);
       } on Object {
         report = null;
       }
     }
     final items = await _queue.items();
     final kept = await _queue.keptPhotoCount();
-    if (!mounted) return;
+    if (!_sameScope) return;
     setState(() {
       _pending = items;
       _keptCopies = kept;
@@ -216,6 +261,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   }
 
   void _selectBlock(String? block) {
+    ++_photoToken;
     setState(() {
       _block = block;
       _picked = null;
@@ -227,6 +273,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
 
   /// Listeden seçilen daire: çekilmediyse sıradaki yerine bu okunur, çekildiyse YENİDEN ÇEKİM başlar.
   void _pick(FieldMeter meter) {
+    ++_photoToken;
     setState(() {
       _picked = meter;
       _shot = null;
@@ -237,6 +284,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   }
 
   void _cancelPick() {
+    ++_photoToken;
     setState(() {
       _picked = null;
       _shot = null;
@@ -249,9 +297,9 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
   static String _sentNotice(MeterFlushReport report) {
     final text = StringBuffer('${report.sent} okuma gönderildi.');
     if (report.photosMissed > 0) {
-      text.write(' ${report.photosMissed} okumanın fotoğrafı sunucuya ulaşmadı; kopyası telefonunuzda duruyor.');
+      text.write(' ${report.photosMissed} okumanın fotoğrafı sunucuya ulaşmadı; kopyası cihazınızda duruyor.');
     } else if (report.keptPhotos > 0) {
-      text.write(' Fotoğrafların telefonunuzdaki kopyası silinmedi; isterseniz siz silebilirsiniz.');
+      text.write(' Fotoğrafların cihazınızdaki kopyası silinmedi; isterseniz siz silebilirsiniz.');
     }
     return text.toString();
   }
@@ -261,9 +309,9 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
     final delete = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Telefondaki fotoğraf kopyaları'),
+        title: const Text('Cihazdaki fotoğraf kopyaları'),
         content: Text(
-          'Gönderilmiş okumaların $_keptCopies fotoğrafı telefonunuzda duruyor. Uygulama bunları kendiliğinden silmez; yer açmak isterseniz siz silebilirsiniz. '
+          'Gönderilmiş okumaların $_keptCopies fotoğrafı cihazınızda duruyor. Uygulama bunları kendiliğinden silmez; yer açmak isterseniz siz silebilirsiniz. '
           'Sunucudaki kayıtlar etkilenmez.',
         ),
         actions: <Widget>[
@@ -273,33 +321,65 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
       ),
     );
     if (delete != true) return;
+    if (!_sameScope) return;
     final removed = await _queue.deleteKeptPhotos();
     if (!mounted) return;
-    setState(() => _notice = '$removed fotoğraf kopyası telefondan silindi.');
+    setState(() => _notice = '$removed fotoğraf kopyası cihazdan silindi.');
     await _refreshPending();
   }
 
   Future<void> _capture() async {
     final camera = _camera;
     final meter = _current;
-    if (camera == null || meter == null || _busy) return;
-    setState(() => _busy = true);
+    if (camera == null || meter == null || _busy || !_sameScope) return;
+    final token = ++_photoToken;
+    setState(() { _busy = true; _preparingPhoto = true; });
     try {
       final file = await camera.takePicture();
       final raw = await file.readAsBytes();
-      final small = await shrinkMeterPhotoAsync(raw);
+      final small = await (widget.preparePhoto ?? shrinkMeterPhotoAsync)(raw);
+      if (small == null) throw StateError('Fotoğraf hazırlanamadı.');
       final text = await _ocr.recognize(file.path);
       final guess = text == null ? null : pickMeterValue(text, lastValue: meter.baseValueFor(retake: _isDone(meter)));
-      if (!mounted) return;
+      if (!_sameScope || token != _photoToken || _current?.id != meter.id) return;
       setState(() {
         _shot = small;
         _value.text = guess ?? '';
         _recognizedNote = guess == null ? 'Değer okunamadı; sayaçtaki değeri yazın.' : 'Okunan değeri sayaçla karşılaştırın, gerekirse düzeltin.';
       });
     } on Object {
-      if (mounted) setState(() => _notice = 'Fotoğraf çekilemedi. Tekrar deneyin ya da değeri elle yazın.');
+      if (_sameScope && token == _photoToken) setState(() => _notice = 'Fotoğraf hazırlanamadı. Tekrar deneyin ya da değeri elle yazın.');
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (_sameScope && token == _photoToken) setState(() { _busy = false; _preparingPhoto = false; });
+    }
+  }
+
+  Future<void> _pickPhoto() async {
+    final meter = _current;
+    if (!_sameScope || _busy || _loading || meter == null) return;
+    final token = ++_photoToken;
+    setState(() { _busy = true; _preparingPhoto = true; });
+    try {
+      final file = await (widget.pickPhoto ?? pickMeterPhoto)();
+      if (file == null || !_sameScope || token != _photoToken) return;
+      final small = await (widget.preparePhoto ?? shrinkMeterPhotoAsync)(file.bytes);
+      if (small == null) throw StateError('Fotoğraf hazırlanamadı. JPEG, PNG veya WebP seçin (en çok20 MB/40 MP).');
+      String? text;
+      if ((MlKitMeterOcr.supported || widget.ocr != null) && file.path != null) text = await _ocr.recognize(file.path!);
+      if (!_sameScope || token != _photoToken || _current?.id != meter.id) return;
+      final guess = text == null ? null : pickMeterValue(text, lastValue: meter.baseValueFor(retake: _isDone(meter)));
+      setState(() {
+        _shot = small;
+        if (guess != null) _value.text = guess;
+        _recognizedNote = guess == null
+            ? 'Fotoğraf eklendi. Fotoğraftaki endeksi yazıp onaylayın; otomatik okuma yapılmadı.'
+            : 'Okuma adayı: $guess. Fotoğrafla karşılaştırıp onaylayın.';
+        _notice = null;
+      });
+    } catch (_) {
+      if (_sameScope && token == _photoToken) setState(() => _notice = 'Fotoğraf açılamadı. JPEG, PNG veya WebP seçin (en çok 20 MB/40 MP).');
+    } finally {
+      if (_sameScope && token == _photoToken) setState(() { _busy = false; _preparingPhoto = false; });
     }
   }
 
@@ -326,7 +406,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
 
   Future<void> _confirm() async {
     final meter = _current;
-    if (meter == null || _busy) return;
+    if (meter == null || _busy || _loading || !_sameScope) return;
     final value = normalizeReadingValue(_value.text);
     if (value == null) {
       setState(() => _notice = 'Değer geçersiz. En çok 3 ondalıklı bir sayı yazın (örn. 1234,5).');
@@ -343,7 +423,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
     if (finding != null) {
       setState(() => _busy = true);
       final accepted = await _askJump(meter, finding);
-      if (!mounted) return;
+      if (!_sameScope) return;
       if (accepted != true) {
         setState(() => _busy = false);
         return;
@@ -351,11 +431,14 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
       jumpConfirmed = true;
     }
     setState(() => _busy = true);
-    // Aynı dairenin bugünkü gönderilmemiş / reddedilmiş kaydı varsa yenisi onun yerine geçer (iki kayıt birbirini ezmesin).
-    for (final old in await _queue.items()) {
-      if (old.siteCode == widget.siteCode && old.meterId == meter.id && old.date == _today) await _queue.remove(old.id);
+    try {
+      // Persist the replacement first; a failed photo/metadata write must keep the previous pending reading.
+      await _queue.enqueue(siteCode: widget.siteCode, meter: meter, date: _today, value: value, photo: _shot, replace: retake, jumpConfirmed: jumpConfirmed, replaceQueued: true);
+    } catch (_) {
+      if (_sameScope) setState(() { _busy = false; _notice = 'Okuma/fotoğraf cihazda saklanamadı. Kaydedilmedi; tekrar deneyin.'; });
+      return;
     }
-    await _queue.enqueue(siteCode: widget.siteCode, meter: meter, date: _today, value: value, photo: _shot, replace: retake, jumpConfirmed: jumpConfirmed);
+    if (!_sameScope) return;
     _done.add(meter.id);
     _skipped.remove(meter.id);
     _entered[meter.id] = value;
@@ -373,7 +456,8 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
 
   void _skip() {
     final meter = _current;
-    if (meter == null) return;
+    if (meter == null || !_sameScope || _busy) return;
+    ++_photoToken;
     setState(() {
       _skipped.add(meter.id);
       _picked = null;
@@ -389,6 +473,9 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
       isScrollControlled: true,
       builder: (context) => _PendingSheet(
         queue: _queue,
+        legacyCount: _legacyPendingCount,
+        isCurrent: () => _sameScope,
+        authService: widget.authService,
         onChanged: () => unawaited(_refreshPending()),
         onConfirmed: () => _refreshPending(flush: true),
       ),
@@ -431,31 +518,34 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
     final problems = _pending.where((e) => e.error != null).length;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Fotoğrafla sayaç okuma'),
+        title: const Text('Sayaç okuma', maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: <Widget>[
           if (_keptCopies > 0)
             IconButton(
               key: const ValueKey<String>('meter_kept_copies'),
-              tooltip: 'Telefondaki fotoğraf kopyaları ($_keptCopies)',
+              tooltip: 'Cihazdaki fotoğraf kopyaları ($_keptCopies)',
               icon: const Icon(Icons.photo_library_outlined),
               onPressed: _showKeptCopies,
             ),
-          if (_pending.isNotEmpty)
-            TextButton.icon(
+          if (_pending.isNotEmpty || _legacyPendingCount > 0)
+            IconButton(
               key: const ValueKey<String>('pending_button'),
               onPressed: _showPending,
+              tooltip: 'Bekleyen: ${_pending.length}',
               icon: Badge(
                 key: const ValueKey<String>('pending_badge'),
                 isLabelVisible: problems > 0,
                 label: Text('$problems'),
                 child: Icon(_offline ? Icons.cloud_off_rounded : Icons.cloud_upload_outlined),
               ),
-              label: Text('Bekleyen: ${_pending.length}'),
             ),
+          IconButton(tooltip: 'Sayaçları yenile', onPressed: _busy ? null : _loadMeters, icon: const Icon(Icons.refresh)),
         ],
       ),
-      body: SafeArea(
-        child: Column(
+      body: !_sameScope
+          ? const Center(child: Text('Oturum değişti. Bu ekranı kapatıp yeniden açın; önceki hesabın kaydı gönderilmedi.'))
+          : SafeArea(
+        child: ListView(
           children: <Widget>[
             Padding(
               padding: const EdgeInsets.fromLTRB(AppSpace.lg, AppSpace.md, AppSpace.lg, AppSpace.sm),
@@ -464,19 +554,24 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
                   Expanded(
                     child: Text(widget.siteName, style: Theme.of(context).textTheme.labelLarge, overflow: TextOverflow.ellipsis),
                   ),
-                  DropdownButton<MeterKind>(
+                  if (_availableKinds.isNotEmpty) DropdownButton<MeterKind>(
                     value: _kind,
-                    items: <DropdownMenuItem<MeterKind>>[for (final k in MeterKind.values) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label))],
+                    items: <DropdownMenuItem<MeterKind>>[for (final k in _availableKinds) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label))],
                     onChanged: _busy
                         ? null
                         : (k) {
                             if (k == null) return;
+                            ++_photoToken;
                             setState(() {
                               _kind = k;
+                              _meters = const [];
                               _skipped.clear();
                               _done.clear();
                               _entered.clear();
                               _picked = null;
+                              _shot = null;
+                              _recognizedNote = null;
+                              _value.clear();
                             });
                             unawaited(_loadMeters());
                           },
@@ -486,12 +581,16 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
             ),
             if (_loading) const LinearProgressIndicator(),
             if (_loadError != null) Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Text(_loadError!)),
+            if (_notice != null && _meters.isEmpty) Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Text(_notice!)),
             if (!_loading && _loadError == null && _meters.isEmpty)
-              const Padding(padding: EdgeInsets.all(AppSpace.lg), child: Text('Bu türde etkin sayaç yok. Yönetici önce sayaçları tanımlamalıdır.')),
+              const Padding(padding: EdgeInsets.all(AppSpace.lg), child: Text('Etkin sayaç yok. Yönetici önce bu siteye sayaç eklemelidir.')),
             if (_meters.isNotEmpty) _blockBar(),
             if (_meters.isNotEmpty) _nextBanner(context, meter, read, total),
-            Expanded(child: _useCamera ? _cameraArea() : _noCameraNote()),
-            _confirmPanel(context, meter),
+            if (_meters.isNotEmpty) ...[
+              if (_useCamera) SizedBox(height: MediaQuery.sizeOf(context).height < 500 ? 160 : 260, child: _cameraArea()),
+              _photoArea(),
+              _confirmPanel(context, meter),
+            ],
           ],
         ),
       ),
@@ -572,34 +671,78 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
                       : Theme.of(context).textTheme.titleLarge?.copyWith(color: foreground, fontWeight: FontWeight.w800),
                 ),
                 if (subline != null) Text(subline, style: TextStyle(color: foreground)),
+                if (meter == null && skippedHere > 0)
+                  TextButton(
+                    key: const ValueKey<String>('back_to_skipped'),
+                    style: TextButton.styleFrom(foregroundColor: foreground),
+                    onPressed: () => setState(() => _skipped.removeWhere((id) => _scoped.any((m) => m.id == id))),
+                    child: const Text('Atlananlara dön'),
+                  ),
               ],
             ),
           ),
-          if (meter == null && skippedHere > 0)
-            TextButton(
-              key: const ValueKey<String>('back_to_skipped'),
-              style: TextButton.styleFrom(foregroundColor: foreground),
-              onPressed: () => setState(() => _skipped.removeWhere((id) => _scoped.any((m) => m.id == id))),
-              child: const Text('Atlananlara dön'),
-            ),
-          TextButton.icon(
+          IconButton(
             key: const ValueKey<String>('meter_list_open'),
             style: TextButton.styleFrom(foregroundColor: foreground),
             onPressed: _busy ? null : _showList,
+            tooltip: 'Liste ($read/$total)',
             icon: const Icon(Icons.format_list_bulleted_rounded),
-            label: Text('Liste ($read/$total)'),
           ),
         ],
       ),
     );
   }
 
-  /// Kamera / metin tanıma desteklenmeyen platform (web, masaüstü): kamera alanı yerine boş kalan yerde nedeni söyler.
-  Widget _noCameraNote() {
-    return const EmptyState(
-      key: ValueKey<String>('meter_no_camera_note'),
-      icon: Icons.no_photography_outlined,
-      title: 'Bu cihazda fotoğrafla okuma yok; değeri elle yazın.',
+  Widget _photoArea() {
+    final photo = _shot;
+    return Padding(
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(spacing: 8, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+            OutlinedButton.icon(
+              key: const ValueKey('meter_pick_photo'),
+              onPressed: _busy || _current == null ? null : _pickPhoto,
+              icon: _preparingPhoto ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.add_photo_alternate_outlined),
+              label: Text(photo == null ? 'Fotoğraf ekle' : 'Fotoğrafı değiştir'),
+            ),
+            if (photo != null) IconButton(
+              tooltip: 'Eklenen fotoğrafı kaldır',
+              onPressed: _busy ? null : () => setState(() { _shot = null; _recognizedNote = null; }),
+              icon: const Icon(Icons.close),
+            ),
+          ]),
+          if (photo != null) Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Tooltip(
+              message: 'Fotoğrafı büyüt',
+              child: InkWell(
+                key: const ValueKey('meter_photo_preview'),
+                onTap: () => showDialog<void>(context: context, builder: (_) => AnimatedBuilder(
+                  animation: widget.authService,
+                  builder: (context, _) => !_sameScope
+                    ? const AlertDialog(content: Text('Oturum değişti. Fotoğraf kapatıldı.'))
+                    : Dialog(
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(maxWidth: 800, maxHeight: MediaQuery.sizeOf(context).height * .8),
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Flexible(child: InteractiveViewer(child: Image.memory(photo, fit: BoxFit.contain))),
+                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),
+                    ]),
+                  ),
+                ))),
+                child: Image.memory(photo, height: 120, fit: BoxFit.contain),
+              ),
+            ),
+          ),
+          if (!_useCamera && photo == null) const Text(
+            'Fotoğraf ekleyip endeksi elle onaylayabilirsiniz. Bu cihazda otomatik metin okuma yok.',
+            key: ValueKey('meter_photo_manual_note'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -619,7 +762,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
               heroTag: 'meter_capture',
               tooltip: 'Fotoğraf çek ve oku',
               onPressed: _busy || _current == null || _shot != null ? null : _capture,
-              child: _busy ? const CircularProgressIndicator() : const Icon(Icons.photo_camera_rounded),
+              child: _preparingPhoto ? const CircularProgressIndicator() : const Icon(Icons.photo_camera_rounded),
             ),
           ),
         ),
@@ -641,7 +784,6 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
             if (_recognizedNote != null) Padding(padding: const EdgeInsets.only(bottom: AppSpace.sm), child: Text(_recognizedNote!, style: const TextStyle(fontWeight: FontWeight.w600))),
             Row(
               children: <Widget>[
-                if (_shot != null) Padding(padding: const EdgeInsets.only(right: AppSpace.md), child: ClipRRect(borderRadius: BorderRadius.circular(8), child: Image.memory(_shot!, width: 64, height: 64, fit: BoxFit.cover))),
                 Expanded(
                   child: TextField(
                     key: const ValueKey<String>('reading_value'),
@@ -743,9 +885,12 @@ class _MeterListSheet extends StatelessWidget {
 }
 
 class _PendingSheet extends StatefulWidget {
-  const _PendingSheet({required this.queue, required this.onChanged, required this.onConfirmed});
+  const _PendingSheet({required this.queue, required this.onChanged, required this.onConfirmed, required this.authService, required this.isCurrent, this.legacyCount = 0});
 
   final MeterFieldQueue queue;
+  final AuthService authService;
+  final bool Function() isCurrent;
+  final int legacyCount;
   final VoidCallback onChanged;
 
   /// Görevli olağan dışı tüketimi onayladı: ekran hemen göndermeyi dener (liste, tur bitince yenilensin diye beklenir).
@@ -761,8 +906,13 @@ class _PendingSheetState extends State<_PendingSheet> {
   @override
   void initState() {
     super.initState();
+    widget.authService.addListener(_scopeChanged);
     unawaited(_load());
   }
+
+  void _scopeChanged() { if (mounted) setState(() {}); }
+  @override
+  void dispose() { widget.authService.removeListener(_scopeChanged); super.dispose(); }
 
   Future<void> _load() async {
     final items = await widget.queue.items();
@@ -770,6 +920,7 @@ class _PendingSheetState extends State<_PendingSheet> {
   }
 
   Future<void> _fix(PendingMeterReading item) async {
+    if (!widget.isCurrent()) return;
     final controller = TextEditingController(text: item.value);
     final value = await showDialog<String>(
       context: context,
@@ -783,7 +934,7 @@ class _PendingSheetState extends State<_PendingSheet> {
       ),
     );
     controller.dispose();
-    if (value == null) return;
+    if (value == null || !widget.isCurrent()) return;
     await widget.queue.correct(item.id, value);
     widget.onChanged();
     await _load();
@@ -791,12 +942,14 @@ class _PendingSheetState extends State<_PendingSheet> {
 
   /// "Doğru": olağan dışı tüketim uyarısı onaylanır; kayıt `confirm_jump` ile gönderilir ve sunucuda onay izi tutulur.
   Future<void> _confirmJump(PendingMeterReading item) async {
+    if (!widget.isCurrent()) return;
     await widget.queue.confirmJump(item.id);
     await widget.onConfirmed();
     await _load();
   }
 
   Future<void> _discard(PendingMeterReading item) async {
+    if (!widget.isCurrent()) return;
     await widget.queue.remove(item.id);
     widget.onChanged();
     await _load();
@@ -805,14 +958,19 @@ class _PendingSheetState extends State<_PendingSheet> {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: _items.isEmpty
-          ? const Padding(padding: EdgeInsets.all(AppSpace.xl), child: Text('Bekleyen okuma yok.'))
+      child: !widget.isCurrent()
+          ? const Padding(padding: EdgeInsets.all(AppSpace.lg), child: Text('Oturum değişti. Önceki hesabın kayıtları bu oturumda açılamaz.'))
           : ListView(
               shrinkWrap: true,
               children: <Widget>[
+                if (widget.legacyCount > 0) Padding(
+                  padding: const EdgeInsets.all(AppSpace.lg),
+                  child: Text('Eski sürümün kapsamı belirsiz ${widget.legacyCount} okuması cihazda korunuyor. Hesap sahipliği doğrulanamadığından bu oturumdan otomatik gönderilmez veya silinmez.'),
+                ),
+                if (_items.isEmpty) const Padding(padding: EdgeInsets.all(AppSpace.xl), child: Text('Bekleyen okuma yok.')),
                 const Padding(
                   padding: EdgeInsets.all(AppSpace.lg),
-                  child: Text('Cihazda bekleyen okumalar internet gelince kendiliğinden gönderilir. Gönderilen okumaların fotoğraf kopyaları telefonunuzdan kendiliğinden silinmez.'),
+                  child: Text('Bu hesap ve siteye ait bekleyen okumalar internet gelince gönderilir. Fotoğraf kopyaları cihazınızdan kendiliğinden silinmez.'),
                 ),
                 for (final item in _items)
                   ListTile(

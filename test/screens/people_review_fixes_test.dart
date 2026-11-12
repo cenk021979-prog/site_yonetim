@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderParagraph;
 import 'package:flutter/semantics.dart' show SemanticsAction;
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:site_kapi_kontrol/models/history_item.dart';
 import 'package:site_kapi_kontrol/models/residency_relation.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
@@ -31,6 +32,7 @@ import 'package:site_kapi_kontrol/ui/views/people_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/person_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/vehicle_card.dart';
 
+import '../license_plate_finder.dart';
 import '../design/harness.dart';
 import 'dialog_layout_harness.dart';
 import 'list_fixtures.dart' show pumpList, tapFinder, tapText;
@@ -424,7 +426,7 @@ void main() {
     testWidgets('araç listesinde 48 dp ve plakalı ipucu', (t) async {
       final auth = PeopleFakeAuth.seeded();
       await _pumpView(t, auth);
-      await tapFinder(t, find.byKey(const ValueKey<String>('people_tab_2')));
+      await selectPeopleSection(t, 2);
       await settleFor(t);
       final button = _removeFor('06 XYZ 789');
       expect(button, findsOneWidget);
@@ -440,7 +442,7 @@ void main() {
         pplResidentJson(150, 7, 'Zeynep Aile', ResidencyRelation.familyMember),
       );
       await _pumpView(t, auth);
-      await tapFinder(t, find.byKey(const ValueKey<String>('people_tab_1')));
+      await selectPeopleSection(t, 1);
       await settleFor(t);
       expect(find.text('Daire no, blok veya kişi adı'), findsOneWidget);
 
@@ -658,7 +660,7 @@ void main() {
       await settleFor(t);
 
       await _open(t, (c) => PersonCardDialog.show(c, scope: _scope(auth, canWrite: false), personId: 1));
-      expect(find.text('34 ABC 123'), findsOneWidget);
+      expect(findLicensePlate('34 ABC 123'), findsOneWidget);
       expect(find.text('Kapıcıya haber verildi.'), findsNothing);
       expect(find.text('gri araç'), findsNothing);
       expect(find.text('Not'), findsNothing);
@@ -668,7 +670,7 @@ void main() {
       final auth = PeopleFakeAuth.seeded();
       auth.vehiclesJson.first['note'] = 'gri araç';
       await _pumpView(t, auth);
-      await tapFinder(t, find.byKey(const ValueKey<String>('people_tab_2')));
+      await selectPeopleSection(t, 2);
       await settleFor(t);
       expect(find.text('gri araç'), findsOneWidget);
 
@@ -678,7 +680,7 @@ void main() {
         manage: false,
         readOnly: const <PeopleSite>[PeopleSite(code: 11, name: 'Gül Sitesi')],
       );
-      await tapFinder(t, find.byKey(const ValueKey<String>('people_tab_2')));
+      await selectPeopleSection(t, 2);
       await settleFor(t);
       expect(find.byType(VehicleCard), findsWidgets);
       expect(find.text('gri araç'), findsNothing);
@@ -691,7 +693,7 @@ void main() {
       auth.apartmentsJson[303]!['owner'] = <String, dynamic>{'person_id': 9, 'full_name': ''};
       auth.apartmentsJson[303]!['tenant'] = <String, dynamic>{'person_id': 10, 'full_name': '  '};
       await _pumpView(t, auth);
-      await tapFinder(t, find.byKey(const ValueKey<String>('people_tab_1')));
+      await selectPeopleSection(t, 1);
       await settleFor(t);
       expect(find.text('Malik: İsimsiz kişi'), findsOneWidget);
       expect(find.text('Kiracı: İsimsiz kişi'), findsOneWidget);

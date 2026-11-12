@@ -16,9 +16,10 @@ abstract final class ViewModeKeys {
   static const String modules = 'app_view_mode_modules';
   static const String apartments = 'app_view_mode_apartments';
   static const String persons = 'app_view_mode_persons';
+  static const String simpleModules = 'app_view_mode_simple_modules';
 
   /// Hepsi (hesap silme sonrası korunacak cihaz görünümü anahtarları).
-  static const Set<String> all = <String>{modules, apartments, persons};
+  static const Set<String> all = <String>{modules, apartments, persons, simpleModules};
 }
 
 /// Liste ↔ kutucuk anahtarı bulunan ekranlar. Her ekranın [defaultMode]'u, anahtar eklenmeden önceki GÖRÜNÜMDÜR:
@@ -31,7 +32,10 @@ enum ViewScreen {
   apartments(ListViewMode.list, ViewModeKeys.apartments),
 
   /// Kişiler → Kişiler sekmesi (eskiden yalnız liste).
-  persons(ListViewMode.list, ViewModeKeys.persons);
+  persons(ListViewMode.list, ViewModeKeys.persons),
+
+  /// Sade arayüzün konu listeleri; Klasik panelin tercihinden bağımsızdır.
+  simpleModules(ListViewMode.list, ViewModeKeys.simpleModules);
 
   const ViewScreen(this.defaultMode, this.storageKey);
 

@@ -16,16 +16,23 @@ import 'package:site_kapi_kontrol/ui/design/license_plate.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_vehicle_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/crm_confirm_dialog.dart';
-import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
+    show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/widgets/vehicle_registration_photo_actions.dart';
 
 class ApartmentVehiclesSection extends StatefulWidget {
-  const ApartmentVehiclesSection({super.key, required this.service, required this.apartmentId});
+  const ApartmentVehiclesSection({
+    super.key,
+    required this.service,
+    required this.apartmentId,
+  });
 
   final ApartmentManagementService service;
   final int apartmentId;
 
   @override
-  State<ApartmentVehiclesSection> createState() => ApartmentVehiclesSectionState();
+  State<ApartmentVehiclesSection> createState() =>
+      ApartmentVehiclesSectionState();
 }
 
 class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
@@ -39,6 +46,16 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
   void initState() {
     super.initState();
     unawaited(reload());
+  }
+
+  @override
+  void didUpdateWidget(covariant ApartmentVehiclesSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.apartmentId != widget.apartmentId ||
+        oldWidget.service != widget.service) {
+      _data = null;
+      unawaited(reload());
+    }
   }
 
   @override
@@ -64,7 +81,10 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
       if (!mounted || token != _token) return;
       setState(() {
         _loading = false;
-        _error = crmMessageOf(e, 'Araçlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+        _error = crmMessageOf(
+          e,
+          'Araçlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+        );
       });
     }
   }
@@ -100,7 +120,8 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
     final ok = await confirmCrmAction(
       context,
       title: 'Aracı çıkar',
-      message: '${v.displayPlate} plakalı araç çıkarılacak. Sitede plaka tanıma açıksa artık yetkili araç sayılmaz. Kayıt silinmez, pasifleşir.',
+      message:
+          '${v.displayPlate} plakalı araç çıkarılacak. Sitede plaka tanıma açıksa artık yetkili araç sayılmaz. Kayıt silinmez, pasifleşir.',
       confirmLabel: 'Çıkar',
       icon: Icons.delete_outline_rounded,
       tone: AppTone.danger,
@@ -113,7 +134,13 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
       AppSnack.show(context, 'Araç çıkarıldı.', kind: AppSnackKind.success);
       await reload();
     } catch (e) {
-      if (mounted) AppSnack.show(context, crmMessageOf(e, 'Araç çıkarılamadı. Tekrar deneyin.'), kind: AppSnackKind.error);
+      if (mounted) {
+        AppSnack.show(
+          context,
+          crmMessageOf(e, 'Araç çıkarılamadı. Tekrar deneyin.'),
+          kind: AppSnackKind.error,
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -122,7 +149,9 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context).textTheme;
-    final secondary = th.bodyMedium?.copyWith(color: context.palette.textSecondary);
+    final secondary = th.bodyMedium?.copyWith(
+      color: context.palette.textSecondary,
+    );
     final data = _data;
     return Padding(
       padding: const EdgeInsets.only(top: AppSpace.lg),
@@ -133,16 +162,35 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
           Text('Araçlarım', style: th.titleMedium),
           const SizedBox(height: AppSpace.sm),
           if (_loading) Text('Araçlar yükleniyor...', style: secondary),
-          if (!_loading && data == null && _error != null) InlineNotice(message: _error!, onRetry: reload),
+          if (!_loading && data == null && _error != null)
+            InlineNotice(message: _error!, onRetry: reload),
           if (data != null) ..._content(data, th, secondary),
         ],
       ),
     );
   }
 
-  List<Widget> _content(ApartmentVehicles data, TextTheme th, TextStyle? secondary) {
+  List<Widget> _content(
+    ApartmentVehicles data,
+    TextTheme th,
+    TextStyle? secondary,
+  ) {
     return [
-      if (_error != null) ...[InlineNotice(message: _error!, onRetry: reload), const SizedBox(height: AppSpace.sm)],
+      if (_error != null) ...[
+        InlineNotice(message: _error!, onRetry: reload),
+        const SizedBox(height: AppSpace.sm),
+      ],
+      if (data.canManage)
+        InlineNotice(
+          message: data.apartmentApproved
+              ? 'Dairenizin araç girişleri yönetim tarafından onaylı. Eşzamanlı araç hakkınız geçerlidir.'
+              : 'Dairenizin araç girişleri yönetim onayı bekliyor.',
+          tone: data.apartmentApproved ? AppTone.info : AppTone.warning,
+        ),
+      if (data.ownOnly)
+        const Text(
+          'Kendi adınıza kayıtlı araçları ekleyip düzenleyebilirsiniz. Daire yöneticisi dairenin tüm araçlarını yönetir.',
+        ),
       if (data.items.isEmpty) Text('Kayıtlı araç yok.', style: secondary),
       for (final v in data.items) _vehicleTile(data, v, th, secondary),
       if (data.canManage) ...[
@@ -157,16 +205,28 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
           variant: AppButtonVariant.outline,
           onPressed: _busy || data.isFull ? null : () => unawaited(_add(data)),
         ),
-        if (data.isFull) Text('Araç sınırına ulaştınız. Daha fazlası için site yönetimine başvurun.', style: secondary),
+        if (data.isFull)
+          Text(
+            'Araç sınırına ulaştınız. Daha fazlası için site yönetimine başvurun.',
+            style: secondary,
+          ),
       ] else
         Padding(
           padding: const EdgeInsets.only(top: AppSpace.sm),
-          child: Text('Araçları yalnızca daire yöneticisi ekleyip değiştirebilir.', style: secondary),
+          child: Text(
+            'Araçları yalnızca daire yöneticisi ekleyip değiştirebilir.',
+            style: secondary,
+          ),
         ),
     ];
   }
 
-  Widget _vehicleTile(ApartmentVehicles data, VehicleRecord v, TextTheme th, TextStyle? secondary) {
+  Widget _vehicleTile(
+    ApartmentVehicles data,
+    VehicleRecord v,
+    TextTheme th,
+    TextStyle? secondary,
+  ) {
     final owner = v.personName ?? '';
     final note = v.note ?? '';
     return Padding(
@@ -188,20 +248,46 @@ class ApartmentVehiclesSectionState extends State<ApartmentVehiclesSection> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
                   LicensePlateBadge(plate: v.displayPlate, compact: true),
-                  if (v.source == kVehicleSourceApartmentAdmin) const StatusChip(label: 'Daire yöneticisi ekledi', tone: AppTone.info),
+                  if (v.source == kVehicleSourceApartmentAdmin)
+                    const StatusChip(
+                      label: 'Daire yöneticisi ekledi',
+                      tone: AppTone.info,
+                    ),
                 ],
               ),
               if (owner.isNotEmpty) Text('Sahibi: $owner', style: secondary),
               if (note.isNotEmpty) Text(note, style: th.bodyMedium),
-              if (v.source != kVehicleSourceApartmentAdmin) Text('Ekleyen: ${v.sourceLabel}', style: th.bodySmall?.copyWith(color: context.palette.textSecondary)),
+              if (data.canManage && data.registrationPhotoEnabled)
+                VehicleRegistrationPhotoActions(
+                  service: widget.service,
+                  apartmentId: widget.apartmentId,
+                  vehicleId: v.id,
+                  hasPhoto: v.hasRegistrationPhoto,
+                  onChanged: reload,
+                ),
+              if (v.source != kVehicleSourceApartmentAdmin)
+                Text(
+                  'Ekleyen: ${v.sourceLabel}',
+                  style: th.bodySmall?.copyWith(
+                    color: context.palette.textSecondary,
+                  ),
+                ),
               if (data.canManage)
                 Align(
                   alignment: Alignment.centerRight,
                   child: Wrap(
                     spacing: AppSpace.xs,
                     children: [
-                      TextButton(onPressed: _busy ? null : () => unawaited(_editNote(data, v)), child: const Text('Notu düzenle')),
-                      TextButton(onPressed: _busy ? null : () => unawaited(_remove(v)), child: const Text('Aracı çıkar')),
+                      TextButton(
+                        onPressed: _busy
+                            ? null
+                            : () => unawaited(_editNote(data, v)),
+                        child: const Text('Notu düzenle'),
+                      ),
+                      TextButton(
+                        onPressed: _busy ? null : () => unawaited(_remove(v)),
+                        child: const Text('Aracı çıkar'),
+                      ),
                     ],
                   ),
                 ),

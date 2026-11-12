@@ -4,6 +4,8 @@ import 'package:share_plus/share_plus.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/equipment_api.dart';
+import 'package:site_kapi_kontrol/services/emergency_api.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/emergency_responders_dialog.dart';
 import 'package:site_kapi_kontrol/ui/design/action_bar.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
@@ -41,6 +43,7 @@ class EquipmentViewState extends State<EquipmentView> {
   List<EquipmentQuote> _quotes = const <EquipmentQuote>[];
   List<QuoteRequest> _requests = const <QuoteRequest>[];
   EquipmentBreakdown? _breakdown;
+  bool _equipmentFormLoading = false;
 
   static const List<String> _tabs = <String>['Ekipman', 'Bakım takvimi', 'Teklifler', 'Gider kırılımı'];
 
@@ -96,17 +99,26 @@ class EquipmentViewState extends State<EquipmentView> {
   }
 
   Future<void> _addEquipment() async {
+    if (_equipmentFormLoading) return;
     final site = _site!;
+    _equipmentFormLoading = true;
+    try {
+    final blocks = await _service.blocks(site.code);
+    if (!mounted || _site?.code != site.code) return;
     final v = await askForm(context, 'Ekipman ekle', <FormField2>[
       FormField2.choice('kind', 'Tür', <(String, String)>[for (final k in equipmentKinds) (k.code, k.name), ('diger', 'Diğer')], initial: 'asansor'),
       const FormField2.text('name', 'Ad', required: true, max: 120),
-      const FormField2.text('location', 'Konum (örn. A Blok)', max: 120),
+      FormField2.choice('block_id', 'Blok / kapsam', <(String, String)>[('', 'Site geneli / Ortak alan'), for (final block in blocks) ('${block.id}', block.name)]),
+      const FormField2.text('location', 'Konum açıklaması (isteğe bağlı)', max: 120),
       const FormField2.text('serial_no', 'Seri no', max: 60),
       const FormField2.date('installed_on', 'Kurulum tarihi'),
       const FormField2.text('note', 'Not', max: 1000, lines: 2),
     ]);
     if (v == null) return;
-    await _run(() => _service.create(site.code, <String, Object?>{for (final e in v.entries) if (e.value.isNotEmpty) e.key: e.value}), 'Ekipman kaydedildi.');
+    await _run(() => _service.create(site.code, <String, Object?>{for (final e in v.entries) if (e.key != 'block_id' && e.value.isNotEmpty) e.key: e.value, 'block_id': int.tryParse(v['block_id'] ?? '')}), 'Ekipman kaydedildi.');
+    } on ApiException catch (error) {
+      if (mounted) AppSnack.show(context, error.message, kind: AppSnackKind.error);
+    } finally { _equipmentFormLoading = false; }
   }
 
   Future<void> _openDetail(EquipmentItem item) async {
@@ -608,9 +620,30 @@ class EquipmentViewState extends State<EquipmentView> {
     return ListView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        Text('Ekipman ve Bakım', style: Theme.of(context).textTheme.headlineSmall),
+        SectionHeader(
+          title: 'Ekipman ve Bakım',
+          trailing: site?.canWrite == true
+              ? IconButton(
+                  key: const ValueKey('equipment_emergency_responders'),
+                  tooltip: 'Alarm alıcıları',
+                  icon: const Icon(Icons.notification_important_outlined),
+                  onPressed: () async {
+                    final service = EmergencyService(authService: widget.authService);
+                    try {
+                      final saved = await showEmergencyRespondersDialog(context, service: service, siteCode: site!.code);
+                      if (saved == true && context.mounted) {
+                        AppSnack.show(context, 'Alarm alıcıları kaydedildi.');
+                        await reload();
+                      }
+                    } finally {
+                      service.close();
+                    }
+                  },
+                )
+              : null,
+        ),
         const SizedBox(height: AppSpace.md),
-        if (widget.sites.length > 1)
+        if (widget.sites.length > 1) ...[
           DropdownButtonFormField<EquipmentSite>(
             initialValue: site,
             decoration: const InputDecoration(labelText: 'Site'),
@@ -620,7 +653,8 @@ class EquipmentViewState extends State<EquipmentView> {
               reload();
             },
           ),
-        const SizedBox(height: AppSpace.md),
+          const SizedBox(height: AppSpace.md),
+        ],
         if (site == null)
           const Text('Bu özellik için açık bir siteniz yok.')
         else ...<Widget>[
@@ -677,6 +711,7 @@ class EquipmentDetailSheet extends StatefulWidget {
 class _EquipmentDetailSheetState extends State<EquipmentDetailSheet> {
   EquipmentDetail? _detail;
   String? _error;
+  bool _scopeLoading = false;
 
   /// Servis geçmişi (ekipmana bağlı iş kayıtları): ayrıntıdan BAĞIMSIZ yüklenir; hatası ekipman kartını bozmaz.
   EquipmentWorkHistory? _history;
@@ -814,6 +849,30 @@ class _EquipmentDetailSheetState extends State<EquipmentDetailSheet> {
     );
   }
 
+  Future<void> _editBlockScope() async {
+    final item = _detail?.item;
+    if (item == null || _scopeLoading) return;
+    _scopeLoading = true;
+    try {
+      final blocks = await widget.service.blocks(widget.site.code);
+      if (!mounted) return;
+      final values = await askForm(context, 'Blok / kapsam', [
+        FormField2.choice('block_id', 'Ekipmanın bulunduğu alan', [
+          ('', 'Site geneli / Ortak alan'),
+          for (final block in blocks) ('${block.id}', block.name),
+          if (item.blockId != null && !blocks.any((block) => block.id == item.blockId))
+            ('${item.blockId}', item.blockName ?? 'Kayıtlı blok'),
+        ], initial: item.blockId?.toString() ?? ''),
+      ]);
+      if (values == null || !mounted) return;
+      await _act(() => widget.service.update(widget.site.code, item.id, {
+        'block_id': int.tryParse(values['block_id'] ?? ''),
+      }), 'Ekipmanın blok kapsamı güncellendi.');
+    } on ApiException catch (error) {
+      if (mounted) AppSnack.show(context, error.message, kind: AppSnackKind.error);
+    } finally { _scopeLoading = false; }
+  }
+
   Future<void> _addLog({MaintenancePlan? plan}) async {
     final v = await askForm(context, plan == null ? 'Bakım kaydı ekle' : 'Bakım yapıldı: ${plan.title}', <FormField2>[
       const FormField2.date('done_on', 'Bakım tarihi', required: true),
@@ -863,11 +922,13 @@ class _EquipmentDetailSheetState extends State<EquipmentDetailSheet> {
       children: <Widget>[
         Text(item.name, style: Theme.of(context).textTheme.headlineSmall),
         Text('${equipmentKindLabel(item.kind)}${item.location == null ? '' : ' - ${item.location}'}${item.serialNo == null ? '' : ' - Seri: ${item.serialNo}'}'),
+        Text(item.blockId == null ? 'Kapsam: Site geneli / Ortak alan' : 'Blok: ${item.blockName ?? 'Kayıtlı blok'}'),
         if (item.note != null) Text(item.note!),
         const SizedBox(height: AppSpace.md),
         if (canWrite)
           AppActionBar(
             actions: <AppBarAction>[
+              AppBarAction(label: 'Blok / kapsam', icon: Icons.apartment_rounded, onPressed: _editBlockScope),
               AppBarAction(label: 'Plan ekle', icon: Icons.event_repeat_rounded, primary: true, onPressed: _addPlan),
               if (kind?.legalMonths != null && !hasLegal)
                 AppBarAction(label: 'Yasal kontrol planı', icon: Icons.gavel_rounded, tone: AppTone.warning, onPressed: () => _addPlan(legalKind: kind)),

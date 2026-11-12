@@ -1,0 +1,179 @@
+{
+  "title": "Az tekrar, anlaşılır durum ve kontrollü otomasyon araştırması",
+  "verified_date": "2026-11-08",
+  "scope": "Yalnız resmi ürün belgeleri ve birincil tasarım rehberleri; kod değişikliği, otomasyon etkinleştirmesi veya yayın yok.",
+  "evidence_caveat": "Bu ürünlerin en az ikonla en başarılı olduğu kanıtlanmadı. İncelenen belge ve görsel örnekler belirli etkileşimlerin mevcut olduğunu gösterir; karşılaştırmalı kullanılabilirlik testi veya bağımsız başarı sıralaması değildir. Satıcı müşteri sayıları ve yorumları başarı kanıtı kabul edilmedi.",
+  "reuse": {
+    "reference_example": "UX-01 ve UX-05 ilkelerini kullanarak yönetici iş kutusunu planlayalım",
+    "stored_material": "Kaynak bağlantıları, özgün kısa özetler, proje önerileri ve kod referansları",
+    "not_stored": "Makalelerin tam metni, rakip ekran dosyaları veya kopyalanan arayüz kodu",
+    "review_before_reuse": "Dış kaynağın tarihi, ürün planı, platform desteği ve projedeki güncel yetki/modül kapıları yeniden kontrol edilmeli."
+  },
+  "sources": [
+    {
+      "id": "UX-01",
+      "product": "Linear",
+      "topics": ["saved-views", "contextual-actions", "navigation"],
+      "url": "https://linear.app/docs/custom-views",
+      "additional_url": "https://linear.app/docs/display-options",
+      "screen_reference": {"url": "https://linear.app/docs/custom-views", "figure": "Issue and Project Views; Share view", "kind": "Resmi belge içindeki görsel referans; indirilmedi"},
+      "evidence": "Tam resmi belge okundu; ürünün mevcut görünüm davranışı. Başarı metriği değil.",
+      "summary": "Kaydedilen filtreli görünümler ortak kayıtlar üzerinde çalışır. Görünüm düzeni ve gruplama, ayrı veri ekranları çoğaltmadan değiştirilebilir.",
+      "project_application": "Bugün, Bana atanan ve Bekleyen onaylar tek iş kutusunda kaydedilmiş süzgeçler olabilir. Liste/kart görünümü bir durum düğmesinden değişir.",
+      "do_not_merge": "Görünüm birleştirmek site, rol ve yazma yetkilerini birleştirmez. Kişisel görüntü tercihi tüm yöneticilere kendiliğinden uygulanmaz."
+    },
+    {
+      "id": "UX-02",
+      "product": "Todoist",
+      "topics": ["filters", "favorites", "progressive-disclosure"],
+      "url": "https://www.todoist.com/help/todoist/features/introduction-to-filters-V98wIH",
+      "screen_reference": {"url": "https://www.todoist.com/help/todoist/features/introduction-to-filters-V98wIH", "figure": "Filtre oluşturma ve açıklama örnekleri", "kind": "Resmi yardım sayfası; görsel dosyası indirilmedi"},
+      "evidence": "Resmi belge okundu; kullanım davranışı doğrulandı.",
+      "summary": "Filtreler kayıtları ölçütlere göre toplar; sık kullanılan filtreler favorilere taşınabilir. Uzun filtre açıklaması masaüstünde üzerine gelince okunabilir.",
+      "project_application": "Kişilerde tek liste ve ilişki/durum süzgeçleri; yöneticiye en sık kullandığı üç görünüm. Son kullanılan süzgeç hesap ve site kapsamıyla hatırlanabilir.",
+      "do_not_merge": "Ham sorgu dilini yöneticiden istemek sadeleştirme değildir. Resmi belgede göreli tarih filtrelerinin açıkken kendiliğinden güncellenmediği belirtilir; projedeki canlı yenileme şartı korunmalı."
+    },
+    {
+      "id": "UX-03",
+      "product": "Apple Reminders",
+      "topics": ["smart-lists", "context", "navigation"],
+      "url": "https://support.apple.com/guide/reminders/view-reminder-lists-remnd854fc47/mac",
+      "additional_url": "https://support.apple.com/en-ie/guide/reminders/remnfec66479/mac",
+      "screen_reference": {"url": "https://support.apple.com/guide/reminders/view-reminder-lists-remnd854fc47/mac", "figure": "Kenar çubuğu ve Smart Lists resmi kullanım rehberi", "kind": "Belge referansı"},
+      "evidence": "Resmi kılavuz okundu; özelliklerin iCloud/sürüm koşulları olduğu gözlendi.",
+      "summary": "Bugün, planlanan ve atanmış öğeler aynı hatırlatmaları farklı ölçütlerle gösterir. Önemli listeler sabitlenebilir, diğerleri ikinci planda kalır.",
+      "project_application": "Bana atanan işler, yaklaşan bakım ve bekleyen onaylar farklı kopya kayıt üretmeden tek panelde gösterilebilir.",
+      "do_not_merge": "Tüm kayıtlar görünümü veri sızdıran tüm siteler görünümüne dönüşmemeli. Sakin ve yöneticinin görme kapsamları aynı değildir."
+    },
+    {
+      "id": "UX-04",
+      "product": "Basecamp / 37signals",
+      "topics": ["check-ins", "asynchronous-work", "automation"],
+      "url": "https://basecamp.com/guides/how-we-communicate",
+      "additional_url": "https://basecamp.com/projects/software-relaunch",
+      "screen_reference": {"url": "https://basecamp.com/projects/software-relaunch", "figure": "Message Board, Card Table, Docs & Files, To-dos ve Automatic Check-ins örnek ekranı", "kind": "Satıcının tanıtım amaçlı proje örneği; bağımsız vaka çalışması sayılmaz"},
+      "evidence": "Şirketin kendi çalışma rehberi ve tanıtım örneği okundu; verim artışı ölçümü yapılmadı.",
+      "summary": "Belirlenen zamanda sorulan günlük/haftalık sorular yanıtları tarihe göre toplar. Konuyla ilgili tartışma kendi kaydının yanında tutulur.",
+      "project_application": "Güvenlik vardiyası, temizlik ve bakım kontrolü için önceden ayarlanmış kontrol listesi/hatırlatma taslakları; tamamlandı, kanıt ve sorumlu bilgisi tek iş kaydında.",
+      "do_not_merge": "Otomatik hatırlatma gerçek saha tamamlanması değildir. Sistem yanıt gelmedi diye işi tamamlandı veya kontrol edildi sayamaz. Alarm akışı sıradan günlük özetin içinde gizlenmez."
+    },
+    {
+      "id": "UX-05",
+      "product": "Google Tasks / Calendar",
+      "topics": ["recurrence", "contextual-entry", "automation"],
+      "url": "https://support.google.com/tasks/answer/12132599?hl=en",
+      "additional_url": "https://support.google.com/a/users/answer/9310341?hl=en",
+      "screen_reference": {"url": "https://support.google.com/a/users/answer/9310341?hl=en", "figure": "Workspace yan panelinden görev ekleme ve Calendar görünümü", "kind": "Resmi yardım örneği"},
+      "evidence": "Resmi yardım okundu; tekrarların açık kuralları ve sınırlamaları mevcut.",
+      "summary": "Tarih/tekrar ayarıyla görev dizisi oluşturulur. Aynı göreve çalışma bağlamındaki yan panelden veya takvimden erişilebilir; tekrar serisinin ayrı düzenleme kapsamları vardır.",
+      "project_application": "Planlı ekipman bakımı ve sözleşme bitişi için tarih, tekrar ve sonlandırma alanları. Bir sonraki iş taslağı ilgili ekipman kartından açılır.",
+      "do_not_merge": "Bir kaydı ve tüm gelecek diziyi düzenleme ayrı sonuçlardır. Tekrarlanan ödeme veya fiziksel kapı açma, görev tekrarıyla aynı otomasyon değildir."
+    },
+    {
+      "id": "UX-06",
+      "product": "Apsiyon konut sakini uygulaması",
+      "topics": ["property-management", "resident-tasks", "role-focused-navigation"],
+      "url": "https://www.apsiyon.com/konut-sakini/mobil-uygulama",
+      "screen_reference": {"url": "https://www.apsiyon.com/konut-sakini/mobil-uygulama", "figure": "Apsiyon Mobil Uygulama resmi tanıtım görseli", "kind": "Telifli tanıtım ekranına bağlantı; kopyalanmadı"},
+      "evidence": "Resmi özellik/tanıtım sayfası okundu. Özellik listesi ve satıcı iddiası; en sade olduğunun veya müşteri memnuniyetinin bağımsız kanıtı değil.",
+      "summary": "Sakin görevleri arasında hesap/makbuz, rezervasyon, kadro, iş talebi, ziyaretçi ve kargo bulunuyor. Yönetici ve sakin ihtiyaçları ayrı bağlamda sunuluyor.",
+      "project_application": "Sakinin ilk ekranı Borcum, Talep oluştur ve Dairem gibi işlere odaklanmalı; yönetici kurulum/finans ekranlarını aynı menüye doldurmamalı.",
+      "do_not_merge": "Rakibin ödeme veya müşteri sayısı beyanı projede yetki, mevzuat veya başarılı teslim kanıtı değildir. Mevcut iki kasa, kiracı/malik ve zorunlu site onayı kuralları değişmez."
+    },
+    {
+      "id": "UX-07",
+      "product": "Android / Material 3 resmi tasarım rehberi",
+      "topics": ["adaptive-navigation", "overflow-menu", "primary-action"],
+      "url": "https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns",
+      "screen_reference": {"url": "https://developer.android.com/design/ui/mobile/guides/layout-and-content/layout-and-nav-patterns", "figure": "Primary navigation UI, Secondary navigation tabs, Layout with FAB ve uyarlanabilir gezinme görselleri", "kind": "Resmi tasarım rehberi"},
+      "evidence": "Tam resmi Google rehberi okundu; doğrudan Material sitesi araçta erişilemedi, Google'ın Material3'e bağlanan birincil rehberi kullanıldı.",
+      "summary": "Aynı düzeydeki az sayıda ana hedef küçük ekranda bar, büyükte rail olabilir. Sık olmayan işlemler menüye alınır; birincil eylem belirgin bırakılır.",
+      "project_application": "Sakin alt menüsünü kısa tutmak; geniş ekranda gereksiz boş üst satır yerine bağlama göre panel. Sekmeler kardeş içerik, menü ise seyrek eylem için kullanılmalı.",
+      "do_not_merge": "Sekiz kategori sekiz alt çubuk ikonu demek değildir. Sık tahsilat veya SOS eylemi çok katlı menünün arkasına saklanmaz."
+    },
+    {
+      "id": "UX-08",
+      "product": "W3C WAI-ARIA Button Pattern",
+      "topics": ["single-state-control", "accessibility", "keyboard"],
+      "url": "https://www.w3.org/WAI/ARIA/apg/patterns/button/",
+      "screen_reference": {"url": "https://www.w3.org/WAI/ARIA/apg/patterns/button/", "figure": "Button Examples bağlantıları; komut ve toggle örnekleri", "kind": "Erişilebilir etkileşim örneği"},
+      "evidence": "Tam resmi düğme örüntüsü okundu.",
+      "summary": "Etiketi değişen Başlat/Durdur komut düğmesi ile sabit etiketi ve pressed durumu bulunan toggle ayrıdır. Klavyede Enter ve Space etkinleştirir.",
+      "project_application": "Mikrofon dinlemesi tek odaklanabilir kontrolle yönetilebilir; görünen sonraki eylem ve ayrı durum metni net olmalı.",
+      "do_not_merge": "Aynı kontrolün etiketi değişirken gelişigüzel pressed semantiği eklenmez. Başlat/durdur ile kapat, sesli yanıt ve kayıt silme ayrı işlemlerdir."
+    }
+  ],
+  "library_access_notes": [
+    "https://linear.app/docs/command-menu bu araçta açılamadı; üçüncü taraf aynası kanıt sayılmadı. Resmi Custom Views ve Display Options belgeleri kullanıldı.",
+    "https://basecamp.com/features/automatic-check-ins404 döndü; resmi şirket iletişim rehberi ve resmi proje örneğiyle değiştirildi.",
+    "Apple HIG layout sayfası JavaScript istedi; Markdown bağlantısı araçta desteklenmedi. Arama özeti tek başına ayrıntılı kaynak kabul edilmedi; okunabilen Reminders ve Android rehberleri kullanıldı.",
+    "Resmi sitelerdeki ekran görselleri yalnız bağlantıyla referanslanır; yerel kopya, telif izni veya yeniden dağıtım hakkı varsayılmaz."
+  ],
+  "project_observations": [
+    {"file": "lib/ui/widgets/yan_menu.dart", "lines": [208, 248, 268, 475, 484], "finding": "Sekiz çekmece grubu tanımlı, bugün bazıları boş; Site hizmetleri grubunda çok sayıda farklı iş birikiyor. Ayarlar zaten ayrı panel. Kamera/plaka eski alias'ı görünürlükte tekilleştiriliyor.", "recommendation": "Yeni grup tasarımı izin veren görünür öğeleri yeniden gruplayabilir; enum/API/modül kodu veya backend yetkileri birleştirilmemeli."},
+    {"file": "lib/ui/pages/home_page.dart", "lines": [1039, 1184, 2798, 2934, 6553], "finding": "Gizleme/ek öğeler, erişim kapısı ve kaydedilmemiş veriyi koruyan menü geçişi ayrı kurallara bağlı.", "recommendation": "Kısa yol ve global arama aynı erişim/korumalı gezinme yolunu kullanmalı; doğrudan onPressed ile korumayı atlamamalı."},
+    {"file": "docs/PLATFORM_FINANS_KASALAR.md", "lines": [50, 54, 55, 60], "finding": "İki tür açık borçta hesabı yönetici seçer; dağıtım tek motor ve postPayment üzerinden yapılır.", "recommendation": "Finans gezinmesi birleşebilir; Aidat/Fon bakiyesi, ödeyen ve hesap seçimi birleştirilemez veya tahminle atlanamaz."}
+  ],
+  "proposed_navigation": {
+    "status": "Tasarım önerisi; uygulanmadı. Sekiz iş ailesi, sekiz telefon alt çubuğu düğmesi anlamına gelmez.",
+    "settings": "Profil, sistem, cihaz kurulumu ve platform yetkileri mevcut Ayarlar panelinde yardımcı alan olarak kalır.",
+    "groups": [
+      {"title": "Bugün", "contents": ["Panel", "Bana atanan", "Bekleyen onaylar", "Yaklaşan işler"], "boundary": "SOS üstte doğrudan kalır; gerçek alarm günlük görev özeti içine gömülmez."},
+      {"title": "Kişiler", "modules": ["people", "directory"], "contents": ["Kişiler varsayılan liste", "Daireler", "Kadro", "Kayıt bağlamında araçlar"], "boundary": "Kişi/daire/araç aynı kayıt değildir; ilişki korunarak görünüm ve arama ortaklaştırılır."},
+      {"title": "Finans", "modules": ["finance", "budget"], "optional_modules": ["metering", "online_payment"], "contents": ["Borçlar", "Tahsilatlar", "Giderler", "Bütçe", "Finans raporları"], "boundary": "Aidat ve Fon adları, ayrı bakiyeler ve FundChoicePanel korunur. Borcum sakin görünümüdür, yazma yetkisi vermez."},
+      {"title": "İşler ve Bakım", "modules": ["work_tracking", "equipment", "contracts"], "contents": ["Talepler", "Planlı bakım", "Ekipman", "Firma/sözleşme"], "boundary": "Ortak iş kutusu olabilir; sözleşme, ekipman ve talep geçmişi ayrı kayıt ve izinlerle kalır."},
+      {"title": "İletişim", "modules": ["announcements", "survey", "neighbor_board"], "contents": ["Duyurular", "Anketler", "Komşu panosu"], "boundary": "Anket oyu kurul kararı değildir. Pano onayı ve hedef kitle kuralları korunur."},
+      {"title": "Ortak Alanlar", "modules": ["reservation"], "contents": ["Müsaitlik", "Rezervasyonlarım", "Konsiyerj"], "boundary": "Rezervasyon kotası ve onay akışı tahminle atlanmaz."},
+      {"title": "Erişim", "modules": ["visitor_log"], "optional_modules": ["door_control", "card_access", "plate_recognition", "hgs_access"], "contents": ["Kapılar", "Kamera/plaka", "Ziyaretçi/kargo", "Yetkili geçiş kayıtları"], "boundary": "Bir grupta bulunmak fiziksel kapı açma veya modül satın alma yetkisi vermez; plaka kararı fiziksel geçiş kanıtı değildir."},
+      {"title": "Belgeler ve Kararlar", "modules": ["drive_storage", "decision_book", "annual_report"], "contents": ["Dosyalar", "Karar defteri", "Faaliyet raporu"], "boundary": "Drive bağlantısı, dosya hedef kitlesi, taslak/yayın ve yasal defter ayrımı korunur."}
+    ],
+    "core_coverage": "15 temel modülün her biri bir iş ailesine yerleştirildi; modül silme veya core bayrağı değiştirme önerilmiyor."
+  },
+  "frequent_workflows": [
+    {"task": "Yönetici tahsilat girişi", "current_navigation": "Panel → Finans → Tahsilat", "proposal": "Bugün üzerindeki kişisel favori Tahsilat aynı mevcut formu açar.", "target": "Veri girişi ve kaydetme hariç iki gezinme seçimini bire indirmek; henüz ölçülmedi.", "must_keep": "Daire/ödeyen/tutar/vade doğrulaması ve iki borç türünde manuel Aidat/Fon seçimi."},
+    {"task": "Sakin arıza talebi", "current_navigation": "Panel → Taleplerim → Yeni talep", "proposal": "Tek Talep oluştur girişi aynı formu açar; yetkili daire/site güvenli varsayılanla gelir.", "target": "İki gezinme seçimini bire indirmek; en az zorunlu alan.", "must_keep": "Fotoğraf isteğe bağlı, son kayıt işlemi görünür; yanlış daire/site veya yönetici bilgisi sızmaz."},
+    {"task": "Yöneticinin daire/sakin bulması", "current_navigation": "Panel → Kişiler → arama → kayıt", "proposal": "Seçili siteye bağlı tek arama A Blok 2 veya isimle kişi/daireyi bulup aynı detay kartını açar.", "target": "Yeni üst ikonlar eklemeden arama ve bir kayıt seçimi; gerçek kullanıcı testiyle ölçülecek.", "must_keep": "Doğal blok/daire sırası, salt okur yetki, aile/araç ilişkileri ve site değişiminde eski yanıtı iptal etme."}
+  ],
+  "single_control_review": {
+    "status": "Yalnız salt okunur bulgu; bu araştırma aşamasında kod değiştirilmedi.",
+    "file": "lib/ui/widgets/voice_control_modal.dart",
+    "duplicate": {"handler_lines": [218, 246, 322], "first_control_lines": [318, 322], "second_control_lines": [233, 246, 378, 386], "finding": "Merkez mikrofon GestureDetector ve alt Durdur/Tekrar Dinle düğmesi aynı toggleListening handler'ını çağırıyor."},
+    "proposal": "Merkez mikrofonu gerçek odaklanabilir Material düğmesine dönüştürüp alt listenButton tekrarını kaldırmak. Durum metni, hata ve son tanınan içerik kalmalı; Kapat tek ayrı eylem olmalı.",
+    "state_rules": [
+      {"state": "idle", "control": "Mikrofon/Dinle etkin; tek sonraki eylem"},
+      {"state": "listening", "control": "Durdur etkin; aynı yerde değişen eylem etiketi ve gerçek Dinleniyor durumu"},
+      {"state": "initializing veya processing", "control": "Yeni başlatma kapalı, ilerleme ve gerçek durum görünür; model işlem bitmeden hazır veya başarılı dememeli"},
+      {"state": "success", "control": "Mevcut kapanış davranışı ve komut gönderildi ifadesi korunur; kapı fiziksel açıldı iddiası eklenmez"},
+      {"state": "error", "control": "Hata görünür; mevcut yeniden deneme/kapanış kuralları keyfi değiştirilmez"}
+    ],
+    "must_remain_separate": [
+      "TTS Sesli yanıt açık/kapalı kontrolü (voice_control_modal.dart295–310): dinleme mikrofonundan farklı bir tercih.",
+      "Kapat (228–231): modalı kapatır; yalnız dinlemeyi durdurma ile aynı sonuç değildir.",
+      "Yangın ve Asansör: ayrı olay türleri ve alıcı kapsamları; tek play/stop'a dönüştürülmez."
+    ],
+    "service_guard_reference": "lib/services/voice_door_service.dart103,249,345: dinleme durumu ve _isProcessingCommand yeniden giriş engeli; UI sadeleştirme bunları kaldırmaz.",
+    "acceptance_tests": ["Tek odak/dinleme kontrolü; Enter ve Space ile bir kez çalışır", "Başlatılıyor/İşleniyor sırasında mükerrer istek göndermez", "Kapat ve TTS tercihleri aynı işlevde kalır", "320dp, yatay ekran,2x yazı ve hareket azaltmada taşma yok", "Başarı ifadesi yalnız gönderim/gerçek doğrulanan durumu söyler"]
+  },
+  "automation_proposals": [
+    {"id": "AUTO-01", "priority": "önce", "idea": "Son seçili siteye bağlı filtre, varsayılan form bilgileri, doğal sıralama ve otomatik yenileme", "human_gate": "Veri değiştirmez; kapsam/erişim yeniden doğrulanır.", "success_measure": "Arama süresi, alan sayısı, yanlış site hatası"},
+    {"id": "AUTO-02", "priority": "önce", "idea": "Ekipman bakım/sözleşme tarihinden yaklaşan işler ve taslak görev listesi", "human_gate": "Taslak ile kaydedilmiş/atandı/tamamlandı ayrılır; dış bildirim veya harcama kendiliğinden tetiklenmez.", "success_measure": "Zamanında fark edilen bakım, yinelenen taslak sayısı"},
+    {"id": "AUTO-03", "priority": "sonra", "idea": "Yetkilinin önceden tanımladığı tekrar kuralıyla vardiya/temizlik kontrol listesi oluşturma", "human_gate": "Kural açıkça kurulmalı; idempotency, iş sorumlusu, sonlandırma, audit ve hata kuyruğu gerekir. Saha tamamlaması insan/kanıtla doğrulanır.", "success_measure": "Kaçırılan ve çift oluşturulan iş sayısı; son başarılı çalışma görünürlüğü"},
+    {"id": "AUTO-04", "priority": "sonra", "idea": "Geri bildirimin ekran/site bağlamına göre ilgili modüle yönlendirme ve benzer kayıt önerisi", "human_gate": "Öneri düzeyinde; notu otomatik çözüldü saymaz, otomatik kullanıcı mesajı göndermez.", "success_measure": "Doğru modüle ilk yönlendirme oranı, çözülmeden kapanan kayıt sayısı"},
+    {"id": "AUTO-05", "priority": "koşullu", "idea": "Fotoğraftan sayaç değeri veya belge alanı için aday çıkarma", "human_gate": "Platform desteği ve düşük güven açıkça belirtilir; OCR sonucu taslaktır, kullanıcı doğrulamadan fatura/borç yazılmaz.", "success_measure": "Düzeltme oranı ve otomatik değer sandığı yanlış kayıt sayısı"}
+  ],
+  "non_goals": [
+    "Sıfır ikon hedefiyle en sık işi menü içinde kaybetmek",
+    "Farklı kişi/daire/araç kayıtlarını aynı veri modeli yapmak",
+    "Finans fon seçimini otomatik tahmin etmek, defter kaydını sessiz değiştirmek",
+    "Doğal dil/AI sınıflandırmasıyla fiziksel kapı açmak veya alarm başlatmak",
+    "Anketi yasal kurul kararı/uygulama bildirimini yasal tebliğ saymak",
+    "Cihaz ACK veya sensör kanıtı yokken fiziksel başarı göstermek"
+  ],
+  "evaluation_plan": {
+    "method": "Aynı üç görevle mevcut ve taslak akışın rol bazlı kullanılabilirlik karşılaştırması; henüz yapılmadı.",
+    "roles": ["yönetici", "sakin", "görevli", "kurul salt okur"],
+    "measure": ["Görevi doğru tamamlayan oran", "İlk görev süresi", "Gezinme adımı", "Yanlış işlem ve geri dönüş", "Yardım ihtiyacı", "Mükerrer kayıt veya yetki kaçağı"],
+    "minimum_acceptance": ["Üç sık işte görünür kısa yol", "Dokunma hedefleri48dp, klavye ve ekran okuyucu", "320dp/2x açık-koyu ve yatay görünümde taşma yok", "Aynı hesap/site/rol kapsamı ve eski istemci API sözleşmesi", "İşlem hatası ve gerçek durum her zaman görünür"],
+    "caveat": "İkon, sayfa veya tıklama sayısı tek başına başarı metriği değildir; daha az gezinme uğruna doğru karar için gerekli bilgi silinmemeli."
+  }
+}

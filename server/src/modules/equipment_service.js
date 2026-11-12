@@ -13,6 +13,7 @@ import { isModuleEnabled } from './module_service.js';
 import { createExpense } from './finance_expenses.js';
 import { createContract } from './contracts_service.js';
 import { todayIstanbul } from './reservation_time.js';
+import { assertEquipmentBlock, listEquipmentBlocks } from './equipment_blocks.js';
 
 export const EQUIPMENT_MODULE = 'equipment';
 export const DEFAULT_KINDS = Object.freeze([
@@ -128,15 +129,17 @@ const bodyOf = (b) => {
   return b;
 };
 
-async function audit(actor, action, siteCode, type, targetId, details) {
-  await recordAudit(pool, { actor, action, siteCode, targetType: type, targetId: String(targetId), details });
+async function audit(actor, action, siteCode, type, targetId, details, db = pool) {
+  await recordAudit(db, { actor, action, siteCode, targetType: type, targetId: String(targetId), details });
 }
 
 const userOf = (access) => access.userCode ?? null;
 
 // --- Ekipman --------------------------------------------------------------------------------------------------------
 
-const ITEM_COLS = `i.id, i.kind, i.name, i.location, i.vendor_id, i.serial_no, to_char(i.installed_on, 'YYYY-MM-DD') AS installed_on, i.note, i.is_active, i.created_at`;
+const ITEM_COLS = `i.id, i.kind, i.name, i.location, i.block_id,
+  (SELECT eb.block_name FROM site_blocks eb WHERE eb.id = i.block_id AND eb.site_code = i.site_code) AS block_name,
+  i.vendor_id, i.serial_no, to_char(i.installed_on, 'YYYY-MM-DD') AS installed_on, i.note, i.is_active, i.created_at`;
 
 function mapItem(r) {
   return {
@@ -144,6 +147,8 @@ function mapItem(r) {
     kind: r.kind,
     name: r.name,
     location: r.location,
+    block_id: r.block_id == null ? null : Number(r.block_id),
+    block_name: r.block_name ?? null,
     vendor_id: r.vendor_id === null ? null : Number(r.vendor_id),
     serial_no: r.serial_no,
     installed_on: r.installed_on,
@@ -156,6 +161,10 @@ function mapItem(r) {
 
 export function metaInfo() {
   return { kinds: DEFAULT_KINDS, intervals: INTERVALS, reminders: 'soon' };
+}
+
+export async function getEquipmentMeta(siteCode, db = pool) {
+  return { ...metaInfo(), blocks: await listEquipmentBlocks(db, siteCode) };
 }
 
 export async function listEquipment(siteCode, query = {}) {
@@ -182,6 +191,7 @@ function parseItem(body, { create }) {
   if (create || b.kind !== undefined) set('kind', text(b.kind, 'kind', 'Ekipman türü', 40, { required: true }));
   if (create || b.name !== undefined) set('name', text(b.name, 'name', 'Ekipman adı', 120, { required: true }));
   if (b.location !== undefined) set('location', text(b.location, 'location', 'Konum', 120));
+  if (b.block_id !== undefined) set('block_id', id(b.block_id, 'block_id', 'Blok'));
   if (b.vendor_id !== undefined) set('vendor_id', id(b.vendor_id, 'vendor_id', 'Firma'));
   if (b.serial_no !== undefined) set('serial_no', text(b.serial_no, 'serial_no', 'Seri no', 60));
   if (b.installed_on !== undefined) set('installed_on', isoDate(b.installed_on, 'installed_on', 'Kurulum tarihi'));
@@ -196,40 +206,42 @@ async function assertVendor(db, siteCode, vendorId) {
   if (!r.rows[0]) throw invalid('vendor_id', 'Firma bu sitede bulunamadı.');
 }
 
-export async function createEquipment({ siteCode, actor, access, body }) {
+export async function createEquipment({ siteCode, actor, access, body }, db = pool) {
   const input = parseItem(body, { create: true });
-  await assertVendor(pool, siteCode, input.vendor_id);
-  const count = await pool.query(`SELECT COUNT(*)::INTEGER AS n FROM equipment_items WHERE site_code = $1`, [siteCode]);
+  await assertVendor(db, siteCode, input.vendor_id);
+  await assertEquipmentBlock(db, siteCode, input.block_id);
+  const count = await db.query(`SELECT COUNT(*)::INTEGER AS n FROM equipment_items WHERE site_code = $1`, [siteCode]);
   if (Number(count.rows[0].n) >= LIMITS.items) throw new PlatformError(409, 'LIMIT_REACHED', `Bir sitede en fazla ${LIMITS.items} ekipman kaydedilebilir.`, { limit: LIMITS.items });
-  const r = await pool.query(
-    `INSERT INTO equipment_items (site_code, kind, name, location, vendor_id, serial_no, installed_on, note, created_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7::DATE, $8, $9) RETURNING id`,
-    [siteCode, input.kind, input.name, input.location ?? null, input.vendor_id ?? null, input.serial_no ?? null, input.installed_on ?? null, input.note ?? null, userOf(access)],
+  const r = await db.query(
+    `INSERT INTO equipment_items (site_code, kind, name, location, vendor_id, serial_no, installed_on, note, created_by, block_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7::DATE, $8, $9, $10) RETURNING id`,
+    [siteCode, input.kind, input.name, input.location ?? null, input.vendor_id ?? null, input.serial_no ?? null, input.installed_on ?? null, input.note ?? null, userOf(access), input.block_id ?? null],
   );
   const equipmentId = Number(r.rows[0].id);
-  await audit(actor, 'equipment.created', siteCode, 'equipment', equipmentId, { kind: input.kind });
-  return { equipment: await loadItem(siteCode, equipmentId) };
+  await audit(actor, 'equipment.created', siteCode, 'equipment', equipmentId, { kind: input.kind }, db);
+  return { equipment: await loadItem(siteCode, equipmentId, db) };
 }
 
-async function loadItem(siteCode, equipmentId) {
-  const r = await pool.query(`SELECT ${ITEM_COLS} FROM equipment_items i WHERE i.id = $1 AND i.site_code = $2`, [equipmentId, siteCode]);
+async function loadItem(siteCode, equipmentId, db = pool) {
+  const r = await db.query(`SELECT ${ITEM_COLS} FROM equipment_items i WHERE i.id = $1 AND i.site_code = $2`, [equipmentId, siteCode]);
   if (!r.rows[0]) throw notFound('Ekipman');
   return mapItem(r.rows[0]);
 }
 
-export async function updateEquipment({ siteCode, rawId, actor, body }) {
+export async function updateEquipment({ siteCode, rawId, actor, body }, db = pool) {
   const equipmentId = id(rawId, 'id', 'Ekipman', { required: true });
   const input = parseItem(body, { create: false });
-  await loadItem(siteCode, equipmentId);
-  if (input.vendor_id !== undefined) await assertVendor(pool, siteCode, input.vendor_id);
+  await loadItem(siteCode, equipmentId, db);
+  if (input.vendor_id !== undefined) await assertVendor(db, siteCode, input.vendor_id);
+  if (input.block_id !== undefined) await assertEquipmentBlock(db, siteCode, input.block_id);
   const keys = Object.keys(input);
   if (keys.length > 0) {
     const cast = { installed_on: '::DATE' };
     const sets = keys.map((k, i) => `${k} = $${i + 3}${cast[k] ?? ''}`).join(', ');
-    await pool.query(`UPDATE equipment_items SET ${sets}, updated_at = NOW() WHERE id = $1 AND site_code = $2`, [equipmentId, siteCode, ...keys.map((k) => input[k])]);
-    await audit(actor, 'equipment.updated', siteCode, 'equipment', equipmentId, { fields: keys });
+    await db.query(`UPDATE equipment_items SET ${sets}, updated_at = NOW() WHERE id = $1 AND site_code = $2`, [equipmentId, siteCode, ...keys.map((k) => input[k])]);
+    await audit(actor, 'equipment.updated', siteCode, 'equipment', equipmentId, { fields: keys }, db);
   }
-  return { equipment: await loadItem(siteCode, equipmentId) };
+  return { equipment: await loadItem(siteCode, equipmentId, db) };
 }
 
 function mapPlan(r) {

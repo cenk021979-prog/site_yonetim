@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/connectivity_error.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dial_call.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/views/my_apartment_vehicles.dart';
+import 'package:site_kapi_kontrol/ui/views/my_apartment_layout.dart';
 import 'package:site_kapi_kontrol/ui/widgets/emergency_call_button.dart';
 import 'package:site_kapi_kontrol/ui/widgets/state_view.dart';
 
@@ -328,6 +329,25 @@ class MyApartmentViewState extends State<MyApartmentView> {
     final adminText = (apt.adminName ?? '').isEmpty
         ? 'Daire yönetimi: henüz belirlenmemiş'
         : 'Daire yönetimi: ${apt.adminName}${apt.adminSideLabel.isEmpty ? '' : ' (${apt.adminSideLabel})'}';
+    final summary = <Widget>[
+      const SizedBox(height: AppSpace.md),
+      Text(adminText, style: th.titleSmall),
+      if (apt.delegated) Text('Kiracı daire yöneticisidir; kiracı çıkana kadar sürer. Malik ve kiracı birlikte kayıtlıdır.', style: secondary),
+      if (apt.delegationPending)
+        Text('Kiracının hesabı yok: kiracı uygulamaya katılınca daire yöneticisi kiracı olur.', style: secondary),
+      const SizedBox(height: AppSpace.sm),
+      _personLine('Malik', apt.owner?.name),
+      _personLine('Kiracı', apt.tenant?.name),
+      if (apt.can.manageProxy || apt.myRole == 'tenant' || apt.isAdmin)
+        _personLine('Toplantı imza hakkı', apt.signingKind == 'proxy' ? 'Vekil: ${apt.signingName ?? ''}' : (apt.signingName == null ? null : 'Malik: ${apt.signingName}')),
+      if (apt.myRole == 'family_member')
+        Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text('Aile üyesi olarak yalnızca görüntüleyebilirsiniz. Daire yönetimi daire yöneticisindedir.', style: secondary)),
+    ];
+    final owner = _ownerSection(apt, canSearch);
+    final requests = _requestsSection(apt);
+    final proxy = _proxySection(apt);
+    final family = _familySection(apt, canSearch);
+    final vehicles = ApartmentVehiclesSection(key: ValueKey('apt_vehicles_panel_${apt.apartmentId}'), service: _service, apartmentId: apt.apartmentId);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.lg),
       child: AppCard(
@@ -346,29 +366,12 @@ class MyApartmentViewState extends State<MyApartmentView> {
                 if (apt.isAdmin) const StatusChip(label: 'Daire yöneticisi', tone: AppTone.success),
               ],
             ),
-            const SizedBox(height: AppSpace.md),
-            Text(adminText, style: th.titleSmall),
-            if (apt.delegated) Text('Kiracı daire yöneticisidir; kiracı çıkana kadar sürer. Malik ve kiracı birlikte kayıtlıdır.', style: secondary),
-            if (apt.delegationPending)
-              Text('Kiracının hesabı yok: kiracı uygulamaya katılınca daire yöneticisi kiracı olur.', style: secondary),
-            const SizedBox(height: AppSpace.sm),
-            _personLine('Malik', apt.owner?.name),
-            _personLine('Kiracı', apt.tenant?.name),
-            if (apt.can.manageProxy || apt.myRole == 'tenant' || apt.isAdmin)
-              _personLine(
-                'Toplantı imza hakkı',
-                apt.signingKind == 'proxy' ? 'Vekil: ${apt.signingName ?? ''}' : (apt.signingName == null ? null : 'Malik: ${apt.signingName}'),
-              ),
-            if (apt.myRole == 'family_member')
-              Padding(
-                padding: const EdgeInsets.only(top: AppSpace.sm),
-                child: Text('Aile üyesi olarak yalnızca görüntüleyebilirsiniz. Daire yönetimi daire yöneticisindedir.', style: secondary),
-              ),
-            ..._ownerSection(apt, canSearch),
-            ..._requestsSection(apt),
-            ..._proxySection(apt),
-            ..._familySection(apt, canSearch),
-            ApartmentVehiclesSection(service: _service, apartmentId: apt.apartmentId),
+            ApartmentDetailsLayout(
+              key: ValueKey('apt_details_layout_${apt.apartmentId}'),
+              primary: [...summary, ...owner, ...family],
+              secondary: [vehicles, ...requests, ...proxy],
+              stacked: [...summary, ...owner, ...requests, ...proxy, ...family, vehicles],
+            ),
             ..._tenantSection(apt),
             const SizedBox(height: AppSpace.md),
             _act('Bu daireden ayrıl', Icons.logout_rounded, _busy ? null : () => unawaited(_leave(apt)), tone: AppTone.danger),

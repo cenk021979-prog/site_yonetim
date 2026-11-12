@@ -60,13 +60,15 @@ void main() {
     });
 
     test(
-      'formda seçilebilen kitleler: sakinler, kurul, yöneticiler (bilinmiyor değil)',
+      'yeni form yönetimi birleştirir; eski yöneticiler API değeri korunur',
       () {
         expect(DocumentAudience.choices, <DocumentAudience>[
-          DocumentAudience.residents,
+          DocumentAudience.all,
           DocumentAudience.board,
-          DocumentAudience.managers,
         ]);
+        expect(DocumentAudience.fromApi('managers'), DocumentAudience.managers);
+        expect(DocumentAudience.fromApi('all'), DocumentAudience.all);
+        expect(DocumentAudience.board.label, 'Yönetim');
       },
     );
 
@@ -163,8 +165,9 @@ void main() {
       String summary(Map<String, dynamic> json) =>
           DocumentSummary.fromJson(json).audienceSummary;
       expect(summary(_summary()), 'Tüm sakinler');
-      expect(summary(_summary(audience: 'board')), 'Yönetim kurulu');
-      expect(summary(_summary(audience: 'managers')), 'Yalnız yöneticiler');
+      expect(summary(_summary(audience: 'all')), 'Herkes');
+      expect(summary(_summary(audience: 'board')), 'Yönetim');
+      expect(summary(_summary(audience: 'managers')), 'Özel yönetici belgesi');
       expect(summary(_summary(targetType: 'blocks')), 'Seçili bloklar');
       expect(
         summary(_summary(targetType: 'blocks', labels: <String>['A', 'B'])),
@@ -208,7 +211,7 @@ void main() {
               labels: <String>['A'],
             ),
           ).audienceSummary,
-          'Yönetim kurulu',
+          'Yönetim',
         );
       },
     );

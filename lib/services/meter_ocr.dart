@@ -8,6 +8,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show compute, defaultTargetPlatform, kIsWeb, TargetPlatform;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image/image.dart' as img;
+import 'package:site_kapi_kontrol/services/work_photo_prepare.dart' show readImageHeaderSize;
 
 /// Sunucu fotoğraf sınırı 600 KB; uzun kenar 1280 px, JPEG kalite 70 bunun çok altında kalır.
 const int kMeterPhotoMaxEdge = 1280;
@@ -16,6 +17,9 @@ const int kMeterPhotoQuality = 70;
 /// Fotoğrafı küçültüp EXIF'siz JPEG'e çevirir; çözülemezse null.
 Uint8List? shrinkMeterPhoto(Uint8List bytes) {
   try {
+    if (bytes.length > 20 * 1024 * 1024) return null;
+    final size = readImageHeaderSize(bytes);
+    if (size == null || size.width > 12000 || size.height > 12000 || size.width * size.height > 40000000) return null;
     final decoded = img.decodeImage(bytes);
     if (decoded == null) return null;
     final oriented = img.bakeOrientation(decoded);
@@ -23,7 +27,14 @@ Uint8List? shrinkMeterPhoto(Uint8List bytes) {
     final resized = longest > kMeterPhotoMaxEdge
         ? img.copyResize(oriented, width: oriented.width >= oriented.height ? kMeterPhotoMaxEdge : null, height: oriented.height > oriented.width ? kMeterPhotoMaxEdge : null)
         : oriented;
-    return Uint8List.fromList(img.encodeJpg(resized, quality: kMeterPhotoQuality));
+    // A fresh pixel image cannot carry the source EXIF/GPS or trailing payload.
+    final clean = img.Image(width: resized.width, height: resized.height);
+    img.compositeImage(clean, resized);
+    for (final quality in [kMeterPhotoQuality, 55, 40, 25]) {
+      final encoded = Uint8List.fromList(img.encodeJpg(clean, quality: quality));
+      if (encoded.length <= 600 * 1024) return encoded;
+    }
+    return null;
   } on Object {
     return null;
   }

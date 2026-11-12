@@ -53,7 +53,8 @@ import {
 import { createProxy, revokeProxy, signingRoster } from './apartment_mgmt_proxy.js';
 import { changeApartmentAdmin, listAdminCandidates } from './apartment_mgmt_manager.js';
 import { getApartmentHousehold } from './apartment_mgmt_household.js';
-import { createApartmentVehicle, listApartmentVehicles, removeApartmentVehicle, updateApartmentVehicle } from './apartment_mgmt_vehicles.js';
+import { createApartmentVehicle, listApartmentVehicles, removeApartmentVehicle, updateApartmentVehicle,
+  getVehicleRegistrationPhoto, putVehicleRegistrationPhoto, removeVehicleRegistrationPhoto } from './apartment_mgmt_vehicles.js';
 import {
   createSafetyRequest,
   liftMemberSuspension,
@@ -245,6 +246,14 @@ apartmentMgmtRouter.post('/app/apartments/:apartmentId/safety-requests', authReq
 });
 
 // Daire araclari. Okuma: dairede bagi olan herkes + site yoneticisi; yazma: daire admini ya da site yoneticisi (kural: apartment_mgmt_vehicles.js).
+for (const [method, service] of [['get', getVehicleRegistrationPhoto], ['put', putVehicleRegistrationPhoto], ['delete', removeVehicleRegistrationPhoto]]) {
+  apartmentMgmtRouter[method]('/app/apartments/:apartmentId/vehicles/:vehicleId/registration-photo', authRequired, method === 'get' ? readLimiter : vehicleLimiter, async (req, res) => {
+    try {
+      noStore(res);
+      return res.json(await service({ authUser: req.authUser, apartmentId: req.params.apartmentId, vehicleId: req.params.vehicleId, body: bodyOf(req) }));
+    } catch (error) { return respondError(res, 'vehicle_registration_photo', error, 'Ruhsat fotoğrafı işlemi tamamlanamadı.'); }
+  });
+}
 apartmentMgmtRouter.get('/app/apartments/:apartmentId/vehicles', authRequired, readLimiter, async (req, res) => {
   try {
     noStore(res);

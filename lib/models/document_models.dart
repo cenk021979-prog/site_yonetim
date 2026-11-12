@@ -81,20 +81,17 @@ enum DocumentCategory {
 
 /// Belgeyi kimlerin görebileceği (sunucu `audience`). Varsayılan YOKTUR: yükleyen açıkça seçer.
 enum DocumentAudience {
+  all('all', 'Herkes', 'Sakinler, görevliler ve yönetim.'),
   residents(
     'residents',
-    'Sakinler',
-    'Sakinlere açık; hedef olarak tüm site, bloklar ya da daireler seçilebilir.',
+    'Seçili sakinler ve yönetim',
+    'Hedefteki sakinler ve yönetim görür; görevliler dahil değildir.',
   ),
-  board(
-    'board',
-    'Yönetim kurulu',
-    'Yalnız yönetim kurulu ve yöneticiler görür.',
-  ),
+  board('board', 'Yönetim', 'Site yöneticileri ve yönetim kurulu görür.'),
   managers(
     'managers',
-    'Yalnız yöneticiler',
-    'Yalnızca site yöneticileri görür.',
+    'Özel yönetici belgesi',
+    'Eski paylaşım: yalnız site yöneticileri görür. Yönetim kuruluna açmak için Yönetim seçin.',
   ),
   unknown('', 'Kitle bilinmiyor', '');
 
@@ -106,12 +103,9 @@ enum DocumentAudience {
   /// Formda seçeneğin altındaki açıklama.
   final String description;
 
-  /// Formda seçilebilen kitleler (`unknown` hariç).
-  static const List<DocumentAudience> choices = <DocumentAudience>[
-    residents,
-    board,
-    managers,
-  ];
+  /// Yeni belgelerde seçilebilen kitleler. Eski özel yönetici belgeleri
+  /// okunur fakat kendiliğinden kurul üyelerine açılmaz.
+  static const List<DocumentAudience> choices = <DocumentAudience>[all, board];
 
   static DocumentAudience fromApi(Object? value) {
     final normalized = value?.toString().trim().toLowerCase();
@@ -244,7 +238,9 @@ class DocumentCurrentVersion {
       mimeType: _text(json['mime_type']),
       sizeBytes: crmInt(json['size_bytes']),
       completedAt: documentInstant(json['completed_at']),
-      storage: _text(json['storage']).isEmpty ? 'server' : _text(json['storage']),
+      storage: _text(json['storage']).isEmpty
+          ? 'server'
+          : _text(json['storage']),
     );
   }
 }
@@ -369,7 +365,7 @@ class DocumentSummary {
 
   bool get isDeleted => status == DocumentStatus.deleted;
 
-  /// Kart üzerindeki kitle özeti: "Tüm sakinler", "Yönetim kurulu", "Yalnız yöneticiler", "A, B Blok".
+  /// Kart üzerindeki kitle özeti: "Tüm sakinler", "Yönetim", "Özel yönetici belgesi", "A, B Blok".
   String get audienceSummary =>
       documentAudienceSummary(audience, targetType, targetLabels);
 
@@ -419,10 +415,12 @@ String documentAudienceSummary(
   List<String> labels,
 ) {
   switch (audience) {
+    case DocumentAudience.all:
+      return DocumentAudience.all.label;
     case DocumentAudience.managers:
-      return 'Yalnız yöneticiler';
+      return DocumentAudience.managers.label;
     case DocumentAudience.board:
-      return 'Yönetim kurulu';
+      return DocumentAudience.board.label;
     case DocumentAudience.unknown:
       return 'Kitle bilinmiyor';
     case DocumentAudience.residents:
@@ -750,7 +748,9 @@ class ResidentDocument {
           ? json['is_updated'] as bool
           : versionNo > 1,
       updatedAt: documentInstant(json['updated_at']),
-      storage: _text(json['storage']).isEmpty ? 'server' : _text(json['storage']),
+      storage: _text(json['storage']).isEmpty
+          ? 'server'
+          : _text(json['storage']),
     );
   }
 }

@@ -6,6 +6,7 @@
 // BOARD_MEMBER, sitesinin `residents` belgelerini hedefe bakılmaksızın görür (A6). Hesapsız kişi indiremez (kimliksiz uç yok). Başkasının satırına ASLA erişilmez.
 
 import { pool } from '../db.js';
+import { publicDocumentAccessSql } from './document_visibility.js';
 import { escapeLike, foldSql, foldText } from './people_common.js';
 import { syncSitePeopleSafe } from './people_sync.js';
 import { documentNotFound, mapResidentRow, parsePositiveId, parseResidentQuery } from './document_common.js';
@@ -95,7 +96,7 @@ const RESIDENT_COLUMNS = `
 `;
 
 const residentWhere = (userParam = '$1') =>
-  `d.status = 'active' AND d.audience = 'residents' AND ${MODULE_ENABLED_SQL('d')} AND ${documentVisibleToUserSql('d', userParam)}`;
+  `d.status = 'active' AND ${MODULE_ENABLED_SQL('d')} AND ${publicDocumentAccessSql('d', userParam, documentVisibleToUserSql('d', userParam))}`;
 
 /**
  * Hesabı olup `site_people` satırı henüz olmayan (yeni onaylanan) üye "belge yok" görmesin: ilgili sitelerde KISITLI eşitleme (try-lock, 5 sn
@@ -234,10 +235,10 @@ export async function resolveAnnouncementAttachmentDownload(authUser, rawAnnounc
       INNER JOIN sites s ON s.site_code = a.site_code AND s.approval_status = 'approved'
       INNER JOIN announcement_recipients r ON r.announcement_id = a.id
       INNER JOIN site_people sp ON sp.id = r.person_id AND sp.user_code = $1
-      INNER JOIN documents d ON d.id = aa.document_id AND d.site_code = a.site_code AND d.status = 'active' AND d.audience = 'residents'
+      INNER JOIN documents d ON d.id = aa.document_id AND d.site_code = a.site_code AND d.status = 'active'
       INNER JOIN document_versions cv ON cv.document_id = d.id AND cv.version_no = d.current_version_no AND cv.status = 'ready'
       LEFT JOIN drive_files df ON df.id = cv.drive_file_id AND df.site_code = d.site_code
-      WHERE aa.announcement_id = $2 AND aa.document_id = $3 AND ${MODULE_ENABLED_SQL('d')} AND ${userInDocumentSiteSql('d', '$1')}
+      WHERE aa.announcement_id = $2 AND aa.document_id = $3 AND ${MODULE_ENABLED_SQL('d')} AND ${publicDocumentAccessSql('d', '$1', userInDocumentSiteSql('d', '$1'))}
       LIMIT 1
     `,
     [userCode, announcementId, documentId],

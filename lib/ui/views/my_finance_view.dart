@@ -104,7 +104,6 @@ class MyFinanceViewState extends State<MyFinanceView> {
 
   @override
   Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
     final data = _data;
     final Widget content;
     if (_moduleOff) {
@@ -134,11 +133,10 @@ class MyFinanceViewState extends State<MyFinanceView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Borcum', icon: Icons.account_balance_wallet_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Dairenizin güncel borç ve alacak durumunu, vadeleri ve son hareketleri buradan görebilirsiniz.',
-          style: th.bodyMedium,
+        const PageHeaderCard(
+          title: 'Borcum',
+          icon: Icons.account_balance_wallet_rounded,
+          help: 'Dairenizin güncel borç ve alacak durumunu, vadeleri ve son hareketleri buradan görebilirsiniz.',
         ),
         const SizedBox(height: AppSpace.md),
         content,

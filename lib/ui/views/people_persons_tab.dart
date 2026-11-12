@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/bulk_entry_buttons.dart' show BulkEmptyImportAction, BulkListImportButton;
 import 'package:site_kapi_kontrol/ui/widgets/crm_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/person_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/people_filters.dart';
 
 /// "Kişiler" sekmesi (Platform Faz 2a): arama + ilişki / durum süzgeçleri, sayfalı kişi listesi,
 /// "Kişi Ekle", kişi bazlı işlem seçenekleri (düzenle, şifre sıfırlama, davet, ilişik kesme)
@@ -43,8 +44,6 @@ class PeoplePersonsTab extends StatefulWidget {
 }
 
 class PeoplePersonsTabState extends State<PeoplePersonsTab> {
-  static const String _all = '';
-
   final TextEditingController _search = TextEditingController();
   Timer? _timer;
   String _query = '';
@@ -420,7 +419,6 @@ class PeoplePersonsTabState extends State<PeoplePersonsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
     final th = Theme.of(context).textTheme;
     final allLoadedSelected =
         _loader.items.isNotEmpty && _selectedIds.containsAll(_loader.items.map((e) => e.id));
@@ -448,100 +446,29 @@ class PeoplePersonsTabState extends State<PeoplePersonsTab> {
           ],
         ],
         AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                key: const ValueKey<String>('people_search'),
-                controller: _search,
-                textInputAction: TextInputAction.search,
-                onChanged: _onSearchChanged,
-                onSubmitted: (_) => _applyFilters(),
-                decoration: InputDecoration(
-                  labelText: 'Kişi ara',
-                  hintText: 'Ad, telefon, e-posta veya daire',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _search.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Aramayı temizle',
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            _search.clear();
-                            _applyFilters();
-                            setState(() {});
-                          },
-                        ),
-                ),
-              ),
-              const SizedBox(height: AppSpace.md),
-              DropdownButtonFormField<String>(
-                key: ValueKey<String>('people_relation_${_relation?.apiValue ?? ''}'),
-                isExpanded: true,
-                initialValue: _relation?.apiValue ?? _all,
-                dropdownColor: p.surface,
-                style: th.bodyMedium?.copyWith(color: p.text),
-                decoration: const InputDecoration(
-                  labelText: 'İlişki',
-                  prefixIcon: Icon(Icons.badge_rounded),
-                ),
-                items: [
-                  const DropdownMenuItem<String>(
-                    value: _all,
-                    child: Text('Tümü', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  for (final relation in ResidencyRelation.values)
-                    DropdownMenuItem<String>(
-                      value: relation.apiValue,
-                      child: Text(
-                        relation.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  final next = value == _all ? null : ResidencyRelation.tryParse(value);
-                  if (next == _relation) return;
-                  _relation = next;
-                  _applyFilters();
-                  setState(() {});
-                },
-              ),
-              const SizedBox(height: AppSpace.md),
-              DropdownButtonFormField<String>(
-                key: ValueKey<String>('people_status_$_status'),
-                isExpanded: true,
-                initialValue: _status,
-                dropdownColor: p.surface,
-                style: th.bodyMedium?.copyWith(color: p.text),
-                decoration: const InputDecoration(
-                  labelText: 'Durum',
-                  prefixIcon: Icon(Icons.filter_list_rounded),
-                ),
-                items: const [
-                  DropdownMenuItem<String>(
-                    value: 'active',
-                    child: Text('Aktif kişiler', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  DropdownMenuItem<String>(
-                    value: 'inactive',
-                    child: Text('Eski sakinler', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  DropdownMenuItem<String>(
-                    value: 'all',
-                    child: Text('Tümü', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value == null || value == _status) return;
-                  _status = value;
-                  _applyFilters();
-                  setState(() {});
-                },
-              ),
-            ],
+          child: PeopleFilters(
+            search: _search,
+            relation: _relation,
+            status: _status,
+            onSearchChanged: _onSearchChanged,
+            onSearchSubmitted: _applyFilters,
+            onClearSearch: () {
+              _search.clear();
+              _applyFilters();
+              setState(() {});
+            },
+            onRelationChanged: (next) {
+              if (next == _relation) return;
+              _relation = next;
+              _applyFilters();
+              setState(() {});
+            },
+            onStatusChanged: (value) {
+              if (value == _status) return;
+              _status = value;
+              _applyFilters();
+              setState(() {});
+            },
           ),
         ),
         const SizedBox(height: AppSpace.md),

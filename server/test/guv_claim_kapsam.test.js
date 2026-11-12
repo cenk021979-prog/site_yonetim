@@ -463,7 +463,7 @@ describe('replaceDoorDevice: A yoneticisi B nin cihazini kendi kapisina takamaz 
   });
 
   it('kaynak sirasi: kapsam kapisi, sahiplenme UPDATE inden ONCE calisir', () => {
-    const source = readFileSync(new URL('../src/services/door_service.js', import.meta.url), 'utf8');
+    const source = readFileSync(new URL('../src/services/door_service.js', import.meta.url), 'utf8').replace(/\r+\n/g, '\n');
     const scope = source.indexOf('await assertDeviceInScope(existingDev);');
     const claim = source.indexOf('SET owner_user_id = $1, assigned_user_code = $2, claimed_at = NOW()');
     assert.ok(scope > 0 && claim > 0, 'her iki ifade de bulunmali');

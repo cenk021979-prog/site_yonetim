@@ -1,7 +1,7 @@
-// Belge indirme ilerleme penceresi ve "indir -> paylaş / aç" akışı (docs/PLATFORM_BELGELER.md A13).
+// Belge indirme ilerlemesi: masaüstü/web kaydetme, mobil paylaşım (A13).
 //
-// Belge geçici dosyaya AKIŞLA indirilir (bellek şişmez), ardından işletim sisteminin paylaşım menüsüne
-// ("ile aç" / kaydet / gönder) verilir; geçici kopya sonra silinir ([DocumentFileSharer]). Pencere:
+// Ağ gövdesi geçici dosyaya akışla indirilir; kaydetme için sınırlı belge boyutundaki
+// baytlar FilePicker'a verilir. Mobilde paylaşım menüsü kullanılır. Geçici kopya temizlenir.
 // - ilerleme çubuğu + "Vazgeç" (iptal: bağlantı kapanır, kısmi dosya silinir),
 // - hata: Türkçe ileti + "Tekrar Dene" (odak yeniden-deneme düğmesine gelir), asla sessiz kapanmaz,
 // - geri tuşu = iptal (indirme arka planda sürüp dosya bırakmaz).
@@ -50,15 +50,34 @@ Rect? documentShareOrigin(BuildContext context) {
   return null;
 }
 
-/// İndir -> paylaşım menüsü akışının tamamı. Hata ve iptal penceresinde ele alınır; paylaşım menüsü açılamazsa
-/// kısa bir bildirim gösterilir ve geçici kopya silinir. [originContext] dokunulan düğmenin bağlamıdır.
+/// Eski çağrı adı geriye uyum için korunur; gerçek indirme niyeti platforma göre teslim edilir.
 Future<void> downloadAndShareDocument(
   BuildContext context, {
   required String title,
   required DocumentDownloadCall download,
   DocumentFileSharer? sharer,
   BuildContext? originContext,
+  bool Function()? canDeliver,
+}) => downloadAndDeliverDocument(
+  context,
+  title: title,
+  download: download,
+  sharer: sharer,
+  originContext: originContext,
+  canDeliver: canDeliver,
+);
+
+/// İndirme ile paylaşım farklı niyetlerdir. Masaüstü/web İndir eylemi sistem
+/// paylaşımını açmaz. Kaydet iptalinde yeniden paylaşım veya ikinci indirme yapılmaz.
+Future<void> downloadAndDeliverDocument(
+  BuildContext context, {
+  required String title,
+  required DocumentDownloadCall download,
+  DocumentFileSharer? sharer,
+  BuildContext? originContext,
+  bool Function()? canDeliver,
 }) async {
+  if (!context.mounted || !(canDeliver?.call() ?? true)) return;
   // Konum, pencereler açılmadan ÖNCE alınır (sonra düğmenin bağlamı geçersiz olabilir).
   final origin = documentShareOrigin(originContext ?? context);
   final doc = await showDocumentDownload(
@@ -69,13 +88,17 @@ Future<void> downloadAndShareDocument(
   if (doc == null) return;
   final share = sharer ?? DocumentFileSharer();
   try {
-    await share.share(doc, sharePositionOrigin: origin);
+    if (!context.mounted || !(canDeliver?.call() ?? true)) {
+      await share.scheduleDelete(doc);
+      return;
+    }
+    await share.deliver(doc, sharePositionOrigin: origin, canDeliver: canDeliver);
   } catch (_) {
     await share.scheduleDelete(doc);
-    if (context.mounted) {
+    if (context.mounted && (canDeliver?.call() ?? true)) {
       AppSnack.show(
         context,
-        'Paylaşım menüsü açılamadı. Tekrar deneyin.',
+        'Dosya kaydedilemedi veya paylaşılamadı. Tekrar deneyin.',
         kind: AppSnackKind.error,
       );
     }

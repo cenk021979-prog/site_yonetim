@@ -33,6 +33,7 @@ AppTone documentKindTone(DocumentFileKind kind) => switch (kind) {
 
 /// Kitle simgesi.
 IconData documentAudienceIcon(DocumentAudience audience) => switch (audience) {
+  DocumentAudience.all => Icons.groups_rounded,
   DocumentAudience.residents => Icons.groups_rounded,
   DocumentAudience.board => Icons.gavel_rounded,
   DocumentAudience.managers => Icons.admin_panel_settings_rounded,
@@ -141,7 +142,9 @@ class DocumentAdminCard extends StatelessWidget {
       padding: listCardPadding(context),
       // Drive'a aktarımı süren belge tıklanamaz (yalnız Drive'a kaydı teyit edilmiş dosyalar açılır).
       onTap: transferring ? null : onTap,
-      semanticLabel: transferring ? '$semantic Drive\'a aktarılıyor, henüz açılamaz.' : semantic.toString(),
+      semanticLabel: transferring
+          ? '$semantic Drive\'a aktarılıyor, henüz açılamaz.'
+          : semantic.toString(),
       child: ExcludeSemantics(
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -271,7 +274,8 @@ class DocumentResidentCard extends StatelessWidget {
                           runSpacing: AppSpace.xs,
                           children: [
                             DocumentCategoryChip(d.category),
-                            if (d.isTransferring) InfoChip('Drive\'a aktarılıyor'),
+                            if (d.isTransferring)
+                              InfoChip('Drive\'a aktarılıyor'),
                             if (d.isUpdated) const DocumentUpdatedChip(),
                           ],
                         ),

@@ -13,7 +13,8 @@ String? _text(Object? value) {
 }
 
 /// Türkçe büyük/küçük harf farkını gözetmeyen karşılaştırma anahtarı (İ/I, ı/i).
-String _fold(String value) => value.replaceAll('İ', 'i').replaceAll('I', 'ı').toLowerCase();
+String _fold(String value) =>
+    value.replaceAll('İ', 'i').replaceAll('I', 'ı').toLowerCase();
 
 /// `tel:` adresi için telefon metni ("+90 212 555 12 34" -> "+902125551234", "444 1 234" -> "4441234"); 3 haneden azsa null.
 String? emergencyDialable(String? phone) {
@@ -35,6 +36,7 @@ class EmergencySite {
     this.elevatorFirmName,
     this.elevatorFirmPhone,
     this.canEdit = false,
+    this.canCreate = false,
   });
 
   factory EmergencySite.fromJson(Map<String, dynamic> json) => EmergencySite(
@@ -46,6 +48,7 @@ class EmergencySite {
     elevatorFirmName: _text(json['elevator_firm_name']),
     elevatorFirmPhone: _text(json['elevator_firm_phone']),
     canEdit: json['can_edit'] == true,
+    canCreate: json['can_create'] == true,
   );
 
   final int siteCode;
@@ -61,16 +64,24 @@ class EmergencySite {
   /// Sunucuya göre çağıran bu sitenin YÖNETİCİSİ (kurul, görevli ve sakin değil). Ekranda ayrıca yönetici modu aranır.
   final bool canEdit;
 
+  /// Site içi alarm başlatma yetkisi; yalnız yeni alarm uçlarından gelir.
+  final bool canCreate;
+
   /// Kullanıcıya görünen ad; ad boşsa teknik site kodu gösterilmez.
-  String get label => siteName.trim().isEmpty ? 'İsimsiz site' : siteName.trim();
+  String get label =>
+      siteName.trim().isEmpty ? 'İsimsiz site' : siteName.trim();
 
   /// "Atatürk Mah. 12. Sok. No: 5, Kadıköy / İstanbul"; adres, ilçe ve il yoksa null. Satır sonları virgüle çevrilir; adres ilçeyi ve ili
   /// zaten içeriyorsa ikinci kez eklenmez.
   String? get addressLine {
-    final street = address?.split(RegExp(r'\s*[\r\n]+\s*')).where((p) => p.trim().isNotEmpty).join(', ');
+    final street = address
+        ?.split(RegExp(r'\s*[\r\n]+\s*'))
+        .where((p) => p.trim().isNotEmpty)
+        .join(', ');
     final place = <String>[?district, ?city];
     final streetFold = street == null ? '' : _fold(street);
-    final placeCovered = street != null && place.every((p) => streetFold.contains(_fold(p)));
+    final placeCovered =
+        street != null && place.every((p) => streetFold.contains(_fold(p)));
     final locality = place.isEmpty || placeCovered ? null : place.join(' / ');
     final parts = <String>[?street, ?locality];
     return parts.isEmpty ? null : parts.join(', ');
@@ -84,16 +95,18 @@ class EmergencySite {
   /// Bakım firmasının görünen adı ("Asansör bakım firması" adı yazılmamışsa genel ad).
   String get elevatorFirmLabel => elevatorFirmName ?? 'Asansör bakım firması';
 
-  EmergencySite withElevatorFirm({String? name, String? phone}) => EmergencySite(
-    siteCode: siteCode,
-    siteName: siteName,
-    address: address,
-    city: city,
-    district: district,
-    elevatorFirmName: _text(name),
-    elevatorFirmPhone: _text(phone),
-    canEdit: canEdit,
-  );
+  EmergencySite withElevatorFirm({String? name, String? phone}) =>
+      EmergencySite(
+        siteCode: siteCode,
+        siteName: siteName,
+        address: address,
+        city: city,
+        district: district,
+        elevatorFirmName: _text(name),
+        elevatorFirmPhone: _text(phone),
+        canEdit: canEdit,
+        canCreate: canCreate,
+      );
 
   @override
   bool operator ==(Object other) =>
@@ -105,10 +118,21 @@ class EmergencySite {
       other.district == district &&
       other.elevatorFirmName == elevatorFirmName &&
       other.elevatorFirmPhone == elevatorFirmPhone &&
-      other.canEdit == canEdit;
+      other.canEdit == canEdit &&
+      other.canCreate == canCreate;
 
   @override
-  int get hashCode => Object.hash(siteCode, siteName, address, city, district, elevatorFirmName, elevatorFirmPhone, canEdit);
+  int get hashCode => Object.hash(
+    siteCode,
+    siteName,
+    address,
+    city,
+    district,
+    elevatorFirmName,
+    elevatorFirmPhone,
+    canEdit,
+    canCreate,
+  );
 }
 
 /// Hızlı düğmeler: genel acil durum (112), yangın ve asansör arızası.
@@ -145,15 +169,19 @@ class EmergencyGuide {
   final List<String> questions;
 }
 
-const String _addressQuestion = 'Adres: site adı, mahalle, cadde veya sokak, bina ve kapı numarası';
-const String _contactQuestion = 'Adınız ve geri aranabileceğiniz telefon numarası';
+const String _addressQuestion =
+    'Adres: site adı, mahalle, cadde veya sokak, bina ve kapı numarası';
+const String _contactQuestion =
+    'Adınız ve geri aranabileceğiniz telefon numarası';
 
-const Map<EmergencyScenario, EmergencyGuide> _guides = <EmergencyScenario, EmergencyGuide>{
+const Map<EmergencyScenario, EmergencyGuide>
+_guides = <EmergencyScenario, EmergencyGuide>{
   EmergencyScenario.general: EmergencyGuide(
     scenario: EmergencyScenario.general,
     title: 'Aramaya hazırlanın',
     scriptTitle: 'ACİL DURUM - 112',
-    summary: 'Çağrı bitene kadar hatta kalın; sorulara sakin ve açık cevap verin.',
+    summary:
+        'Çağrı bitene kadar hatta kalın; sorulara sakin ve açık cevap verin.',
     steps: <String>[],
     sayLine: 'Acil bir durum var.',
     questions: <String>[
@@ -187,7 +215,8 @@ const Map<EmergencyScenario, EmergencyGuide> _guides = <EmergencyScenario, Emerg
     scenario: EmergencyScenario.elevator,
     title: 'Asansör arızası',
     scriptTitle: 'ACİL DURUM - ASANSÖR ARIZASI',
-    summary: 'Arızayı önce sitenin asansör bakım firmasına bildirin. İçeride mahsur kalan biri tehlikedeyse 112\'yi arayın.',
+    summary:
+        'Arızayı önce sitenin asansör bakım firmasına bildirin. İçeride mahsur kalan biri tehlikedeyse 112\'yi arayın.',
     steps: <String>[
       'İçeride mahsur kalan varsa sakin olun; kapıyı zorlamayın, kabindeki alarm ya da interkom düğmesine basın.',
       'Dışarıdakiler asansörü zorlamasın ve kullanmasın.',
@@ -204,13 +233,12 @@ const Map<EmergencyScenario, EmergencyGuide> _guides = <EmergencyScenario, Emerg
   ),
 };
 
-EmergencyGuide emergencyGuideOf(EmergencyScenario scenario) => _guides[scenario]!;
+EmergencyGuide emergencyGuideOf(EmergencyScenario scenario) =>
+    _guides[scenario]!;
 
 /// "Aramada söyleyin" bloğunun adres satırları: (site adı, adres). Site yoksa ya da adres kayıtlı değilse ilgili parça null.
-({String? siteName, String? address}) emergencySayLines(EmergencySite? site) => (
-  siteName: site?.label,
-  address: site?.addressLine,
-);
+({String? siteName, String? address}) emergencySayLines(EmergencySite? site) =>
+    (siteName: site?.label, address: site?.addressLine);
 
 /// Kuru modda ve "Bilgileri kopyala" ile panoya giden düz metin: numaralar, aramada söylenecekler, adres ve sorular. Hiçbir satır
 /// aramanın yapıldığını söylemez.
@@ -222,16 +250,24 @@ String buildEmergencyScript(EmergencyScenario scenario, EmergencySite? site) {
       lines.add('Aranacak numara: $kEmergencyNumber');
     case EmergencyScenario.elevator:
       if (site != null && site.hasElevatorFirm) {
-        lines.add('Asansör bakım firması: ${site.elevatorFirmLabel}, ${site.elevatorFirmPhone}');
+        lines.add(
+          'Asansör bakım firması: ${site.elevatorFirmLabel}, ${site.elevatorFirmPhone}',
+        );
       } else {
-        lines.add('Asansör bakım firması: kayıtlı değil (site yönetiminden isteyin)');
+        lines.add(
+          'Asansör bakım firması: kayıtlı değil (site yönetiminden isteyin)',
+        );
       }
       lines.add('Mahsur kalan kişide tehlike varsa: $kEmergencyNumber');
   }
   lines.add('Söyleyin: ${guide.sayLine}');
   final say = emergencySayLines(site);
   if (say.siteName != null) lines.add('Site: ${say.siteName}');
-  lines.add(say.address != null ? 'Adres: ${say.address}' : 'Adres: kayıtlı değil, adresi kendiniz söyleyin');
+  lines.add(
+    say.address != null
+        ? 'Adres: ${say.address}'
+        : 'Adres: kayıtlı değil, adresi kendiniz söyleyin',
+  );
   lines.add('Blok, kat ve daire numaranızı da söyleyin.');
   lines
     ..add('')

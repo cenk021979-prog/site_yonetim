@@ -15,6 +15,7 @@ Bu belge sunucu (`server/`) ve uygulama (`lib/`) için BAĞLAYICIDIR. Öncül be
 - **İki daire hesabı (değişmedi, İP-1A):** her dairenin ev sahibi (`owner`) ve kiracı (`tenant`) hesabı vardır. Kasa kuralı bunun üstüne kurulur:
   - Kiracılı daire: Fon borçları malik hesabına, İşletme borçları kiracı hesabına yazılır (ödemeleri de ilgili hesaba).
   - Malik oturuyorsa iki kasanın borcu da malik hesabındadır.
+  - **2026-11-08 günlük Aidat kuralı:** aylık İşletme borcu gerçek takvim günleriyle bölünür; kiracının giriş/çıkış günleri dahil kullanım payı kiracıda, kalan günlerin payı malikte kalır. İki pay da `operating` kasasındadır; malik payı Fon borcuna dönüşmez. Önceden yazılmış borç yalnız ters kayıt ve yeni paylarla düzeltilir, ödemeler değişmez. Ayrıntı: `PLATFORM_FINANS.md` "Ay ortası taşınma: günlük Aidat paylaşımı".
 
 ## 2. Borcun kasası
 

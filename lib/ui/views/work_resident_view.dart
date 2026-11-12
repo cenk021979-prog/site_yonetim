@@ -209,6 +209,7 @@ class WorkResidentViewState extends State<WorkResidentView> {
         PageHeaderCard(
           title: 'Taleplerim',
           icon: Icons.assignment_rounded,
+          help: 'Arıza, bakım, şikayet ya da önerinizi yönetime iletin ve durumunu buradan izleyin.',
           action: canCreate
               ? ElevatedButton.icon(
                   key: const ValueKey<String>('work_new_request'),
@@ -218,12 +219,7 @@ class WorkResidentViewState extends State<WorkResidentView> {
                 )
               : null,
         ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Arıza, bakım, şikayet ya da önerinizi yönetime iletin ve durumunu buradan izleyin.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (multiSite) ...[
           AppCard(
             child: DropdownButtonFormField<int>(

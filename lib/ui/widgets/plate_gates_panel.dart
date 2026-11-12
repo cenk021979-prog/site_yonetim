@@ -29,7 +29,8 @@ class GateBadgeView extends StatelessWidget {
   final GateBadge badge;
 
   @override
-  Widget build(BuildContext context) => StatusDot(label: badge.label, tone: _tone(badge.color));
+  Widget build(BuildContext context) =>
+      StatusDot(label: badge.label, tone: _tone(badge.color));
 }
 
 String _fmt(DateTime d) =>
@@ -95,8 +96,14 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
         title: Text(title),
         content: Text(message),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(yes)),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(yes),
+          ),
         ],
       ),
     );
@@ -142,7 +149,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
           if (snap.ok && snap.bytes != null) {
             await cs.uploadSnapshot(widget.siteCode, cameraId, snap.bytes!);
             if (!mounted) return;
-            AppSnack.show(context, 'Kamera bağlantısı başarılı — canlı görüntü alındı.', kind: AppSnackKind.success);
+            AppSnack.show(
+              context,
+              'Kamera bağlantısı başarılı — canlı görüntü alındı.',
+              kind: AppSnackKind.success,
+            );
             widget.onChanged();
             return;
           }
@@ -152,7 +163,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
       }
       await cs.probe(widget.siteCode, cameraId);
       if (!mounted) return;
-      AppSnack.show(context, 'Kamera bağlantısı sınanıyor.', kind: AppSnackKind.success);
+      AppSnack.show(
+        context,
+        'Kamera bağlantısı sınanıyor.',
+        kind: AppSnackKind.success,
+      );
       widget.onChanged();
     } on ApiException catch (e) {
       if (mounted) AppSnack.show(context, e.message, kind: AppSnackKind.error);
@@ -162,11 +177,19 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
   Future<void> _unlinkCamera(PlateGate gate, GateCamera cam) async {
     final cs = widget.camerasService;
     if (cs == null) return;
-    if (!await _confirm('Kapıdan Ayır', '${cam.name} kamerası ${gate.name} kapısından ayrılsın mı? Kamera sistemde kalır ancak plaka okunduğunda bu kapıyı açmaz.', 'Kapıdan Ayır')) {
+    if (!await _confirm(
+      'Kapıdan Ayır',
+      '${cam.name} kamerası ${gate.name} kapısından ayrılsın mı? Kamera sistemde kalır ancak plaka okunduğunda bu kapıyı açmaz.',
+      'Kapıdan Ayır',
+    )) {
       return;
     }
     await _run(() async {
-      await cs.updateCamera(widget.siteCode, cam.cameraId, const PlateCameraDraft(gateId: null));
+      await cs.updateCamera(
+        widget.siteCode,
+        cam.cameraId,
+        const PlateCameraDraft(gateId: null),
+      );
     }, 'Kamera kapıdan ayrıldı.');
   }
 
@@ -182,7 +205,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
   Future<void> _deleteCamera(int cameraId, String cameraName) async {
     final cs = widget.camerasService;
     if (cs == null) return;
-    if (!await _confirm('Kamerayı Sil', '$cameraName kamerası sistemden tamamen silinecek. Bu işlem geri alınamaz.', 'Sil')) {
+    if (!await _confirm(
+      'Kamerayı Sil',
+      '$cameraName kamerası sistemden tamamen silinecek. Bu işlem geri alınamaz.',
+      'Sil',
+    )) {
       return;
     }
     await _run(() async {
@@ -196,9 +223,16 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     try {
       final overview = await cs.overview(widget.siteCode);
       if (!mounted) return;
-      final camRow = overview.cameras.cast<PlateCameraRow?>().firstWhere((c) => c!.id == cameraId, orElse: () => null);
+      final camRow = overview.cameras.cast<PlateCameraRow?>().firstWhere(
+        (c) => c!.id == cameraId,
+        orElse: () => null,
+      );
       if (camRow == null) {
-        AppSnack.show(context, 'Kamera bilgisi bulunamadı.', kind: AppSnackKind.error);
+        AppSnack.show(
+          context,
+          'Kamera bilgisi bulunamadı.',
+          kind: AppSnackKind.error,
+        );
         return;
       }
       int? probeId;
@@ -212,7 +246,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
         },
       );
       if (saved == true && mounted) {
-        AppSnack.show(context, plateCameraSavedMessage(probeId, overview), kind: AppSnackKind.success);
+        AppSnack.show(
+          context,
+          plateCameraSavedMessage(probeId, overview),
+          kind: AppSnackKind.success,
+        );
         widget.onChanged();
       }
     } on ApiException catch (e) {
@@ -224,7 +262,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     final cs = widget.camerasService;
     if (cs == null) return;
     if (_o.gates.isEmpty) {
-      AppSnack.show(context, 'Sitede kayıtlı kapı bulunamadı.', kind: AppSnackKind.error);
+      AppSnack.show(
+        context,
+        'Sitede kayıtlı kapı bulunamadı.',
+        kind: AppSnackKind.error,
+      );
       return;
     }
 
@@ -243,7 +285,9 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
               DropdownButtonFormField<int>(
                 initialValue: selectedGateId,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Geçiş Noktası (Kapı)'),
+                decoration: const InputDecoration(
+                  labelText: 'Geçiş Noktası (Kapı)',
+                ),
                 items: <DropdownMenuItem<int>>[
                   for (final g in _o.gates)
                     DropdownMenuItem<int>(
@@ -251,7 +295,8 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                       child: Text(g.name, overflow: TextOverflow.ellipsis),
                     ),
                 ],
-                onChanged: (v) => setDialog(() => selectedGateId = v ?? selectedGateId),
+                onChanged: (v) =>
+                    setDialog(() => selectedGateId = v ?? selectedGateId),
               ),
               const SizedBox(height: AppSpace.sm),
               DropdownButtonFormField<String>(
@@ -259,17 +304,33 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Kamera Yönü'),
                 items: const <DropdownMenuItem<String>>[
-                  DropdownMenuItem<String>(value: 'auto', child: Text('Otomatik')),
-                  DropdownMenuItem<String>(value: 'giris', child: Text('Giriş')),
-                  DropdownMenuItem<String>(value: 'cikis', child: Text('Çıkış')),
+                  DropdownMenuItem<String>(
+                    value: 'auto',
+                    child: Text('Otomatik'),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: 'giris',
+                    child: Text('Giriş'),
+                  ),
+                  DropdownMenuItem<String>(
+                    value: 'cikis',
+                    child: Text('Çıkış'),
+                  ),
                 ],
-                onChanged: (v) => setDialog(() => selectedDirection = v ?? selectedDirection),
+                onChanged: (v) =>
+                    setDialog(() => selectedDirection = v ?? selectedDirection),
               ),
             ],
           ),
           actions: <Widget>[
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Ata')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Ata'),
+            ),
           ],
         ),
       ),
@@ -280,7 +341,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
         await cs.updateCamera(
           widget.siteCode,
           cam.id,
-          PlateCameraDraft(gateId: selectedGateId, direction: selectedDirection),
+          PlateCameraDraft(
+            gateId: selectedGateId,
+            direction: selectedDirection,
+          ),
         );
       }, 'Kamera kapıya atandı.');
     }
@@ -295,6 +359,7 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     final alertEvery = TextEditingController(text: '${s.alertIntervalMinutes}');
     final notifyAge = TextEditingController(text: '${s.notifyMaxAgeMinutes}');
     var rule = s.guestRule;
+    var movementEnabled = s.movementNotificationsEnabled;
     final go = await showDialog<bool>(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -304,36 +369,119 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: <Widget>[
+                SwitchListTile(
+                  key: const ValueKey('manager_movement_notifications'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Sakinlere araç giriş / çıkış bildirimi'),
+                  subtitle: const Text(
+                    'Açıldığında sakinler kendi bildirim tercihini seçebilir. Varsayılan kapalıdır.',
+                  ),
+                  value: movementEnabled,
+                  onChanged: (value) => setLocal(() => movementEnabled = value),
+                ),
                 DropdownButtonFormField<String>(
                   initialValue: _o.guestRules.containsKey(rule) ? rule : null,
                   isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Misafir araç ne zaman kabul edilir'),
-                  items: <DropdownMenuItem<String>>[for (final e in _o.guestRules.entries) DropdownMenuItem<String>(value: e.key, child: Text(e.value))],
+                  decoration: const InputDecoration(
+                    labelText: 'Misafir araç ne zaman kabul edilir',
+                  ),
+                  items: <DropdownMenuItem<String>>[
+                    for (final e in _o.guestRules.entries)
+                      DropdownMenuItem<String>(
+                        value: e.key,
+                        child: Text(e.value),
+                      ),
+                  ],
                   onChanged: (v) => setLocal(() => rule = v ?? rule),
                 ),
-                TextField(controller: warn, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sarı uyarı eşiği (sn)')),
-                TextField(controller: crit, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Kırmızı (koptu) eşiği (sn)')),
-                TextField(controller: report, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'İçeride raporu eşiği (saat)')),
-                TextField(controller: timeout, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'İçeride zaman aşımı (saat, otomatik düşer)')),
-                TextField(controller: alertEvery, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Kopukluk uyarısı en sık (dakika)')),
-                TextField(controller: notifyAge, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Sakin bildirimi için en eski olay (dakika)')),
+                TextField(
+                  controller: warn,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Sarı uyarı eşiği (sn)',
+                  ),
+                ),
+                TextField(
+                  controller: crit,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Kırmızı (koptu) eşiği (sn)',
+                  ),
+                ),
+                TextField(
+                  controller: report,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'İçeride raporu eşiği (saat)',
+                  ),
+                ),
+                TextField(
+                  controller: timeout,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'İçeride zaman aşımı (saat, otomatik düşer)',
+                  ),
+                ),
+                TextField(
+                  controller: alertEvery,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Kopukluk uyarısı en sık (dakika)',
+                  ),
+                ),
+                TextField(
+                  controller: notifyAge,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Sakin bildirimi için en eski olay (dakika)',
+                  ),
+                ),
               ],
             ),
           ),
           actions: <Widget>[
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('Kaydet')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Kaydet'),
+            ),
           ],
         ),
       ),
     );
-    final values = <int?>[for (final c in <TextEditingController>[warn, crit, report, timeout, alertEvery, notifyAge]) int.tryParse(c.text.trim())];
-    for (final c in <TextEditingController>[warn, crit, report, timeout, alertEvery, notifyAge]) {
+    final values = <int?>[
+      for (final c in <TextEditingController>[
+        warn,
+        crit,
+        report,
+        timeout,
+        alertEvery,
+        notifyAge,
+      ])
+        int.tryParse(c.text.trim()),
+    ];
+    for (final c in <TextEditingController>[
+      warn,
+      crit,
+      report,
+      timeout,
+      alertEvery,
+      notifyAge,
+    ]) {
       c.dispose();
     }
     if (go != true) return;
     if (values.any((v) => v == null)) {
-      if (mounted) AppSnack.show(context, 'Eşikler tam sayı olmalı.', kind: AppSnackKind.error);
+      if (mounted) {
+        AppSnack.show(
+          context,
+          'Eşikler tam sayı olmalı.',
+          kind: AppSnackKind.error,
+        );
+      }
       return;
     }
     await _run(
@@ -346,6 +494,7 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
         insideTimeoutHours: values[3]!,
         alertIntervalMinutes: values[4]!,
         notifyMaxAgeMinutes: values[5]!,
+        movementNotificationsEnabled: movementEnabled,
       ),
       'Ayarlar kaydedildi.',
     );
@@ -353,21 +502,32 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
 
   Widget _note(String text) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpace.sm),
-    child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary)),
-  );
-
-  Widget _section(String title, {List<Widget> actions = const <Widget>[]}) => Padding(
-    padding: const EdgeInsets.only(top: AppSpace.md, bottom: AppSpace.sm),
-    child: Row(
-      children: <Widget>[
-        Expanded(child: Text(title, style: Theme.of(context).textTheme.titleMedium)),
-        ...actions,
-      ],
+    child: Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary),
     ),
   );
 
+  Widget _section(String title, {List<Widget> actions = const <Widget>[]}) =>
+      Padding(
+        padding: const EdgeInsets.only(top: AppSpace.md, bottom: AppSpace.sm),
+        child: Row(
+          children: <Widget>[
+            Expanded(
+              child: Text(
+                title,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+            ),
+            ...actions,
+          ],
+        ),
+      );
+
   /// Kapıya bağlanmış her bir kamera için özel çerçeve ve alt eylem çubuğu.
-    Widget _cameraSquareCard({
+  Widget _cameraSquareCard({
     required int cameraId,
     required String name,
     required GateBadge status,
@@ -383,7 +543,9 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
   }) {
     final theme = Theme.of(context);
     final p = context.palette;
-    final dirLabel = direction == null ? null : (gateCameraDirectionLabels[direction] ?? direction);
+    final dirLabel = direction == null
+        ? null
+        : (gateCameraDirectionLabels[direction] ?? direction);
 
     return Container(
       width: 250,
@@ -414,12 +576,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: <Color>[
-                  Color(0xFF0F172A),
-                  Color(0xFF1E293B),
-                ],
+                colors: <Color>[Color(0xFF0F172A), Color(0xFF1E293B)],
               ),
-              borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.md - 1.2)),
+              borderRadius: BorderRadius.vertical(
+                top: Radius.circular(AppRadius.md - 1.2),
+              ),
             ),
             child: Stack(
               children: <Widget>[
@@ -435,7 +596,9 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                       isActive: isActive,
                       siteCode: widget.siteCode,
                       camerasService: widget.camerasService,
-                      borderRadius: const BorderRadius.vertical(top: Radius.circular(AppRadius.md - 1.2)),
+                      borderRadius: const BorderRadius.vertical(
+                        top: Radius.circular(AppRadius.md - 1.2),
+                      ),
                     ),
                   )
                 else
@@ -446,12 +609,16 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                         decoration: BoxDecoration(
                           color: Colors.white.withValues(alpha: 0.08),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+                          border: Border.all(
+                            color: Colors.white.withValues(alpha: 0.15),
+                          ),
                         ),
                         child: Icon(
                           Icons.videocam_rounded,
                           size: 32,
-                          color: isActive ? const Color(0xFF10B981) : Colors.grey,
+                          color: isActive
+                              ? const Color(0xFF10B981)
+                              : Colors.grey,
                         ),
                       ),
                     ),
@@ -465,30 +632,48 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     children: <Widget>[
                       if (unassignedOption != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.orange.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(color: Colors.orange.withValues(alpha: 0.5)),
+                            border: Border.all(
+                              color: Colors.orange.withValues(alpha: 0.5),
+                            ),
                           ),
                           child: const Text(
                             'Atanmadı',
-                            style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.orange,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         )
                       else
                         GateBadgeView(badge: status),
                       if (dirLabel != null)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
                           decoration: BoxDecoration(
                             color: Colors.black.withValues(alpha: 0.6),
                             borderRadius: BorderRadius.circular(AppRadius.sm),
-                            border: Border.all(color: Colors.white.withValues(alpha: 0.2)),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.2),
+                            ),
                           ),
                           child: Text(
                             dirLabel,
-                            style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                     ],
@@ -505,7 +690,9 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                         height: 6,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: isActive ? const Color(0xFF10B981) : Colors.red,
+                          color: isActive
+                              ? const Color(0xFF10B981)
+                              : Colors.red,
                         ),
                       ),
                       const SizedBox(width: 4),
@@ -527,13 +714,20 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
 
           // 2. Kamera Bilgileri
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpace.sm, AppSpace.sm, AppSpace.sm, 4),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.sm,
+              AppSpace.sm,
+              AppSpace.sm,
+              4,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
                 Text(
                   name,
-                  style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -541,8 +735,13 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                 Text(
                   lastFrameAt != null
                       ? 'Son kare: ${_fmt(lastFrameAt)}'
-                      : (lastReadAt != null ? 'Son plaka: ${_fmt(lastReadAt)}' : (isActive ? 'Kamera aktif' : 'Kamera pasif')),
-                  style: theme.textTheme.bodySmall?.copyWith(fontSize: 11, color: p.textSecondary),
+                      : (lastReadAt != null
+                            ? 'Son plaka: ${_fmt(lastReadAt)}'
+                            : (isActive ? 'Kamera aktif' : 'Kamera pasif')),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontSize: 11,
+                    color: p.textSecondary,
+                  ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -562,9 +761,13 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.tonalIcon(
-                            onPressed: () => _assignCameraToGate(unassignedOption),
+                            onPressed: () =>
+                                _assignCameraToGate(unassignedOption),
                             icon: const Icon(Icons.link_rounded, size: 14),
-                            label: const Text('Kapıya Ata', style: TextStyle(fontSize: 12)),
+                            label: const Text(
+                              'Kapıya Ata',
+                              style: TextStyle(fontSize: 12),
+                            ),
                             style: FilledButton.styleFrom(
                               visualDensity: VisualDensity.compact,
                               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -578,7 +781,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                               child: OutlinedButton.icon(
                                 onPressed: () => _editCamera(cameraId),
                                 icon: const Icon(Icons.edit_outlined, size: 14),
-                                label: const Text('Düzenle', style: TextStyle(fontSize: 11)),
+                                label: const Text(
+                                  'Düzenle',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
@@ -587,7 +793,11 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                             ),
                             const SizedBox(width: 4),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: Colors.red,
+                              ),
                               tooltip: 'Sil',
                               onPressed: () => _deleteCamera(cameraId, name),
                               visualDensity: VisualDensity.compact,
@@ -604,7 +814,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                               child: OutlinedButton.icon(
                                 onPressed: () => _probeCamera(cameraId),
                                 icon: const Icon(Icons.speed_rounded, size: 14),
-                                label: const Text('Sına', style: TextStyle(fontSize: 11)),
+                                label: const Text(
+                                  'Sına',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
@@ -616,7 +829,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                               child: OutlinedButton.icon(
                                 onPressed: () => _editCamera(cameraId),
                                 icon: const Icon(Icons.edit_outlined, size: 14),
-                                label: const Text('Düzenle', style: TextStyle(fontSize: 11)),
+                                label: const Text(
+                                  'Düzenle',
+                                  style: TextStyle(fontSize: 11),
+                                ),
                                 style: OutlinedButton.styleFrom(
                                   visualDensity: VisualDensity.compact,
                                   padding: EdgeInsets.zero,
@@ -641,8 +857,14 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                                       status: status,
                                     ),
                                   ),
-                                  icon: const Icon(Icons.link_off_rounded, size: 14),
-                                  label: const Text('Kapıdan Ayır', style: TextStyle(fontSize: 11)),
+                                  icon: const Icon(
+                                    Icons.link_off_rounded,
+                                    size: 14,
+                                  ),
+                                  label: const Text(
+                                    'Kapıdan Ayır',
+                                    style: TextStyle(fontSize: 11),
+                                  ),
                                   style: OutlinedButton.styleFrom(
                                     visualDensity: VisualDensity.compact,
                                     padding: EdgeInsets.zero,
@@ -652,22 +874,30 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                             const SizedBox(width: 4),
                             IconButton(
                               icon: Icon(
-                                isActive ? Icons.pause_circle_outline_rounded : Icons.play_circle_outline_rounded,
+                                isActive
+                                    ? Icons.pause_circle_outline_rounded
+                                    : Icons.play_circle_outline_rounded,
                                 size: 18,
                                 color: p.textSecondary,
                               ),
                               tooltip: isActive ? 'Durdur' : 'Başlat',
-                              onPressed: () => _toggleCamera(GateCamera(
-                                cameraId: cameraId,
-                                name: name,
-                                direction: direction ?? 'auto',
-                                isActive: isActive,
-                                status: status,
-                              )),
+                              onPressed: () => _toggleCamera(
+                                GateCamera(
+                                  cameraId: cameraId,
+                                  name: name,
+                                  direction: direction ?? 'auto',
+                                  isActive: isActive,
+                                  status: status,
+                                ),
+                              ),
                               visualDensity: VisualDensity.compact,
                             ),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline_rounded, size: 18, color: Colors.red),
+                              icon: const Icon(
+                                Icons.delete_outline_rounded,
+                                size: 18,
+                                color: Colors.red,
+                              ),
                               tooltip: 'Sil',
                               onPressed: () => _deleteCamera(cameraId, name),
                               visualDensity: VisualDensity.compact,
@@ -703,13 +933,19 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     color: const Color(0xFF10B981).withValues(alpha: 0.15),
                     shape: BoxShape.circle,
                   ),
-                  child: const Icon(Icons.sensor_door_rounded, size: 20, color: Color(0xFF10B981)),
+                  child: const Icon(
+                    Icons.sensor_door_rounded,
+                    size: 20,
+                    color: Color(0xFF10B981),
+                  ),
                 ),
                 const SizedBox(width: AppSpace.sm),
                 Expanded(
                   child: Text(
                     gate.name,
-                    style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
                 const SizedBox(width: AppSpace.xs),
@@ -720,7 +956,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     key: ValueKey<String>('gate_timings_edit_btn_${gate.id}'),
                     icon: const Icon(Icons.tune_rounded, size: 20),
                     tooltip: 'Geçiş ve Güvenlik Sürelerini Ayarla',
-                    constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    constraints: const BoxConstraints(
+                      minWidth: 36,
+                      minHeight: 36,
+                    ),
                     padding: EdgeInsets.zero,
                     onPressed: () => _editGateTimings(gate),
                   ),
@@ -736,7 +975,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
               crossAxisAlignment: WrapCrossAlignment.center,
               children: <Widget>[
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: p.border.withValues(alpha: 0.4),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -748,7 +990,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                 ),
                 if (gate.deviceUid != null)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: const Color(0xFF3B82F6).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -756,9 +1001,18 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: <Widget>[
-                        const Icon(Icons.sensors_rounded, size: 14, color: Color(0xFF3B82F6)),
+                        const Icon(
+                          Icons.sensors_rounded,
+                          size: 14,
+                          color: Color(0xFF3B82F6),
+                        ),
                         const SizedBox(width: 4),
-                        Text('SmartKeyPass: ${gate.deviceUid}', style: theme.textTheme.bodySmall?.copyWith(color: const Color(0xFF3B82F6))),
+                        Text(
+                          'SmartKeyPass: ${gate.deviceUid}',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFF3B82F6),
+                          ),
+                        ),
                         if (gate.deviceStatus != null) ...<Widget>[
                           const SizedBox(width: 4),
                           GateBadgeView(badge: gate.deviceStatus!),
@@ -767,19 +1021,33 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     ),
                   )
                 else
-                  Text('SmartKeyPass cihazı bağlı değil.', style: theme.textTheme.bodySmall?.copyWith(color: p.textSecondary)),
+                  Text(
+                    'SmartKeyPass cihazı bağlı değil.',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: p.textSecondary,
+                    ),
+                  ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
-                    color: hasCameras ? const Color(0xFF10B981).withValues(alpha: 0.15) : p.statusCrit.withValues(alpha: 0.12),
+                    color: hasCameras
+                        ? const Color(0xFF10B981).withValues(alpha: 0.15)
+                        : p.statusCrit.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
                   ),
                   child: Text(
-                    hasCameras ? '${gate.cameras.length} Kamera Bağlı' : 'Kamera Atanmadı',
+                    hasCameras
+                        ? '${gate.cameras.length} Kamera Bağlı'
+                        : 'Kamera Atanmadı',
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.bold,
-                      color: hasCameras ? const Color(0xFF10B981) : p.statusCrit,
+                      color: hasCameras
+                          ? const Color(0xFF10B981)
+                          : p.statusCrit,
                     ),
                   ),
                 ),
@@ -788,26 +1056,44 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                   child: InkWell(
                     key: ValueKey<String>('gate_timings_badge_${gate.id}'),
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    onTap: widget.canWrite ? () => _editGateTimings(gate) : null,
+                    onTap: widget.canWrite
+                        ? () => _editGateTimings(gate)
+                        : null,
                     child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: p.border.withValues(alpha: 0.25),
                         borderRadius: BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(color: p.border.withValues(alpha: 0.5)),
+                        border: Border.all(
+                          color: p.border.withValues(alpha: 0.5),
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: <Widget>[
-                          Icon(Icons.timer_outlined, size: 13, color: p.textSecondary),
+                          Icon(
+                            Icons.timer_outlined,
+                            size: 13,
+                            color: p.textSecondary,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             'Süreler: Sonraki: ${gate.consecutiveVehicleDelaySeconds}s • Giriş Arka: ${gate.entryRearSuppressSeconds}s • Çıkış Arka: ${gate.exitRearSuppressSeconds}s',
-                            style: theme.textTheme.bodySmall?.copyWith(color: p.textSecondary, fontWeight: FontWeight.w500),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: p.textSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                           if (widget.canWrite) ...<Widget>[
                             const SizedBox(width: 4),
-                            Icon(Icons.edit_outlined, size: 12, color: p.textSecondary),
+                            Icon(
+                              Icons.edit_outlined,
+                              size: 12,
+                              color: p.textSecondary,
+                            ),
                           ],
                         ],
                       ),
@@ -816,12 +1102,20 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                 ),
                 if (widget.canWrite)
                   TextButton.icon(
-                    key: ValueKey<String>('gate_edit_timings_text_btn_${gate.id}'),
+                    key: ValueKey<String>(
+                      'gate_edit_timings_text_btn_${gate.id}',
+                    ),
                     icon: const Icon(Icons.edit_note_rounded, size: 16),
-                    label: const Text('Süreleri Değiştir', style: TextStyle(fontSize: 12)),
+                    label: const Text(
+                      'Süreleri Değiştir',
+                      style: TextStyle(fontSize: 12),
+                    ),
                     style: TextButton.styleFrom(
                       visualDensity: VisualDensity.compact,
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 0,
+                      ),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
                     onPressed: () => _editGateTimings(gate),
@@ -839,16 +1133,25 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                 decoration: BoxDecoration(
                   color: p.surface.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(AppRadius.md),
-                  border: Border.all(color: p.border.withValues(alpha: 0.6), style: BorderStyle.solid),
+                  border: Border.all(
+                    color: p.border.withValues(alpha: 0.6),
+                    style: BorderStyle.solid,
+                  ),
                 ),
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.info_outline_rounded, size: 20, color: p.textSecondary),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 20,
+                      color: p.textSecondary,
+                    ),
                     const SizedBox(width: AppSpace.sm),
                     Expanded(
                       child: Text(
                         'Bu geçiş noktasına henüz bir kamera atanmamış. Plaka ile otomatik kapı açılması için bu kapıya kamera ekleyin.',
-                        style: theme.textTheme.bodySmall?.copyWith(color: p.textSecondary),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: p.textSecondary,
+                        ),
                       ),
                     ),
                   ],
@@ -877,7 +1180,8 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
               ),
 
             // Kapı Alt Eylemleri: Canlı Akış & Kamera Ekle
-            if (widget.onOpenLiveWall != null || (widget.canWrite && widget.onAddCamera != null)) ...<Widget>[
+            if (widget.onOpenLiveWall != null ||
+                (widget.canWrite && widget.onAddCamera != null)) ...<Widget>[
               const SizedBox(height: AppSpace.sm),
               Align(
                 alignment: Alignment.centerRight,
@@ -896,7 +1200,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                           visualDensity: VisualDensity.compact,
                           backgroundColor: const Color(0xFF8B5CF6),
                           foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.md,
+                            vertical: AppSpace.xs,
+                          ),
                         ),
                       ),
                     if (widget.canWrite && widget.onAddCamera != null)
@@ -907,7 +1214,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                         label: const Text('Bu Kapıya Kamera Ekle / Ata'),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.md,
+                            vertical: AppSpace.xs,
+                          ),
                         ),
                       ),
                   ],
@@ -934,18 +1244,26 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                const Icon(Icons.link_off_rounded, color: Colors.orange, size: 20),
+                const Icon(
+                  Icons.link_off_rounded,
+                  color: Colors.orange,
+                  size: 20,
+                ),
                 const SizedBox(width: AppSpace.sm),
                 Expanded(
                   child: Text(
                     'Atanmamış Kameralar (${unassigned.length})',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 4),
-            _note('Bu kameralar sisteme eklenmiş ancak henüz bir geçiş noktasına atanmamıştır.'),
+            _note(
+              'Bu kameralar sisteme eklenmiş ancak henüz bir geçiş noktasına atanmamıştır.',
+            ),
             Wrap(
               spacing: AppSpace.sm,
               runSpacing: AppSpace.sm,
@@ -954,7 +1272,10 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                   _cameraSquareCard(
                     cameraId: cam.id,
                     name: cam.label,
-                    status: const GateBadge(state: 'hic_baglanmadi', color: GateColor.sari),
+                    status: const GateBadge(
+                      state: 'hic_baglanmadi',
+                      color: GateColor.sari,
+                    ),
                     isActive: true,
                     unassignedOption: cam,
                   ),
@@ -972,16 +1293,17 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        _note('SmartKeyPass kapılarına bağlı kameralar ve çalışma durumları burada listelenir. Plaka okunduğunda kapı yerel ağdan SmartKeyPass ile otomatik açılır, kapatma emniyeti bariyerin kendi dedektöründedir.'),
-
-        _section(
-          'Geçiş noktaları',
-          actions: const <Widget>[],
+        _note(
+          'SmartKeyPass kapılarına bağlı kameralar ve çalışma durumları burada listelenir. Plaka okunduğunda kapı yerel ağdan SmartKeyPass ile otomatik açılır, kapatma emniyeti bariyerin kendi dedektöründedir.',
         ),
+
+        _section('Geçiş noktaları', actions: const <Widget>[]),
         if (o.gates.isEmpty)
           const Padding(
             padding: EdgeInsets.symmetric(vertical: AppSpace.md),
-            child: Text('SmartKeyPass üzerinde kayıtlı kapı bulunamadı. Önce Geçiş Kontrol modülünden kapı ekleyiniz.'),
+            child: Text(
+              'SmartKeyPass üzerinde kayıtlı kapı bulunamadı. Önce Geçiş Kontrol modülünden kapı ekleyiniz.',
+            ),
           ),
         for (final gate in o.gates) _gateCard(gate),
 
@@ -990,15 +1312,26 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
 
         _section(
           'Misafir kuralı ve eşikler',
-          actions: <Widget>[if (widget.canWrite) TextButton(onPressed: _editSettings, child: const Text('Düzenle'))],
+          actions: <Widget>[
+            if (widget.canWrite)
+              TextButton(
+                onPressed: _editSettings,
+                child: const Text('Düzenle'),
+              ),
+          ],
         ),
         AppCard(
           padding: const EdgeInsets.all(AppSpace.md),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text('Misafir araç kabulü: ${o.guestRules[o.settings.guestRule] ?? o.settings.guestRule}'),
-              Text('Durum eşikleri: ${o.settings.warnSeconds} sn sonra sarı, ${o.settings.critSeconds} sn sonra kırmızı', style: Theme.of(context).textTheme.bodySmall),
+              Text(
+                'Misafir araç kabulü: ${o.guestRules[o.settings.guestRule] ?? o.settings.guestRule}',
+              ),
+              Text(
+                'Durum eşikleri: ${o.settings.warnSeconds} sn sonra sarı, ${o.settings.critSeconds} sn sonra kırmızı',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
               Text(
                 'İçeride: ${o.settings.insideReportHours} saatten uzunsa rapora girer, ${o.settings.insideTimeoutHours} saatte otomatik düşer  •  Kopukluk uyarısı en sık ${o.settings.alertIntervalMinutes} dakikada bir',
                 style: Theme.of(context).textTheme.bodySmall,
@@ -1008,18 +1341,29 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
         ),
 
         _section('İçeride (${widget.inside.total} araç)'),
-        if (widget.inside.apartments.isEmpty) const Text('Park yeri tanımlı ya da içeride aracı olan daire yok.'),
+        if (widget.inside.apartments.isEmpty)
+          const Text('Park yeri tanımlı ya da içeride aracı olan daire yok.'),
         for (final a in widget.inside.apartments)
           ListTile(
             dense: true,
             contentPadding: EdgeInsets.zero,
             title: Text(a.label),
-            subtitle: Text('Park yeri ${a.parkingSlots}  •  içeride ${a.insideCount}'),
-            trailing: StatusDot(label: a.guestLabel, tone: a.guestAllowed ? AppTone.success : AppTone.neutral, maxLines: 2),
+            subtitle: Text(
+              'Park yeri ${a.parkingSlots}  •  içeride ${a.insideCount}',
+            ),
+            trailing: StatusDot(
+              label: a.guestLabel,
+              tone: a.guestAllowed ? AppTone.success : AppTone.neutral,
+              maxLines: 2,
+            ),
           ),
         if (widget.inside.overdue.isNotEmpty) ...<Widget>[
-          _section('Çıkışı görülmeyen girişler (${widget.inside.overdue.length} araç, ${widget.inside.overdueAfterHours} saatten uzun)'),
-          _note('Çıkış kamerası aracı görmediyse kayıt burada kalır; ${widget.inside.timeoutHours} saati aşınca kendiliğinden düşer.'),
+          _section(
+            'Çıkışı görülmeyen girişler (${widget.inside.overdue.length} araç, ${widget.inside.overdueAfterHours} saatten uzun)',
+          ),
+          _note(
+            'Çıkış kamerası aracı görmediyse kayıt burada kalır; ${widget.inside.timeoutHours} saati aşınca kendiliğinden düşer.',
+          ),
           for (final item in widget.inside.overdue)
             ListTile(
               dense: true,
@@ -1028,7 +1372,8 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
               title: Text(item.plate),
               subtitle: Text(
                 <String>[
-                  if (item.insideHours != null) '${item.insideHours} saattir içeride',
+                  if (item.insideHours != null)
+                    '${item.insideHours} saattir içeride',
                   item.kindLabel,
                   if (item.apartmentLabel != null) item.apartmentLabel!,
                   if (item.sinceAt != null) _fmt(item.sinceAt!),
@@ -1043,16 +1388,34 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
             contentPadding: EdgeInsets.zero,
             title: Text(item.plate),
             subtitle: Text(
-              <String>[item.kindLabel, if (item.apartmentLabel != null) item.apartmentLabel!, if (item.gateName != null) item.gateName!, if (item.sinceAt != null) _fmt(item.sinceAt!)].join('  •  '),
+              <String>[
+                item.kindLabel,
+                if (item.apartmentLabel != null) item.apartmentLabel!,
+                if (item.gateName != null) item.gateName!,
+                if (item.sinceAt != null) _fmt(item.sinceAt!),
+              ].join('  •  '),
             ),
             trailing: widget.canWrite
                 ? IconButton(
                     tooltip: 'İçeriden düşür (çıkış kaçırıldıysa)',
-                    constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
                     icon: const Icon(Icons.logout_rounded),
                     onPressed: () async {
-                      if (await _confirm('İçeriden düşürülsün mü?', '${item.plate} içeride görünmeyecek. Çıkışı sistem görmediyse kullanın.', 'Düşür')) {
-                        await _run(() => widget.service.clearInside(widget.siteCode, item.id), 'Araç içeriden düşürüldü.');
+                      if (await _confirm(
+                        'İçeriden düşürülsün mü?',
+                        '${item.plate} içeride görünmeyecek. Çıkışı sistem görmediyse kullanın.',
+                        'Düşür',
+                      )) {
+                        await _run(
+                          () => widget.service.clearInside(
+                            widget.siteCode,
+                            item.id,
+                          ),
+                          'Araç içeriden düşürüldü.',
+                        );
                       }
                     },
                   )
@@ -1075,7 +1438,9 @@ class GateEditDialog extends StatefulWidget {
 }
 
 class _GateEditDialogState extends State<GateEditDialog> {
-  late final TextEditingController _name = TextEditingController(text: widget.gate?.name ?? '');
+  late final TextEditingController _name = TextEditingController(
+    text: widget.gate?.name ?? '',
+  );
   late String _mode = widget.gate?.directionMode ?? 'cift';
   late String? _device = widget.gate?.deviceUid;
   late final TextEditingController _consecutiveDelay = TextEditingController(
@@ -1087,7 +1452,10 @@ class _GateEditDialogState extends State<GateEditDialog> {
   late final TextEditingController _exitRearSuppress = TextEditingController(
     text: '${widget.gate?.exitRearSuppressSeconds ?? 60}',
   );
-  late final Map<int, String> _selected = <int, String>{for (final c in widget.gate?.cameras ?? const <GateCamera>[]) c.cameraId: c.direction};
+  late final Map<int, String> _selected = <int, String>{
+    for (final c in widget.gate?.cameras ?? const <GateCamera>[])
+      c.cameraId: c.direction,
+  };
   String? _error;
 
   @override
@@ -1100,13 +1468,22 @@ class _GateEditDialogState extends State<GateEditDialog> {
   }
 
   List<GateOption> get _availableCameras {
-    final own = <GateOption>[for (final c in widget.gate?.cameras ?? const <GateCamera>[]) GateOption(id: c.cameraId, label: c.name)];
+    final own = <GateOption>[
+      for (final c in widget.gate?.cameras ?? const <GateCamera>[])
+        GateOption(id: c.cameraId, label: c.name),
+    ];
     return <GateOption>[...own, ...widget.overview.unassignedCameras];
   }
 
   List<GateDevice> get _availableDevices {
-    final used = <String>{for (final g in widget.overview.gates) if (g.id != widget.gate?.id && g.deviceUid != null) g.deviceUid!};
-    return <GateDevice>[for (final d in widget.overview.devices) if (!used.contains(d.deviceUid)) d];
+    final used = <String>{
+      for (final g in widget.overview.gates)
+        if (g.id != widget.gate?.id && g.deviceUid != null) g.deviceUid!,
+    };
+    return <GateDevice>[
+      for (final d in widget.overview.devices)
+        if (!used.contains(d.deviceUid)) d,
+    ];
   }
 
   void _submit() {
@@ -1125,15 +1502,24 @@ class _GateEditDialogState extends State<GateEditDialog> {
     final exitSec = int.tryParse(_exitRearSuppress.text.trim()) ?? 60;
 
     if (nextSec < 1 || nextSec > 120) {
-      setState(() => _error = 'Bir sonraki araç bekleme süresi 1 - 120 saniye arasında olmalıdır.');
+      setState(
+        () => _error =
+            'Bir sonraki araç bekleme süresi 1 - 120 saniye arasında olmalıdır.',
+      );
       return;
     }
     if (entrySec < 5 || entrySec > 600) {
-      setState(() => _error = 'Giriş arka plaka engelleme süresi 5 - 600 saniye arasında olmalıdır.');
+      setState(
+        () => _error =
+            'Giriş arka plaka engelleme süresi 5 - 600 saniye arasında olmalıdır.',
+      );
       return;
     }
     if (exitSec < 5 || exitSec > 600) {
-      setState(() => _error = 'Çıkış arka plaka engelleme süresi 5 - 600 saniye arasında olmalıdır.');
+      setState(
+        () => _error =
+            'Çıkış arka plaka engelleme süresi 5 - 600 saniye arasında olmalıdır.',
+      );
       return;
     }
 
@@ -1146,7 +1532,13 @@ class _GateEditDialogState extends State<GateEditDialog> {
         consecutiveVehicleDelaySeconds: nextSec,
         entryRearSuppressSeconds: entrySec,
         exitRearSuppressSeconds: exitSec,
-        cameras: <GateCameraDraft>[for (final e in _selected.entries) GateCameraDraft(cameraId: e.key, direction: _mode == 'cift' ? e.value : 'auto')],
+        cameras: <GateCameraDraft>[
+          for (final e in _selected.entries)
+            GateCameraDraft(
+              cameraId: e.key,
+              direction: _mode == 'cift' ? e.value : 'auto',
+            ),
+        ],
       ),
     );
   }
@@ -1155,7 +1547,9 @@ class _GateEditDialogState extends State<GateEditDialog> {
   Widget build(BuildContext context) {
     final modes = widget.overview.directionModes;
     return AlertDialog(
-      title: Text(widget.gate == null ? 'Geçiş noktası ekle' : 'Geçiş noktasını düzenle'),
+      title: Text(
+        widget.gate == null ? 'Geçiş noktası ekle' : 'Geçiş noktasını düzenle',
+      ),
       content: SizedBox(
         width: 420,
         child: SingleChildScrollView(
@@ -1163,27 +1557,54 @@ class _GateEditDialogState extends State<GateEditDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              TextField(controller: _name, maxLength: 60, decoration: const InputDecoration(labelText: 'Ad (örn. Ana kapı)')),
+              TextField(
+                controller: _name,
+                maxLength: 60,
+                decoration: const InputDecoration(
+                  labelText: 'Ad (örn. Ana kapı)',
+                ),
+              ),
               DropdownButtonFormField<String>(
                 initialValue: modes.containsKey(_mode) ? _mode : null,
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Yön modu'),
-                items: <DropdownMenuItem<String>>[for (final e in modes.entries) DropdownMenuItem<String>(value: e.key, child: Text(e.value))],
+                items: <DropdownMenuItem<String>>[
+                  for (final e in modes.entries)
+                    DropdownMenuItem<String>(
+                      value: e.key,
+                      child: Text(e.value),
+                    ),
+                ],
                 onChanged: (v) => setState(() => _mode = v ?? _mode),
               ),
               DropdownButtonFormField<String?>(
-                initialValue: _availableDevices.any((d) => d.deviceUid == _device) ? _device : null,
+                initialValue:
+                    _availableDevices.any((d) => d.deviceUid == _device)
+                    ? _device
+                    : null,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'SmartKeyPass cihazı'),
+                decoration: const InputDecoration(
+                  labelText: 'SmartKeyPass cihazı',
+                ),
                 items: <DropdownMenuItem<String?>>[
-                  const DropdownMenuItem<String?>(value: null, child: Text('Bağlı değil')),
-                  for (final d in _availableDevices) DropdownMenuItem<String?>(value: d.deviceUid, child: Text(d.label, overflow: TextOverflow.ellipsis)),
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Bağlı değil'),
+                  ),
+                  for (final d in _availableDevices)
+                    DropdownMenuItem<String?>(
+                      value: d.deviceUid,
+                      child: Text(d.label, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (v) => setState(() => _device = v),
               ),
               const SizedBox(height: AppSpace.sm),
               Text('Kameralar', style: Theme.of(context).textTheme.titleSmall),
-              if (_availableCameras.isEmpty) const Text('Boşta kamera yok. Kameralar kapıdaki "Kamera ekle" butonuyla eklenir.'),
+              if (_availableCameras.isEmpty)
+                const Text(
+                  'Boşta kamera yok. Kameralar kapıdaki "Kamera ekle" butonuyla eklenir.',
+                ),
               for (final cam in _availableCameras)
                 Row(
                   children: <Widget>[
@@ -1206,20 +1627,31 @@ class _GateEditDialogState extends State<GateEditDialog> {
                     if (_mode == 'cift' && _selected.containsKey(cam.id))
                       DropdownButton<String>(
                         value: _selected[cam.id],
-                        items: <DropdownMenuItem<String>>[for (final e in gateCameraDirectionLabels.entries) DropdownMenuItem<String>(value: e.key, child: Text(e.value))],
-                        onChanged: (v) => setState(() => _selected[cam.id] = v ?? 'auto'),
+                        items: <DropdownMenuItem<String>>[
+                          for (final e in gateCameraDirectionLabels.entries)
+                            DropdownMenuItem<String>(
+                              value: e.key,
+                              child: Text(e.value),
+                            ),
+                        ],
+                        onChanged: (v) =>
+                            setState(() => _selected[cam.id] = v ?? 'auto'),
                       ),
                   ],
                 ),
               const SizedBox(height: AppSpace.md),
               Theme(
-                data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+                data: Theme.of(
+                  context,
+                ).copyWith(dividerColor: Colors.transparent),
                 child: ExpansionTile(
                   tilePadding: EdgeInsets.zero,
                   initiallyExpanded: false,
                   title: Text(
                     'Geçiş ve Güvenlik Süreleri (Gelişmiş)',
-                    style: Theme.of(context).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                   subtitle: Text(
                     'Sonraki: ${_consecutiveDelay.text}s • Giriş Arka: ${_entryRearSuppress.text}s • Çıkış Arka: ${_exitRearSuppress.text}s',
@@ -1240,7 +1672,8 @@ class _GateEditDialogState extends State<GateEditDialog> {
                       controller: _entryRearSuppress,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Giriş yapan aracın arka plakasını engelleme süresi (sn)',
+                        labelText:
+                            'Giriş yapan aracın arka plakasını engelleme süresi (sn)',
                         helperText: 'Aralık: 5 - 600 sn (Varsayılan: 60 sn)',
                         suffixText: 'sn',
                       ),
@@ -1250,7 +1683,8 @@ class _GateEditDialogState extends State<GateEditDialog> {
                       controller: _exitRearSuppress,
                       keyboardType: TextInputType.number,
                       decoration: const InputDecoration(
-                        labelText: 'Çıkış yapan aracın arka plakasını engelleme süresi (sn)',
+                        labelText:
+                            'Çıkış yapan aracın arka plakasını engelleme süresi (sn)',
                         helperText: 'Aralık: 5 - 600 sn (Varsayılan: 60 sn)',
                         suffixText: 'sn',
                       ),
@@ -1258,13 +1692,25 @@ class _GateEditDialogState extends State<GateEditDialog> {
                   ],
                 ),
               ),
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.sm),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Vazgeç'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Kaydet')),
       ],
     );
@@ -1321,15 +1767,24 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
     final exitSec = int.tryParse(_exitRearSuppress.text.trim());
 
     if (nextSec == null || nextSec < 1 || nextSec > 120) {
-      setState(() => _error = 'Bir sonraki araç bekleme süresi 1 - 120 saniye arasında bir tam sayı olmalıdır.');
+      setState(
+        () => _error =
+            'Bir sonraki araç bekleme süresi 1 - 120 saniye arasında bir tam sayı olmalıdır.',
+      );
       return;
     }
     if (entrySec == null || entrySec < 5 || entrySec > 600) {
-      setState(() => _error = 'Giriş arka plaka engelleme süresi 5 - 600 saniye arasında bir tam sayı olmalıdır.');
+      setState(
+        () => _error =
+            'Giriş arka plaka engelleme süresi 5 - 600 saniye arasında bir tam sayı olmalıdır.',
+      );
       return;
     }
     if (exitSec == null || exitSec < 5 || exitSec > 600) {
-      setState(() => _error = 'Çıkış arka plaka engelleme süresi 5 - 600 saniye arasında bir tam sayı olmalıdır.');
+      setState(
+        () => _error =
+            'Çıkış arka plaka engelleme süresi 5 - 600 saniye arasında bir tam sayı olmalıdır.',
+      );
       return;
     }
 
@@ -1351,7 +1806,10 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
           const Icon(Icons.timer_outlined, color: Color(0xFF10B981), size: 22),
           const SizedBox(width: AppSpace.sm),
           Expanded(
-            child: Text('${widget.gate.name} Süre Ayarları', overflow: TextOverflow.ellipsis),
+            child: Text(
+              '${widget.gate.name} Süre Ayarları',
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
         ],
       ),
@@ -1366,12 +1824,18 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
                 padding: const EdgeInsets.all(AppSpace.sm),
                 margin: const EdgeInsets.only(bottom: AppSpace.md),
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.08),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.primary.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(AppRadius.sm),
                 ),
                 child: Row(
                   children: <Widget>[
-                    Icon(Icons.info_outline_rounded, size: 18, color: Theme.of(context).colorScheme.primary),
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 18,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
                     const SizedBox(width: AppSpace.sm),
                     Expanded(
                       child: Text(
@@ -1388,7 +1852,8 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Sonraki Araç Bekleme Süresi (sn)',
-                  helperText: 'Aralık: 1 - 120 sn (Varsayılan: 10 sn)\nBir araç geçtikten sonra yeni bir aracın okunması için beklenecek süre.',
+                  helperText:
+                      'Aralık: 1 - 120 sn (Varsayılan: 10 sn)\nBir araç geçtikten sonra yeni bir aracın okunması için beklenecek süre.',
                   helperMaxLines: 2,
                   suffixText: 'sn',
                 ),
@@ -1400,7 +1865,8 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Giriş Yapan Aracın Arka Plakasını Engelleme (sn)',
-                  helperText: 'Aralık: 5 - 600 sn (Varsayılan: 60 sn)\nGiriş yapan aracın çıkış kamerası tarafından arka plakasının okunmasını engeller.',
+                  helperText:
+                      'Aralık: 5 - 600 sn (Varsayılan: 60 sn)\nGiriş yapan aracın çıkış kamerası tarafından arka plakasının okunmasını engeller.',
                   helperMaxLines: 2,
                   suffixText: 'sn',
                 ),
@@ -1412,7 +1878,8 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
                 keyboardType: TextInputType.number,
                 decoration: const InputDecoration(
                   labelText: 'Çıkış Yapan Aracın Arka Plakasını Engelleme (sn)',
-                  helperText: 'Aralık: 5 - 600 sn (Varsayılan: 60 sn)\nÇıkış yapan aracın giriş kamerası tarafından arka plakasının okunmasını engeller.',
+                  helperText:
+                      'Aralık: 5 - 600 sn (Varsayılan: 60 sn)\nÇıkış yapan aracın giriş kamerası tarafından arka plakasının okunmasını engeller.',
                   helperMaxLines: 2,
                   suffixText: 'sn',
                 ),
@@ -1422,7 +1889,10 @@ class _GateTimingsDialogState extends State<GateTimingsDialog> {
                   padding: const EdgeInsets.only(top: AppSpace.md),
                   child: Text(
                     _error!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.error,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
             ],

@@ -280,9 +280,10 @@ class _SheetRow extends StatelessWidget {
 /// [onOpenProfile] verilirse "Profilim'e git" düğmesi çıkar (Profilim menüde yoksa düğme de yok). Taşma: metin sarar, düğme
 /// alt satıra iner; dokunma hedefi >= 48 dp.
 class ManagerPhoneHint extends StatelessWidget {
-  const ManagerPhoneHint({super.key, this.onOpenProfile});
+  const ManagerPhoneHint({super.key, this.onOpenProfile, this.compact = false});
 
   final VoidCallback? onOpenProfile;
+  final bool compact;
 
   static const String title = 'Telefon numaranızı ekleyin';
   static const String message =
@@ -293,6 +294,26 @@ class ManagerPhoneHint extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
+    if (compact) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: AppSpace.md),
+        child: Material(type: MaterialType.transparency, child: ListTile(
+          key: const ValueKey<String>('panel_telefon_ipucu'),
+          contentPadding: EdgeInsets.zero,
+          title: Text('Telefon ekleyin', style: th.bodyMedium),
+          subtitle: Text(onOpenProfile == null ? 'İsteğe bağlı' : 'İsteğe bağlı · Profilim', style: th.bodySmall),
+          onTap: onOpenProfile,
+          trailing: IconButton(
+            tooltip: 'Numaramı kimler görebilir?',
+            icon: const Icon(Icons.info_outline),
+            onPressed: () => showDialog<void>(context: context, builder: (dialogContext) => AlertDialog(
+              scrollable: true, title: const Text(title), content: const Text(message),
+              actions: [TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Kapat'))],
+            )),
+          ),
+        )),
+      );
+    }
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.lg),
       child: Semantics(

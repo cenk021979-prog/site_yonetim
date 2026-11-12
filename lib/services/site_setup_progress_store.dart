@@ -73,12 +73,7 @@ class SiteSetupProgressStore extends ChangeNotifier {
   Future<bool> _write(int userId, List<SiteSetupProgress> items) async {
     try {
       final prefs = await _preferences();
-      final sorted = [...items]
-        ..sort((a, b) {
-          final left = a.updatedAt?.millisecondsSinceEpoch ?? 0;
-          final right = b.updatedAt?.millisecondsSinceEpoch ?? 0;
-          return right.compareTo(left);
-        });
+      final sorted = _latestFirst(items);
       final kept = sorted.take(maxEntries).toList(growable: false);
       if (kept.isEmpty) {
         await prefs.remove(keyFor(userId));
@@ -98,9 +93,20 @@ class SiteSetupProgressStore extends ChangeNotifier {
   Future<List<SiteSetupProgress>> loadAll(int userId) {
     return _serial(() async {
       final items = await _read(userId);
-      items.sort((a, b) => (b.updatedAt?.millisecondsSinceEpoch ?? 0).compareTo(a.updatedAt?.millisecondsSinceEpoch ?? 0));
-      return items;
+      return _latestFirst(items);
     });
+  }
+
+  /// Saat aynı mikro-saniyeyi verse bile kaydedilmiş son işlem sırası korunur.
+  /// Kayıt dosyasının sırası eşit zamanlarda belirleyicidir; List.sort kararlı değildir.
+  static List<SiteSetupProgress> _latestFirst(List<SiteSetupProgress> items) {
+    final indexed = items.indexed.toList()
+      ..sort((a, b) {
+        final timeOrder = (b.$2.updatedAt?.microsecondsSinceEpoch ?? 0)
+            .compareTo(a.$2.updatedAt?.microsecondsSinceEpoch ?? 0);
+        return timeOrder != 0 ? timeOrder : a.$1.compareTo(b.$1);
+      });
+    return [for (final entry in indexed) entry.$2];
   }
 
   /// Bir sitenin kayıtlı ilerlemesi; yoksa null.
@@ -119,9 +125,9 @@ class SiteSetupProgressStore extends ChangeNotifier {
       final stamped = progress.updatedAt == null ? progress.copyWith(updatedAt: _now()) : progress;
       final items = await _read(userId);
       final next = <SiteSetupProgress>[
+        stamped,
         for (final item in items)
           if (item.siteCode != stamped.siteCode) item,
-        stamped,
       ];
       if (await _write(userId, next)) notifyListeners();
     });
@@ -134,7 +140,7 @@ class SiteSetupProgressStore extends ChangeNotifier {
       final items = await _read(userId);
       if (items.any((item) => item.siteCode == siteCode)) return false;
       final created = SiteSetupProgress(siteCode: siteCode, siteName: siteName, updatedAt: _now());
-      if (await _write(userId, <SiteSetupProgress>[...items, created])) {
+      if (await _write(userId, <SiteSetupProgress>[created, ...items])) {
         notifyListeners();
         return true;
       }

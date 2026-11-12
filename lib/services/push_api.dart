@@ -37,18 +37,33 @@ class PushApi {
   /// Sunucunun kabul ettiği alan sınırları (B2): install_id 16–64, jeton 20–4096, sürüm ≤ 32.
   static const int maxAppVersionLength = 32;
 
-  static final RegExp _safeVersion = RegExp(r'^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$');
+  static final RegExp _safeVersion = RegExp(
+    r'^[0-9A-Za-z][0-9A-Za-z.+_-]{0,31}$',
+  );
 
   /// Sunucunun sürüm desenine uyan (≤ 32 karakter, harf/rakam ve `.+_-`) sürüm; uymuyorsa null ve alan
   /// GÖNDERİLMEZ (isteğe bağlı alan yüzünden cihaz kaydı reddedilmesin).
   static String? safeAppVersion(String? raw) {
     final value = raw?.trim();
     if (value == null || value.isEmpty) return null;
-    final cut = value.length > maxAppVersionLength ? value.substring(0, maxAppVersionLength) : value;
+    final cut = value.length > maxAppVersionLength
+        ? value.substring(0, maxAppVersionLength)
+        : value;
     return _safeVersion.hasMatch(cut) ? cut : null;
   }
 
   // --- Cihaz kaydı -----------------------------------------------------------------------------
+
+  Future<PushCapabilities> capabilities({required String token}) async {
+    final response = await _send(
+      'GET',
+      '/app/push/capabilities',
+      token: token,
+      timeout: _readTimeout,
+      timeoutMessage: 'Bildirim alıcı durumu doğrulanamadı.',
+    );
+    return PushCapabilities.fromJson(_object(response));
+  }
 
   /// `PUT /app/push/devices`: kayıt / tazeleme (aynı kurulum için UPSERT). [notificationsEnabled] işletim
   /// sistemi izninin GÜNCEL hâlidir.
@@ -72,7 +87,8 @@ class PushApi {
         'notifications_enabled': notificationsEnabled,
       },
       timeout: _writeTimeout,
-      timeoutMessage: 'Sunucu yanıt vermedi. Cihaz kaydedilemedi, tekrar deneyin.',
+      timeoutMessage:
+          'Sunucu yanıt vermedi. Cihaz kaydedilemedi, tekrar deneyin.',
     );
     final payload = _objectOrEmpty(response);
     final id = payload['device_id'];
@@ -93,7 +109,8 @@ class PushApi {
       '/app/push/devices/${Uri.encodeComponent(installId)}',
       token: token,
       timeout: timeout ?? _writeTimeout,
-      timeoutMessage: 'Sunucu yanıt vermedi. Cihaz kaldırılmış olabilir; listeyi yenileyip kontrol edin.',
+      timeoutMessage:
+          'Sunucu yanıt vermedi. Cihaz kaldırılmış olabilir; listeyi yenileyip kontrol edin.',
     );
   }
 
@@ -117,8 +134,10 @@ class PushApi {
       token: token,
       body: const <String, dynamic>{},
       timeout: _writeTimeout,
-      timeoutMessage: 'Sunucu yanıt vermedi. Test bildirimi gönderilmiş olabilir; telefonunuzu kontrol edin.',
-      rateLimitMessage: 'Bugün için test bildirimi sınırına ulaşıldı (günde en çok 5).',
+      timeoutMessage:
+          'Sunucu yanıt vermedi. Test bildirimi gönderilmiş olabilir; telefonunuzu kontrol edin.',
+      rateLimitMessage:
+          'Bugün için test bildirimi sınırına ulaşıldı (günde en çok 5).',
     );
     return PushTestResult.fromJson(_object(response));
   }
@@ -156,7 +175,10 @@ class PushApi {
       timeoutMessage:
           'Sunucu zaman aşımına uğradı. Tercih kaydedilmiş olabilir; sayfayı yenileyip kontrol edin.',
     );
-    return PushPreferences.fromJson(_objectOrEmpty(response), fallback: patch.applyTo(current));
+    return PushPreferences.fromJson(
+      _objectOrEmpty(response),
+      fallback: patch.applyTo(current),
+    );
   }
 
   // --- Taşıma katmanı --------------------------------------------------------------------------
@@ -236,7 +258,10 @@ class PushApi {
       }
       if (status == 429) {
         return ApiException(
-          _withRetryHint(rateLimitMessage ?? 'Çok fazla istek gönderildi.', retryAfter),
+          _withRetryHint(
+            rateLimitMessage ?? 'Çok fazla istek gönderildi.',
+            retryAfter,
+          ),
           statusCode: status,
           retryAfterSeconds: retryAfter,
         );
@@ -252,7 +277,9 @@ class PushApi {
 
     final body = payload ?? const <String, dynamic>{};
     final rawCode = body['code'];
-    final code = rawCode is String && rawCode.trim().isNotEmpty ? rawCode.trim() : null;
+    final code = rawCode is String && rawCode.trim().isNotEmpty
+        ? rawCode.trim()
+        : null;
     final rawError = body['error'];
     final serverText = rawError is String && rawError.trim().isNotEmpty
         ? AuthApi.sanitizeServerMessage(rawError.trim())
@@ -269,16 +296,33 @@ class PushApi {
       );
     }
 
-    final mapped = pushErrorMessage(code, retryAfterSeconds: retryAfter, payload: body);
+    final mapped = pushErrorMessage(
+      code,
+      retryAfterSeconds: retryAfter,
+      payload: body,
+    );
     // 429: bu uca özgü sınır metni sunucu metninden önce gelir (sunucu genel "çok fazla istek" yazabilir).
     final limited = status == 429 && mapped == null ? rateLimitMessage : null;
     final generic = AuthApi.genericMessageForStatus(status, code: code);
-    final fallback = mapped == null && limited == null && serverText == null && generic == null;
-    var message = mapped ?? limited ?? serverText ?? generic ?? 'İşlem başarısız ($status)';
-    if (status == 429 && mapped == null) message = _withRetryHint(message, retryAfter);
+    final fallback =
+        mapped == null &&
+        limited == null &&
+        serverText == null &&
+        generic == null;
+    var message =
+        mapped ??
+        limited ??
+        serverText ??
+        generic ??
+        'İşlem başarısız ($status)';
+    if (status == 429 && mapped == null) {
+      message = _withRetryHint(message, retryAfter);
+    }
     if (status >= 500 && code != 'PUSH_UNAVAILABLE') {
       final errorId = body['errorId'] ?? body['error_id'];
-      if (errorId is String && errorId.isNotEmpty) message = '$message (Hata kodu: $errorId)';
+      if (errorId is String && errorId.isNotEmpty) {
+        message = '$message (Hata kodu: $errorId)';
+      }
     }
     return ApiException(
       message,
@@ -312,7 +356,8 @@ class PushApi {
   }
 
   /// `503 PUSH_UNAVAILABLE` metni (B8).
-  static const String pushUnavailableMessage = 'Telefon bildirimi şu an kullanılamıyor.';
+  static const String pushUnavailableMessage =
+      'Telefon bildirimi şu an kullanılamıyor.';
 
   static String _withRetryHint(String base, int? retryAfter) {
     if (retryAfter == null) return base;
@@ -321,8 +366,12 @@ class PushApi {
     return '$trimmed ${AuthApi.formatWait(retryAfter)} sonra tekrar deneyin.';
   }
 
-  static int? _retryAfterSeconds(http.Response response, Map<String, dynamic>? payload) {
-    final body = payload?['retry_after_seconds'] ?? payload?['retryAfterSeconds'];
+  static int? _retryAfterSeconds(
+    http.Response response,
+    Map<String, dynamic>? payload,
+  ) {
+    final body =
+        payload?['retry_after_seconds'] ?? payload?['retryAfterSeconds'];
     if (body is num && body.isFinite && body > 0) return body.ceil();
     if (body is String) {
       final parsed = int.tryParse(body.trim());
@@ -342,7 +391,9 @@ class PushApi {
     if (bytes.isEmpty) return null;
     try {
       final raw = jsonDecode(utf8.decode(bytes, allowMalformed: true));
-      return raw is Map<String, dynamic> ? raw : (raw is Map ? Map<String, dynamic>.from(raw) : null);
+      return raw is Map<String, dynamic>
+          ? raw
+          : (raw is Map ? Map<String, dynamic>.from(raw) : null);
     } on FormatException {
       return null;
     }

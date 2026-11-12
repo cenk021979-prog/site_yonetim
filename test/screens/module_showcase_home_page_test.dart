@@ -435,6 +435,7 @@ const Set<String> _drawerOnlyTitles = <String>{
   'Geri bildirim',
   'Geri bildirim gönder',
   'Gelen geri bildirimler',
+  'Gönderdiğim geri bildirimler',
   'Çıkış Yap',
   'Sakin Moduna Geç',
   'Yönetici Paneline Geç',
@@ -459,6 +460,29 @@ Finder _card(SirketMenuItem item) => find.byKey(ValueKey<String>('panel_kart_${i
 Finder _quick(SirketMenuItem item) => find.byKey(ValueKey<String>('panel_hizli_${item.name}'));
 final Finder _guestPassQuick = find.byKey(const ValueKey<String>('panel_hizli_ziyaretciKodu'));
 Finder _inAppBar(Finder f) => find.descendant(of: find.byType(AppBar), matching: f);
+
+/// Kompakt başlık eylemleri taşma menüsünden, geniş başlıkta aynı doğrudan
+/// düğmeden çalışır. Gövde/çekmece içindeki eş adlı eylemler seçilmez.
+Future<void> _tapHeaderCommand(
+  WidgetTester t,
+  String command, {
+  String label = 'Yenile',
+}) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.tap(find.byWidgetPredicate(
+      (w) => w is PopupMenuItem<String> && w.value == command,
+    ));
+  } else {
+    final tooltip = _inAppBar(find.byTooltip(label));
+    await t.tap(tooltip.evaluate().isNotEmpty ? tooltip : _inAppBar(find.text(label)));
+  }
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 300));
+}
 
 /// Gövdenin kaydırma alanı (aşağı çek yenile içindeki).
 Finder _bodyScrollable() =>
@@ -1274,8 +1298,8 @@ void main() {
       await _tapCard(t, SirketMenuItem.moduller);
       expect(_inAppBar(find.text('Modüller')), findsOneWidget);
 
-      // P1-13: iç ekranda ("Ana sayfa" düğmesi varken, 480 dp altında) mod hapı yalnız ikondur; ipucu "Sakin Modu".
-      await t.tap(_inAppBar(find.byTooltip('Sakin Modu')));
+      // Kompakt başlıkta mod geçişi Diğer işlemler menüsündedir.
+      await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byType(ModuleShowcaseView), findsOneWidget);
@@ -1336,7 +1360,7 @@ void main() {
       expect(t.state<ScrollableState>(_bodyScrollable()).position.pixels, 0);
 
       await _openDrawer(t);
-      await t.tap(find.text('Yönetici Paneline Geç'));
+      await t.tap(find.descendant(of: find.byType(Drawer), matching: find.text('Yönetici Paneline Geç')));
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(t.takeException(), isNull);
@@ -1382,7 +1406,7 @@ void main() {
       visitors.unread = 2;
       final summaryBefore = summaryCalls;
       final visitorBefore = visitors.summaryCalls;
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 300));
       await t.pump(const Duration(milliseconds: 300));
@@ -1845,7 +1869,11 @@ void main() {
       await _pumpHome(t, auth, access: access, width: 360, height: 740);
       expect(banner, findsNothing);
       final zeminRect = t.getRect(zemin);
-      expect(zeminRect.top, t.getRect(find.byType(AppBar)).bottom, reason: 'şerit yokken uygulama çubuğunun hemen altı');
+      final feedback = find.byKey(const ValueKey<String>('temporary_feedback_open'));
+      final headerBottom = feedback.evaluate().isNotEmpty
+          ? t.getRect(find.ancestor(of: feedback, matching: find.byType(SafeArea)).first).bottom
+          : t.getRect(find.byType(AppBar)).bottom;
+      expect(zeminRect.top, headerBottom, reason: 'sabit geri bildirim/alarm yuvalarının altından başlar');
       expect(zeminRect.left, 0);
       expect(zeminRect.right, 360);
       // İP-1D: sakin alt çubuğu sistem gezinme çubuğu payını kendi içinde (SafeArea) karşılar; kap ve kaydırma alanı

@@ -11,12 +11,7 @@ import 'package:site_kapi_kontrol/services/plate_onnx_recognizer.dart';
 import 'package:site_kapi_kontrol/services/plate_recognition_api.dart';
 
 /// Plaka okuma ve otopark araç kabul kararı
-enum PlateDecisionType {
-  acildi,
-  red,
-  karaListe,
-  tanimsiz,
-}
+enum PlateDecisionType { acildi, red, karaListe, tanimsiz }
 
 class PlateEngineDecision {
   PlateEngineDecision({
@@ -59,24 +54,23 @@ class PlateEngineDecision {
     double? confidence,
     Uint8List? snapshotBytes,
     bool clearSnapshot = false,
-  }) =>
-      PlateEngineDecision(
-        plate: plate,
-        decision: decision,
-        reason: reason,
-        doorId: doorId,
-        gateName: gateName,
-        direction: direction,
-        apartmentLabel: apartmentLabel,
-        personLabel: personLabel,
-        isGateTriggered: isGateTriggered,
-        fromServer: fromServer,
-        cameraId: cameraId ?? this.cameraId,
-        cameraName: cameraName ?? this.cameraName,
-        confidence: confidence ?? this.confidence,
-        snapshotBytes: clearSnapshot ? null : (snapshotBytes ?? this.snapshotBytes),
-        timestamp: timestamp,
-      );
+  }) => PlateEngineDecision(
+    plate: plate,
+    decision: decision,
+    reason: reason,
+    doorId: doorId,
+    gateName: gateName,
+    direction: direction,
+    apartmentLabel: apartmentLabel,
+    personLabel: personLabel,
+    isGateTriggered: isGateTriggered,
+    fromServer: fromServer,
+    cameraId: cameraId ?? this.cameraId,
+    cameraName: cameraName ?? this.cameraName,
+    confidence: confidence ?? this.confidence,
+    snapshotBytes: clearSnapshot ? null : (snapshotBytes ?? this.snapshotBytes),
+    timestamp: timestamp,
+  );
 }
 
 /// Plaka Okuma ve Kapı Tetikleme Motoru.
@@ -127,35 +121,79 @@ class PlateLiveOverlay {
 }
 
 class PlateRecognitionEngine {
-  static final Map<String, Map<String, dynamic>> _demoVehicles = <String, Map<String, dynamic>>{
-    '35JU988': {'apartment_label': 'A Blok D:12', 'person_label': 'Ahmet Yılmaz'},
+  static final Map<String, Map<String, dynamic>>
+  _demoVehicles = <String, Map<String, dynamic>>{
+    '35JU988': {
+      'apartment_label': 'A Blok D:12',
+      'person_label': 'Ahmet Yılmaz',
+    },
     '34CAS934': {'apartment_label': 'B Blok D:5', 'person_label': 'Ayşe Kaya'},
-    '35GA1727': {'apartment_label': 'A Blok D:8', 'person_label': 'Mehmet Demir'},
-    '34BZP163': {'apartment_label': 'B Blok D:7', 'person_label': 'Murat Şahin'},
-    '35PL105': {'apartment_label': 'C Blok D:15', 'person_label': 'Zeynep Çelik'},
+    '35GA1727': {
+      'apartment_label': 'A Blok D:8',
+      'person_label': 'Mehmet Demir',
+    },
+    '34BZP163': {
+      'apartment_label': 'B Blok D:7',
+      'person_label': 'Murat Şahin',
+    },
+    '35PL105': {
+      'apartment_label': 'C Blok D:15',
+      'person_label': 'Zeynep Çelik',
+    },
     '35EC6847': {'apartment_label': 'B Blok D:11', 'person_label': 'Ece Aksoy'},
     '35T7154': {'apartment_label': 'A Blok D:4', 'person_label': 'Turgut Öz'},
-    '34UUE62': {'apartment_label': 'A Blok D:1', 'person_label': 'Hasan Yıldırım'},
+    '34UUE62': {
+      'apartment_label': 'A Blok D:1',
+      'person_label': 'Hasan Yıldırım',
+    },
     '07MJF67': {'apartment_label': 'B Blok D:3', 'person_label': 'Cemil Koç'},
-    '34TAC08': {'apartment_label': 'C Blok D:4', 'person_label': 'Fatma Arslan'},
-    '34SKN01': {'apartment_label': 'A Blok D:2', 'person_label': 'Sakin Ali Can'},
+    '34TAC08': {
+      'apartment_label': 'C Blok D:4',
+      'person_label': 'Fatma Arslan',
+    },
+    '34SKN01': {
+      'apartment_label': 'A Blok D:2',
+      'person_label': 'Sakin Ali Can',
+    },
     '35AFM688': {'apartment_label': 'B Blok D:4', 'person_label': 'Murat Akın'},
-    '06BJZ818': {'apartment_label': 'C Blok D:7', 'person_label': 'Kemal Aslan'},
+    '06BJZ818': {
+      'apartment_label': 'C Blok D:7',
+      'person_label': 'Kemal Aslan',
+    },
     '35AIL740': {'apartment_label': 'A Blok D:6', 'person_label': 'Ali Yıldız'},
     '35ANT69': {'apartment_label': 'B Blok D:8', 'person_label': 'Selin Erdem'},
-    '35DC3088': {'apartment_label': 'A Blok D:1', 'person_label': 'Hasan Yıldırım'},
+    '35DC3088': {
+      'apartment_label': 'A Blok D:1',
+      'person_label': 'Hasan Yıldırım',
+    },
     // Video 3 Sakin Araçları
-    '35EA8875': {'apartment_label': 'A Blok D:5', 'person_label': 'Bülent Polat'},
-    '35AD3773': {'apartment_label': 'B Blok D:9', 'person_label': 'Deniz Karaca'},
+    '35EA8875': {
+      'apartment_label': 'A Blok D:5',
+      'person_label': 'Bülent Polat',
+    },
+    '35AD3773': {
+      'apartment_label': 'B Blok D:9',
+      'person_label': 'Deniz Karaca',
+    },
     '35JE722': {'apartment_label': 'C Blok D:3', 'person_label': 'Engin Aras'},
-    '35GD8133': {'apartment_label': 'A Blok D:11', 'person_label': 'Serkan Güler'},
-    '35KC9991': {'apartment_label': 'C Blok D:12', 'person_label': 'Kaan Çetin'},
-    '35AY1451': {'apartment_label': 'A Blok D:7', 'person_label': 'Yavuz Aydın'},
+    '35GD8133': {
+      'apartment_label': 'A Blok D:11',
+      'person_label': 'Serkan Güler',
+    },
+    '35KC9991': {
+      'apartment_label': 'C Blok D:12',
+      'person_label': 'Kaan Çetin',
+    },
+    '35AY1451': {
+      'apartment_label': 'A Blok D:7',
+      'person_label': 'Yavuz Aydın',
+    },
     '35AY1981': {'apartment_label': 'B Blok D:6', 'person_label': 'Onur Koç'},
     '35UID78': {'apartment_label': 'C Blok D:8', 'person_label': 'Ufuk İnci'},
   };
 
-  static final Map<String, Map<String, dynamic>> _demoGuestPermits = <String, Map<String, dynamic>>{
+  static final Map<String, Map<String, dynamic>>
+  _demoGuestPermits = <String, Map<String, dynamic>>{
     '35HZ581': {'apartment_label': 'A Blok D:3', 'note': 'Misafir • Ziyaretçi'},
     '35S5163': {'apartment_label': 'Yönetim', 'note': 'Kurye / Servis Aracı'},
     '34MSF01': {'apartment_label': 'B Blok D:2', 'note': 'Misafir Aracı'},
@@ -167,15 +205,21 @@ class PlateRecognitionEngine {
 
   static final Map<String, String> _demoBlacklist = <String, String>{
     '35T5771': 'Yönetim kurulu kararıyla icra borcu nedeniyle engellendi',
-    '35T6040': 'Yönetim kararı: Ticari taksilerin izinsiz otopark girişi yasaktır',
+    '35T6040':
+        'Yönetim kararı: Ticari taksilerin izinsiz otopark girişi yasaktır',
     '34KRA99': 'Aidat ve ortak gider icra borcu nedeniyle engellendi',
-    '35F6140': 'Yönetim kararı: Ticari taksilerin izinsiz otopark girişi yasaktır',
+    '35F6140':
+        'Yönetim kararı: Ticari taksilerin izinsiz otopark girişi yasaktır',
   };
 
-  PlateRecognitionEngine._();
+  PlateRecognitionEngine._() : _http = http.Client();
+  @visibleForTesting
+  PlateRecognitionEngine.forTesting({required http.Client client})
+    : _http = client;
   static final PlateRecognitionEngine instance = PlateRecognitionEngine._();
 
-  final http.Client _http = http.Client();
+  final http.Client _http;
+  final Map<String, String> _pendingAdmissionRequests = <String, String>{};
   bool _isRunning = false;
   bool get isRunning => _isRunning;
   bool _tickBusy = false;
@@ -188,10 +232,13 @@ class PlateRecognitionEngine {
   String? _edgeKey;
 
   Timer? _loopTimer;
-  final StreamController<PlateEngineDecision> _decisionsController = StreamController<PlateEngineDecision>.broadcast();
-  Stream<PlateEngineDecision> get decisionsStream => _decisionsController.stream;
+  final StreamController<PlateEngineDecision> _decisionsController =
+      StreamController<PlateEngineDecision>.broadcast();
+  Stream<PlateEngineDecision> get decisionsStream =>
+      _decisionsController.stream;
 
-  final StreamController<void> _clearController = StreamController<void>.broadcast();
+  final StreamController<void> _clearController =
+      StreamController<void>.broadcast();
   Stream<void> get clearStream => _clearController.stream;
 
   PlateEngineDecision? _lastDecision;
@@ -200,7 +247,8 @@ class PlateRecognitionEngine {
 
   static const int _maxRecentDecisions = 80;
   final List<PlateEngineDecision> _recentDecisions = <PlateEngineDecision>[];
-  List<PlateEngineDecision> get recentDecisions => List<PlateEngineDecision>.unmodifiable(_recentDecisions);
+  List<PlateEngineDecision> get recentDecisions =>
+      List<PlateEngineDecision>.unmodifiable(_recentDecisions);
 
   void _recordDecision(PlateEngineDecision decision) {
     _lastDecision = decision;
@@ -212,7 +260,10 @@ class PlateRecognitionEngine {
       }
     }
     if (_recentDecisions.length > _maxRecentDecisions) {
-      _recentDecisions.removeRange(_maxRecentDecisions, _recentDecisions.length);
+      _recentDecisions.removeRange(
+        _maxRecentDecisions,
+        _recentDecisions.length,
+      );
     }
     _decisionsController.add(decision);
   }
@@ -241,7 +292,9 @@ class PlateRecognitionEngine {
     if (_lastServerEventId == row.id) return;
     _lastServerEventId = row.id;
     final seenAt = row.seenAt;
-    if (seenAt != null && DateTime.now().difference(seenAt).inSeconds > 12) return;
+    if (seenAt != null && DateTime.now().difference(seenAt).inSeconds > 12) {
+      return;
+    }
     final norm = _normalizePlate(row.plate);
     if (_lastDecision != null &&
         _normalizePlate(_lastDecision!.plate) == norm &&
@@ -254,10 +307,10 @@ class PlateRecognitionEngine {
       'red' => PlateDecisionType.red,
       'tanimsiz' => PlateDecisionType.tanimsiz,
       _ => switch (row.decision) {
-          'ALLOWED' => PlateDecisionType.acildi,
-          'DENIED' => PlateDecisionType.red,
-          _ => PlateDecisionType.tanimsiz,
-        },
+        'ALLOWED' => PlateDecisionType.acildi,
+        'DENIED' => PlateDecisionType.red,
+        _ => PlateDecisionType.tanimsiz,
+      },
     };
     final d = PlateEngineDecision(
       plate: norm.isNotEmpty ? norm : row.plate,
@@ -266,11 +319,15 @@ class PlateRecognitionEngine {
       doorId: null,
       gateName: (row.doorName ?? '').isNotEmpty
           ? row.doorName!
-          : ((row.deviceName ?? '').isNotEmpty ? row.deviceName! : 'Giriş Kapısı'),
+          : ((row.deviceName ?? '').isNotEmpty
+                ? row.deviceName!
+                : 'Giriş Kapısı'),
       direction: (row.direction ?? '').isNotEmpty ? row.direction! : 'giris',
       apartmentLabel: row.identity?.apartmentLabel,
-      personLabel: row.identity?.personLabel ?? (row.identity?.isGuest == true ? 'Misafir Aracı' : null),
-      isGateTriggered: decisionType == PlateDecisionType.acildi,
+      personLabel:
+          row.identity?.personLabel ??
+          (row.identity?.isGuest == true ? 'Misafir Aracı' : null),
+      isGateTriggered: row.gateState == 'triggered',
       fromServer: true,
       cameraName: row.deviceName,
       confidence: row.confidence,
@@ -279,20 +336,25 @@ class PlateRecognitionEngine {
     _recordDecision(d);
   }
 
-  final StreamController<Map<int, Uint8List>> _framesController = StreamController<Map<int, Uint8List>>.broadcast();
+  final StreamController<Map<int, Uint8List>> _framesController =
+      StreamController<Map<int, Uint8List>>.broadcast();
   Stream<Map<int, Uint8List>> get framesStream => _framesController.stream;
 
   final Map<int, Uint8List> _lastFrames = <int, Uint8List>{};
-  Map<int, Uint8List> get lastFrames => Map<int, Uint8List>.unmodifiable(_lastFrames);
+  Map<int, Uint8List> get lastFrames =>
+      Map<int, Uint8List>.unmodifiable(_lastFrames);
 
   final Map<int, String> _lastCameraPlates = <int, String>{};
-  Map<int, String> get lastCameraPlates => Map<int, String>.unmodifiable(_lastCameraPlates);
+  Map<int, String> get lastCameraPlates =>
+      Map<int, String>.unmodifiable(_lastCameraPlates);
 
   final StreamController<Map<int, PlateLiveOverlay>> _overlaysController =
       StreamController<Map<int, PlateLiveOverlay>>.broadcast();
-  Stream<Map<int, PlateLiveOverlay>> get overlaysStream => _overlaysController.stream;
+  Stream<Map<int, PlateLiveOverlay>> get overlaysStream =>
+      _overlaysController.stream;
 
-  final Map<int, PlateLiveOverlay> _lastCameraOverlays = <int, PlateLiveOverlay>{};
+  final Map<int, PlateLiveOverlay> _lastCameraOverlays =
+      <int, PlateLiveOverlay>{};
   Map<int, PlateLiveOverlay> get lastCameraOverlays =>
       Map<int, PlateLiveOverlay>.unmodifiable(_lastCameraOverlays);
 
@@ -302,15 +364,22 @@ class PlateRecognitionEngine {
   // Yerel hafızadaki izin ve kapasite verileri
   Set<String> _blacklist = <String>{};
   Map<String, String> _blacklistReasons = <String, String>{};
-  Map<String, Map<String, dynamic>> _registeredVehicles = <String, Map<String, dynamic>>{};
-  Map<String, Map<String, dynamic>> _guestPermits = <String, Map<String, dynamic>>{};
-  Map<int, int> _apartmentParkingSlots = <int, int>{}; // apartment_id -> slot count
-  Map<int, int> _apartmentInsideCount = <int, int>{}; // apartment_id -> cars currently inside
-  Map<String, int> _apartmentSlotsByLabel = <String, int>{}; // apartment_label -> slot count
-  Map<String, int> _apartmentInsideByLabel = <String, int>{}; // apartment_label -> cars inside
+  Map<String, Map<String, dynamic>> _registeredVehicles =
+      <String, Map<String, dynamic>>{};
+  Map<String, Map<String, dynamic>> _guestPermits =
+      <String, Map<String, dynamic>>{};
+  Map<int, int> _apartmentParkingSlots =
+      <int, int>{}; // apartment_id -> slot count
+  Map<int, int> _apartmentInsideCount =
+      <int, int>{}; // apartment_id -> cars currently inside
+  Map<String, int> _apartmentSlotsByLabel =
+      <String, int>{}; // apartment_label -> slot count
+  Map<String, int> _apartmentInsideByLabel =
+      <String, int>{}; // apartment_label -> cars inside
 
   List<PlateCameraRow> _activeCameras = <PlateCameraRow>[];
-  List<PlateCameraRow> get activeCameras => List<PlateCameraRow>.unmodifiable(_activeCameras);
+  List<PlateCameraRow> get activeCameras =>
+      List<PlateCameraRow>.unmodifiable(_activeCameras);
 
   // Son okunan plakaların tekrarını engelleme (15 saniyelik cooldown)
   final Map<String, DateTime> _recentReads = <String, DateTime>{};
@@ -327,7 +396,8 @@ class PlateRecognitionEngine {
   final Map<int, DateTime> _cameraNextCaptureRetryAt = <int, DateTime>{};
 
   // 2 & 3) Araç bazlı arka plaka engellemeleri (Giriş yapanın çıkış kamerasında, çıkanın giriş kamerasında okunmaması)
-  final Map<String, PlateSuppression> _plateSuppressions = <String, PlateSuppression>{};
+  final Map<String, PlateSuppression> _plateSuppressions =
+      <String, PlateSuppression>{};
 
   // Geriye dönük uyumluluk için kamera bazlı sorgu desteği
   final Map<int, DateTime> _cameraCooldownUntil = <int, DateTime>{};
@@ -356,7 +426,8 @@ class PlateRecognitionEngine {
     final supp = _plateSuppressions[_normalizePlate(plate)];
     if (supp == null) return false;
     if (DateTime.now().isAfter(supp.suppressUntil)) return false;
-    return supp.suppressDirection == direction || supp.suppressDirection == 'both';
+    return supp.suppressDirection == direction ||
+        supp.suppressDirection == 'both';
   }
 
   /// Plakanın kalan arka plaka engelleme süresini (sn) döndürür
@@ -382,7 +453,8 @@ class PlateRecognitionEngine {
   }
 
   static bool _hasCameraEndpoint(PlateCameraRow c) =>
-      c.isActive && (c.host.trim().isNotEmpty || (c.rtspUrl ?? '').trim().isNotEmpty);
+      c.isActive &&
+      (c.host.trim().isNotEmpty || (c.rtspUrl ?? '').trim().isNotEmpty);
 
   static bool get _canRunNativeLoop =>
       !kIsWeb &&
@@ -413,7 +485,8 @@ class PlateRecognitionEngine {
     _blacklist = blacklist.map((b) => _normalizePlate(b.plate)).toSet();
     _blacklistReasons = {
       for (final b in blacklist)
-        if ((b.reason ?? '').trim().isNotEmpty) _normalizePlate(b.plate): b.reason!.trim(),
+        if ((b.reason ?? '').trim().isNotEmpty)
+          _normalizePlate(b.plate): b.reason!.trim(),
     };
     _guestPermits = {
       for (final p in guestPermits)
@@ -423,13 +496,17 @@ class PlateRecognitionEngine {
             'apartment_label': p.apartmentLabel,
             'note': p.note,
             'created_by_name': p.createdByName,
-          }
+          },
     };
     _registeredVehicles = vehicles;
     _apartmentParkingSlots = parkingSlots;
     _apartmentInsideCount = insideCounts;
-    if (parkingSlotsByLabel != null) _apartmentSlotsByLabel = parkingSlotsByLabel;
-    if (insideCountsByLabel != null) _apartmentInsideByLabel = insideCountsByLabel;
+    if (parkingSlotsByLabel != null) {
+      _apartmentSlotsByLabel = parkingSlotsByLabel;
+    }
+    if (insideCountsByLabel != null) {
+      _apartmentInsideByLabel = insideCountsByLabel;
+    }
 
     if (!_canRunNativeLoop) {
       return;
@@ -444,8 +521,13 @@ class PlateRecognitionEngine {
     _isRunning = true;
 
     unawaited(_tick());
-    _loopTimer = Timer.periodic(const Duration(milliseconds: 380), (_) => unawaited(_tick()));
-    debugPrint('[PlateRecognitionEngine] Motor başlatıldı (Site: $siteCode, ${_activeCameras.length} aktif kamera)');
+    _loopTimer = Timer.periodic(
+      const Duration(milliseconds: 380),
+      (_) => unawaited(_tick()),
+    );
+    debugPrint(
+      '[PlateRecognitionEngine] Motor başlatıldı (Site: $siteCode, ${_activeCameras.length} aktif kamera)',
+    );
   }
 
   /// Canlı kamera bileşeni açıldığında kameranın plaka tanıma döngüsünde mutlaka izlenmesini garanti eder.
@@ -455,7 +537,9 @@ class PlateRecognitionEngine {
       _siteCode = siteCode;
     }
     final idx = _activeCameras.indexWhere(
-      (c) => (camera.id > 0 && c.id == camera.id) || (camera.host.isNotEmpty && c.host == camera.host),
+      (c) =>
+          (camera.id > 0 && c.id == camera.id) ||
+          (camera.host.isNotEmpty && c.host == camera.host),
     );
     if (idx >= 0) {
       _activeCameras[idx] = camera;
@@ -468,8 +552,13 @@ class PlateRecognitionEngine {
     if (!_isRunning) {
       _isRunning = true;
       unawaited(_tick());
-      _loopTimer = Timer.periodic(const Duration(milliseconds: 380), (_) => unawaited(_tick()));
-      debugPrint('[PlateRecognitionEngine] Kamera izleme otomatik başlatıldı (Kamera #${camera.id})');
+      _loopTimer = Timer.periodic(
+        const Duration(milliseconds: 380),
+        (_) => unawaited(_tick()),
+      );
+      debugPrint(
+        '[PlateRecognitionEngine] Kamera izleme otomatik başlatıldı (Kamera #${camera.id})',
+      );
     }
   }
 
@@ -508,7 +597,8 @@ class PlateRecognitionEngine {
       _blacklist = blacklist.map((b) => _normalizePlate(b.plate)).toSet();
       _blacklistReasons = {
         for (final b in blacklist)
-          if ((b.reason ?? '').trim().isNotEmpty) _normalizePlate(b.plate): b.reason!.trim(),
+          if ((b.reason ?? '').trim().isNotEmpty)
+            _normalizePlate(b.plate): b.reason!.trim(),
       };
     }
     if (guestPermits != null) {
@@ -520,14 +610,18 @@ class PlateRecognitionEngine {
               'apartment_label': p.apartmentLabel,
               'note': p.note,
               'created_by_name': p.createdByName,
-            }
+            },
       };
     }
     if (vehicles != null) _registeredVehicles = vehicles;
     if (parkingSlots != null) _apartmentParkingSlots = parkingSlots;
     if (insideCounts != null) _apartmentInsideCount = insideCounts;
-    if (parkingSlotsByLabel != null) _apartmentSlotsByLabel = parkingSlotsByLabel;
-    if (insideCountsByLabel != null) _apartmentInsideByLabel = insideCountsByLabel;
+    if (parkingSlotsByLabel != null) {
+      _apartmentSlotsByLabel = parkingSlotsByLabel;
+    }
+    if (insideCountsByLabel != null) {
+      _apartmentInsideByLabel = insideCountsByLabel;
+    }
   }
 
   /// Kapının geçiş ve güvenlik sürelerini bellek içinde anında günceller.
@@ -572,7 +666,9 @@ class PlateRecognitionEngine {
         );
       }
     }
-    debugPrint('[PlateRecognitionEngine] Kapı #$gateId süreleri güncellendi: sonraki=${consecutiveVehicleDelaySeconds}s, girişArka=${entryRearSuppressSeconds}s, çıkışArka=${exitRearSuppressSeconds}s');
+    debugPrint(
+      '[PlateRecognitionEngine] Kapı #$gateId süreleri güncellendi: sonraki=${consecutiveVehicleDelaySeconds}s, girişArka=${entryRearSuppressSeconds}s, çıkışArka=${exitRearSuppressSeconds}s',
+    );
   }
 
   Future<void> _tick() async {
@@ -598,7 +694,8 @@ class PlateRecognitionEngine {
     // Canlı RTSP oynatıcı (PlateRtspVideoSurface) son 2 sn içinde zaten RAM karesi beslediyse
     // kameraya fazladan HTTP snapshot isteği göndererek bant genişliğini ve FPS'i yorma.
     final lastLiveFrame = _lastFrameReceivedAt[camera.id];
-    if (lastLiveFrame != null && now.difference(lastLiveFrame).inMilliseconds < 1900) {
+    if (lastLiveFrame != null &&
+        now.difference(lastLiveFrame).inMilliseconds < 1900) {
       return;
     }
 
@@ -611,21 +708,31 @@ class PlateRecognitionEngine {
       if (captured != null && captured.bytes.isNotEmpty) {
         _cameraCaptureFailStreak.remove(camera.id);
         _cameraNextCaptureRetryAt.remove(camera.id);
-        await ingestCameraFrame(camera, captured.bytes, directPlate: captured.plate);
+        await ingestCameraFrame(
+          camera,
+          captured.bytes,
+          directPlate: captured.plate,
+        );
       } else {
         final fails = (_cameraCaptureFailStreak[camera.id] ?? 0) + 1;
         _cameraCaptureFailStreak[camera.id] = fails;
         if (fails >= 2) {
-          _cameraNextCaptureRetryAt[camera.id] = DateTime.now().add(const Duration(milliseconds: 3500));
+          _cameraNextCaptureRetryAt[camera.id] = DateTime.now().add(
+            const Duration(milliseconds: 3500),
+          );
         }
       }
     } catch (e) {
       final fails = (_cameraCaptureFailStreak[camera.id] ?? 0) + 1;
       _cameraCaptureFailStreak[camera.id] = fails;
       if (fails >= 2) {
-        _cameraNextCaptureRetryAt[camera.id] = DateTime.now().add(const Duration(milliseconds: 3500));
+        _cameraNextCaptureRetryAt[camera.id] = DateTime.now().add(
+          const Duration(milliseconds: 3500),
+        );
       }
-      debugPrint('[PlateRecognitionEngine] Kamera ${camera.id} kare alma hatası: $e');
+      debugPrint(
+        '[PlateRecognitionEngine] Kamera ${camera.id} kare alma hatası: $e',
+      );
     } finally {
       _cameraCaptureInFlight.remove(camera.id);
     }
@@ -647,7 +754,8 @@ class PlateRecognitionEngine {
       }
     } else {
       final overlay = _lastCameraOverlays[cameraId];
-      if (overlay == null || now.difference(overlay.detectedAt).inMilliseconds > 1800) {
+      if (overlay == null ||
+          now.difference(overlay.detectedAt).inMilliseconds > 1800) {
         _lastCameraPlates.remove(cameraId);
       }
     }
@@ -664,13 +772,17 @@ class PlateRecognitionEngine {
     _lastFrameReceivedAt[camera.id] = now;
 
     PlateDetectionResult? onnxDet;
-    final cleanDirect = (directPlate != null &&
+    final cleanDirect =
+        (directPlate != null &&
             directPlate.trim().isNotEmpty &&
             directPlate.trim().toLowerCase() != 'none')
         ? directPlate.trim()
         : null;
     if (cleanDirect == null) {
-      onnxDet = await PlateOnnxRecognizer.instance.detect(bytes, cameraId: camera.id);
+      onnxDet = await PlateOnnxRecognizer.instance.detect(
+        bytes,
+        cameraId: camera.id,
+      );
     }
 
     final resolvedPlate = onnxDet?.plate ?? cleanDirect;
@@ -679,7 +791,9 @@ class PlateRecognitionEngine {
       _lastCameraOverlays[camera.id] = PlateLiveOverlay(
         cameraId: camera.id,
         plate: resolvedPlate,
-        normalizedBox: onnxDet?.normalizedBox ?? const Rect.fromLTWH(0.32, 0.42, 0.36, 0.20),
+        normalizedBox:
+            onnxDet?.normalizedBox ??
+            const Rect.fromLTWH(0.32, 0.42, 0.36, 0.20),
         confidence: onnxDet?.confidence ?? 0.95,
         sourceAspectRatio: onnxDet?.sourceAspectRatio ?? (16.0 / 9.0),
         detectedAt: now,
@@ -687,7 +801,8 @@ class PlateRecognitionEngine {
       _overlaysController.add(_lastCameraOverlays);
     } else {
       final prev = _lastCameraOverlays[camera.id];
-      if (prev != null && now.difference(prev.detectedAt).inMilliseconds > 1800) {
+      if (prev != null &&
+          now.difference(prev.detectedAt).inMilliseconds > 1800) {
         _lastCameraOverlays.remove(camera.id);
         _lastCameraPlates.remove(camera.id);
         _overlaysController.add(_lastCameraOverlays);
@@ -699,7 +814,8 @@ class PlateRecognitionEngine {
 
     // Sunucuya periyodik son kare yükle (4 saniyede bir)
     final lastUp = _lastSnapshotUploadAt[camera.id];
-    if (camera.id > 0 && (lastUp == null || now.difference(lastUp).inSeconds >= 4)) {
+    if (camera.id > 0 &&
+        (lastUp == null || now.difference(lastUp).inSeconds >= 4)) {
       _lastSnapshotUploadAt[camera.id] = now;
       unawaited(_uploadSnapshotToServer(camera.id, bytes));
     }
@@ -732,15 +848,22 @@ class PlateRecognitionEngine {
     final baseUrl = _baseUrl;
     final siteCode = _siteCode;
     final token = _token;
-    if (baseUrl == null || siteCode == null || token == null || token.isEmpty) return;
+    if (baseUrl == null || siteCode == null || token == null || token.isEmpty) {
+      return;
+    }
     try {
-      final uri = Uri.parse('$baseUrl/manager/sites/$siteCode/plate-recognition/cameras/$cameraId/snapshot');
+      final uri = Uri.parse(
+        '$baseUrl/manager/sites/$siteCode/plate-recognition/cameras/$cameraId/snapshot',
+      );
       final req = http.Request('PUT', uri)
         ..headers['Authorization'] = 'Bearer $token'
         ..headers['Content-Type'] = 'image/jpeg'
         ..headers['X-Captured-At'] = DateTime.now().toUtc().toIso8601String()
         ..bodyBytes = bytes;
-      await _http.send(req).then(http.Response.fromStream).timeout(const Duration(seconds: 4));
+      await _http
+          .send(req)
+          .then(http.Response.fromStream)
+          .timeout(const Duration(seconds: 4));
     } catch (_) {}
   }
 
@@ -763,8 +886,14 @@ class PlateRecognitionEngine {
       return; // Aynı şeritteki bir önceki araç geçişi sonrası bekleme süresi dolmadı
     }
 
-    final detectedPlate = directPlate ?? await _extractPlateFromImage(frameBytes, cameraId: camera.id);
-    if (detectedPlate == null || detectedPlate.isEmpty || detectedPlate.toLowerCase() == 'none') return;
+    final detectedPlate =
+        directPlate ??
+        await _extractPlateFromImage(frameBytes, cameraId: camera.id);
+    if (detectedPlate == null ||
+        detectedPlate.isEmpty ||
+        detectedPlate.toLowerCase() == 'none') {
+      return;
+    }
 
     final plate = _normalizePlate(detectedPlate);
     if (!_isValidPlateFormat(plate)) return;
@@ -773,8 +902,11 @@ class PlateRecognitionEngine {
     final supp = _plateSuppressions[plate];
     if (supp != null) {
       if (now.isBefore(supp.suppressUntil)) {
-        if (supp.suppressDirection == camDirection || supp.suppressDirection == 'both') {
-          debugPrint('[PlateRecognitionEngine] ARKA PLAKA ENGELLENDİ: $plate ($camDirection kamerasında engellendi, kalan süre: ${supp.suppressUntil.difference(now).inSeconds}s)');
+        if (supp.suppressDirection == camDirection ||
+            supp.suppressDirection == 'both') {
+          debugPrint(
+            '[PlateRecognitionEngine] ARKA PLAKA ENGELLENDİ: $plate ($camDirection kamerasında engellendi, kalan süre: ${supp.suppressUntil.difference(now).inSeconds}s)',
+          );
           return;
         }
       } else {
@@ -788,25 +920,35 @@ class PlateRecognitionEngine {
       return;
     }
     final lastCamEvent = _lastCameraEventAt[camera.id];
-    if (lastCamEvent != null && now.difference(lastCamEvent).inMilliseconds < 1500) {
+    if (lastCamEvent != null &&
+        now.difference(lastCamEvent).inMilliseconds < 1500) {
       return;
     }
     _recentReads[plate] = now;
     _lastCameraEventAt[camera.id] = now;
 
     // --- KARAR MOTORU ---
-    final decision = _evaluatePlate(plate, camera).copyWith(
-      cameraId: camera.id,
-      cameraName: camera.name,
-      confidence: confidence ?? 0.95,
-      snapshotBytes: frameBytes,
-    );
+    final decision =
+        (await _authorizeParking(
+                  plate,
+                  camera,
+                  direction: camDirection,
+                  confidence: confidence,
+                ) ??
+                _evaluatePlate(plate, camera))
+            .copyWith(
+              cameraId: camera.id,
+              cameraName: camera.name,
+              confidence: confidence ?? 0.95,
+              snapshotBytes: frameBytes,
+            );
     _recordDecision(decision);
 
     // Eğer kapı açma kararı verildiyse:
     if (decision.decision == PlateDecisionType.acildi) {
       // 1) Bu şerit için bir sonraki araç bekleme süresini başlat (Varsayılan 10 sn veya kapı ayarı)
-      final consecutiveDelay = gate != null && gate.consecutiveVehicleDelaySeconds > 0
+      final consecutiveDelay =
+          gate != null && gate.consecutiveVehicleDelaySeconds > 0
           ? gate.consecutiveVehicleDelaySeconds
           : 10;
       final until = now.add(Duration(seconds: consecutiveDelay));
@@ -821,8 +963,12 @@ class PlateRecognitionEngine {
       // (Farklı/arkadan gelen başka bir araç ise consecutiveDelay (10 sn) sonra kapıyı açabilir).
       final isEntry = decision.direction != 'cikis';
       final suppressSec = isEntry
-          ? (gate != null && gate.entryRearSuppressSeconds > 0 ? gate.entryRearSuppressSeconds : 60)
-          : (gate != null && gate.exitRearSuppressSeconds > 0 ? gate.exitRearSuppressSeconds : 60);
+          ? (gate != null && gate.entryRearSuppressSeconds > 0
+                ? gate.entryRearSuppressSeconds
+                : 60)
+          : (gate != null && gate.exitRearSuppressSeconds > 0
+                ? gate.exitRearSuppressSeconds
+                : 60);
 
       _plateSuppressions[plate] = PlateSuppression(
         plate: plate,
@@ -833,13 +979,17 @@ class PlateRecognitionEngine {
             ? 'Giriş yapan aracın aynı kapıdan ($suppressSec sn) veya çıkış kamerasından mükerrer tetiklemesi engellendi'
             : 'Çıkış yapan aracın aynı kapıdan ($suppressSec sn) veya giriş kamerasından mükerrer tetiklemesi engellendi',
       );
-      debugPrint('[PlateRecognitionEngine] KAPI AÇILDI (${isEntry ? "GİRİŞ" : "ÇIKIŞ"}): $plate geçiş yaptı. Bu araç $suppressSec sn boyunca mükerrer tetikleme yapmayacak. Arkadan gelen başka bir araç için kapı $consecutiveDelay sn sonra açılabilecek.');
+      debugPrint(
+        '[PlateRecognitionEngine] Geçiş izni verildi (${isEntry ? "GİRİŞ" : "ÇIKIŞ"}): komut sonucu ve fiziksel geçiş ayrıca doğrulanmalıdır. Bu araç $suppressSec sn boyunca mükerrer tetikleme yapmayacak; sonraki araç için komut en erken $consecutiveDelay sn sonra değerlendirilecek.',
+      );
 
-      await _triggerGate(camera, decision);
+      if (!decision.fromServer) await _triggerGate(camera, decision);
     }
 
     // Olayı sunucuya bildir (sunucu aynı zamanda kapı açıksa MQTT üzerinden de tetikler)
-    unawaited(_notifyServer(camera, decision, confidence: confidence));
+    if (!decision.fromServer) {
+      unawaited(_notifyServer(camera, decision, confidence: confidence));
+    }
   }
 
   /// Test veya simülasyon amaçlı plaka işleme (arayüzden doğrudan tetikleme)
@@ -851,27 +1001,43 @@ class PlateRecognitionEngine {
     String direction = 'giris',
   }) async {
     final plate = _normalizePlate(rawPlate);
-    final effectiveCamera = camera ?? (_activeCameras.isNotEmpty ? _activeCameras.first : null);
-    final effectiveGateName = gateName ?? effectiveCamera?.gate?.name ?? 'Ana Giriş Kapısı';
-    final effectiveDoorId = gateId ?? effectiveCamera?.gate?.doorId ?? effectiveCamera?.gate?.id ?? 1;
+    final effectiveCamera =
+        camera ?? (_activeCameras.isNotEmpty ? _activeCameras.first : null);
+    final effectiveGateName =
+        gateName ?? effectiveCamera?.gate?.name ?? 'Ana Giriş Kapısı';
+    final effectiveDoorId =
+        gateId ??
+        effectiveCamera?.gate?.doorId ??
+        effectiveCamera?.gate?.id ??
+        1;
 
-    final decision = _evaluatePlate(
-      plate,
-      effectiveCamera,
-      overrideDoorId: effectiveDoorId,
-      overrideGateName: effectiveGateName,
-      overrideDirection: direction,
-    ).copyWith(
-      cameraId: effectiveCamera?.id,
-      cameraName: effectiveCamera?.name ?? 'Simülasyon / Test',
-      confidence: 0.99,
-    );
+    final decision =
+        (await _authorizeParking(
+                  plate,
+                  effectiveCamera,
+                  direction: direction,
+                  confidence: .99,
+                ) ??
+                _evaluatePlate(
+                  plate,
+                  effectiveCamera,
+                  overrideDoorId: effectiveDoorId,
+                  overrideGateName: effectiveGateName,
+                  overrideDirection: direction,
+                ))
+            .copyWith(
+              cameraId: effectiveCamera?.id,
+              cameraName: effectiveCamera?.name ?? 'Simülasyon / Test',
+              confidence: 0.99,
+            );
     _recordDecision(decision);
 
     if (decision.decision == PlateDecisionType.acildi) {
-      final consecutiveDelay = effectiveCamera?.gate?.consecutiveVehicleDelaySeconds ?? 10;
+      final consecutiveDelay =
+          effectiveCamera?.gate?.consecutiveVehicleDelaySeconds ?? 10;
       final until = DateTime.now().add(Duration(seconds: consecutiveDelay));
-      _gateLaneNextVehicleUntil['${effectiveDoorId}_${direction == 'cikis' ? 'cikis' : 'giris'}'] = until;
+      _gateLaneNextVehicleUntil['${effectiveDoorId}_${direction == 'cikis' ? 'cikis' : 'giris'}'] =
+          until;
       _gateNextVehicleCooldownUntil[effectiveDoorId] = until;
 
       final isEntry = direction != 'cikis';
@@ -888,10 +1054,12 @@ class PlateRecognitionEngine {
             ? 'Giriş yapan aracın aynı kapıdan ($suppressSec sn) veya çıkış kamerasından mükerrer tetiklemesi engellendi'
             : 'Çıkış yapan aracın aynı kapıdan ($suppressSec sn) veya giriş kamerasından mükerrer tetiklemesi engellendi',
       );
-      await _triggerGate(effectiveCamera, decision);
+      if (!decision.fromServer) await _triggerGate(effectiveCamera, decision);
     }
 
-    unawaited(_notifyServer(effectiveCamera, decision));
+    if (!decision.fromServer) {
+      unawaited(_notifyServer(effectiveCamera, decision));
+    }
 
     return decision;
   }
@@ -911,12 +1079,20 @@ class PlateRecognitionEngine {
   }
 
   /// Kamera önizleme ekranında okunan plakanın karar ve aidiyet bilgisini anlık döndürür.
-  PlateEngineDecision evaluatePlatePreview(String rawPlate, {PlateCameraRow? camera}) {
+  PlateEngineDecision evaluatePlatePreview(
+    String rawPlate, {
+    PlateCameraRow? camera,
+  }) {
     final norm = _normalizePlate(rawPlate);
-    if (_lastDecision != null && _normalizePlate(_lastDecision!.plate) == norm) {
+    if (_lastDecision != null &&
+        _normalizePlate(_lastDecision!.plate) == norm) {
       return _lastDecision!;
     }
-    return _evaluatePlate(norm.isNotEmpty ? norm : rawPlate, camera, silentLog: true);
+    return _evaluatePlate(
+      norm.isNotEmpty ? norm : rawPlate,
+      camera,
+      silentLog: true,
+    );
   }
 
   /// Plaka karar motoru (Otopark doluluk ve hak kontrolleri)
@@ -935,12 +1111,18 @@ class PlateRecognitionEngine {
     final direction = (rawDir == 'auto' || rawDir.isEmpty) ? 'giris' : rawDir;
 
     // 1. KARA LİSTE KONTROLÜ
-    final isBlacklisted = _blacklist.contains(plate) || (_siteCode == null && _demoBlacklist.containsKey(plate));
+    final isBlacklisted =
+        _blacklist.contains(plate) ||
+        (_siteCode == null && _demoBlacklist.containsKey(plate));
     if (isBlacklisted) {
-      final customReason = _blacklistReasons[plate] ?? (_siteCode == null ? _demoBlacklist[plate] : null);
+      final customReason =
+          _blacklistReasons[plate] ??
+          (_siteCode == null ? _demoBlacklist[plate] : null);
       // customReason resolved above
       if (!silentLog) {
-        debugPrint('[PlateRecognitionEngine] Plaka KARA LİSTEDE: $plate (Giriş Reddedildi)');
+        debugPrint(
+          '[PlateRecognitionEngine] Plaka KARA LİSTEDE: $plate (Giriş Reddedildi)',
+        );
       }
       return PlateEngineDecision(
         plate: plate,
@@ -955,12 +1137,16 @@ class PlateRecognitionEngine {
     }
 
     // 2. SAKİN ARACI KONTROLÜ (Gerçek siteye bağlıyken sadece veritabanındaki kayıtlı araçlar geçerlidir)
-    final residentInfo = _registeredVehicles[plate] ?? (_siteCode == null ? _demoVehicles[plate] : null);
+    final residentInfo =
+        _registeredVehicles[plate] ??
+        (_siteCode == null ? _demoVehicles[plate] : null);
     if (residentInfo != null) {
       final aptLabel = residentInfo['apartment_label'] as String?;
       final personLabel = residentInfo['person_label'] as String?;
       if (!silentLog) {
-        debugPrint('[PlateRecognitionEngine] SAKİN ARACI ONAYLANDI: $plate (Daire: $aptLabel, Kişi: $personLabel)');
+        debugPrint(
+          '[PlateRecognitionEngine] SAKİN ARACI ONAYLANDI: $plate (Daire: $aptLabel, Kişi: $personLabel)',
+        );
       }
       return PlateEngineDecision(
         plate: plate,
@@ -976,12 +1162,16 @@ class PlateRecognitionEngine {
     }
 
     // 3. MİSAFİR ARACI VE OTOPARK DOLULUK KONTROLÜ (Gerçek sitede sadece veritabanındaki misafir izinleri geçerlidir)
-    final guestInfo = _guestPermits[plate] ?? (_siteCode == null ? _demoGuestPermits[plate] : null);
+    final guestInfo =
+        _guestPermits[plate] ??
+        (_siteCode == null ? _demoGuestPermits[plate] : null);
     if (guestInfo != null) {
       final aptId = guestInfo['apartment_id'] as int?;
       final aptLabel = guestInfo['apartment_label'] as String?;
       final guestNote = (guestInfo['note'] as String?)?.trim();
-      final guestPersonLabel = (guestNote != null && guestNote.isNotEmpty) ? 'Misafir ($guestNote)' : 'Misafir Aracı';
+      final guestPersonLabel = (guestNote != null && guestNote.isNotEmpty)
+          ? 'Misafir ($guestNote)'
+          : 'Misafir Aracı';
 
       if (direction == 'cikis') {
         return PlateEngineDecision(
@@ -998,21 +1188,26 @@ class PlateRecognitionEngine {
       }
 
       // Giriş kontrolü: Dairenin park yeri var mı ve boş mu?
-      final slots = (aptId != null ? _apartmentParkingSlots[aptId] : null) ??
+      final slots =
+          (aptId != null ? _apartmentParkingSlots[aptId] : null) ??
           (aptLabel != null ? _apartmentSlotsByLabel[aptLabel] : null) ??
           1;
-      final inside = (aptId != null ? _apartmentInsideCount[aptId] : null) ??
+      final inside =
+          (aptId != null ? _apartmentInsideCount[aptId] : null) ??
           (aptLabel != null ? _apartmentInsideByLabel[aptLabel] : null) ??
           0;
 
       if (slots <= 0) {
         if (!silentLog) {
-          debugPrint('[PlateRecognitionEngine] MİSAFİR RED: $plate (Dairenin park yeri hakkı yok)');
+          debugPrint(
+            '[PlateRecognitionEngine] MİSAFİR RED: $plate (Dairenin park yeri hakkı yok)',
+          );
         }
         return PlateEngineDecision(
           plate: plate,
           decision: PlateDecisionType.red,
-          reason: 'Dairenin (${aptLabel ?? 'Belirsiz'}) otopark yeri hakkı bulunmuyor.',
+          reason:
+              'Dairenin (${aptLabel ?? 'Belirsiz'}) otopark yeri hakkı bulunmuyor.',
           doorId: doorId,
           gateName: gateName,
           direction: direction,
@@ -1023,12 +1218,15 @@ class PlateRecognitionEngine {
 
       if (inside > 0) {
         if (!silentLog) {
-          debugPrint('[PlateRecognitionEngine] MİSAFİR RED: $plate (Dairenin park yeri DOLU - içeride $inside araç var)');
+          debugPrint(
+            '[PlateRecognitionEngine] MİSAFİR RED: $plate (Dairenin park yeri DOLU - içeride $inside araç var)',
+          );
         }
         return PlateEngineDecision(
           plate: plate,
           decision: PlateDecisionType.red,
-          reason: 'Dairenin (${aptLabel ?? 'Belirsiz'}) park yeri dolu! İçeride aracı varken misafir alınamaz.',
+          reason:
+              'Dairenin (${aptLabel ?? 'Belirsiz'}) park yeri dolu! İçeride aracı varken misafir alınamaz.',
           doorId: doorId,
           gateName: gateName,
           direction: direction,
@@ -1038,7 +1236,9 @@ class PlateRecognitionEngine {
       }
 
       if (!silentLog) {
-        debugPrint('[PlateRecognitionEngine] MİSAFİR KABUL EDİLDİ: $plate (Daire $aptLabel park yeri müsait)');
+        debugPrint(
+          '[PlateRecognitionEngine] MİSAFİR KABUL EDİLDİ: $plate (Daire $aptLabel park yeri müsait)',
+        );
       }
       return PlateEngineDecision(
         plate: plate,
@@ -1055,7 +1255,9 @@ class PlateRecognitionEngine {
 
     // 4. TANIMSIZ PLAKA
     if (!silentLog) {
-      debugPrint('[PlateRecognitionEngine] TANIMSIZ ARAÇ: $plate (Kapı açılmadı)');
+      debugPrint(
+        '[PlateRecognitionEngine] TANIMSIZ ARAÇ: $plate (Kapı açılmadı)',
+      );
     }
     return PlateEngineDecision(
       plate: plate,
@@ -1067,14 +1269,136 @@ class PlateRecognitionEngine {
     );
   }
 
-  /// Kapıya açıl komutu gönderir (Yerel UDP 8765; bulut MQTT tetiklemesi _notifyServer içinde yürütülür)
-  Future<void> _triggerGate(PlateCameraRow? camera, PlateEngineDecision decision) async {
+  /// A live controlled site reserves capacity on the server BEFORE any command.
+  /// A failed/ambiguous response cannot fall back to a cached local allow decision.
+  Future<PlateEngineDecision?> _authorizeParking(
+    String plate,
+    PlateCameraRow? camera, {
+    required String direction,
+    double? confidence,
+  }) async {
+    if (_siteCode == null || _baseUrl == null) {
+      return null; // Explicit demo only.
+    }
+    String reason =
+        'Araç hakkı sunucudan doğrulanamadı. Kapı komutu gönderilmedi.';
+    try {
+      final edge = _edgeKey?.isNotEmpty == true;
+      final token = edge ? _edgeKey : _token;
+      if (token == null || token.isEmpty || camera == null || camera.id < 1) {
+        throw StateError('unconfigured');
+      }
+      final requestScope = '$_siteCode:$token:${camera.id}:$plate:$direction';
+      final requestId = _pendingAdmissionRequests.putIfAbsent(
+        requestScope,
+        () => 'adm_${DateTime.now().microsecondsSinceEpoch}_${camera.id}',
+      );
+      final response = await _http
+          .post(
+            Uri.parse(
+              edge
+                  ? '$_baseUrl/edge/plate/v1/admissions'
+                  : '$_baseUrl/manager/sites/$_siteCode/plate-recognition/admissions',
+            ),
+            headers: {
+              'Authorization': 'Bearer $token',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode({
+              'request_id': requestId,
+              'camera_id': camera.id,
+              'plate': plate,
+              'direction': direction == 'cikis' ? 'cikis' : 'giris',
+              'confidence': confidence,
+              'recognition_ready': confidence != null,
+            }),
+          )
+          .timeout(const Duration(seconds: 12));
+      if (response.statusCode != 200) throw StateError('admission_failed');
+      final raw = jsonDecode(response.body);
+      if (raw is! Map || raw['enabled'] is! bool) {
+        throw const FormatException('Invalid parking response');
+      }
+      if (raw['enabled'] == false) {
+        if (raw['authorized'] is! bool) {
+          throw const FormatException('Invalid approval response');
+        }
+        _pendingAdmissionRequests.remove(requestScope);
+        if (raw['authorized'] == true) {
+          return null; // Capacity off; apartment approval still checked.
+        }
+        return PlateEngineDecision(
+          plate: plate,
+          decision: PlateDecisionType.red,
+          reason: raw['message'] is String
+              ? raw['message'] as String
+              : 'Dairenin araç girişine yönetim onayı bekleniyor.',
+          doorId: camera.gate?.doorId,
+          gateName: camera.gate?.name ?? 'Geçiş noktası',
+          direction: direction,
+          fromServer: true,
+        );
+      }
+      if (raw['allowed'] is! bool ||
+          raw['command_accepted'] is! bool ||
+          raw['admission_id'] is! num ||
+          (raw['admission_id'] as num) <= 0) {
+        throw const FormatException('Invalid admission response');
+      }
+      final accepted =
+          raw['allowed'] == true &&
+          raw['command_accepted'] == true &&
+          raw['status'] == 'accepted';
+      if (raw['status'] != 'pending' && raw['status'] != 'uncertain') {
+        _pendingAdmissionRequests.remove(requestScope);
+      }
+      final blockers = raw['blocking_plates'];
+      reason = raw['message'] is String ? raw['message'] as String : reason;
+      if (blockers is List && blockers.isNotEmpty) {
+        reason = '$reason Geçiş kaydındaki plakalar: ${blockers.join(', ')}';
+      }
+      final local = _evaluatePlate(plate, camera, silentLog: true);
+      return PlateEngineDecision(
+        plate: plate,
+        decision: accepted ? PlateDecisionType.acildi : PlateDecisionType.red,
+        reason: reason,
+        doorId: local.doorId,
+        gateName: local.gateName,
+        direction: raw['direction'] == 'cikis' ? 'cikis' : 'giris',
+        apartmentLabel: local.apartmentLabel,
+        personLabel: local.personLabel,
+        isGateTriggered: accepted,
+        fromServer: true,
+      );
+    } catch (_) {
+      return PlateEngineDecision(
+        plate: plate,
+        decision: PlateDecisionType.red,
+        reason: reason,
+        doorId: camera?.gate?.doorId,
+        gateName: camera?.gate?.name ?? 'Geçiş noktası',
+        direction: direction,
+        fromServer: true,
+      );
+    }
+  }
+
+  /// Legacy mode only; controlled sites dispatch through the authorized server admission.
+  Future<void> _triggerGate(
+    PlateCameraRow? camera,
+    PlateEngineDecision decision,
+  ) async {
     final doorId = decision.doorId;
-    debugPrint('[PlateRecognitionEngine] KAPI TETİKLENİYOR: Kapı #$doorId (${decision.gateName})');
+    debugPrint(
+      '[PlateRecognitionEngine] KAPI TETİKLENİYOR: Kapı #$doorId (${decision.gateName})',
+    );
 
     if (!kIsWeb) {
       try {
-        final udpSocket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
+        final udpSocket = await RawDatagramSocket.bind(
+          InternetAddress.anyIPv4,
+          0,
+        );
         final openMsg = jsonEncode({
           'action': 'open',
           'door_id': doorId,
@@ -1082,9 +1406,15 @@ class PlateRecognitionEngine {
           'timestamp': DateTime.now().millisecondsSinceEpoch,
         });
         udpSocket.broadcastEnabled = true;
-        udpSocket.send(utf8.encode(openMsg), InternetAddress('255.255.255.255'), 8765);
+        udpSocket.send(
+          utf8.encode(openMsg),
+          InternetAddress('255.255.255.255'),
+          8765,
+        );
         udpSocket.close();
-        debugPrint('[PlateRecognitionEngine] Yerel UDP 8765 açıl paketi gönderildi');
+        debugPrint(
+          '[PlateRecognitionEngine] Yerel UDP 8765 açıl paketi gönderildi',
+        );
       } catch (e) {
         debugPrint('[PlateRecognitionEngine] Yerel UDP açma hatası: $e');
       }
@@ -1110,43 +1440,62 @@ class PlateRecognitionEngine {
 
     final body = jsonEncode({
       'schema_version': 3,
-      'event_id': 'evt_${DateTime.now().millisecondsSinceEpoch}_${decision.plate}',
+      'event_id':
+          'evt_${DateTime.now().millisecondsSinceEpoch}_${decision.plate}',
       'camera_id': (camera != null && camera.id > 0) ? camera.id : null,
       'plate': decision.plate,
       'decision': decisionKind,
       'direction': decision.direction,
       'seen_at': decision.timestamp.toUtc().toIso8601String(),
       'reason': decision.reason,
-      'confidence': double.parse((confidence ?? 0.95).clamp(0.01, 1.0).toStringAsFixed(3)),
+      'confidence': double.parse(
+        (confidence ?? 0.95).clamp(0.01, 1.0).toStringAsFixed(3),
+      ),
       'gate_id': camera?.gate?.id,
-      'gate_command': decision.isGateTriggered ? 'sent' : 'not_sent',
+      // UDP send is not an acknowledgement. Do not claim accepted without a device/transport result.
+      'gate_command': null,
     });
 
     try {
-      final headers = <String, String>{
-        'Content-Type': 'application/json',
-      };
+      final headers = <String, String>{'Content-Type': 'application/json'};
       final Uri uri;
       if (_edgeKey != null && _edgeKey!.isNotEmpty) {
         headers['Authorization'] = 'Bearer $_edgeKey';
         uri = Uri.parse('$baseUrl/edge/plate/v1/events');
       } else if (_token != null && _token!.isNotEmpty) {
         headers['Authorization'] = 'Bearer $_token';
-        uri = Uri.parse('$baseUrl/manager/sites/$siteCode/plate-recognition/events');
+        uri = Uri.parse(
+          '$baseUrl/manager/sites/$siteCode/plate-recognition/events',
+        );
       } else {
         return;
       }
 
-      await _http.post(uri, headers: headers, body: body).timeout(const Duration(seconds: 4));
-      debugPrint('[PlateRecognitionEngine] Olay sunucuya bildirildi: ${decision.plate} -> $decisionKind');
+      final response = await _http
+          .post(uri, headers: headers, body: body)
+          .timeout(const Duration(seconds: 4));
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw StateError('event_not_recorded');
+      }
+      debugPrint(
+        '[PlateRecognitionEngine] Olay sunucuya bildirildi: ${decision.plate} -> $decisionKind',
+      );
     } catch (e) {
-      debugPrint('[PlateRecognitionEngine] Olay sunucuya bildirilemedi (çevrimdışı): $e');
+      debugPrint(
+        '[PlateRecognitionEngine] Olay sunucuya bildirilemedi (çevrimdışı): $e',
+      );
     }
   }
 
   /// Uygulama içi ONNX sinir ağı tabanlı hızlı plaka tespiti ve OCR
-  Future<String?> _extractPlateFromImage(Uint8List bytes, {int? cameraId}) async {
-    final res = await PlateOnnxRecognizer.instance.detect(bytes, cameraId: cameraId);
+  Future<String?> _extractPlateFromImage(
+    Uint8List bytes, {
+    int? cameraId,
+  }) async {
+    final res = await PlateOnnxRecognizer.instance.detect(
+      bytes,
+      cameraId: cameraId,
+    );
     return res?.plate;
   }
 }

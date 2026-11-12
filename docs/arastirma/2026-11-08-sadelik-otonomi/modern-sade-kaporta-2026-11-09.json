@@ -1,0 +1,292 @@
+{
+  "title": "Klasik arayüz korunarak seçilebilir Sade arayüz: yeni referans kütüphanesi",
+  "checked_at": "2026-11-09",
+  "scope": "Sektör bağımsız tasarım örnekleri, birincil tasarım rehberleri ve akademik araştırma. Önceki UX-01–08 kaynaklarından farklı 12 yeni URL; uygulama kodu, arka uç, dağıtım veya cihaz değişikliği yok.",
+  "evidence_policy": "Tasarım ödülü, üretici tasarım gerekçesi, resmi ürün özelliği, standart ve kullanıcı araştırması ayrı kanıt türleridir. Hiçbiri bu projenin yeni arayüzünün test edildiğini veya en az ikonla en başarılı ürün olduğunu kanıtlamaz. Kaynakların tam metni saklanmadı; özgün kısa özet ve bağlantıları saklandı.",
+  "reuse": {
+    "example": "Kütüphanedeki S-03 ve REF-M03 ilkeleriyle Kişiler sade görünümünü revize edelim",
+    "how": "Kaynak kimliği, application ve caveat birlikte kullanılmalı; çizim referansı ürün kodu veya birebir tasarım kopyası değildir.",
+    "recheck": "Kaynak tarihi/erişimi, güncel ekran, kullanıcı rolü/site bağı ve ilgili API/yetki kuralı yeniden doğrulanmalı.",
+    "code_constraint": "Klasik ve Sade arayüzler aynı iş kurallarını ve yetkili veri kaynaklarını kullanır. Mevcut işlevler kaybolmaz; daha az menü, daha geniş veri erişimi anlamına gelmez.",
+    "not_stored": "Tam makale metinleri, rakip arayüz kodları, ücretli varlıklar veya uygulama içi kullanılacak telifli görseller."
+  },
+  "sources": [
+    {
+      "id": "REF-M01",
+      "title": "Behind the Design: Flighty",
+      "product": "Flighty",
+      "sector": "Seyahat",
+      "url": "https://developer.apple.com/news/?id=970ncww4",
+      "published_at": "2023-06-05",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Apple Design Award kazananı hakkında resmi Apple geliştirici incelemesi; tasarım ödülü ve üretici röportajı",
+      "summary": "Yolculuğun kritik bilgisi ön planda ve tanıdık havaalanı görsel diliyle gösteriliyor. Değişen durum, aynı bilgi alanında güncelleniyor.",
+      "application": "Sakin ekranında güncel duyuru ve kendi borcu; güvenlik ekranında mevcut alarm ve kapı durumu. Yerleşim sabit kalırken güncel bilgi aynı yerde değişebilir.",
+      "caveat": "Ödül bizim akışlarımız için ölçülmüş görev başarısı değildir. Harita, sürekli animasyon veya seyahat metaforu yalnız modern görünmek için eklenmemeli.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://developer.apple.com/news/?id=970ncww4",
+        "asset_id": "IMG-M01",
+        "kind": "Uygulama ekranı içeren resmi tanıtım kolajı; bağımsız tam ekran kullanılabilirlik testi değil"
+      }
+    },
+    {
+      "id": "REF-M02",
+      "title": "2024 Apple Design Award winners: Crouton ve Gentler Streak",
+      "product": "Crouton / Gentler Streak",
+      "sector": "Yemek / Sağlık",
+      "url": "https://developer.apple.com/design/awards/2024/",
+      "published_at": "2024",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi ödül kaydı: Crouton Interaction, Gentler Streak Social Impact",
+      "summary": "Crouton içeriği yapılacak işe göre düzenliyor. Gentler Streak tutarlı ve sakin bir görsel dille aylık özeti ayrı bir bakış olarak sunuyor.",
+      "application": "Bu Ay görünümünde duyurular, yapılan işler ve kısa harcama kırılımı; ayrıntı gerektiğinde açılır. Finans yönetimi ve kurulum araçları sakinin okuma ekranına doldurulmaz.",
+      "caveat": "Sağlık uygulamasının motivasyon veya oyunlaştırma dili borç ve alarma taşınmamalı. Ödül, bizim sakinlerimizin bu taslağı başarılı kullandığının kanıtı değildir.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://developer.apple.com/design/awards/2024/",
+        "figure": "Crouton ve Gentler Streak bölümleri ile resmi App Store bağlantıları",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "REF-M03",
+      "title": "The Shopify Admin Has a New Look",
+      "product": "Shopify Admin",
+      "sector": "E-ticaret yönetimi",
+      "url": "https://www.shopify.com/blog/admin-new-look",
+      "published_at": "2026-09-24",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Üreticinin yeniden tasarım gerekçesi; bağımsız başarı ölçümü değil",
+      "summary": "Mevcut çalışma alışkanlığı korunurken yan gezinme daraltılabiliyor. Eylemler ilgili nesneye yaklaştırılıyor, iç içe yüzeyler azaltılıyor ve görsel dil tutarlı hale getiriliyor.",
+      "application": "Klasik arayüzün yanında Sade görünüm için güçlü yaklaşım: kayıt satırında eylem, daha az kart içinde kart ve yönetici listelerine daha çok çalışma alanı.",
+      "caveat": "AI sohbet alanı ve dekoratif 3B öğeler sadelik hedefimize otomatik uymaz. Yalnız ikonlu dar menü zorunlu varsayılan yapılmamalı; satıcının kullanım sayıları tasarımın görev başarısını kanıtlamaz.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://www.shopify.com/blog/admin-new-look",
+        "asset_id": "IMG-M02",
+        "kind": "Önce/sonra arayüzleri ve tanıtım öğeleri içeren resmi kolaj; sade ekran örneği olarak bütün görsel birebir kopyalanmaz"
+      }
+    },
+    {
+      "id": "REF-M04",
+      "title": "Task list — Scottish Government Design System",
+      "product": "Scottish Government Design System",
+      "sector": "Kamu hizmetleri",
+      "url": "https://designsystem.gov.scot/patterns/task-list",
+      "published_at": "2022-08-25",
+      "updated_at": "2024-09-25",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi 2021 kullanıcı testi bulgularının nitel özeti; örneklem ve etki yüzdesi bu özette yok",
+      "summary": "Görev durumlarının kısa ve açık sözcüklerle ayrılması yararlı bulunmuş. Bazı kullanıcılar kırmızı etiketleri kaygı verici veya durum rozetlerini tıklanabilir sanmış.",
+      "application": "Yöneticide Bekliyor, İşlemde, Tamamlandı gibi metinli durumlar. Renk tek başına anlam taşımaz; her sıradan iş alarm kırmızısına boyanmaz.",
+      "caveat": "Her basit işlem için görev listesi eklemek ters sonuç verebilir. Bir kamu formundaki nitel bulgu bizim site yönetimi kullanıcılarımızda aynı etkiyi garanti etmez.",
+      "access_limit": "Resmi arama sonucunun ayrıntılı metnine erişildi; doğrudan sayfa açılışı JavaScript/bot doğrulamasında kaldı. Tam sayfa açılışı doğrulanmış gibi değerlendirilmez ve engel aşılmadı.",
+      "visual_reference": {
+        "page": "https://designsystem.gov.scot/patterns/task-list",
+        "figure": "Sayfadaki görev listesi HTML örneği",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "REF-M05",
+      "title": "Dashboard home page charts for business insights",
+      "product": "Stripe Dashboard",
+      "sector": "Finans",
+      "url": "https://support.stripe.com/questions/dashboard-home-page-charts-for-business-insights",
+      "published_at": null,
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi ürün yardım belgesi; karşılaştırmalı kullanılabilirlik testi değil",
+      "summary": "Özet sayfası önemli finans bilgilerine ve sık işlemlere göre düzenlenebiliyor. Tarih aralığı açık; genel grafiklerin ayrıntılı mali raporla aynı kesinlikte olmadığı ayrıca açıklanıyor.",
+      "application": "Ay ve kapsam görünür tutulur. Üç harcama satırı ve toplam aynı kayıt kaynağından gelir; borç, tahsilat ve gider birbiriyle toplanmaz.",
+      "caveat": "Sakine çok sayıda analitik grafik veya widget düzenleyicisi koymak gerekmez. Kısa özet, ayrıntılı hesap kaydının veya mevcut erişim hakkının yerine geçmez.",
+      "access_limit": "Resmi arama sonucu yardım metnini verdi; doğrudan open aracı text/markdown içerik türünü desteklemedi. Başarılı tam sayfa açılışı iddia edilmez.",
+      "visual_reference": {
+        "page": "https://support.stripe.com/questions/dashboard-home-page-charts-for-business-insights",
+        "figure": "Resmi yardımda tarih seçicili grafik ekranı",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "REF-M06",
+      "title": "Dashboard Design Patterns",
+      "product": "Dashboard Design Patterns araştırması",
+      "sector": "Akademik HCI / veri görselleştirme",
+      "url": "https://arxiv.org/abs/2205.00757",
+      "additional_urls": [
+        "https://dashboarddesignpatterns.github.io/tradeoffs.html",
+        "https://dashboarddesignpatterns.github.io/processguidelines.html",
+        "https://dashboarddesignpatterns.github.io/patterns.html"
+      ],
+      "published_at": "2022-05-02",
+      "updated_at": "2022-08-24",
+      "checked_at": "2026-11-09",
+      "evidence_type": "144 panelin sistematik incelemesi ve 23 katılımcılı iki haftalık tasarım atölyesi; IEEE VIS/TVCG araştırması",
+      "summary": "Ekran alanı, sayfa sayısı, bilgi özetleme ve gereken etkileşim arasında ödünleşim var. Hepsi aynı anda sınırsız azaltılamaz.",
+      "application": "Sakinin aylık okuma görünümüyle yöneticinin işlem alanını ayır. Bilgi listesi ve gerektiğinde ayrıntı kullan; büyük yazı ve küçük ekranı tek ekrana her şeyi sıkıştırmanın önünde tut.",
+      "caveat": "Bu çalışma bizim görevlerimizin başarısını ölçmedi. Sayfa veya düğme sayısını tek başına başarı ölçütü yapmaz; prototip değerlendirmesinin yerine geçmez.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://dashboarddesignpatterns.github.io/patterns.html",
+        "figure": "Bilgi, görünüm, düzen ve etkileşim kalıpları",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-01",
+      "title": "Task list — GOV.UK Design System",
+      "product": "GOV.UK Design System",
+      "sector": "Kamu hizmetleri",
+      "url": "https://design-system.service.gov.uk/components/task-list/",
+      "published_at": null,
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi tasarım bileşeni ve kullanım kılavuzu",
+      "summary": "Görev listesi, çok oturumlu ve kullanıcının görev sırasını seçebildiği uzun hizmetler içindir. Önce hizmetin kendisini sadeleştirmek önerilir.",
+      "application": "Mevcut site kurulumunun kişi, modül ve finans aşamaları gibi bağımsız tamamlanabilir adımları bir arada göstermek; basit günlük eylemi ek görev ekranına çevirmemek.",
+      "caveat": "Sırası zorunlu tek akışa veya yalnız cevapları göstermeye görev listesi kullanılmaz. Her ana menüyü yapılacak iş sanıp listeye dönüştürmek doğru değildir.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://design-system.service.gov.uk/components/task-list/",
+        "figure": "Resmi etkileşimli görev listesi ve HTML örneği",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-02",
+      "title": "Details — GOV.UK Design System",
+      "product": "GOV.UK Design System",
+      "sector": "Kamu hizmetleri",
+      "url": "https://design-system.service.gov.uk/components/details/",
+      "published_at": null,
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi tasarım bileşeni ve kullanım kılavuzu",
+      "summary": "Yalnız bazı kullanıcıların ihtiyaç duyduğu yardımcı bilgi kısa bir açıklama bağlantısıyla açılabilir. Kullanıcıların çoğunun ihtiyaç duyduğu bilgi gizlenmemeli.",
+      "application": "İsteğe bağlı form açıklamaları ve nadir gelişmiş alanlar katlanabilir; tutar, seçili ay, site ve zorunlu karar bilgileri görünür kalır.",
+      "caveat": "Ana eylemleri ve kritik bilgiyi yalnız görünümü boşaltmak için kapalı bölümlere taşımak kullanılabilirliği azaltır.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://design-system.service.gov.uk/components/details/",
+        "figure": "Açılır yardımcı bilgi bileşeni",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-03",
+      "title": "Data table guidelines — Carbon Design System",
+      "product": "Carbon Design System",
+      "sector": "Kurumsal yazılım",
+      "url": "https://www.carbondesignsystem.com/building-blocks/core/components/data-table/guidelines",
+      "published_at": null,
+      "updated_at": "2026-09-30",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Resmi tasarım sistemi tablosu kullanım kılavuzu",
+      "summary": "Arama ve filtreler tablo araç alanında; satıra ait işlemler satır bağlamında; seçim yapılınca toplu işlem araçları ayrı bir durumda sunulur.",
+      "application": "Kişiler ve yönetici listelerinde tek arama/filtre satırı, ilgili kayıtta işlem ve yalnız seçim halinde toplu işlem çubuğu. Her kişiyi büyük dekoratif karta dönüştürme.",
+      "caveat": "Masaüstü tablosunu küçük telefona aynen sıkıştırma; okunabilir satır ve dar ekran düzeni gerekir. Salt ikonlara dönüştürmek tabloyu kendiliğinden sade yapmaz.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://www.carbondesignsystem.com/building-blocks/core/components/data-table/guidelines",
+        "figure": "Tablo araç çubuğu, satır işlemleri ve toplu işlem örnekleri",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-04",
+      "title": "Aesthetic and Minimalist Design",
+      "product": "Nielsen Norman Group",
+      "sector": "Kullanılabilirlik araştırması / rehber",
+      "url": "https://www.nngroup.com/articles/aesthetic-minimalist-design/",
+      "published_at": "2021-01-24",
+      "checked_at": "2026-11-09",
+      "evidence_type": "Kullanılabilirlik sezgisini açıklayan uzman rehberi; projeye özgü deney sonucu değil",
+      "summary": "İlgisiz görsel ve içerik gerekli bilgiyle dikkat için yarışır. Sade görünümün amacı bilgi ve eylem netliğidir; boşluk veya süs azaltımı tek başına yeterli değildir.",
+      "application": "İkon ve büyük başlık tekrarlarını azalt; birincil eylem ve gerekli bilgi belirgin kalsın. Sakin harcama özetinde üç satır ve toplam çoğu dekoratif grafikten daha açık olabilir.",
+      "caveat": "Minimal görünüm adına gerekli etiket, mevcut durum, hata veya mali kapsamı kaldırma. Daha az düğme, daha kolay görev anlamına otomatik gelmez.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://www.nngroup.com/articles/aesthetic-minimalist-design/",
+        "figure": "Makaledeki açıklayıcı arayüz örneklerine bağlantı; görsel indirilmedi",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-05",
+      "title": "Understanding SC 2.5.8: Target Size (Minimum)",
+      "product": "W3C WCAG 2.2",
+      "sector": "Erişilebilirlik standardı açıklaması",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+      "published_at": null,
+      "checked_at": "2026-11-09",
+      "evidence_type": "WCAG 2.2 AA 2.5.8 başarı ölçütünün resmi Understanding açıklaması; normatif ölçüte bağlanır",
+      "summary": "Asgari hedef alanı 24×24 CSS piksel olarak ele alınır; aralık, eşdeğer hedef, satır içi ve diğer tanımlı istisnaları vardır.",
+      "application": "Projede rahat telefon kullanımı için 44–48 mantıksal piksel dokunma hedefi tercih edilir; simge küçük olsa da tıklama alanı küçültülmez.",
+      "caveat": "44–48 tercihimiz, WCAG AA'nın tüm durumlar için 44–48 zorunluluğu gibi sunulmaz. CSS piksel ile Flutter mantıksal piksel uygulama ölçümü ayrıca doğrulanır.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://www.w3.org/WAI/WCAG22/Understanding/target-size-minimum.html",
+        "figure": "Hedef boyutu ve hedefler arası boşluk örnekleri",
+        "downloaded": false
+      }
+    },
+    {
+      "id": "S-06",
+      "title": "Understanding SC 1.4.13: Content on Hover or Focus",
+      "product": "W3C WCAG",
+      "sector": "Erişilebilirlik standardı açıklaması",
+      "url": "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+      "published_at": null,
+      "checked_at": "2026-11-09",
+      "evidence_type": "WCAG 1.4.13 başarı ölçütünün resmi Understanding açıklaması; normatif ölçüte bağlanır",
+      "summary": "Fareyle üzerine gelince veya odakta açılan ek içerik, belirtilen koşullarda kapatılabilir, üzerine gidilebilir ve kullanıcı okuyabilsin diye kalıcı olmalıdır.",
+      "application": "Masaüstünde kısa açıklama tooltip'i yardımcı olur; temel işlev adı görünür kalır. Klavye odağı ve telefonda erişilebilir açıklama yolu ayrıca tasarlanır.",
+      "caveat": "Fare üstü açıklaması mobilde bulunabilirliğin yerine geçmez. Yalnız hover ile görülen zorunlu bilgi veya işlem oluşturma.",
+      "access_limit": null,
+      "visual_reference": {
+        "page": "https://www.w3.org/WAI/WCAG22/Understanding/content-on-hover-or-focus.html",
+        "figure": "Hover/focus ile beliren içerik için resmi açıklama ve örnekler",
+        "downloaded": false
+      }
+    }
+  ],
+  "assets": [
+    {
+      "id": "IMG-M01",
+      "source_id": "REF-M01",
+      "path": "gorseller/flighty-interaction-reference-2023.jpeg",
+      "source_page": "https://developer.apple.com/news/?id=970ncww4",
+      "source_url": "https://devimages-cdn.apple.com/wwdc-services/articles/images/8F09C4AC-8B30-4113-B492-E9499D512777/2048.jpeg",
+      "retrieved_at": "2026-11-09",
+      "mime": "image/jpeg",
+      "bytes": 642893,
+      "width": 2048,
+      "height": 1152,
+      "sha256": "7affe5dc177ac9347185e5f29f79eb67999264a5edc71bc8929bcc6768ab9f80",
+      "kind": "Telefon üzerinde Live Activity ekranı, ikon ve çizimlerden oluşan tanıtım kolajı; tüm uygulamanın saf ekran görüntüsü değil",
+      "rights": "Açık yeniden kullanım lisansı doğrulanmadı; telifli referans; ürün içinde kullanılmaz.",
+      "verification": "HTTPS başarılı yanıtı, image/jpeg başlığı, 15 MiB sınırı, varsa Content-Length eşleşmesi, JPEG sihirli baytları, görüntü çözücü boyutları, yerel SHA-256 ve görsel inceleme"
+    },
+    {
+      "id": "IMG-M02",
+      "source_id": "REF-M03",
+      "path": "gorseller/shopify-admin-reference-2026.png",
+      "source_page": "https://www.shopify.com/blog/admin-new-look",
+      "source_url": "https://cdn.shopify.com/s/files/1/0070/7032/files/After_3df3c0e6-4514-46a7-a3a7-882257779037.png?v=1790193400",
+      "retrieved_at": "2026-11-09",
+      "mime": "image/png",
+      "bytes": 3679785,
+      "width": 6000,
+      "height": 3836,
+      "sha256": "ba32692e023dd1f427e13f94a966b49989a70ae8cb858b8b305334679fc31105",
+      "kind": "Eski ve yeni ürün ekranları ile dekoratif 3B öğeleri birlikte gösteren resmi tanıtım karşılaştırması; tamamı sade tasarım önerisi sayılmaz",
+      "rights": "Açık yeniden kullanım lisansı doğrulanmadı; telifli referans; ürün içinde kullanılmaz.",
+      "verification": "HTTPS başarılı yanıtı, image/png başlığı, 15 MiB sınırı, varsa Content-Length eşleşmesi, PNG sihirli baytları, görüntü çözücü boyutları, yerel SHA-256 ve görsel inceleme"
+    }
+  ],
+  "project_notes": {
+    "resident_direction": "Görünür ay başlığı, güncel ve daireye özel duyurular, bu ay yapılan işler ve anlaşılır harcama satırları. Örnek 10.000 + 4.000 + 15.500 = 29.500 TL yalnız taslak verisidir.",
+    "manager_direction": "Bekleyen işlere odak, kayıt yanında bağlamlı eylem, sade listeler ve seyrek işlemlerin gerektiği yerde açılması. Aynı API/iş kuralları ve Klasik arayüz korunur.",
+    "single_control": "Başlat/Durdur gibi gerçek durum çiftleri tek kontrol olabilir. Silme, tahsilat onayı veya fiziksel kapı komutu gelişigüzel çok işlevli düğmeye dönüşmez.",
+    "policy_boundary": "Bu araştırma geçmiş duyuru, fatura, harcama veya mali kayıt erişim hakkını değiştirmez. Görünüm filtresi ile sunucu yetkisi ayrı kararlardır.",
+    "evaluation_needed": "Bulunabilirlik, görev adımı, hata riski, küçük ekran, büyük yazı, klavye/ekran okuyucu ve eski ekranlara dönüş prototip üzerinde ayrıca değerlendirilmelidir."
+  }
+}

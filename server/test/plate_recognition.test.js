@@ -38,7 +38,7 @@ describe('073 migration <-> şema', () => {
       assert.match(ddl, /IF NOT EXISTS|ADD CONSTRAINT/, name);
     }
     const sql = readFileSync(path.join(DEFAULT_MIGRATIONS_DIR, '073_plate_recognition.sql'), 'utf8');
-    assert.ok(!sql.includes('\r'), 'LF olmalı');
+    assert.doesNotMatch(sql, /\r(?!\n)/, 'Tek CR yasak; Git CRLF checkoutu SQL anlamını değiştirmez');
   });
 
   it('6B tablolarına FK yok ve oto-açma varsayılanı KAPALI', () => {
@@ -92,13 +92,13 @@ describe('073 migration <-> şema', () => {
 });
 
 describe('katalog', () => {
-  it('plate_recognition kullanılabilir, çekirdek değil, varsayılan KAPALI, açıklama değişmedi', () => {
+  it('plate_recognition birleşik kamera/plaka açıklamasıyla kullanılabilir, çekirdek değil ve varsayılan KAPALI', () => {
     const def = getModuleDefinition('plate_recognition');
     assert.equal(def.status, 'available');
     assert.equal(def.core, false);
     assert.equal(def.defaultEnabled, false);
     assert.equal(isToggleable(def), true);
-    assert.equal(def.description, 'Araç plakasını tanıyarak otopark kapısını açma; plaka kayıtları.');
+    assert.equal(def.description, 'Kameralarla araç plakasını okuyarak SmartKeyPass kapılarını otomatik açma ve geçiş kaydı.');
   });
 });
 

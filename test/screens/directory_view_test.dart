@@ -89,7 +89,7 @@ void main() {
       ..dirSites = <DirectorySite>[];
     await t.tap(find.text('Tekrar Dene'));
     await settleFor(t);
-    expect(find.textContaining('Yönetim bu özelliği açtığında'), findsOneWidget);
+    expect(find.text('Bir siteye bağlı olduğunuzda rehber burada görünür.'), findsOneWidget);
   });
 
   testWidgets('davet kartı: Kabul et isteği gider, kart kapanır ve onAccepted çağrılır', (t) async {

@@ -169,6 +169,20 @@ void main() {
   });
 
   group('özet ve eylemler', () {
+    testWidgets('genişte eylemler aynı satırda, büyük yazıda tek sütunda erişilir', (t) async {
+      final auth = FinanceFakeAuth.seeded();
+      await _pump(t, auth, width: 1400, height: 1800);
+      final payment = find.byKey(const ValueKey<String>('finance_add_payment'));
+      final online = find.byKey(const ValueKey<String>('finance_open_online_collection'));
+      expect(t.getTopLeft(payment).dy, t.getTopLeft(online).dy);
+      expect(t.getTopLeft(online).dx, greaterThan(t.getTopLeft(payment).dx));
+
+      await _pump(t, auth, width: 320, height: 640, scale: 2);
+      expect(t.getTopLeft(online).dy, greaterThan(t.getBottomLeft(payment).dy));
+      expect(t.getSize(payment).width, t.getSize(online).width);
+      expect(t.takeException(), isNull);
+    });
+
     testWidgets('özet kartı sunucu tutarlarını gösterir (kuruştan biçimlenir)', (t) async {
       final auth = FinanceFakeAuth.seeded();
       await _pump(t, auth);

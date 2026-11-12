@@ -183,13 +183,9 @@ class VisitorResidentViewState extends State<VisitorResidentView> {
         const PageHeaderCard(
           title: 'Ziyaretçi ve Kargo',
           icon: Icons.door_front_door_rounded,
+          help: 'Dairenize gelen kargo ve ziyaretçileri görevli kaydeder; burada görürsünüz. E-posta ve telefon bildirimi yakında.',
         ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Dairenize gelen kargo ve ziyaretçileri görevli kaydeder; burada görürsünüz. E-posta ve telefon bildirimi yakında.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (multiSite) ...[
           AppCard(
             child: DropdownButtonFormField<int>(

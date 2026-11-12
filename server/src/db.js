@@ -7,6 +7,7 @@ import { runPeopleBackfill } from './modules/people_backfill.js';
 import { ensureBulkImportSchema } from './modules/bulk_import_schema.js';
 import { ensureFinance4bSchema } from './modules/finance_4b_schema.js';
 import { ensureDocumentsSchema } from './modules/document_schema.js';
+import { ensureDocumentAudienceSchema } from './modules/document_audience_schema.js';
 import { ensureWorkTrackingSchema } from './modules/work_tracking_schema.js';
 import { ensureWorkAttachmentsSchema } from './modules/work_attachments_schema.js';
 import { ensureFeedbackSchema } from './modules/feedback_schema.js';
@@ -16,10 +17,12 @@ import { ensureVisitorLogSchema } from './modules/visitor_log_schema.js';
 import { ensureCardAccessSchema } from './modules/card_access_schema.js';
 import { ensureDeviceIntegrationsSchema } from './modules/device_integrations_schema.js';
 import { ensurePlateRecognitionSchema } from './modules/plate_recognition_schema.js';
+import { ensureParkingAccessSchema } from './modules/parking_access_schema.js';
 import { ensurePaymentNoticesSchema } from './modules/payment_notice_schema.js';
 import { ensureBrandThemeSchema } from './modules/brand_theme_schema.js';
 import { ensureContractsSchema } from './modules/contracts_schema.js';
 import { ensureEquipmentSchema } from './modules/equipment_schema.js';
+import { ensureEquipmentBlockSchema } from './modules/equipment_block_schema.js';
 import { ensureWorkEquipmentSchema } from './modules/work_equipment_schema.js';
 import { ensureWorkVendorSchema } from './modules/work_vendor_schema.js';
 import { ensureQuoteRequestSchema, ensureQuoteSchema } from './modules/equipment_quote_schema.js';
@@ -47,6 +50,7 @@ import { ensureDriveHealthSchema } from './modules/drive_health_schema.js';
 import { ensureMessagingSchema } from './modules/messaging_schema.js';
 import { ensurePlateGatesSchema } from './modules/plate_gates_schema.js';
 import { ensurePlateAlertsSchema } from './modules/plate_alerts_schema.js';
+import { ensurePlateMovementPolicySchema } from './modules/plate_movement_policy_schema.js';
 import { ensurePlateCamerasSchema } from './modules/plate_cameras_schema.js';
 import { ensureSiteFreePeriodSchema } from './modules/site_free_period_schema.js';
 import { ensurePaymentConnectionSchema } from './modules/payment_connection_schema.js';
@@ -63,10 +67,12 @@ import { ensureFinanceRefundsSchema } from './modules/finance_refunds_schema.js'
 import { ensureFinanceLiabilitySchema } from './modules/finance_liability_schema.js';
 import { ensureFinanceRunDecisionSchema } from './modules/finance_run_decision_schema.js';
 import { ensureFeeDistributionSchema } from './modules/finance_distribution_schema.js';
+import { ensureFinanceProrationSchema } from './modules/finance_proration_schema.js';
 import { ensureWorkCategoriesSchema } from './modules/work_categories_schema.js';
 import { ensureAuthAttemptLimitsSchema } from './modules/auth_attempt_limits_schema.js';
 import { ensureMenuLayoutSchema } from './modules/menu_layout_schema.js';
 import { ensureEmergencySchema } from './modules/emergency_schema.js';
+import { ensureEmergencyAlarmSchema } from './modules/emergency_alarm_schema.js';
 import { ensureTrialAccessSchema } from './modules/trial_access_schema.js';
 import { ensureCheckMarkSchema } from './modules/check_mark_schema.js';
 import { ensureSiteLegalGateSchema } from './modules/site_legal_gate_schema.js';
@@ -1943,6 +1949,7 @@ export async function ensureDbSchema() {
     await ensureFinance4bSchema(client);
     // 039 (belgeler, faz 3b-A): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (document_schema.js = migrations/039).
     await ensureDocumentsSchema(client);
+    await ensureDocumentAudienceSchema(client);
     // 041 (telefon bildirimi, faz 3b-B): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (push_schema.js = migrations/041).
     // notification_preferences'a ALTER yalniz sutunlar eksikse calisir (normal acilista hic kilit yok).
     await ensurePushSchema(client);
@@ -1962,6 +1969,7 @@ export async function ensureDbSchema() {
     await ensureContractsSchema(client);
     // 068 (ekipman, bakim ve teklif): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (equipment_schema.js = migrations/068).
     await ensureEquipmentSchema(client);
+    await ensureEquipmentBlockSchema(client);
     // 096 (is kaydi <-> ekipman bagi, fotograf once/sonra etiketi): 042 / 047 / 068'den SONRA; katalog kontrolu + her adim kendi otomatik onayli ifadesi (work_equipment_schema.js = migrations/096).
     await ensureWorkEquipmentSchema(client);
     // 111 (is kaydi <-> firma / tasaron yonlendirmesi, `firmada` durumu): 042'den SONRA; dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (work_vendor_schema.js = migrations/111).
@@ -2052,6 +2060,7 @@ export async function ensureDbSchema() {
     // 090 (demirbas / fon tahakkukunun dayanagi: Karar Defteri kaydi ya da gerekce): 034 (fee_runs) ve 050 (board_decisions) SONRASI; dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli
     // ifadesi (finance_run_decision_schema.js = migrations/090). Her sey varsa hicbir ifade / kilit yok. Geri doldurma yok (eski calistirmalar dayanaksiz kalir).
     await ensureFinanceRunDecisionSchema(client);
+    await ensureFinanceProrationSchema(client);
     // 091 (aidat dagitim tabani: 'person_count' = kisi sayisina gore): fee_definitions (034) SONRASI; dev blokta DEGIL; kisit zaten guncelse tek katalog sorgusu, kilit yok
     // (finance_distribution_schema.js = migrations/091). fee_definitions yoksa hicbir sey yapmaz. Hata acilisi durdurmaz (yalniz 'person_count' tanimi yazilamaz; sonraki acilis yeniden dener).
     try {
@@ -2081,6 +2090,7 @@ export async function ensureDbSchema() {
     await ensureWorkCategoriesSchema(client);
     // 107 (acil durum akisi: site basina asansor bakim firmasi): sites'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade gonderilmez (emergency_schema.js = migrations/107).
     await ensureEmergencySchema(client);
+    await ensureEmergencyAlarmSchema(client);
     // 106 (deneme erisim kodu, P2-27 / K10): sites ve users'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade / kilit yok, yoksa her adim kendi otomatik onayli ifadesi
     // (trial_access_schema.js = migrations/106). Mevcut tablolara ALTER yok.
     await ensureTrialAccessSchema(client);
@@ -2103,9 +2113,11 @@ export async function ensureDbSchema() {
     // 121 (plaka tanima A3: "iceride" esikleri, kopukluk uyari siniri, sakin bildirim tercihi, olay karar turune 'kara_liste'): 120'den SONRA (plate_site_settings, plate_presence);
     // katalog kontrolu + eksikse idempotent ifadeler (plate_alerts_schema.js = migrations/121). Mevcut satirlara dokunmaz.
     await ensurePlateAlertsSchema(client);
+    await ensurePlateMovementPolicySchema(client);
     // 122 (plaka tanima sozlesme surum 3: kamera RTSP + sinama sonucu, uzaktan komut kuyrugu, son goruntu karesi, olaya kimlik baglama + kapi komutu, site ayari sutunlari):
     // 120/121'den SONRA (plate_edge_clients, plate_site_settings, plate_events); katalog kontrolu + eksikse idempotent ifadeler (plate_cameras_schema.js = migrations/122). Mevcut satirlara dokunmaz.
     await ensurePlateCamerasSchema(client);
+    await ensureParkingAccessSchema(client);
 
     // 031 people_v1: mevcut sakinlerin CRM'e tek seferlik aktarimi. Savunmaci: hata sunucunun acilmasini ENGELLEMEZ
     // (kendi transaction'i geri alinir, isaret yazilmaz => sonraki acilista yeniden denenir; okuma anindaki

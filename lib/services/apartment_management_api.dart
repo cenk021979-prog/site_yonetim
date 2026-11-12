@@ -9,7 +9,8 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:http/http.dart' as http;
-import 'package:site_kapi_kontrol/models/apartment_crm.dart' show ApartmentOwnersView;
+import 'package:site_kapi_kontrol/models/apartment_crm.dart'
+    show ApartmentOwnersView;
 import 'package:site_kapi_kontrol/models/apartment_household.dart';
 import 'package:site_kapi_kontrol/models/apartment_management.dart';
 import 'package:site_kapi_kontrol/models/apartment_vehicles.dart';
@@ -39,7 +40,9 @@ class ApartmentManagementApi {
     Map<String, String>? query,
     Object? body,
   }) async {
-    final uri = Uri.parse('$_baseUrl$path').replace(queryParameters: query == null || query.isEmpty ? null : query);
+    final uri = Uri.parse(
+      '$_baseUrl$path',
+    ).replace(queryParameters: query == null || query.isEmpty ? null : query);
     final request = http.Request(method, uri)
       ..headers.addAll(<String, String>{
         'Authorization': 'Bearer $token',
@@ -49,7 +52,10 @@ class ApartmentManagementApi {
     if (body != null) request.body = jsonEncode(body);
     final http.Response response;
     try {
-      response = await _client.send(request).then(http.Response.fromStream).timeout(_timeout);
+      response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
     } on TimeoutException {
       throw ApiException(
         method == 'GET'
@@ -57,15 +63,24 @@ class ApartmentManagementApi {
             : 'Sunucu yanıt vermedi. İşlem tamamlanmış olabilir; ekranı yenileyip kontrol edin.',
       );
     } on Exception {
-      throw ApiException('Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      throw ApiException(
+        'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+      );
     }
     final parsed = _object(response.bodyBytes);
-    if (response.statusCode >= 200 && response.statusCode < 300) return parsed ?? <String, dynamic>{};
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return parsed ?? <String, dynamic>{};
+    }
     throw _failure(response, parsed);
   }
 
   /// Dosya (PDF / CSV) döndüren uç: başarıda gövde baytları ve `Content-Disposition` dosya adı; hata gövdesi [call] ile aynı çevrilir.
-  Future<({Uint8List bytes, String? fileName})> callFile(String method, String path, {required String token, Object? body}) async {
+  Future<({Uint8List bytes, String? fileName})> callFile(
+    String method,
+    String path, {
+    required String token,
+    Object? body,
+  }) async {
     final request = http.Request(method, Uri.parse('$_baseUrl$path'))
       ..headers.addAll(<String, String>{
         'Authorization': 'Bearer $token',
@@ -75,15 +90,22 @@ class ApartmentManagementApi {
     if (body != null) request.body = jsonEncode(body);
     final http.Response response;
     try {
-      response = await _client.send(request).then(http.Response.fromStream).timeout(_timeout);
+      response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(_timeout);
     } on TimeoutException {
       throw ApiException('Sunucu yanıt vermedi, tekrar deneyin.');
     } on Exception {
-      throw ApiException('Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      throw ApiException(
+        'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+      );
     }
     if (response.statusCode >= 200 && response.statusCode < 300) {
       final disposition = response.headers['content-disposition'] ?? '';
-      final match = RegExp(r'filename="([A-Za-z0-9._-]{1,120})"').firstMatch(disposition);
+      final match = RegExp(
+        r'filename="([A-Za-z0-9._-]{1,120})"',
+      ).firstMatch(disposition);
       return (bytes: response.bodyBytes, fileName: match?.group(1));
     }
     throw _failure(response, _object(response.bodyBytes));
@@ -99,7 +121,10 @@ class ApartmentManagementApi {
     }
   }
 
-  static ApiException _failure(http.Response response, Map<String, dynamic>? body) {
+  static ApiException _failure(
+    http.Response response,
+    Map<String, dynamic>? body,
+  ) {
     final status = response.statusCode;
     if (body == null) {
       if ((status == 401 || status == 403) && response.bodyBytes.isNotEmpty) {
@@ -110,17 +135,25 @@ class ApartmentManagementApi {
         );
       }
       return ApiException(
-        status >= 500 ? 'Sunucu şu anda yanıt veremiyor ($status). Lütfen biraz sonra tekrar deneyin.' : 'İşlem başarısız ($status)',
+        status >= 500
+            ? 'Sunucu şu anda yanıt veremiyor ($status). Lütfen biraz sonra tekrar deneyin.'
+            : 'İşlem başarısız ($status)',
         statusCode: status,
       );
     }
     final rawCode = body['code'];
-    final code = rawCode is String && rawCode.trim().isNotEmpty ? rawCode.trim() : null;
+    final code = rawCode is String && rawCode.trim().isNotEmpty
+        ? rawCode.trim()
+        : null;
     final rawError = body['error'];
-    final serverText = rawError is String && rawError.trim().isNotEmpty ? AuthApi.sanitizeServerMessage(rawError.trim()) : null;
+    final serverText = rawError is String && rawError.trim().isNotEmpty
+        ? AuthApi.sanitizeServerMessage(rawError.trim())
+        : null;
     if (status == 401) {
       return SessionExpiredException(
-        code == 'ACCOUNT_DELETED' ? 'Bu hesap silinmiş.' : 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
+        code == 'ACCOUNT_DELETED'
+            ? 'Bu hesap silinmiş.'
+            : 'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
         code,
       );
     }
@@ -140,12 +173,18 @@ class ApartmentManagementApi {
 /// Oturum belirtecini [AuthService]'ten alan ve oturum hatalarını merkezi çıkışa bağlayan katman. Ekranlar bunu kullanır
 /// (testlerde sahte alt sınıf kurulur; her yöntem geçersiz kılınabilir).
 class ApartmentManagementService {
-  ApartmentManagementService({required this.authService, ApartmentManagementApi? api})
-    : api = api ?? debugApiFactory?.call(authService) ?? ApartmentManagementApi(baseUrl: authService.api.baseUrl);
+  ApartmentManagementService({
+    required this.authService,
+    ApartmentManagementApi? api,
+  }) : api =
+           api ??
+           debugApiFactory?.call(authService) ??
+           ApartmentManagementApi(baseUrl: authService.api.baseUrl);
 
   /// Test düzeneği: ekranlar servisi kendileri kurduğunda sahte [ApartmentManagementApi] vermek için.
   @visibleForTesting
-  static ApartmentManagementApi Function(AuthService authService)? debugApiFactory;
+  static ApartmentManagementApi Function(AuthService authService)?
+  debugApiFactory;
 
   final AuthService authService;
   final ApartmentManagementApi api;
@@ -163,78 +202,179 @@ class ApartmentManagementService {
     }
   }
 
-  String _apt(int id, [String tail = '']) => '/app/apartments/$id${tail.isEmpty ? '' : '/$tail'}';
+  String _apt(int id, [String tail = '']) =>
+      '/app/apartments/$id${tail.isEmpty ? '' : '/$tail'}';
   String _mgr(int siteCode, String tail) => '/manager/sites/$siteCode/$tail';
 
   // --- Sakin ---
 
-  Future<MyApartmentsData> mine() async =>
-      MyApartmentsData.fromJson(await _guard((t) => api.call('GET', '/app/apartments/mine', token: t)));
-
-  Future<PersonSearchResult> searchPeople(String q) async => PersonSearchResult.fromJson(
-    await _guard((t) => api.call('GET', '/app/apartments/people-search', token: t, query: <String, String>{'q': q})),
+  Future<MyApartmentsData> mine() async => MyApartmentsData.fromJson(
+    await _guard((t) => api.call('GET', '/app/apartments/mine', token: t)),
   );
 
-  Future<void> addTenant(int apartmentId, Map<String, Object?> body) =>
-      _guard((t) => api.call('POST', _apt(apartmentId, 'tenant'), token: t, body: body));
+  Future<PersonSearchResult> searchPeople(String q) async =>
+      PersonSearchResult.fromJson(
+        await _guard(
+          (t) => api.call(
+            'GET',
+            '/app/apartments/people-search',
+            token: t,
+            query: <String, String>{'q': q},
+          ),
+        ),
+      );
 
-  Future<void> addFamily(int apartmentId, Map<String, Object?> body) =>
-      _guard((t) => api.call('POST', _apt(apartmentId, 'family'), token: t, body: body));
+  Future<void> addTenant(int apartmentId, Map<String, Object?> body) => _guard(
+    (t) => api.call('POST', _apt(apartmentId, 'tenant'), token: t, body: body),
+  );
+
+  Future<void> addFamily(int apartmentId, Map<String, Object?> body) => _guard(
+    (t) => api.call('POST', _apt(apartmentId, 'family'), token: t, body: body),
+  );
 
   /// 'removed' (hemen çıkarıldı) ya da 'consent_requested' (yetişkin üyeye onay isteği gitti).
   Future<String> removeFamily(int apartmentId, int residencyId) async {
-    final r = await _guard((t) => api.call('DELETE', _apt(apartmentId, 'family/$residencyId'), token: t));
+    final r = await _guard(
+      (t) => api.call(
+        'DELETE',
+        _apt(apartmentId, 'family/$residencyId'),
+        token: t,
+      ),
+    );
     return r['mode'] is String ? r['mode'] as String : 'removed';
   }
 
   Future<ExitPreview> exitPreview(int apartmentId) async =>
-      ExitPreview.fromJson(await _guard((t) => api.call('GET', _apt(apartmentId, 'exit-preview'), token: t)));
+      ExitPreview.fromJson(
+        await _guard(
+          (t) => api.call('GET', _apt(apartmentId, 'exit-preview'), token: t),
+        ),
+      );
 
-  Future<void> exitTenancy(int apartmentId) => _guard((t) => api.call('POST', _apt(apartmentId, 'exit'), token: t));
+  Future<void> exitTenancy(int apartmentId) =>
+      _guard((t) => api.call('POST', _apt(apartmentId, 'exit'), token: t));
 
-  Future<void> leave(int apartmentId) => _guard((t) => api.call('POST', _apt(apartmentId, 'leave'), token: t));
+  Future<void> leave(int apartmentId) =>
+      _guard((t) => api.call('POST', _apt(apartmentId, 'leave'), token: t));
 
-  Future<void> requestDisconnect(int apartmentId) =>
-      _guard((t) => api.call('POST', _apt(apartmentId, 'disconnect-requests'), token: t));
-
-  Future<void> respond(int requestId, {required bool accept}) => _guard(
-    (t) => api.call('POST', '/app/apartments/requests/$requestId/respond', token: t, body: <String, Object?>{'accept': accept}),
+  Future<void> requestDisconnect(int apartmentId) => _guard(
+    (t) => api.call('POST', _apt(apartmentId, 'disconnect-requests'), token: t),
   );
 
-  Future<void> cancelRequest(int requestId) =>
-      _guard((t) => api.call('POST', '/app/apartments/requests/$requestId/cancel', token: t));
+  Future<void> respond(int requestId, {required bool accept}) => _guard(
+    (t) => api.call(
+      'POST',
+      '/app/apartments/requests/$requestId/respond',
+      token: t,
+      body: <String, Object?>{'accept': accept},
+    ),
+  );
 
-  Future<void> createProxy(int apartmentId, {required String scope, String? validFrom, String? validUntil}) => _guard(
+  Future<void> cancelRequest(int requestId) => _guard(
+    (t) => api.call(
+      'POST',
+      '/app/apartments/requests/$requestId/cancel',
+      token: t,
+    ),
+  );
+
+  Future<void> createProxy(
+    int apartmentId, {
+    required String scope,
+    String? validFrom,
+    String? validUntil,
+  }) => _guard(
     (t) => api.call(
       'POST',
       _apt(apartmentId, 'proxies'),
       token: t,
-      body: <String, Object?>{'scope': scope, 'valid_from': ?validFrom, 'valid_until': ?validUntil},
+      body: <String, Object?>{
+        'scope': scope,
+        'valid_from': ?validFrom,
+        'valid_until': ?validUntil,
+      },
     ),
   );
 
-  Future<void> revokeProxy(int apartmentId, int proxyId) =>
-      _guard((t) => api.call('DELETE', _apt(apartmentId, 'proxies/$proxyId'), token: t));
+  Future<void> revokeProxy(int apartmentId, int proxyId) => _guard(
+    (t) => api.call('DELETE', _apt(apartmentId, 'proxies/$proxyId'), token: t),
+  );
 
   // --- Araçlarım (daire araçları; yazma: daire yöneticisi ya da site yöneticisi) ---
 
   Future<ApartmentVehicles> vehicles(int apartmentId) async =>
-      ApartmentVehicles.fromJson(await _guard((t) => api.call('GET', _apt(apartmentId, 'vehicles'), token: t)));
+      ApartmentVehicles.fromJson(
+        await _guard(
+          (t) => api.call('GET', _apt(apartmentId, 'vehicles'), token: t),
+        ),
+      );
 
-  Future<VehicleRecord> addVehicle(int apartmentId, {required String plate, String? note, int? personId}) async {
+  Future<void> putRegistrationPhoto(
+    int apartmentId,
+    int vehicleId, {
+    required Uint8List bytes,
+    required String mimeType,
+  }) => _guard(
+    (t) => api.call(
+      'PUT',
+      _apt(apartmentId, 'vehicles/$vehicleId/registration-photo'),
+      token: t,
+      body: {'mime_type': mimeType, 'image_base64': base64Encode(bytes)},
+    ),
+  );
+
+  Future<Uint8List> registrationPhoto(int apartmentId, int vehicleId) => _guard(
+    (t) async {
+      final result = await api.call(
+        'GET',
+        _apt(apartmentId, 'vehicles/$vehicleId/registration-photo'),
+        token: t,
+      );
+      final encoded = result['image_base64'];
+      if (encoded is! String) throw ApiException('Ruhsat fotoğrafı okunamadı.');
+      return base64Decode(encoded);
+    },
+  );
+
+  Future<void> removeRegistrationPhoto(int apartmentId, int vehicleId) =>
+      _guard(
+        (t) => api.call(
+          'DELETE',
+          _apt(apartmentId, 'vehicles/$vehicleId/registration-photo'),
+          token: t,
+        ),
+      );
+
+  Future<VehicleRecord> addVehicle(
+    int apartmentId, {
+    required String plate,
+    String? note,
+    int? personId,
+  }) async {
     final r = await _guard(
       (t) => api.call(
         'POST',
         _apt(apartmentId, 'vehicles'),
         token: t,
-        body: <String, Object?>{'plate': plate, 'note': ?note, 'person_id': ?personId},
+        body: <String, Object?>{
+          'plate': plate,
+          'note': ?note,
+          'person_id': ?personId,
+        },
       ),
     );
-    return VehicleRecord.fromJson(Map<String, dynamic>.from(r['vehicle'] as Map));
+    return VehicleRecord.fromJson(
+      Map<String, dynamic>.from(r['vehicle'] as Map),
+    );
   }
 
   /// Plaka değişmez; not (boş metin = notu sil) ve/veya sahip.
-  Future<void> updateVehicle(int apartmentId, int vehicleId, {String? note, int? personId}) => _guard(
+  Future<void> updateVehicle(
+    int apartmentId,
+    int vehicleId, {
+    String? note,
+    int? personId,
+  }) => _guard(
     (t) => api.call(
       'PUT',
       _apt(apartmentId, 'vehicles/$vehicleId'),
@@ -243,14 +383,25 @@ class ApartmentManagementService {
     ),
   );
 
-  Future<void> removeVehicle(int apartmentId, int vehicleId) =>
-      _guard((t) => api.call('DELETE', _apt(apartmentId, 'vehicles/$vehicleId'), token: t));
-
-  Future<void> markNoticesRead([List<int>? ids]) => _guard(
-    (t) => api.call('POST', '/app/apartments/notices/read', token: t, body: <String, Object?>{'ids': ?ids}),
+  Future<void> removeVehicle(int apartmentId, int vehicleId) => _guard(
+    (t) =>
+        api.call('DELETE', _apt(apartmentId, 'vehicles/$vehicleId'), token: t),
   );
 
-  Future<void> sendSafetyRequest(int apartmentId, {required String message, String? contactPref}) => _guard(
+  Future<void> markNoticesRead([List<int>? ids]) => _guard(
+    (t) => api.call(
+      'POST',
+      '/app/apartments/notices/read',
+      token: t,
+      body: <String, Object?>{'ids': ?ids},
+    ),
+  );
+
+  Future<void> sendSafetyRequest(
+    int apartmentId, {
+    required String message,
+    String? contactPref,
+  }) => _guard(
     (t) => api.call(
       'POST',
       _apt(apartmentId, 'safety-requests'),
@@ -260,30 +411,60 @@ class ApartmentManagementService {
   );
 
   Future<bool> getSearchVisibility() async =>
-      (await _guard((t) => api.call('GET', '/app/apartments/search-visibility', token: t)))['search_visible'] == true;
+      (await _guard(
+        (t) => api.call('GET', '/app/apartments/search-visibility', token: t),
+      ))['search_visible'] ==
+      true;
 
   Future<void> setSearchVisibility(bool value) => _guard(
-    (t) => api.call('PUT', '/app/apartments/search-visibility', token: t, body: <String, Object?>{'search_visible': value}),
+    (t) => api.call(
+      'PUT',
+      '/app/apartments/search-visibility',
+      token: t,
+      body: <String, Object?>{'search_visible': value},
+    ),
   );
 
   // --- Yönetim (site yöneticisi / kurul okur) ---
 
-  Future<SigningRoster> signingRoster(int siteCode, {String? date}) async => SigningRoster.fromJson(
-    await _guard(
-      (t) => api.call('GET', _mgr(siteCode, 'signing-roster'), token: t, query: <String, String>{'date': ?date}),
-    ),
-  );
+  Future<SigningRoster> signingRoster(int siteCode, {String? date}) async =>
+      SigningRoster.fromJson(
+        await _guard(
+          (t) => api.call(
+            'GET',
+            _mgr(siteCode, 'signing-roster'),
+            token: t,
+            query: <String, String>{'date': ?date},
+          ),
+        ),
+      );
 
   /// Dairenin TÜM güncel sakinleri + daire admini (salt okunur). Yönetici / süper tam bilgi, kurul yalnız ad + ilişki alır.
-  Future<ApartmentHousehold> household(int siteCode, int apartmentId) async => ApartmentHousehold.fromJson(
-    await _guard((t) => api.call('GET', _mgr(siteCode, 'apartments/$apartmentId/household'), token: t)),
-  );
+  Future<ApartmentHousehold> household(int siteCode, int apartmentId) async =>
+      ApartmentHousehold.fromJson(
+        await _guard(
+          (t) => api.call(
+            'GET',
+            _mgr(siteCode, 'apartments/$apartmentId/household'),
+            token: t,
+          ),
+        ),
+      );
 
   // --- Çoklu malik (104): tüm malikler kayıtlı + TEK hesap muhatabı. Yazma: site yöneticisi / süper; okuma: kurul da. Mutasyonlar yeniden denenmez. ---
 
   /// Dairenin güncel malikleri (hesap muhatabı başta).
-  Future<ApartmentOwnersView> apartmentOwners(int siteCode, int apartmentId) async => ApartmentOwnersView.fromJson(
-    await _guard((t) => api.call('GET', _mgr(siteCode, 'apartments/$apartmentId/owners'), token: t)),
+  Future<ApartmentOwnersView> apartmentOwners(
+    int siteCode,
+    int apartmentId,
+  ) async => ApartmentOwnersView.fromJson(
+    await _guard(
+      (t) => api.call(
+        'GET',
+        _mgr(siteCode, 'apartments/$apartmentId/owners'),
+        token: t,
+      ),
+    ),
   );
 
   /// Malik ekler: kayıtlı kişi ([personId]) YA DA yeni kişi ([fullName] + isteğe bağlı telefon / e-posta). [makeAccountHolder]: hesap muhatabı yap.
@@ -296,7 +477,10 @@ class ApartmentManagementService {
     String? email,
     bool makeAccountHolder = false,
   }) async {
-    assert((personId != null) != (fullName != null), 'person_id ya da yeni kişi (ad soyad) verilmeli');
+    assert(
+      (personId != null) != (fullName != null),
+      'person_id ya da yeni kişi (ad soyad) verilmeli',
+    );
     return ApartmentOwnersView.fromJson(
       await _guard(
         (t) => api.call(
@@ -319,7 +503,11 @@ class ApartmentManagementService {
   }
 
   /// Hesap muhatabını [residencyId] (dairenin başka bir maliki) yapar.
-  Future<ApartmentOwnersView> setAccountHolder(int siteCode, int apartmentId, int residencyId) async => ApartmentOwnersView.fromJson(
+  Future<ApartmentOwnersView> setAccountHolder(
+    int siteCode,
+    int apartmentId,
+    int residencyId,
+  ) async => ApartmentOwnersView.fromJson(
     await _guard(
       (t) => api.call(
         'PUT',
@@ -332,20 +520,35 @@ class ApartmentManagementService {
 
   /// Maliki çıkarır ("Taşındı"). Çıkarılan hesap muhatabıysa ve ≥2 malik kalıyorsa [newAccountHolderResidencyId] zorunludur
   /// (sunucu 409 `ACCOUNT_HOLDER_REQUIRED` + `owners` döner).
-  Future<ApartmentOwnersView> removeApartmentOwner(int siteCode, int apartmentId, int residencyId, {int? newAccountHolderResidencyId}) async =>
-      ApartmentOwnersView.fromJson(
-        await _guard(
-          (t) => api.call(
-            'POST',
-            _mgr(siteCode, 'apartments/$apartmentId/owners/$residencyId/remove'),
-            token: t,
-            body: <String, Object?>{'new_account_holder_residency_id': ?newAccountHolderResidencyId},
-          ),
-        ),
-      );
+  Future<ApartmentOwnersView> removeApartmentOwner(
+    int siteCode,
+    int apartmentId,
+    int residencyId, {
+    int? newAccountHolderResidencyId,
+  }) async => ApartmentOwnersView.fromJson(
+    await _guard(
+      (t) => api.call(
+        'POST',
+        _mgr(siteCode, 'apartments/$apartmentId/owners/$residencyId/remove'),
+        token: t,
+        body: <String, Object?>{
+          'new_account_holder_residency_id': ?newAccountHolderResidencyId,
+        },
+      ),
+    ),
+  );
 
-  Future<AdminCandidates> adminCandidates(int siteCode, int apartmentId) async => AdminCandidates.fromJson(
-    await _guard((t) => api.call('GET', _mgr(siteCode, 'apartments/$apartmentId/admin-candidates'), token: t)),
+  Future<AdminCandidates> adminCandidates(
+    int siteCode,
+    int apartmentId,
+  ) async => AdminCandidates.fromJson(
+    await _guard(
+      (t) => api.call(
+        'GET',
+        _mgr(siteCode, 'apartments/$apartmentId/admin-candidates'),
+        token: t,
+      ),
+    ),
   );
 
   Future<void> changeAdmin(
@@ -354,23 +557,41 @@ class ApartmentManagementService {
     int? userCode,
     int? personId,
   }) => _guard(
-    (t) => api.call('PUT', _mgr(siteCode, 'apartments/$apartmentId/admin'), token: t, body: <String, Object?>{
-      'user_code': ?userCode,
-      'person_id': ?personId,
-    }),
+    (t) => api.call(
+      'PUT',
+      _mgr(siteCode, 'apartments/$apartmentId/admin'),
+      token: t,
+      body: <String, Object?>{'user_code': ?userCode, 'person_id': ?personId},
+    ),
   );
 
-  Future<List<SafetyRequestItem>> safetyRequests(int siteCode, {String? status}) async {
+  Future<List<SafetyRequestItem>> safetyRequests(
+    int siteCode, {
+    String? status,
+  }) async {
     final r = await _guard(
-      (t) => api.call('GET', _mgr(siteCode, 'safety-requests'), token: t, query: <String, String>{'status': ?status}),
+      (t) => api.call(
+        'GET',
+        _mgr(siteCode, 'safety-requests'),
+        token: t,
+        query: <String, String>{'status': ?status},
+      ),
     );
     final items = r['items'];
     return <SafetyRequestItem>[
-      if (items is List) for (final e in items) if (e is Map) SafetyRequestItem.fromJson(Map<String, dynamic>.from(e)),
+      if (items is List)
+        for (final e in items)
+          if (e is Map)
+            SafetyRequestItem.fromJson(Map<String, dynamic>.from(e)),
     ];
   }
 
-  Future<void> updateSafetyRequest(int siteCode, int id, {String? status, String? note}) => _guard(
+  Future<void> updateSafetyRequest(
+    int siteCode,
+    int id, {
+    String? status,
+    String? note,
+  }) => _guard(
     (t) => api.call(
       'PUT',
       _mgr(siteCode, 'safety-requests/$id'),
@@ -379,15 +600,32 @@ class ApartmentManagementService {
     ),
   );
 
-  Future<List<SuspensionItem>> suspensions(int siteCode, int apartmentId) async {
-    final r = await _guard((t) => api.call('GET', _mgr(siteCode, 'apartments/$apartmentId/suspensions'), token: t));
+  Future<List<SuspensionItem>> suspensions(
+    int siteCode,
+    int apartmentId,
+  ) async {
+    final r = await _guard(
+      (t) => api.call(
+        'GET',
+        _mgr(siteCode, 'apartments/$apartmentId/suspensions'),
+        token: t,
+      ),
+    );
     final items = r['items'];
     return <SuspensionItem>[
-      if (items is List) for (final e in items) if (e is Map) SuspensionItem.fromJson(Map<String, dynamic>.from(e)),
+      if (items is List)
+        for (final e in items)
+          if (e is Map) SuspensionItem.fromJson(Map<String, dynamic>.from(e)),
     ];
   }
 
-  Future<void> suspend(int siteCode, int apartmentId, int userCode, {required String reasonCode, required String note}) => _guard(
+  Future<void> suspend(
+    int siteCode,
+    int apartmentId,
+    int userCode, {
+    required String reasonCode,
+    required String note,
+  }) => _guard(
     (t) => api.call(
       'POST',
       _mgr(siteCode, 'apartments/$apartmentId/members/$userCode/suspend'),
@@ -396,7 +634,12 @@ class ApartmentManagementService {
     ),
   );
 
-  Future<void> lift(int siteCode, int apartmentId, int userCode, {String? note}) => _guard(
+  Future<void> lift(
+    int siteCode,
+    int apartmentId,
+    int userCode, {
+    String? note,
+  }) => _guard(
     (t) => api.call(
       'POST',
       _mgr(siteCode, 'apartments/$apartmentId/members/$userCode/lift'),
@@ -408,7 +651,12 @@ class ApartmentManagementService {
   // --- Adli kayıt (yalnız site yöneticisi / süper kullanıcı; kurul ve görevli 403) ---
 
   /// Dairenin eski sakin / adli kaydı (yeniden eskiye, sayfalı) + kayda yazılmamış eski dönemler (yalnız ilk sayfa).
-  Future<ResidencyLogPage> residencyLog(int siteCode, int apartmentId, {int offset = 0, int limit = 20}) async => ResidencyLogPage.fromJson(
+  Future<ResidencyLogPage> residencyLog(
+    int siteCode,
+    int apartmentId, {
+    int offset = 0,
+    int limit = 20,
+  }) async => ResidencyLogPage.fromJson(
     await _guard(
       (t) => api.call(
         'GET',
@@ -432,7 +680,12 @@ class ApartmentManagementService {
         'POST',
         _mgr(siteCode, 'residency-log/export'),
         token: t,
-        body: <String, Object?>{'format': format, 'reason_code': reasonCode, 'note': note, 'apartment_id': ?apartmentId},
+        body: <String, Object?>{
+          'format': format,
+          'reason_code': reasonCode,
+          'note': note,
+          'apartment_id': ?apartmentId,
+        },
       );
       return ForensicExportFile(
         bytes: file.bytes,

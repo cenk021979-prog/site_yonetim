@@ -1,4 +1,16 @@
 import 'dart:io';
+import 'package:media_kit/media_kit.dart';
+
+Future<void> trySetNativeProperty(
+  Object native,
+  String key,
+  String value,
+) async {
+  if (native is! NativePlayer) return;
+  try {
+    await native.setProperty(key, value);
+  } catch (_) {}
+}
 
 bool get isNativeRtspSupported {
   if (Platform.environment.containsKey('FLUTTER_TEST')) return false;

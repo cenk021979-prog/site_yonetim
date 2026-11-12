@@ -35,22 +35,28 @@ class _HomeAuth extends PeopleFakeAuth {
   Future<void> refreshSession({bool force = false}) async {}
 
   @override
-  Future<(List<DoorRecord>?, String?)> listMyDoors() async => (<DoorRecord>[], null);
+  Future<(List<DoorRecord>?, String?)> listMyDoors() async =>
+      (<DoorRecord>[], null);
 
   @override
   Future<SiteManagersData?> getSiteManagers(int siteCode) async => null;
 
   @override
-  Future<(List<JoinRequestRecord>?, String?)> getMyJoinRequests() async => (<JoinRequestRecord>[], null);
+  Future<(List<JoinRequestRecord>?, String?)> getMyJoinRequests() async =>
+      (<JoinRequestRecord>[], null);
 
   @override
-  Future<List<Map<String, dynamic>>> getMyClaimedDevices() async => <Map<String, dynamic>>[];
+  Future<List<Map<String, dynamic>>> getMyClaimedDevices() async =>
+      <Map<String, dynamic>>[];
 
   @override
-  Future<(List<MyApartmentRecord>?, String?)> getMyApartments() async => (<MyApartmentRecord>[], null);
+  Future<(List<MyApartmentRecord>?, String?)> getMyApartments() async =>
+      (<MyApartmentRecord>[], null);
 
   @override
-  Future<(DoorRuntimeStatus?, String?)> getDoorRuntimeStatus({required int doorId}) async => (null, null);
+  Future<(DoorRuntimeStatus?, String?)> getDoorRuntimeStatus({
+    required int doorId,
+  }) async => (null, null);
 
   @override
   Future<bool> isPhoneConnectedToLocalWifi() async => false;
@@ -93,20 +99,37 @@ class _Server {
       });
     }
     if (path.endsWith('/feedback')) {
-      return _json(200, <String, dynamic>{'items': <Object>[], 'next_cursor': null});
+      return _json(200, <String, dynamic>{
+        'items': <Object>[],
+        'next_cursor': null,
+      });
     }
     if (path.startsWith('/manager/')) {
-      return _json(200, <String, dynamic>{'items': <Object>[], 'next_before_id': null, 'counts': <String, dynamic>{}});
+      return _json(200, <String, dynamic>{
+        'items': <Object>[],
+        'next_before_id': null,
+        'counts': <String, dynamic>{},
+      });
     }
-    return _json(200, <String, dynamic>{'items': <Object>[], 'next_before_id': null, 'unread_updates': 0});
+    return _json(200, <String, dynamic>{
+      'items': <Object>[],
+      'next_before_id': null,
+      'unread_updates': 0,
+    });
   }
 
-  List<http.Request> get feedbackRequests => requests.where((r) => r.url.path.contains('feedback')).toList();
+  List<http.Request> get feedbackRequests =>
+      requests.where((r) => r.url.path.contains('feedback')).toList();
 }
 
 late _Server _server;
 
-MySiteModules _my(String role, {bool work = true, int code = 11, String name = 'Gül Sitesi'}) => MySiteModules(
+MySiteModules _my(
+  String role, {
+  bool work = true,
+  int code = 11,
+  String name = 'Gül Sitesi',
+}) => MySiteModules(
   siteCode: code,
   siteName: name,
   role: role,
@@ -114,7 +137,10 @@ MySiteModules _my(String role, {bool work = true, int code = 11, String name = '
   doorAccess: !(role == 'staff' || role == 'board_member'),
 );
 
-Future<ModuleAccess> _access(List<MySiteModules> Function() sites, {bool superUser = false}) async {
+Future<ModuleAccess> _access(
+  List<MySiteModules> Function() sites, {
+  bool superUser = false,
+}) async {
   final access = ModuleAccess(
     fetch: () async => MyModulesResult(sites: sites()),
     isSuperUser: () => superUser,
@@ -131,7 +157,11 @@ AnnouncementNotifier _quietNotifier() => AnnouncementNotifier(
   isEligible: () => false,
 );
 
-Future<void> _pumpHome(WidgetTester t, _HomeAuth auth, {ModuleAccess? access}) async {
+Future<void> _pumpHome(
+  WidgetTester t,
+  _HomeAuth auth, {
+  ModuleAccess? access,
+}) async {
   t.view.physicalSize = const Size(400, 1000);
   t.view.devicePixelRatio = 1.0;
   addTearDown(t.view.reset);
@@ -141,7 +171,11 @@ Future<void> _pumpHome(WidgetTester t, _HomeAuth auth, {ModuleAccess? access}) a
     MaterialApp(
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      home: HomePage(authService: auth, moduleAccess: access, announcementNotifier: notifier),
+      home: HomePage(
+        authService: auth,
+        moduleAccess: access,
+        announcementNotifier: notifier,
+      ),
     ),
   );
   await t.pump();
@@ -184,111 +218,225 @@ void main() {
   });
 
   group('giriş noktaları (her ekrandan erişim)', () {
-    testWidgets('çekmece: "Geri bildirim", "Yardım ve Destek"in HEMEN altında ve "Çıkış Yap"ın üstünde', (t) async {
-      final auth = _HomeAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
-      await _pumpHome(t, auth, access: access);
-      await openMenuDrawer(t);
-      final help = t.getTopLeft(_k('yan_menu_yardim')).dy;
-      final feedback = t.getTopLeft(_k('yan_menu_geri_bildirim')).dy;
-      final logout = t.getTopLeft(_k('yan_menu_cikis')).dy;
-      expect(feedback, greaterThan(help));
-      expect(feedback, lessThan(logout));
-      expect(find.descendant(of: find.byType(YanMenu), matching: find.text('Geri bildirim')), findsOneWidget);
-      await _disposeHome(t);
-    });
-
-    testWidgets('Ayarlar paneli (sağ üst dişli): "Geri bildirim gönder" herkeste; "Gelen geri bildirimler" yalnız yönetici ve süper kullanıcıda', (t) async {
-      Future<(bool, bool)> panelEntries(_HomeAuth auth, ModuleAccess access) async {
+    testWidgets(
+      'geçici sayfa bağlantısı doğru ekranı taşır; HomePage rotasını kapatmaz',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
         await _pumpHome(t, auth, access: access);
-        await openSettingsPanel(t);
-        final send = find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Geri bildirim gönder'));
-        final inbox = find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Gelen geri bildirimler'));
-        final result = (send.evaluate().isNotEmpty, inbox.evaluate().isNotEmpty);
+        await tapMenuEntry(t, 'Talepler');
+        await t.tap(_k('temporary_feedback_open'));
+        await settleFor(t, 300);
+        expect(find.byType(HomePage), findsOneWidget);
+        expect(find.byType(FeedbackDialog), findsOneWidget);
+        expect(
+          t.widget<Text>(_k('feedback_context_route')).data,
+          'menu/talepler',
+        );
+        expect(_k('feedback_context_copy_address'), findsNothing);
         await _disposeHome(t);
-        return result;
-      }
+      },
+    );
 
-      expect(
-        await panelEntries(_HomeAuth(), await _access(() => <MySiteModules>[_my('manager')])),
-        (true, true),
-        reason: 'site yöneticisi',
-      );
-      expect(
-        await panelEntries(_HomeAuth(role: UserRole.superUser), await _access(() => <MySiteModules>[], superUser: true)),
-        (true, true),
-        reason: 'süper kullanıcı',
-      );
-      expect(
-        await panelEntries(_HomeAuth(role: UserRole.apartmentOwner), await _access(() => <MySiteModules>[_my('resident')])),
-        (true, false),
-        reason: 'sakin',
-      );
-      expect(
-        await panelEntries(_HomeAuth(role: UserRole.apartmentOwner), await _access(() => <MySiteModules>[_my('board_member')])),
-        (true, false),
-        reason: 'kurul üyesi',
-      );
-    });
+    testWidgets(
+      'çekmece: "Geri bildirim", "Yardım ve Destek"in HEMEN altında ve "Çıkış Yap"ın üstünde',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await openMenuDrawer(t);
+        final help = t.getTopLeft(_k('yan_menu_yardim')).dy;
+        final feedback = t.getTopLeft(_k('yan_menu_geri_bildirim')).dy;
+        final logout = t.getTopLeft(_k('yan_menu_cikis')).dy;
+        expect(feedback, greaterThan(help));
+        expect(feedback, lessThan(logout));
+        expect(
+          find.descendant(
+            of: find.byType(YanMenu),
+            matching: find.text('Geri bildirim'),
+          ),
+          findsOneWidget,
+        );
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets(
+      'Ayarlar paneli (sağ üst dişli): "Geri bildirim gönder" herkeste; "Gelen geri bildirimler" yalnız yönetici ve süper kullanıcıda',
+      (t) async {
+        Future<(bool, bool)> panelEntries(
+          _HomeAuth auth,
+          ModuleAccess access,
+        ) async {
+          await _pumpHome(t, auth, access: access);
+          await openSettingsPanel(t);
+          final send = find.descendant(
+            of: find.byType(YanMenuAyarlar),
+            matching: find.text('Geri bildirim gönder'),
+          );
+          final inbox = find.descendant(
+            of: find.byType(YanMenuAyarlar),
+            matching: find.text('Gelen geri bildirimler'),
+          );
+          expect(find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Gönderdiğim geri bildirimler')), findsOneWidget);
+          final result = (
+            send.evaluate().isNotEmpty,
+            inbox.evaluate().isNotEmpty,
+          );
+          await _disposeHome(t);
+          return result;
+        }
+
+        expect(
+          await panelEntries(
+            _HomeAuth(),
+            await _access(() => <MySiteModules>[_my('manager')]),
+          ),
+          (true, true),
+          reason: 'site yöneticisi',
+        );
+        expect(
+          await panelEntries(
+            _HomeAuth(role: UserRole.superUser),
+            await _access(() => <MySiteModules>[], superUser: true),
+          ),
+          (true, true),
+          reason: 'süper kullanıcı',
+        );
+        expect(
+          await panelEntries(
+            _HomeAuth(role: UserRole.apartmentOwner),
+            await _access(() => <MySiteModules>[_my('resident')]),
+          ),
+          (true, false),
+          reason: 'sakin',
+        );
+        expect(
+          await panelEntries(
+            _HomeAuth(role: UserRole.apartmentOwner),
+            await _access(() => <MySiteModules>[_my('board_member')]),
+          ),
+          (true, false),
+          reason: 'kurul üyesi',
+        );
+      },
+    );
+  });
+
+  testWidgets('history opened from composer keeps the unsent draft and uses own endpoint', (t) async {
+    final auth = _HomeAuth(role: UserRole.apartmentOwner);
+    final access = await _access(() => [_my('resident')]);
+    await _pumpHome(t, auth, access: access);
+    await _tapDrawerFeedback(t);
+    await t.enterText(_k('feedback_message'), 'Henüz göndermediğim not');
+    await t.ensureVisible(_k('feedback_my_history'));
+    await t.tap(_k('feedback_my_history'));
+    await settleFor(t, 400);
+    expect(find.byType(FeedbackInboxPage), findsOneWidget);
+    expect(_server.feedbackRequests.last.url.path, '/app/feedback/mine');
+    await t.binding.handlePopRoute();
+    await settleFor(t, 400);
+    expect(t.widget<TextFormField>(_k('feedback_message')).controller!.text, 'Henüz göndermediğim not');
+    expect(_server.feedbackRequests.where((r) => r.method == 'POST'), isEmpty);
+    await _disposeHome(t);
   });
 
   group('ekran bağlamı otomatik eklenir', () {
-    testWidgets('Panel: ekran adı "Panel", rota "menu/dashboard", site "Gül Sitesi"; gönderilen istek bu bağlamı taşır', (t) async {
-      final auth = _HomeAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
-      await _pumpHome(t, auth, access: access);
-      await _tapDrawerFeedback(t);
-      expect(find.byType(FeedbackDialog), findsOneWidget);
-      expect(t.widget<Text>(_k('feedback_context_name')).data, 'Panel');
-      expect(t.widget<Text>(_k('feedback_context_route')).data, 'menu/dashboard');
-      expect(t.widget<Text>(_k('feedback_context_site')).data, 'Site: Gül Sitesi');
-      await t.enterText(_k('feedback_message'), 'Panel çok iyi');
-      await t.pump();
-      await t.tap(_k('feedback_send'));
-      await settleFor(t, 100);
-      await settleFor(t, 300);
-      final sent = _server.feedbackRequests.single;
-      expect(sent.method, 'POST');
-      expect(sent.url.path, '/app/feedback');
-      final body = jsonDecode(sent.body) as Map<String, dynamic>;
-      expect(body['screen_name'], 'Panel');
-      expect(body['screen_route'], 'menu/dashboard');
-      expect(body['site_code'], 11);
-      expect(body['message'], 'Panel çok iyi');
-      expect(body['platform'], isNotNull);
-      expect(find.byType(FeedbackDialog), findsNothing);
-      expect(find.text('Geri bildiriminiz gönderildi. Teşekkür ederiz.'), findsOneWidget);
-      await _disposeHome(t);
-    });
+    testWidgets(
+      'Panel: ekran adı "Panel", rota "menu/dashboard", site "Gül Sitesi"; gönderilen istek bu bağlamı taşır',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await _tapDrawerFeedback(t);
+        expect(find.byType(FeedbackDialog), findsOneWidget);
+        expect(t.widget<Text>(_k('feedback_context_name')).data, 'Panel');
+        expect(
+          t.widget<Text>(_k('feedback_context_route')).data,
+          'menu/dashboard',
+        );
+        expect(
+          t.widget<Text>(_k('feedback_context_site')).data,
+          'Site: Gül Sitesi',
+        );
+        await t.enterText(_k('feedback_message'), 'Panel çok iyi');
+        await t.pump();
+        await t.tap(_k('feedback_send'));
+        await settleFor(t, 100);
+        await settleFor(t, 300);
+        final sent = _server.feedbackRequests.single;
+        expect(sent.method, 'POST');
+        expect(sent.url.path, '/app/feedback');
+        final body = jsonDecode(sent.body) as Map<String, dynamic>;
+        expect(body['screen_name'], 'Panel');
+        expect(body['screen_route'], 'menu/dashboard');
+        expect(body['site_code'], 11);
+        expect(body['message'], 'Panel çok iyi');
+        expect(body['platform'], isNotNull);
+        expect(find.byType(FeedbackDialog), findsNothing);
+        expect(
+          find.text('Geri bildiriminiz gönderildi. Teşekkür ederiz.'),
+          findsOneWidget,
+        );
+        await _disposeHome(t);
+      },
+    );
 
-    testWidgets('ekran değişince bağlam değişir: "Talepler" ekranındayken ad "Talepler", rota "menu/talepler"', (t) async {
-      final auth = _HomeAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
-      await _pumpHome(t, auth, access: access);
-      await tapMenuEntry(t, 'Talepler');
-      expect(find.descendant(of: find.byType(AppBar), matching: find.text('Talepler')), findsOneWidget);
-      await _tapDrawerFeedback(t);
-      expect(t.widget<Text>(_k('feedback_context_name')).data, 'Talepler');
-      expect(t.widget<Text>(_k('feedback_context_route')).data, 'menu/talepler');
-      await _disposeHome(t);
-    });
+    testWidgets(
+      'ekran değişince bağlam değişir: "Talepler" ekranındayken ad "Talepler", rota "menu/talepler"',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await tapMenuEntry(t, 'Talepler');
+        expect(
+          find.descendant(
+            of: find.byType(AppBar),
+            matching: find.text('Talepler'),
+          ),
+          findsOneWidget,
+        );
+        await _tapDrawerFeedback(t);
+        expect(t.widget<Text>(_k('feedback_context_name')).data, 'Talepler');
+        expect(
+          t.widget<Text>(_k('feedback_context_route')).data,
+          'menu/talepler',
+        );
+        await _disposeHome(t);
+      },
+    );
 
-    testWidgets('Ayarlar panelinden de açılır; çok siteli kullanıcıda "Tüm siteler" iken site bağlamı YOK', (t) async {
-      final auth = _HomeAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager'), _my('manager', code: 12, name: 'Ay Sitesi')]);
-      await _pumpHome(t, auth, access: access);
-      await openSettingsPanel(t);
-      final entry = find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Geri bildirim gönder'));
-      await t.ensureVisible(entry);
-      await t.pump();
-      await t.tap(entry);
-      await settleFor(t, 100);
-      await settleFor(t, 300);
-      expect(find.byType(FeedbackDialog), findsOneWidget);
-      expect(t.widget<Text>(_k('feedback_context_name')).data, 'Panel');
-      expect(_k('feedback_context_site'), findsNothing, reason: 'iki site var ve biri seçili değil');
-      await _disposeHome(t);
-    });
+    testWidgets(
+      'Ayarlar panelinden de açılır; çok siteli kullanıcıda "Tüm siteler" iken site bağlamı YOK',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(
+          () => <MySiteModules>[
+            _my('manager'),
+            _my('manager', code: 12, name: 'Ay Sitesi'),
+          ],
+        );
+        await _pumpHome(t, auth, access: access);
+        await openSettingsPanel(t);
+        final entry = find.descendant(
+          of: find.byType(YanMenuAyarlar),
+          matching: find.text('Geri bildirim gönder'),
+        );
+        await t.ensureVisible(entry);
+        await t.pump();
+        await t.tap(entry);
+        await settleFor(t, 100);
+        await settleFor(t, 300);
+        expect(find.byType(FeedbackDialog), findsOneWidget);
+        expect(t.widget<Text>(_k('feedback_context_name')).data, 'Panel');
+        expect(
+          _k('feedback_context_site'),
+          findsNothing,
+          reason: 'iki site var ve biri seçili değil',
+        );
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('süper kullanıcı: site bağlamı yok', (t) async {
       final auth = _HomeAuth(role: UserRole.superUser);
@@ -302,36 +450,49 @@ void main() {
   });
 
   group('gelen geri bildirimler (yönetici / sahip)', () {
-    testWidgets('site yöneticisi: KENDİ sitesinin ucu (/manager/sites/11/feedback)', (t) async {
-      final auth = _HomeAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
-      await _pumpHome(t, auth, access: access);
-      await openSettingsPanel(t);
-      final entry = find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Gelen geri bildirimler'));
-      await t.ensureVisible(entry);
-      await t.pump();
-      await t.tap(entry);
-      await settleFor(t, 100);
-      await settleFor(t, 300);
-      expect(find.byType(FeedbackInboxPage), findsOneWidget);
-      expect(_server.feedbackRequests.map((r) => r.url.path), <String>['/manager/sites/11/feedback']);
-      expect(find.text('Henüz geri bildirim yok.'), findsOneWidget);
-      await _disposeHome(t);
-    });
+    testWidgets(
+      'site yöneticisi: KENDİ sitesinin ucu (/manager/sites/11/feedback)',
+      (t) async {
+        final auth = _HomeAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await openSettingsPanel(t);
+        final entry = find.descendant(
+          of: find.byType(YanMenuAyarlar),
+          matching: find.text('Gelen geri bildirimler'),
+        );
+        await t.ensureVisible(entry);
+        await t.pump();
+        await t.tap(entry);
+        await settleFor(t, 100);
+        await settleFor(t, 300);
+        expect(find.byType(FeedbackInboxPage), findsOneWidget);
+        expect(_server.feedbackRequests.map((r) => r.url.path), <String>[
+          '/manager/sites/11/feedback',
+        ]);
+        expect(find.text('Henüz geri bildirim yok.'), findsOneWidget);
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('süper kullanıcı: tüm kayıtlar (/admin/feedback)', (t) async {
       final auth = _HomeAuth(role: UserRole.superUser);
       final access = await _access(() => <MySiteModules>[], superUser: true);
       await _pumpHome(t, auth, access: access);
       await openSettingsPanel(t);
-      final entry = find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Gelen geri bildirimler'));
+      final entry = find.descendant(
+        of: find.byType(YanMenuAyarlar),
+        matching: find.text('Gelen geri bildirimler'),
+      );
       await t.ensureVisible(entry);
       await t.pump();
       await t.tap(entry);
       await settleFor(t, 100);
       await settleFor(t, 300);
       expect(find.byType(FeedbackInboxPage), findsOneWidget);
-      expect(_server.feedbackRequests.map((r) => r.url.path), <String>['/admin/feedback']);
+      expect(_server.feedbackRequests.map((r) => r.url.path), <String>[
+        '/admin/feedback',
+      ]);
       await _disposeHome(t);
     });
   });

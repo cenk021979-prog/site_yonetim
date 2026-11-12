@@ -101,6 +101,13 @@ class FeedbackApi {
     throw _failure(response);
   }
 
+  /// Yalnız oturum sahibinin gönderileri; sahip filtresi sunucuda uygulanır.
+  Future<FeedbackPage> listMine({required String token, int? cursor, int limit = 30}) async {
+    final response = await _send('GET', '/app/feedback/mine', token: token,
+      query: _pageQuery(cursor: cursor, limit: limit), timeout: _readTimeout);
+    return FeedbackPage.fromJson(_object(response));
+  }
+
   /// `GET /manager/sites/:siteCode/feedback` (site yöneticisi + süper kullanıcı).
   Future<FeedbackPage> listForSite({
     required String token,
@@ -148,6 +155,13 @@ class FeedbackApi {
     final path = siteCode == null
         ? '/admin/feedback/$feedbackId/attachments/$attachmentId/content'
         : '/manager/sites/$siteCode/feedback/$feedbackId/attachments/$attachmentId/content';
+    return _downloadImage(path, token);
+  }
+
+  Future<Uint8List> downloadMineAttachment({required String token, required int feedbackId, required int attachmentId}) =>
+      _downloadImage('/app/feedback/$feedbackId/attachments/$attachmentId/content', token);
+
+  Future<Uint8List> _downloadImage(String path, String token) async {
     final request = http.Request('GET', _uri(path))
       ..followRedirects = false
       ..headers.addAll(<String, String>{'Authorization': 'Bearer $token'});
@@ -373,6 +387,14 @@ class FeedbackService {
 
   Future<FeedbackPage> listAll({int? siteCode, int? cursor, int limit = 30}) => _guard(
     (token) => api.listAll(token: token, siteCode: siteCode, cursor: cursor, limit: limit),
+  );
+
+  Future<FeedbackPage> listMine({int? cursor, int limit = 30}) => _guard(
+    (token) => api.listMine(token: token, cursor: cursor, limit: limit),
+  );
+
+  Future<Uint8List> downloadMine({required int feedbackId, required int attachmentId}) => _guard(
+    (token) => api.downloadMineAttachment(token: token, feedbackId: feedbackId, attachmentId: attachmentId),
   );
 
   Future<Uint8List> download({

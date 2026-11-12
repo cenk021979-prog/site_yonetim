@@ -252,6 +252,7 @@ class _AnnouncementReadDialogState extends State<AnnouncementReadDialog> {
           const SizedBox(height: AppSpace.md),
           DocumentAttachmentsList(
             attachments: a.attachments,
+            authService: _documents.authService,
             download: (attachment) => (onProgress, cancel) => _documents.downloadAnnouncementAttachment(
               a.id,
               attachment.documentId,

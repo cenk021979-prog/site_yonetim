@@ -9,7 +9,6 @@ import 'package:site_kapi_kontrol/services/auth_api.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_dialog.dart';
-import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/icon_orb.dart';
 import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
@@ -78,7 +77,8 @@ Future<void> _open(
 void main() {
   // Yasal belge uçları sahte: başvuruda onay gerektiren belge yok (DPA kutusu çıkmaz, gönderme açık kalır).
   setUp(() {
-    LegalApi.debugDefaultFactory = () => FakeLegalServer(documents: <Map<String, dynamic>>[]).api;
+    LegalApi.debugDefaultFactory = () =>
+        FakeLegalServer(documents: <Map<String, dynamic>>[]).api;
   });
   tearDown(() => LegalApi.debugDefaultFactory = null);
 
@@ -105,7 +105,10 @@ void main() {
     expect(find.text('Site Kurulum Sihirbazı'), findsOneWidget);
     expect(find.byTooltip('Kapat'), findsOneWidget);
     expect(find.text('Bağlanacak Cihaz:'), findsOneWidget);
-    expect(find.byType(PrimaryActionButton), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey<String>('setup_site_submit')),
+      findsOneWidget,
+    );
 
     // Blok ekle: satırlar çoğalır (silme düğmeleri çıkar), taşma olmamalı.
     await scrollTo(t, find.text('Blok Ekle'));
@@ -116,8 +119,8 @@ void main() {
     expect(find.byTooltip('Bloğu sil: A Blok'), findsOneWidget);
 
     // Boş site adıyla gönderim: doğrulama iletisi.
-    await scrollTo(t, find.byType(PrimaryActionButton));
-    await t.tap(find.byType(PrimaryActionButton));
+    await scrollTo(t, find.byKey(const ValueKey<String>('setup_site_submit')));
+    await t.tap(find.byKey(const ValueKey<String>('setup_site_submit')));
     await settleFor(t);
     await scrollTo(t, find.text('Site adı zorunludur.'));
     expect(find.text('Site adı zorunludur.'), findsOneWidget);
@@ -148,8 +151,8 @@ void main() {
       'Güneş Sitesi',
     );
     // Büyük yazıda onay düğmesi formun sonundadır: önce görünür alana kaydır.
-    await scrollTo(t, find.byType(PrimaryActionButton));
-    await t.tap(find.byType(PrimaryActionButton));
+    await scrollTo(t, find.byKey(const ValueKey<String>('setup_site_submit')));
+    await t.tap(find.byKey(const ValueKey<String>('setup_site_submit')));
     await settleFor(t, 800);
 
     expect(auth.setups, ['Güneş Sitesi|1|0|null']);
@@ -164,7 +167,7 @@ void main() {
       find.widgetWithText(TextFormField, 'Site Adı *'),
       'Güneş Sitesi',
     );
-    await t.tap(find.byType(PrimaryActionButton));
+    await t.tap(find.byKey(const ValueKey<String>('setup_site_submit')));
     await settleFor(t, 800);
     expect(auth.setups.length, 1);
     expect(find.byType(Dialog), findsNothing);
@@ -185,7 +188,9 @@ void main() {
       );
 
       final dropdowns = t
-          .widgetList<DropdownButton<String>>(find.byType(DropdownButton<String>))
+          .widgetList<DropdownButton<String>>(
+            find.byType(DropdownButton<String>),
+          )
           .toList();
       expect(dropdowns, hasLength(2));
       for (final d in dropdowns) {
@@ -227,36 +232,54 @@ void main() {
   // Klavye açılınca kullanılabilir yükseklik eşiğin altına düşer ve pencere "hepsi kaydırılır" düzenine geçer. Alanlar
   // bu geçişte yeniden kurulursa odak düşer, klavye kapanır, düzen geri döner: telefonda klavye açılıp kapanır, yazılamaz.
   for (final mode in SetupSiteMode.values) {
-    testWidgets('SetupSiteDialog (${mode.name}): klavye açılıp düzen değişince site adı alanı odağı korur', (t) async {
-      await openDialogAt(
-        t,
-        (context) => SetupSiteDialog.show(context, authService: _FakeAuth(), mode: mode),
-        width: 360,
-        height: 800,
-        scale: 1.0,
-        dark: false,
-      );
-      final nameField = find.ancestor(of: find.text('Site Adı *'), matching: find.byType(TextField));
-      expect(nameField, findsOneWidget);
-      await t.showKeyboard(nameField);
-      await t.pump();
+    testWidgets(
+      'SetupSiteDialog (${mode.name}): klavye açılıp düzen değişince site adı alanı odağı korur',
+      (t) async {
+        await openDialogAt(
+          t,
+          (context) => SetupSiteDialog.show(
+            context,
+            authService: _FakeAuth(),
+            mode: mode,
+          ),
+          width: 360,
+          height: 800,
+          scale: 1.0,
+          dark: false,
+        );
+        final nameField = find.ancestor(
+          of: find.text('Site Adı *'),
+          matching: find.byType(TextField),
+        );
+        expect(nameField, findsOneWidget);
+        await t.showKeyboard(nameField);
+        await t.pump();
 
-      // Telefon klavyesi (~320 dp): 800 - 320 - kenar boşlukları < eşik.
-      t.view.viewInsets = const FakeViewPadding(bottom: 320);
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 300));
+        // Telefon klavyesi (~320 dp): 800 - 320 - kenar boşlukları < eşik.
+        t.view.viewInsets = const FakeViewPadding(bottom: 320);
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 300));
 
-      final editable = t.widget<EditableText>(find.descendant(of: nameField, matching: find.byType(EditableText)));
-      expect(editable.focusNode.hasFocus, isTrue, reason: 'odak düşerse klavye kapanır');
-      expect(t.takeException(), isNull);
+        final editable = t.widget<EditableText>(
+          find.descendant(of: nameField, matching: find.byType(EditableText)),
+        );
+        expect(
+          editable.focusNode.hasFocus,
+          isTrue,
+          reason: 'odak düşerse klavye kapanır',
+        );
+        expect(t.takeException(), isNull);
 
-      // Klavye kapanınca (geri düzene dönüş) da odak korunur.
-      t.view.viewInsets = FakeViewPadding.zero;
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 300));
-      final after = t.widget<EditableText>(find.descendant(of: nameField, matching: find.byType(EditableText)));
-      expect(after.focusNode.hasFocus, isTrue);
-      expect(t.takeException(), isNull);
-    });
+        // Klavye kapanınca (geri düzene dönüş) da odak korunur.
+        t.view.viewInsets = FakeViewPadding.zero;
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 300));
+        final after = t.widget<EditableText>(
+          find.descendant(of: nameField, matching: find.byType(EditableText)),
+        );
+        expect(after.focusNode.hasFocus, isTrue);
+        expect(t.takeException(), isNull);
+      },
+    );
   }
 }

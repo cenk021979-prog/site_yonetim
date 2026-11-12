@@ -4,6 +4,30 @@ import 'package:site_kapi_kontrol/services/plate_recognition_api.dart';
 import 'package:site_kapi_kontrol/services/plate_recognition_engine.dart';
 
 void main() {
+  group('Sunucu kararında izin ile komut sonucu ayrı kanıttır', () {
+    for (final (gateState, triggered, id) in [
+      ('triggered', true, 91001),
+      ('no_response', false, 91002),
+    ]) {
+      test('$gateState durumunda komut kabulü=$triggered', () {
+        final engine = PlateRecognitionEngine.instance;
+        engine.clearDecision();
+        addTearDown(engine.clearDecision);
+        engine.ingestServerDecisionRow(PlateDecisionRow.fromJson({
+          'id': id,
+          'plate': '34 TST 01',
+          'decision': 'ALLOWED',
+          'decision_kind': 'acildi',
+          'gate_state': gateState,
+          'seen_at': DateTime.now().toUtc().toIso8601String(),
+        }));
+        expect(engine.currentActiveDecision?.decision, PlateDecisionType.acildi);
+        expect(engine.currentActiveDecision?.isGateTriggered, triggered);
+        expect(engine.currentActiveDecision?.fromServer, isTrue);
+      });
+    }
+  });
+
   group('PlateRecognitionEngine Otopark & Geçiş Karar Testleri', () {
     late PlateRecognitionEngine engine;
 

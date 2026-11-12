@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/visitor_log_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart' show PrimaryActionButton;
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/views/visitor_manager_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/visitor_log_parts.dart';
@@ -266,8 +267,11 @@ void main() {
       await rig.pump(t);
       expect(vkKey('visitor_new_entry'), findsOneWidget);
       expect(vkKey('visitor_action_3_teslim_edildi'), findsOneWidget);
-      expect(find.textContaining('Gelen kargoyu ve ziyaretçiyi kaydedin'), findsOneWidget);
+      expect(find.textContaining('Gelen kargoyu ve ziyaretçiyi kaydedin'), findsNothing);
       expect(vkKey('visitor_read_only_note'), findsNothing);
+      await t.tap(find.byType(ContextHelp));
+      await settleFor(t);
+      expect(find.textContaining('Gelen kargoyu ve ziyaretçiyi kaydedin'), findsOneWidget);
     });
   });
 

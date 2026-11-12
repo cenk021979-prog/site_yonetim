@@ -3,16 +3,18 @@
 // dosyalar sırayla yüklenir, kısmi başarısızlık DÜRÜSTÇE bildirilir ve yeniden denenir; doldurulmuş form kapanırken onay istenir; taşma matrisi
 // (320x640 x2,0; 360x640 x1,5; yatay; tablet; açık / koyu).
 import 'dart:async';
-import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/feedback_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/feedback_api.dart';
 import 'package:site_kapi_kontrol/services/work_attachment_picker.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/feedback_dialog.dart';
-import 'package:site_kapi_kontrol/ui/design/buttons.dart' show PrimaryActionButton;
+import 'package:site_kapi_kontrol/ui/design/buttons.dart'
+    show PrimaryActionButton;
 
 import 'dialog_layout_harness.dart';
 import 'work_fixtures.dart';
@@ -29,7 +31,8 @@ class _FakeFeedbackApi extends FeedbackApi {
   _FakeFeedbackApi() : super(baseUrl: 'http://localhost');
 
   final List<FeedbackCreateRequest> created = <FeedbackCreateRequest>[];
-  final List<({int feedback, int attachment, int size})> uploads = <({int feedback, int attachment, int size})>[];
+  final List<({int feedback, int attachment, int size})> uploads =
+      <({int feedback, int attachment, int size})>[];
   Object? createError;
 
   /// Ek kimliği -> bir kez fırlatılacak hata (yeniden denemede başarılı olur).
@@ -38,7 +41,10 @@ class _FakeFeedbackApi extends FeedbackApi {
   int _nextId = 7;
 
   @override
-  Future<FeedbackRecord> create({required String token, required FeedbackCreateRequest request}) async {
+  Future<FeedbackRecord> create({
+    required String token,
+    required FeedbackCreateRequest request,
+  }) async {
     final error = createError;
     if (error != null) throw error;
     created.add(request);
@@ -80,7 +86,11 @@ class _FakeFeedbackApi extends FeedbackApi {
     if (gate != null) await gate.future;
     final error = failOnce.remove(attachmentId);
     if (error != null) throw error;
-    uploads.add((feedback: feedbackId, attachment: attachmentId, size: bytes.length));
+    uploads.add((
+      feedback: feedbackId,
+      attachment: attachmentId,
+      size: bytes.length,
+    ));
     return FeedbackAttachment(
       id: attachmentId,
       feedbackId: feedbackId,
@@ -151,64 +161,245 @@ Future<void> _tap(WidgetTester t, String key) async {
   await settleFor(t, 100);
 }
 
-WorkPhotoSelection _picks(List<WorkPhotoPick> picks, {List<WorkPhotoPick> rejected = const <WorkPhotoPick>[]}) =>
-    WorkPhotoSelection(picks: picks, rejected: rejected);
+WorkPhotoSelection _picks(
+  List<WorkPhotoPick> picks, {
+  List<WorkPhotoPick> rejected = const <WorkPhotoPick>[],
+}) => WorkPhotoSelection(picks: picks, rejected: rejected);
 
 void main() {
-  group('ekran bağlamı OTOMATİK eklenir ve değiştirilemez', () {
-    testWidgets('form ekran adı + rota + siteyi gösterir; düzenlenebilir tek alan metindir', (t) async {
+  group('pencereyi taşıma ve panodan yapıştırma', () {
+    testWidgets(
+      'başlık sürüklenir, ekran sınırını geçmez; küçülen ekrana sığar',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(t, width: 1200, height: 1000);
+        final header = _k('dialog_drag_handle');
+        final initial = t.getTopLeft(header);
+        await t.drag(header, const Offset(140, 0));
+        await t.pump();
+        expect(t.getTopLeft(header).dx, greaterThan(initial.dx + 80));
+        await t.drag(header, const Offset(4000, 0));
+        await t.pump();
+        expect(t.getBottomRight(header).dx, lessThanOrEqualTo(1200));
+        t.view.physicalSize = const Size(320, 640);
+        await t.pump();
+        expect(t.getTopLeft(header).dx, greaterThanOrEqualTo(0));
+        expect(t.getBottomRight(header).dx, lessThanOrEqualTo(320));
+        expect(t.takeException(), isNull);
+      },
+    );
+
+    testWidgets('Ctrl+V normal metni seçili metnin yerine yazar', (t) async {
       final rig = _Rig();
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? <String, dynamic>{'text': 'yeni'}
+            : null,
+      );
+      addTearDown(
+        () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          null,
+        ),
+      );
       await rig.open(t);
-      expect(t.widget<Text>(_k('feedback_context_name')).data, 'Talepler');
-      expect(t.widget<Text>(_k('feedback_context_route')).data, 'menu/talepler');
-      expect(t.widget<Text>(_k('feedback_context_site')).data, 'Site: Gül Sitesi');
-      expect(find.text('Gönderildiği ekran (otomatik eklenir)'), findsOneWidget);
-      // bağlam bir metin alanı DEĞİL: tek TextField geri bildirim metnidir
-      expect(find.byType(TextField), findsOneWidget);
-      expect(find.descendant(of: _k('feedback_context'), matching: find.byType(TextField)), findsNothing);
-      // gizlilik: kimlerin göreceği açıkça yazılır
-      expect(find.text(kFeedbackAudienceNote), findsOneWidget);
+      await _type(t, 'önce eski sonra');
+      final controller = t
+          .widget<TextFormField>(_k('feedback_message'))
+          .controller!;
+      controller.selection = const TextSelection(
+        baseOffset: 5,
+        extentOffset: 9,
+      );
+      final editable = find.descendant(
+        of: _k('feedback_message'),
+        matching: find.byType(EditableText),
+      );
+      Actions.invoke(
+        t.element(editable),
+        const PasteTextIntent(SelectionChangedCause.keyboard),
+      );
+      await settleFor(t, 100);
+      expect(controller.text, 'önce yeni sonra');
+      expect(controller.selection.baseOffset, 9);
+      expect(t.widget<Text>(_k('feedback_photo_count')).data, '0/4');
     });
 
-    testWidgets('gönderilen istek ekran adı, rota, site, sürüm ve platformu taşır', (t) async {
+    testWidgets(
+      'Windows Ctrl+V görseli hazırlar, önizleme eki olarak gönderir; metin korunur',
+      (t) async {
+        debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+        addTearDown(() => debugDefaultTargetPlatformOverride = null);
+        const channel = MethodChannel('site_kapi_kontrol/window');
+        t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          (call) async => call.method == 'readClipboardImage' ? kWkPng : null,
+        );
+        addTearDown(
+          () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            channel,
+            null,
+          ),
+        );
+        final rig = _Rig();
+        await rig.open(t);
+        await _type(t, 'Görüntüdeki sorun');
+        await t.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+        await t.sendKeyEvent(LogicalKeyboardKey.keyV);
+        await t.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+        for (
+          var i = 0;
+          i < 30 && t.widget<Text>(_k('feedback_photo_count')).data == '0/4';
+          i++
+        ) {
+          await t.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 50)),
+          );
+          await t.pump();
+        }
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '1/4');
+        expect(
+          t.widget<TextFormField>(_k('feedback_message')).controller!.text,
+          'Görüntüdeki sorun',
+        );
+        await _tap(t, 'feedback_send');
+        expect(rig.api.created.single.attachments, hasLength(1));
+        expect(rig.api.uploads, hasLength(1));
+        expect(rig.api.created.single.context.screenRoute, _screen.screenRoute);
+        debugDefaultTargetPlatformOverride = null;
+      },
+    );
+
+    testWidgets('görsel pano hatası başarı sayılmaz, metin ve form korunur', (
+      t,
+    ) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      const channel = MethodChannel('site_kapi_kontrol/window');
+      t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        channel,
+        (_) async => throw PlatformException(code: 'CLIPBOARD_BUSY'),
+      );
+      addTearDown(
+        () => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          channel,
+          null,
+        ),
+      );
       final rig = _Rig();
       await rig.open(t);
-      await _type(t, '  Menü karışık görünüyor.  ');
-      await _tap(t, 'feedback_send');
-      expect(rig.api.created, hasLength(1));
-      final request = rig.api.created.single;
-      expect(request.message, 'Menü karışık görünüyor.');
-      expect(request.context.screenName, 'Talepler');
-      expect(request.context.screenRoute, 'menu/talepler');
-      expect(request.context.siteCode, 11);
-      expect(request.appVersion, '1.0.0+1');
-      expect(request.platform, 'android');
-      expect(request.attachments, isEmpty);
-      expect(rig.closed, isTrue);
-      expect(rig.outcome!.record.screenRoute, 'menu/talepler');
-      expect(rig.outcome!.allUploaded, isTrue);
-    });
-
-    testWidgets('siteye bağlı olmayan bağlam (süper kullanıcı / tüm siteler): site satırı ve site_code yok', (t) async {
-      final rig = _Rig();
-      await rig.open(t, screen: const FeedbackScreenContext(screenName: 'Panel', screenRoute: 'menu/dashboard'));
-      expect(_k('feedback_context_site'), findsNothing);
-      await _type(t, 'Merhaba');
-      await _tap(t, 'feedback_send');
-      expect(rig.api.created.single.context.siteCode, isNull);
-      expect(rig.api.created.single.toJson().containsKey('site_code'), isFalse);
+      await _type(t, 'Kaybolmasın');
+      final editable = find.descendant(
+        of: _k('feedback_message'),
+        matching: find.byType(EditableText),
+      );
+      Actions.invoke(
+        t.element(editable),
+        const PasteTextIntent(SelectionChangedCause.keyboard),
+      );
+      await settleFor(t, 100);
+      expect(find.textContaining('Panodaki görsel okunamadı'), findsOneWidget);
+      expect(
+        t.widget<TextFormField>(_k('feedback_message')).controller!.text,
+        'Kaybolmasın',
+      );
+      expect(t.widget<Text>(_k('feedback_photo_count')).data, '0/4');
+      expect(rig.api.created, isEmpty);
+      debugDefaultTargetPlatformOverride = null;
     });
   });
 
+  group('ekran bağlamı OTOMATİK eklenir ve değiştirilemez', () {
+    testWidgets(
+      'form ekran adı + rota + siteyi gösterir; düzenlenebilir tek alan metindir',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(t);
+        expect(t.widget<Text>(_k('feedback_context_name')).data, 'Talepler');
+        expect(
+          t.widget<Text>(_k('feedback_context_route')).data,
+          'menu/talepler',
+        );
+        expect(
+          t.widget<Text>(_k('feedback_context_site')).data,
+          'Site: Gül Sitesi',
+        );
+        expect(
+          find.text('Gönderildiği ekran (otomatik eklenir)'),
+          findsOneWidget,
+        );
+        // bağlam bir metin alanı DEĞİL: tek TextField geri bildirim metnidir
+        expect(find.byType(TextField), findsOneWidget);
+        expect(
+          find.descendant(
+            of: _k('feedback_context'),
+            matching: find.byType(TextField),
+          ),
+          findsNothing,
+        );
+        // gizlilik: kimlerin göreceği açıkça yazılır
+        expect(find.text(kFeedbackAudienceNote), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'gönderilen istek ekran adı, rota, site, sürüm ve platformu taşır',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(t);
+        await _type(t, '  Menü karışık görünüyor.  ');
+        await _tap(t, 'feedback_send');
+        expect(rig.api.created, hasLength(1));
+        final request = rig.api.created.single;
+        expect(request.message, 'Menü karışık görünüyor.');
+        expect(request.context.screenName, 'Talepler');
+        expect(request.context.screenRoute, 'menu/talepler');
+        expect(request.context.siteCode, 11);
+        expect(request.appVersion, '1.0.0+1');
+        expect(request.platform, 'android');
+        expect(request.attachments, isEmpty);
+        expect(rig.closed, isTrue);
+        expect(rig.outcome!.record.screenRoute, 'menu/talepler');
+        expect(rig.outcome!.allUploaded, isTrue);
+      },
+    );
+
+    testWidgets(
+      'siteye bağlı olmayan bağlam (süper kullanıcı / tüm siteler): site satırı ve site_code yok',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(
+          t,
+          screen: const FeedbackScreenContext(
+            screenName: 'Panel',
+            screenRoute: 'menu/dashboard',
+          ),
+        );
+        expect(_k('feedback_context_site'), findsNothing);
+        await _type(t, 'Merhaba');
+        await _tap(t, 'feedback_send');
+        expect(rig.api.created.single.context.siteCode, isNull);
+        expect(
+          rig.api.created.single.toJson().containsKey('site_code'),
+          isFalse,
+        );
+      },
+    );
+  });
+
   group('metin doğrulaması ve gönderim hatası', () {
-    testWidgets('boş metin gönderilmez: alan hatası görünür, sunucuya gidilmez', (t) async {
-      final rig = _Rig();
-      await rig.open(t);
-      await _tap(t, 'feedback_send');
-      expect(find.text('Geri bildirim metni boş olamaz.'), findsOneWidget);
-      expect(rig.api.created, isEmpty);
-      expect(rig.closed, isFalse);
-    });
+    testWidgets(
+      'boş metin gönderilmez: alan hatası görünür, sunucuya gidilmez',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(t);
+        await _tap(t, 'feedback_send');
+        expect(find.text('Geri bildirim metni boş olamaz.'), findsOneWidget);
+        expect(rig.api.created, isEmpty);
+        expect(rig.closed, isFalse);
+      },
+    );
 
     testWidgets('2000 karakter üstü reddedilir', (t) async {
       final rig = _Rig();
@@ -219,35 +410,51 @@ void main() {
       expect(rig.api.created, isEmpty);
     });
 
-    testWidgets('sunucu reddederse (400/429) form açık kalır, metin korunur, sunucu iletisi görünür', (t) async {
-      final rig = _Rig();
-      rig.api.createError = ApiException('Bir saat içinde çok fazla geri bildirim gönderdiniz.', statusCode: 429, retryAfterSeconds: 3600);
-      await rig.open(t);
-      await _type(t, 'Önemli not');
-      await _tap(t, 'feedback_send');
-      expect(find.text('Bir saat içinde çok fazla geri bildirim gönderdiniz.'), findsOneWidget);
-      expect(rig.closed, isFalse);
-      expect(t.widget<TextFormField>(_k('feedback_message')).controller!.text, 'Önemli not');
-      // 429: Gönder düğmesi Retry-After süresince kilitlenir
-      expect(t.widget<ElevatedButton>(_k('feedback_send')).onPressed, isNull);
-      await t.pumpWidget(const SizedBox());
-      await t.pump();
-    });
+    testWidgets(
+      'sunucu reddederse (400/429) form açık kalır, metin korunur, sunucu iletisi görünür',
+      (t) async {
+        final rig = _Rig();
+        rig.api.createError = ApiException(
+          'Bir saat içinde çok fazla geri bildirim gönderdiniz.',
+          statusCode: 429,
+          retryAfterSeconds: 3600,
+        );
+        await rig.open(t);
+        await _type(t, 'Önemli not');
+        await _tap(t, 'feedback_send');
+        expect(
+          find.text('Bir saat içinde çok fazla geri bildirim gönderdiniz.'),
+          findsOneWidget,
+        );
+        expect(rig.closed, isFalse);
+        expect(
+          t.widget<TextFormField>(_k('feedback_message')).controller!.text,
+          'Önemli not',
+        );
+        // 429: Gönder düğmesi Retry-After süresince kilitlenir
+        expect(t.widget<ElevatedButton>(_k('feedback_send')).onPressed, isNull);
+        await t.pumpWidget(const SizedBox());
+        await t.pump();
+      },
+    );
 
-    testWidgets('doldurulmuş form kapatılırken onay istenir; "Yazmaya Dön" formu korur, "Vazgeç ve Kapat" kapatır', (t) async {
-      final rig = _Rig();
-      await rig.open(t);
-      await _type(t, 'Yarım kalan');
-      await _tap(t, 'feedback_close');
-      expect(find.text('Geri bildirim silinsin mi?'), findsOneWidget);
-      await _tap(t, 'feedback_keep');
-      expect(find.byType(FeedbackDialog), findsOneWidget);
-      await _tap(t, 'feedback_close');
-      await _tap(t, 'feedback_discard');
-      expect(find.byType(FeedbackDialog), findsNothing);
-      expect(rig.outcome, isNull);
-      expect(rig.api.created, isEmpty);
-    });
+    testWidgets(
+      'doldurulmuş form kapatılırken onay istenir; "Yazmaya Dön" formu korur, "Vazgeç ve Kapat" kapatır',
+      (t) async {
+        final rig = _Rig();
+        await rig.open(t);
+        await _type(t, 'Yarım kalan');
+        await _tap(t, 'feedback_close');
+        expect(find.text('Geri bildirim silinsin mi?'), findsOneWidget);
+        await _tap(t, 'feedback_keep');
+        expect(find.byType(FeedbackDialog), findsOneWidget);
+        await _tap(t, 'feedback_close');
+        await _tap(t, 'feedback_discard');
+        expect(find.byType(FeedbackDialog), findsNothing);
+        expect(rig.outcome, isNull);
+        expect(rig.api.created, isEmpty);
+      },
+    );
 
     testWidgets('boş form onaysız kapanır', (t) async {
       final rig = _Rig();
@@ -258,126 +465,207 @@ void main() {
   });
 
   group('dosyalar: en çok 4, dosya başı 5 MB, toplam 20 MB', () {
-    testWidgets('seçilen dosyalar listelenir ve isteğe ad / tür / boyut olarak girer; kayıttan sonra sırayla yüklenir', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[wkPhoto('ekran1.jpg', size: 4096), wkPhoto('ekran2.png', size: 2048)]),
-      ]);
-      await rig.open(t);
-      await _type(t, 'Görüntüler ekte');
-      await _tap(t, 'feedback_photo_add');
-      expect(rig.picker.calls, <int>[4], reason: 'en çok 4 dosya istenir');
-      expect(t.widget<Text>(_k('feedback_photo_count')).data, '2/4');
-      expect(find.text('ekran1.jpg'), findsOneWidget);
-      expect(find.textContaining('/ 20 MB'), findsOneWidget);
-      await _tap(t, 'feedback_send');
-      final request = rig.api.created.single;
-      expect(
-        request.attachments.map((a) => (a.fileName, a.mimeType, a.sizeBytes)),
-        <(String, String, int)>[('ekran1.jpg', 'image/jpeg', 4096), ('ekran2.png', 'image/png', 2048)],
-      );
-      expect(rig.api.uploads.map((u) => (u.feedback, u.attachment, u.size)), <(int, int, int)>[(7, 100, 4096), (7, 101, 2048)]);
-      expect(rig.closed, isTrue);
-      expect(rig.outcome!.uploaded, 2);
-      expect(rig.outcome!.failed, 0);
-      expect(rig.picker.releaseCalls, 1, reason: 'seçici kopyaları kapanırken silinir');
-    });
+    testWidgets(
+      'seçilen dosyalar listelenir ve isteğe ad / tür / boyut olarak girer; kayıttan sonra sırayla yüklenir',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            wkPhoto('ekran1.jpg', size: 4096),
+            wkPhoto('ekran2.png', size: 2048),
+          ]),
+        ]);
+        await rig.open(t);
+        await _type(t, 'Görüntüler ekte');
+        await _tap(t, 'feedback_photo_add');
+        expect(rig.picker.calls, <int>[4], reason: 'en çok 4 dosya istenir');
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '2/4');
+        expect(find.text('ekran1.jpg'), findsOneWidget);
+        expect(find.textContaining('/ 20 MB'), findsOneWidget);
+        await _tap(t, 'feedback_send');
+        final request = rig.api.created.single;
+        expect(
+          request.attachments.map((a) => (a.fileName, a.mimeType, a.sizeBytes)),
+          <(String, String, int)>[
+            ('ekran1.jpg', 'image/jpeg', 4096),
+            ('ekran2.png', 'image/png', 2048),
+          ],
+        );
+        expect(
+          rig.api.uploads.map((u) => (u.feedback, u.attachment, u.size)),
+          <(int, int, int)>[(7, 100, 4096), (7, 101, 2048)],
+        );
+        expect(rig.closed, isTrue);
+        expect(rig.outcome!.uploaded, 2);
+        expect(rig.outcome!.failed, 0);
+        expect(
+          rig.picker.releaseCalls,
+          1,
+          reason: 'seçici kopyaları kapanırken silinir',
+        );
+      },
+    );
 
-    testWidgets('5 MB üstü dosya seçimde reddedilir, sebebiyle bildirilir ve yer DOLDURMAZ', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[wkPhoto('kucuk.jpg')], rejected: <WorkPhotoPick>[wkPhoto('dev.jpg', size: 6 * 1024 * 1024)]),
-      ]);
-      await rig.open(t);
-      await _tap(t, 'feedback_photo_add');
-      expect(t.widget<Text>(_k('feedback_photo_count')).data, '1/4');
-      expect(find.textContaining('dev.jpg'), findsOneWidget);
-      expect(find.textContaining('en fazla 5 MB'), findsWidgets);
-    });
+    testWidgets(
+      '5 MB üstü dosya seçimde reddedilir, sebebiyle bildirilir ve yer DOLDURMAZ',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(
+            <WorkPhotoPick>[wkPhoto('kucuk.jpg')],
+            rejected: <WorkPhotoPick>[
+              wkPhoto('dev.jpg', size: 6 * 1024 * 1024),
+            ],
+          ),
+        ]);
+        await rig.open(t);
+        await _tap(t, 'feedback_photo_add');
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '1/4');
+        expect(find.textContaining('dev.jpg'), findsOneWidget);
+        expect(find.textContaining('en fazla 5 MB'), findsWidgets);
+      },
+    );
 
-    testWidgets('dört dosya dolunca ekleme kapanır; kaldırınca yeniden açılır', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[for (var i = 0; i < 4; i++) wkPhoto('f$i.jpg', size: 1000 + i)]),
-      ]);
-      await rig.open(t);
-      await _tap(t, 'feedback_photo_add');
-      expect(t.widget<Text>(_k('feedback_photo_count')).data, '4/4');
-      expect(find.text('Dosya sınırına ulaşıldı'), findsOneWidget);
-      expect(t.widget<PrimaryActionButton>(_k('feedback_photo_add')).onPressed, isNull);
-      await _tap(t, 'feedback_photo_remove_0');
-      expect(t.widget<Text>(_k('feedback_photo_count')).data, '3/4');
-      expect(find.text('Dosya Ekle'), findsOneWidget);
-    });
+    testWidgets(
+      'dört dosya dolunca ekleme kapanır; kaldırınca yeniden açılır',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            for (var i = 0; i < 4; i++) wkPhoto('f$i.jpg', size: 1000 + i),
+          ]),
+        ]);
+        await rig.open(t);
+        await _tap(t, 'feedback_photo_add');
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '4/4');
+        expect(find.text('Dosya sınırına ulaşıldı'), findsOneWidget);
+        expect(
+          t.widget<PrimaryActionButton>(_k('feedback_photo_add')).onPressed,
+          isNull,
+        );
+        await _tap(t, 'feedback_photo_remove_0');
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '3/4');
+        expect(find.text('Dosya Ekle'), findsOneWidget);
+      },
+    );
 
-    testWidgets('seçimde fazla dosya: yalnız kalan yer kadarı alınır (sınır uyarısı)', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[for (var i = 0; i < 5; i++) wkPhoto('g$i.jpg', size: 900 + i)]),
-      ]);
-      await rig.open(t);
-      await _tap(t, 'feedback_photo_add');
-      expect(t.widget<Text>(_k('feedback_photo_count')).data, '4/4');
-      expect(find.textContaining('En fazla 4'), findsWidgets);
-    });
+    testWidgets(
+      'seçimde fazla dosya: yalnız kalan yer kadarı alınır (sınır uyarısı)',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            for (var i = 0; i < 5; i++) wkPhoto('g$i.jpg', size: 900 + i),
+          ]),
+        ]);
+        await rig.open(t);
+        await _tap(t, 'feedback_photo_add');
+        expect(t.widget<Text>(_k('feedback_photo_count')).data, '4/4');
+        expect(find.textContaining('En fazla 4'), findsWidgets);
+      },
+    );
 
-    testWidgets('yükleme kısmen başarısız: kayıt alındı DÜRÜSTÇE bildirilir, Tekrar Dene yalnız eksiği yükler ve hepsi bitince kapanır', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[wkPhoto('a.jpg', size: 1500), wkPhoto('b.jpg', size: 2500)]),
-      ]);
-      rig.api.failOnce[101] = ApiException('Dosya yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.', statusCode: 500);
-      await rig.open(t);
-      await _type(t, 'Ekli');
-      await _tap(t, 'feedback_photo_add');
-      await _tap(t, 'feedback_send');
-      expect(rig.closed, isFalse, reason: 'yüklenemeyen dosya varken sonuç gösterilir');
-      expect(find.textContaining('Geri bildiriminiz alındı; 1 dosya yüklenemedi'), findsOneWidget);
-      expect(rig.api.created, hasLength(1), reason: 'kayıt bir daha oluşturulmaz (çift kayıt yok)');
-      expect(rig.api.uploads.map((u) => u.attachment), <int>[100]);
-      expect(find.text('Yüklendi'), findsOneWidget);
-      await _tap(t, 'feedback_upload_retry');
-      expect(rig.api.created, hasLength(1));
-      expect(rig.api.uploads.map((u) => u.attachment), <int>[100, 101], reason: 'yalnız eksik dosya yeniden gönderilir');
-      expect(rig.closed, isTrue);
-      expect(rig.outcome!.failed, 0);
-      expect(rig.outcome!.uploaded, 2);
-    });
+    testWidgets(
+      'yükleme kısmen başarısız: kayıt alındı DÜRÜSTÇE bildirilir, Tekrar Dene yalnız eksiği yükler ve hepsi bitince kapanır',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            wkPhoto('a.jpg', size: 1500),
+            wkPhoto('b.jpg', size: 2500),
+          ]),
+        ]);
+        rig.api.failOnce[101] = ApiException(
+          'Dosya yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+          statusCode: 500,
+        );
+        await rig.open(t);
+        await _type(t, 'Ekli');
+        await _tap(t, 'feedback_photo_add');
+        await _tap(t, 'feedback_send');
+        expect(
+          rig.closed,
+          isFalse,
+          reason: 'yüklenemeyen dosya varken sonuç gösterilir',
+        );
+        expect(
+          find.textContaining('Geri bildiriminiz alındı; 1 dosya yüklenemedi'),
+          findsOneWidget,
+        );
+        expect(
+          rig.api.created,
+          hasLength(1),
+          reason: 'kayıt bir daha oluşturulmaz (çift kayıt yok)',
+        );
+        expect(rig.api.uploads.map((u) => u.attachment), <int>[100]);
+        expect(find.text('Yüklendi'), findsOneWidget);
+        await _tap(t, 'feedback_upload_retry');
+        expect(rig.api.created, hasLength(1));
+        expect(rig.api.uploads.map((u) => u.attachment), <int>[
+          100,
+          101,
+        ], reason: 'yalnız eksik dosya yeniden gönderilir');
+        expect(rig.closed, isTrue);
+        expect(rig.outcome!.failed, 0);
+        expect(rig.outcome!.uploaded, 2);
+      },
+    );
 
-    testWidgets('oturum / hız sınırı hatasında kalan dosyalar DENENMEZ; Kapat sonucu (kaç dosya yüklenemedi) döndürür', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[wkPhoto('a.jpg', size: 100), wkPhoto('b.jpg', size: 200), wkPhoto('c.jpg', size: 300)]),
-      ]);
-      rig.api.failOnce[100] = ApiException('Çok fazla dosya yükleme denemesi.', statusCode: 429, retryAfterSeconds: 60);
-      await rig.open(t);
-      await _type(t, 'Ekli');
-      await _tap(t, 'feedback_photo_add');
-      await _tap(t, 'feedback_send');
-      expect(rig.api.uploads, isEmpty, reason: '429 sonrası kalan dosyalar boşuna denenmez');
-      expect(find.textContaining('3 dosya yüklenemedi'), findsOneWidget);
-      await _tap(t, 'feedback_upload_close');
-      expect(rig.closed, isTrue);
-      expect(rig.outcome!.uploaded, 0);
-      expect(rig.outcome!.failed, 3);
-      await t.pump(const Duration(seconds: 61));
-    });
+    testWidgets(
+      'oturum / hız sınırı hatasında kalan dosyalar DENENMEZ; Kapat sonucu (kaç dosya yüklenemedi) döndürür',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            wkPhoto('a.jpg', size: 100),
+            wkPhoto('b.jpg', size: 200),
+            wkPhoto('c.jpg', size: 300),
+          ]),
+        ]);
+        rig.api.failOnce[100] = ApiException(
+          'Çok fazla dosya yükleme denemesi.',
+          statusCode: 429,
+          retryAfterSeconds: 60,
+        );
+        await rig.open(t);
+        await _type(t, 'Ekli');
+        await _tap(t, 'feedback_photo_add');
+        await _tap(t, 'feedback_send');
+        expect(
+          rig.api.uploads,
+          isEmpty,
+          reason: '429 sonrası kalan dosyalar boşuna denenmez',
+        );
+        expect(find.textContaining('3 dosya yüklenemedi'), findsOneWidget);
+        await _tap(t, 'feedback_upload_close');
+        expect(rig.closed, isTrue);
+        expect(rig.outcome!.uploaded, 0);
+        expect(rig.outcome!.failed, 3);
+        await t.pump(const Duration(seconds: 61));
+      },
+    );
 
-    testWidgets('yükleme sürerken kapatma yok; Vazgeç kalan dosyaları gönderilmez bırakır', (t) async {
-      final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[wkPhoto('a.jpg', size: 100), wkPhoto('b.jpg', size: 200)]),
-      ]);
-      rig.api.uploadGate = Completer<void>();
-      await rig.open(t);
-      await _type(t, 'Ekli');
-      await _tap(t, 'feedback_photo_add');
-      await _tap(t, 'feedback_send');
-      expect(find.text('Dosyalar Yükleniyor'), findsOneWidget);
-      expect(rig.closed, isFalse);
-      await _tap(t, 'feedback_upload_cancel');
-      rig.api.uploadGate!.complete();
-      await settleFor(t, 100);
-      await settleFor(t, 100);
-      // ilk dosya uçuştaydı ve tamamlandı; ikincisi iptal edildi
-      expect(rig.api.uploads.map((u) => u.attachment), <int>[100]);
-      expect(find.textContaining('1 dosya yüklenemedi'), findsOneWidget);
-      await _tap(t, 'feedback_upload_close');
-      expect(rig.outcome!.failed, 1);
-    });
+    testWidgets(
+      'yükleme sürerken kapatma yok; Vazgeç kalan dosyaları gönderilmez bırakır',
+      (t) async {
+        final rig = _Rig(<WorkPhotoSelection>[
+          _picks(<WorkPhotoPick>[
+            wkPhoto('a.jpg', size: 100),
+            wkPhoto('b.jpg', size: 200),
+          ]),
+        ]);
+        rig.api.uploadGate = Completer<void>();
+        await rig.open(t);
+        await _type(t, 'Ekli');
+        await _tap(t, 'feedback_photo_add');
+        await _tap(t, 'feedback_send');
+        expect(find.text('Dosyalar Yükleniyor'), findsOneWidget);
+        expect(rig.closed, isFalse);
+        await _tap(t, 'feedback_upload_cancel');
+        rig.api.uploadGate!.complete();
+        await settleFor(t, 100);
+        await settleFor(t, 100);
+        // ilk dosya uçuştaydı ve tamamlandı; ikincisi iptal edildi
+        expect(rig.api.uploads.map((u) => u.attachment), <int>[100]);
+        expect(find.textContaining('1 dosya yüklenemedi'), findsOneWidget);
+        await _tap(t, 'feedback_upload_close');
+        expect(rig.outcome!.failed, 1);
+      },
+    );
   });
 
   group('taşma matrisi', () {
@@ -387,9 +675,21 @@ void main() {
       expect(find.byType(FeedbackDialog), findsOneWidget);
     });
 
-    layoutMatrix('Geri bildirim formu, dört dosya + uzun bağlam', (t, w, h, s, dark) async {
+    layoutMatrix('Geri bildirim formu, dört dosya + uzun bağlam', (
+      t,
+      w,
+      h,
+      s,
+      dark,
+    ) async {
       final rig = _Rig(<WorkPhotoSelection>[
-        _picks(<WorkPhotoPick>[for (var i = 0; i < 4; i++) wkPhoto('cok_uzun_bir_ekran_goruntusu_dosya_adi_$i.jpg', size: 3000 + i)]),
+        _picks(<WorkPhotoPick>[
+          for (var i = 0; i < 4; i++)
+            wkPhoto(
+              'cok_uzun_bir_ekran_goruntusu_dosya_adi_$i.jpg',
+              size: 3000 + i,
+            ),
+        ]),
       ]);
       await rig.open(
         t,

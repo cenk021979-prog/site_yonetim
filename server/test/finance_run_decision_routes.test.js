@@ -202,17 +202,17 @@ describe('ek borç ucu: Fon tahakkukunun dayanağı', () => {
     assert.deepEqual(writes(), []);
   });
 
-  it('Karar Defteri KAPALI + gerekçesiz Fon tahakkuku -> HTTP 400 DECISION_REASON_REQUIRED (decision_mode: reason); gerekçeyle 201', async () => {
+  it('temel Karar Defteri eski kapalı satırı: HTTP400 karar zorunlu, kesin karar ve gerekçeyle201', async () => {
     state.decisionModuleEnabled = false;
     const none = await confirmed();
     assert.equal(none.status, 400, JSON.stringify(none.body));
-    assert.equal(none.body.code, 'DECISION_REASON_REQUIRED');
-    assert.equal(none.body.decision_mode, 'reason');
+    assert.equal(none.body.code, 'DECISION_REQUIRED');
+    assert.equal(none.body.decision_mode, 'decision');
     assert.deepEqual(writes(), []);
-    const withReason = await confirmed({ decision_reason: 'Yönetim kurulunun 14 Ekim tarihli kararı' });
+    const withReason = await confirmed({ decision_id: 77, decision_reason: 'Yönetim kurulunun 14 Ekim tarihli kararı' });
     assert.equal(withReason.status, 201, JSON.stringify(withReason.body));
     assert.equal(withReason.body.run.decision.reason, 'Yönetim kurulunun 14 Ekim tarihli kararı');
-    assert.equal(state.runInsert[10], null);
+    assert.equal(state.runInsert[10], '77');
   });
 
   it('kesin karar -> 201; yanıt run.decision karar numarasını taşır; fee_runs karar kimliğiyle yazılır; olmayan karar 404', async () => {

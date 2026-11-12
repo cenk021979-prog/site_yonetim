@@ -21,6 +21,7 @@ import {
 } from './people_common.js';
 import { CONTACT_EMAIL_SQL, PERSON_FROM } from './people_service.js';
 import { syncSitePeopleSafe } from './people_sync.js';
+import { PERSON_LOCATION_JOIN, PERSON_LOCATION_ORDER, naturalOrderSql } from './people_order.js';
 import { SPEC_VERSION, labelOf } from './bulk_import_spec.js';
 
 export const EXPORT_MAX_ROWS = 20000;
@@ -152,8 +153,9 @@ async function exportPeople(siteCode, f) {
              ${CONTACT_EMAIL_SQL} AS email,
              ${HAS_ACCOUNT_SQL} AS has_account
       ${PERSON_FROM}
+      ${PERSON_LOCATION_JOIN}
       WHERE ${sql}
-      ORDER BY ${foldSql("COALESCE(NULLIF(u.full_name, ''), sp.full_name)")}, sp.id
+      ORDER BY ${PERSON_LOCATION_ORDER}
       LIMIT ${EXPORT_MAX_ROWS + 1}
     `,
     params,
@@ -184,7 +186,7 @@ async function exportPeople(siteCode, f) {
         INNER JOIN apartments a ON a.id = r.apartment_id
         INNER JOIN site_blocks b ON b.id = a.block_id
         WHERE r.person_id = ANY($1::BIGINT[]) AND r.is_current = TRUE${resFilter}
-        ORDER BY b.sort_order, a.sort_order, r.id
+        ORDER BY ${naturalOrderSql('b.block_name')}, ${naturalOrderSql('a.unit_label')}, r.id
       `,
       resParams,
     );
@@ -280,7 +282,7 @@ async function exportApartments(siteCode, f) {
       FROM apartments a
       INNER JOIN site_blocks b ON b.id = a.block_id
       WHERE ${clauses.join(' AND ')}
-      ORDER BY b.sort_order, a.sort_order, a.id
+      ORDER BY ${naturalOrderSql('b.block_name')}, ${naturalOrderSql('a.unit_label')}, a.id
       LIMIT ${EXPORT_MAX_ROWS + 1}
     `,
     params,

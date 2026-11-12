@@ -41,7 +41,7 @@ class DocumentAdminList extends StatefulWidget {
   });
 
   /// Sitenin Google Drive bağlantısı (Drive kartından): false ise "Belge Yükle" pasiftir (dosyalar yalnız Drive'a yüklenir);
-  /// null = henüz bilinmiyor (düğme açık; sunucu 409 DRIVE_REQUIRED ile korur).
+  /// null = henüz bilinmiyor (doğrulama tamamlanana kadar yükleme pasiftir).
   final bool? driveConnected;
 
   final PeopleScope scope;
@@ -153,7 +153,7 @@ class DocumentAdminListState extends State<DocumentAdminList> {
   }
 
   Future<void> _upload() async {
-    if (_opening) return;
+    if (_opening || widget.driveConnected != true) return;
     _opening = true;
     final DocumentSummary? result;
     try {
@@ -177,7 +177,11 @@ class DocumentAdminListState extends State<DocumentAdminList> {
   Future<void> _open(DocumentSummary document) async {
     if (_opening) return;
     if (document.currentVersion?.isTransferring ?? false) {
-      AppSnack.show(context, 'Dosya Drive\'a aktarılıyor; aktarım bitince açılabilir.', kind: AppSnackKind.warning);
+      AppSnack.show(
+        context,
+        'Dosya Drive\'a aktarılıyor; aktarım bitince açılabilir.',
+        kind: AppSnackKind.warning,
+      );
       return;
     }
     _opening = true;
@@ -211,7 +215,7 @@ class DocumentAdminListState extends State<DocumentAdminList> {
     if (_moduleOff) return _buildModuleOff(context);
     final canWrite = widget.scope.canWrite;
     final deletedView = _status == 'deleted';
-    final driveOff = widget.driveConnected == false;
+    final driveOff = widget.driveConnected != true;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -224,13 +228,14 @@ class DocumentAdminListState extends State<DocumentAdminList> {
           ),
           const SizedBox(height: AppSpace.md),
           if (driveOff) ...[
-            const InlineNotice(
-              key: ValueKey<String>('documents_drive_required_note'),
+            InlineNotice(
+              key: const ValueKey<String>('documents_drive_required_note'),
               tone: AppTone.info,
               icon: Icons.cloud_off_rounded,
-              message:
-                  'Dosya yüklemek için önce Google Drive\'ı bağlayın. Belgeler sitenizin Drive\'ında saklanır; '
-                  'yukarıdaki Google Drive kartından bağlantıyı kurabilirsiniz.',
+              message: widget.driveConnected == null
+                  ? 'Google Drive bağlantısı doğrulanıyor. Bağlantı doğrulandığında dosya yükleyebilirsiniz.'
+                  : 'Dosya yüklemek için önce Google Drive\'ı bağlayın. Belgeler sitenizin Drive\'ında saklanır; '
+                        'yukarıdaki Google Drive kartından bağlantıyı kurabilirsiniz.',
             ),
             const SizedBox(height: AppSpace.md),
           ],
@@ -321,11 +326,44 @@ class DocumentAdminListState extends State<DocumentAdminList> {
         SectionHeader(
           title: deletedView ? 'Silinen belgeler' : 'Belgeler',
           count: _loader.loadedOnce ? _loader.total : null,
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[ListExportButton(enabled: _loader.items.isNotEmpty, source: localExportSource(label: 'Belgeler', filenameBase: 'belgeler', headers: <String>['Belge', 'Kategori', 'Durum', 'Sürüm', 'İndirme', 'Yükleyen', 'Güncelleme'], rows: () => <List<Object?>>[for (final x in _loader.items) [x.title, x.category.label, x.status.label, x.versionCount, x.downloadCount, x.uploadedByName, exportDate(x.updatedAt ?? x.createdAt)]])), IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          )]),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: <Widget>[
+              ListExportButton(
+                enabled: _loader.items.isNotEmpty,
+                source: localExportSource(
+                  label: 'Belgeler',
+                  filenameBase: 'belgeler',
+                  headers: <String>[
+                    'Belge',
+                    'Kategori',
+                    'Durum',
+                    'Sürüm',
+                    'İndirme',
+                    'Yükleyen',
+                    'Güncelleme',
+                  ],
+                  rows: () => <List<Object?>>[
+                    for (final x in _loader.items)
+                      [
+                        x.title,
+                        x.category.label,
+                        x.status.label,
+                        x.versionCount,
+                        x.downloadCount,
+                        x.uploadedByName,
+                        exportDate(x.updatedAt ?? x.createdAt),
+                      ],
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
+          ),
         ),
         if (deletedView) ...[
           const SizedBox(height: AppSpace.sm),

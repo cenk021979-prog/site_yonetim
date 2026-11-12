@@ -6,9 +6,12 @@
 // türler yalnız «Hepsi bir arada» ve «Araçlar»dır (Daireler / Kişiler klasik listeden kaldırıldı).
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:site_kapi_kontrol/models/bulk_import.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
+import 'package:site_kapi_kontrol/models/team.dart';
 import 'package:site_kapi_kontrol/services/bulk_api.dart';
+import 'package:site_kapi_kontrol/services/bulk_xlsx_reader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/bulk_import_controller.dart';
 import 'package:site_kapi_kontrol/ui/views/bulk_import_view.dart';
@@ -32,7 +35,8 @@ ImportSpec _spec() {
 }
 
 class _Bulk {
-  final FakeBulkApi api = FakeBulkApi()..spec = _spec();
+  _Bulk({FakeBulkApi? api}) : api = (api ?? FakeBulkApi())..spec = _spec();
+  final FakeBulkApi api;
   final FakeDelivery delivery = FakeDelivery();
   String fileName = 'kisiler.csv';
   String csv = kPeopleCsv;
@@ -65,6 +69,50 @@ class _Bulk {
   }
 }
 
+class _ScopedExportApi extends FakeBulkApi {
+  final scopes = <({String token, int siteCode, String kind})>[];
+
+  @override
+  Future<ExportEnvelope> exportData({
+    required String token,
+    required int siteCode,
+    required String kind,
+    BulkExportFilters filters = const BulkExportFilters(),
+    bool includeNotes = false,
+    ExportFormat format = ExportFormat.xlsx,
+    String pathPrefix = '',
+  }) async {
+    scopes.add((token: token, siteCode: siteCode, kind: kind));
+    final envelope = await super.exportData(token: token, siteCode: siteCode, kind: kind,
+      filters: filters, includeNotes: includeNotes, format: format, pathPrefix: pathPrefix);
+    if (kind == 'vehicles') {
+      return const ExportEnvelope(
+        kind: 'vehicles', filenameBase: 'araclar',
+        columns: [ExportColumn(key: 'plaka', label: 'Plaka')],
+        rows: [['34 ABC 123'], ['34 DEF 456']],
+      );
+    }
+    return envelope;
+  }
+}
+
+class _TeamExportAuth extends PeopleFakeAuth {
+  _TeamExportAuth() {
+    final seed = PeopleFakeAuth.seeded();
+    peopleJson.addAll(seed.peopleJson);
+    apartmentsJson.addAll(seed.apartmentsJson);
+    vehiclesJson.addAll(seed.vehiclesJson);
+  }
+
+  final teamSites = <int>[];
+
+  @override
+  Future<TeamData> getTeam(int siteCode) {
+    teamSites.add(siteCode);
+    return super.getTeam(siteCode);
+  }
+}
+
 Future<GlobalKey<PeopleViewState>> _pump(
   WidgetTester t,
   PeopleFakeAuth auth, {
@@ -90,6 +138,10 @@ Future<GlobalKey<PeopleViewState>> _pump(
 }
 
 Future<void> _tap(WidgetTester t, String key) async {
+  if (key.startsWith('people_tab_')) {
+    await selectPeopleSection(t, int.parse(key.substring('people_tab_'.length)));
+    return;
+  }
   final f = find.byKey(ValueKey<String>(key));
   expect(f, findsOneWidget, reason: key);
   await t.ensureVisible(f);
@@ -212,8 +264,7 @@ void main() {
       expect(bulk.api.commitCalls.single.kind, ImportKind.vehicles);
       await _tap(t, 'bulk_result_go');
       expect(auth.vehicleCalls, isNotEmpty);
-      final chip = t.widget<ChoiceChip>(find.byKey(const ValueKey<String>('people_tab_2')));
-      expect(chip.selected, isTrue);
+      expect(selectedPeopleSection(t), 2);
     });
   });
 
@@ -259,31 +310,85 @@ void main() {
   });
 
   group('dışa aktarma girişi', () {
-    testWidgets('açık sekmenin süzgeçleri alt sayfada önseçili; Kaydet süzgeçle istek yapar', (t) async {
-      final bulk = _Bulk()..install();
-      final auth = PeopleFakeAuth.seeded();
+    testWidgets('arama ve aktif filtresi dört kaynaklı tek Excel dosyasını daraltmaz', (t) async {
+      final api = _ScopedExportApi();
+      final bulk = _Bulk(api: api)..install();
+      final auth = _TeamExportAuth();
       await _pump(t, auth);
       await t.enterText(find.byKey(const ValueKey<String>('people_search')), 'ayşe');
       await t.pump(const Duration(milliseconds: 400));
       await t.pump();
       await _tap(t, 'people_bulk_export');
-      expect(find.byKey(const ValueKey<String>('export_filter_summary')), findsOneWidget);
-      expect(find.textContaining('arama: «ayşe»'), findsOneWidget);
+      expect(find.byKey(const ValueKey<String>('export_filter_summary')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('export_source_0')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('export_format_csv')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('export_format_xlsx')), findsNothing);
+      expect(find.textContaining('Tüm kayıtlar dahil edilir'), findsOneWidget);
       await _tap(t, 'export_save');
-      final call = bulk.api.exportCalls.single;
-      expect(call.kind, 'people');
-      expect(call.filters.query, 'ayşe');
+      expect(api.exportCalls.map((call) => call.kind), ['people', 'apartments', 'vehicles']);
+      for (final call in api.exportCalls) {
+        expect(call.filters.query, isNull);
+        expect(call.filters.status, 'all');
+        expect(call.filters.relation, isNull);
+        expect(call.format, ExportFormat.xlsx);
+        expect(call.includeNotes, isFalse);
+      }
+      expect(api.scopes.map((call) => call.siteCode), everyElement(11));
+      expect(api.scopes.map((call) => call.token), everyElement(auth.session!.token));
+      expect(auth.teamSites, [11]);
       expect(bulk.delivery.files.length, 1);
+      final reader = XlsxReader.open(bulk.delivery.files.single.bytes);
+      expect(reader.sheets.map((sheet) => sheet.name), ['Site Kayıtları']);
+      final rows = reader.readSheet(reader.sheets.single).rows;
+      final headers = rows.first.cells;
+      expect(headers.first, 'Kayıt Türü');
+      expect(headers, containsAll(['Kişiler · Ad Soyad', 'Daireler · Daire No', 'Araçlar · Plaka', 'Kadro · Görev']));
+      final kinds = rows.skip(1).map((row) => row.cells.first).toList();
+      expect(kinds.where((kind) => kind == 'Kişiler'), hasLength(2), reason: 'ayşe araması sunucudaki iki kişiyi daraltmaz');
+      expect(kinds.where((kind) => kind == 'Daireler'), hasLength(3), reason: 'aktif kişi filtresi üç daireyi kaybettirmez');
+      expect(kinds.where((kind) => kind == 'Araçlar'), hasLength(2));
+      expect(kinds.where((kind) => kind == 'Kadro'), hasLength(1));
+      expect(rows, hasLength(9), reason: 'sekiz kaynak kaydı, başlık ve mükerrer JOIN yok');
+      for (final row in rows.skip(1)) {
+        final kind = row.cells.first;
+        for (var column = 1; column < headers.length; column++) {
+          if (!headers[column].toString().startsWith('$kind · ')) {
+            expect(column < row.cells.length ? row.cells[column] : null, isNull,
+              reason: 'kayıt yalnız kendi bölüm sütunlarını doldurur');
+          }
+        }
+      }
+      final manager = rows.last.cells;
+      expect(manager[headers.indexOf('Kadro · Ad Soyad')], 'Yönetici Kişi');
+      expect(headers.where((header) => header.toString().startsWith('Kadro · ')),
+        ['Kadro · Ad Soyad', 'Kadro · Görev', 'Kadro · İletişim Telefonu']);
     });
 
-    testWidgets('Daireler sekmesi açıkken Daireler önseçili', (t) async {
-      final bulk = _Bulk()..install();
-      final auth = PeopleFakeAuth.seeded();
+    testWidgets('Daireler görünümünden de bütün kaynaklar tek dosyada kaydedilir', (t) async {
+      final api = _ScopedExportApi();
+      final bulk = _Bulk(api: api)..install();
+      final auth = _TeamExportAuth();
       await _pump(t, auth);
       await _tap(t, 'people_tab_1');
       await _tap(t, 'people_bulk_export');
+      expect(find.byKey(const ValueKey<String>('export_source_1')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('export_filter_summary')), findsNothing);
+      expect(find.byKey(const ValueKey<String>('export_format_csv')), findsNothing);
       await _tap(t, 'export_save');
-      expect(bulk.api.exportCalls.single.kind, 'apartments');
+      expect(api.exportCalls.map((call) => call.kind), ['people', 'apartments', 'vehicles']);
+      expect(auth.teamSites, [11]);
+      expect(api.scopes.map((call) => call.siteCode), everyElement(11));
+      expect(api.scopes.map((call) => call.token), everyElement(auth.session!.token));
+      expect(bulk.delivery.files, hasLength(1));
+      expect(bulk.delivery.files.single.fileName.endsWith('.xlsx'), isTrue);
+      final reader = XlsxReader.open(bulk.delivery.files.single.bytes);
+      expect(reader.sheets.map((sheet) => sheet.name), ['Site Kayıtları']);
+      final rows = reader.readSheet(reader.sheets.single).rows;
+      expect(rows.first.cells.first, 'Kayıt Türü');
+      expect(rows.first.cells, containsAll(['Kişiler · Ad Soyad', 'Daireler · Daire No', 'Araçlar · Plaka', 'Kadro · Görev']));
+      expect(rows, hasLength(9));
+      expect(rows.skip(1).map((row) => row.cells.first),
+        ['Kişiler', 'Kişiler', 'Daireler', 'Daireler', 'Daireler', 'Araçlar', 'Araçlar', 'Kadro']);
     });
   });
 }

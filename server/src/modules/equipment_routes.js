@@ -113,7 +113,7 @@ const write = (method, path, context, fallback, fn, status = 200) =>
   equipmentRouter[method](`${B}${path}`, authRequired, equipmentWriteLimiter, handler({ context, fallback, write: true }, async (c) => ({ status, body: await fn(c) })));
 
 // Sabit yollar `/:id`den ONCE tanimlanir.
-read('/equipment/meta', 'equipment_meta', 'Bilgi yüklenemedi.', () => svc.metaInfo());
+read('/equipment/meta', 'equipment_meta', 'Bilgi yüklenemedi.', ({ siteCode }) => svc.getEquipmentMeta(siteCode));
 read('/equipment/due', 'equipment_due', 'Bakım listesi yüklenemedi.', ({ siteCode, req }) => svc.dueList(siteCode, req.query));
 read('/equipment/expense-breakdown', 'equipment_breakdown', 'Kırılım yüklenemedi.', ({ siteCode, req }) => svc.equipmentBreakdown(siteCode, req.query));
 read('/equipment', 'equipment_list', 'Ekipmanlar yüklenemedi.', ({ siteCode, req }) => svc.listEquipment(siteCode, req.query));

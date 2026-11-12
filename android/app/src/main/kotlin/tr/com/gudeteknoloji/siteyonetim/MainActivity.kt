@@ -6,6 +6,8 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
+import android.net.Uri
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.Bundle
 import androidx.annotation.NonNull
@@ -45,6 +47,28 @@ class MainActivity : FlutterActivity() {
                     getString(R.string.push_channel_urgent),
                     NotificationManager.IMPORTANCE_HIGH
                 ).apply { description = getString(R.string.push_channel_urgent_description) }
+            )
+            // Site yöneticisi için yalnız bilgi: acil olay, sesli güvenlik alarmı değildir.
+            // Android var olan kanalın kullanıcı tercihlerini korur.
+            manager.createNotificationChannel(
+                NotificationChannel("emergency_info", "Site acil bildirimleri", NotificationManager.IMPORTANCE_LOW)
+                    .apply {
+                        description = "Site içi asansör ve yangın olayları: yönetici bilgi kanalı"
+                        setSound(null, null)
+                        enableVibration(false)
+                    }
+            )
+            manager.createNotificationChannel(
+                NotificationChannel("emergency_alarm", "Site sesli alarmları", NotificationManager.IMPORTANCE_HIGH)
+                    .apply {
+                        description = "Yangın: seçili blok/site sakinleri. Asansör: yalnız atanmış görevliler."
+                        setSound(
+                            Uri.parse("android.resource://$packageName/${R.raw.emergency_alarm}"),
+                            AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_ALARM)
+                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build()
+                        )
+                        enableVibration(true)
+                    }
             )
         } catch (e: Exception) {
             e.printStackTrace()

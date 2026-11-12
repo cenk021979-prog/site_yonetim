@@ -86,6 +86,8 @@ class EquipmentItem {
     required this.kind,
     required this.name,
     this.location,
+    this.blockId,
+    this.blockName,
     this.serialNo,
     this.note,
     this.isActive = true,
@@ -98,6 +100,8 @@ class EquipmentItem {
     kind: '${j['kind'] ?? ''}',
     name: '${j['name'] ?? ''}',
     location: _s(j['location']),
+    blockId: (j['block_id'] as num?)?.toInt(),
+    blockName: _s(j['block_name']),
     serialNo: _s(j['serial_no']),
     note: _s(j['note']),
     isActive: j['is_active'] != false,
@@ -109,6 +113,8 @@ class EquipmentItem {
   final String kind;
   final String name;
   final String? location;
+  final int? blockId;
+  final String? blockName;
   final String? serialNo;
   final String? note;
   final bool isActive;
@@ -609,6 +615,15 @@ class EquipmentApi {
   Future<List<EquipmentItem>> list(String token, int site) async =>
       _list((await _send('GET', _p(site, 'equipment'), token, query: const {'active': 'all'}))['items'], EquipmentItem.fromJson);
 
+  Future<List<PickOption>> blocks(String token, int site) async {
+    final data = await _send('GET', _p(site, 'equipment/meta'), token);
+    final raw = data['blocks'];
+    if (raw is! List || raw.any((row) => row is! Map || row['id'] is! int || (row['id'] as int) <= 0 || row['name'] is! String)) {
+      throw ApiException('Blok listesi alınamadı. Yenileyip tekrar deneyin.');
+    }
+    return _list(raw, PickOption.fromJson);
+  }
+
   Future<EquipmentDetail> detail(String token, int site, int id) async => _detail(await _send('GET', _p(site, 'equipment/$id'), token));
 
   EquipmentDetail _detail(Map<String, dynamic> j) => EquipmentDetail(
@@ -784,6 +799,7 @@ class EquipmentService {
   }
 
   Future<List<EquipmentItem>> list(int site) => _guard((t) => api.list(t, site));
+  Future<List<PickOption>> blocks(int site) => _guard((t) => api.blocks(t, site));
   Future<EquipmentDetail> detail(int site, int id) => _guard((t) => api.detail(t, site, id));
   Future<EquipmentWorkHistory> workHistory(int site, int id, {int? beforeId}) => _guard((t) => api.workHistory(t, site, id, beforeId: beforeId));
   Future<void> create(int site, Map<String, Object?> body) => _guard((t) => api.create(t, site, body));

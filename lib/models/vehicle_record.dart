@@ -86,6 +86,7 @@ class VehicleRecord {
     this.isActive = true,
     this.source = kVehicleSourceSiteManager,
     this.addedBy,
+    this.hasRegistrationPhoto = false,
   });
 
   final int id;
@@ -96,6 +97,7 @@ class VehicleRecord {
   final String? personName;
   final String? apartmentLabel;
   final bool isActive;
+  final bool hasRegistrationPhoto;
 
   /// Kaydı yapan: [kVehicleSourceApartmentAdmin] (daire yöneticisi) ya da [kVehicleSourceSiteManager] (site yönetimi; eski
   /// kayıtlar dahil). [addedBy]: daire yöneticisinin adı (yalnız o durumda).
@@ -106,7 +108,9 @@ class VehicleRecord {
   String get sourceLabel {
     if (source != kVehicleSourceApartmentAdmin) return 'Site yönetimi';
     final name = addedBy;
-    return name == null || name.isEmpty ? 'Daire yöneticisi' : 'Daire yöneticisi ($name)';
+    return name == null || name.isEmpty
+        ? 'Daire yöneticisi'
+        : 'Daire yöneticisi ($name)';
   }
 
   /// Notsuz kopya: sakinin kendi kayıtlarında (`/app/my-records`) araç notu gösterilmez.
@@ -123,7 +127,8 @@ class VehicleRecord {
   );
 
   /// Gösterilecek plaka: görüntüleme biçimi varsa o, yoksa normalize plaka.
-  String get displayPlate => plateDisplay.trim().isEmpty ? plate : plateDisplay.trim();
+  String get displayPlate =>
+      plateDisplay.trim().isEmpty ? plate : plateDisplay.trim();
 
   factory VehicleRecord.fromJson(Map<String, dynamic> json) {
     return VehicleRecord(
@@ -135,8 +140,11 @@ class VehicleRecord {
       personName: crmText(json['person_name']),
       apartmentLabel: crmText(json['apartment_label']),
       isActive: json['is_active'] is bool ? json['is_active'] as bool : true,
-      source: json['source'] == kVehicleSourceApartmentAdmin ? kVehicleSourceApartmentAdmin : kVehicleSourceSiteManager,
+      source: json['source'] == kVehicleSourceApartmentAdmin
+          ? kVehicleSourceApartmentAdmin
+          : kVehicleSourceSiteManager,
       addedBy: crmText(json['added_by']),
+      hasRegistrationPhoto: json['has_registration_photo'] == true,
     );
   }
 
@@ -159,6 +167,9 @@ class VehiclePage {
 
   factory VehiclePage.fromJson(Map<String, dynamic> json) {
     final items = VehicleRecord.listFrom(json['items']);
-    return VehiclePage(items: items, total: crmInt(json['total'], items.length));
+    return VehiclePage(
+      items: items,
+      total: crmInt(json['total'], items.length),
+    );
   }
 }

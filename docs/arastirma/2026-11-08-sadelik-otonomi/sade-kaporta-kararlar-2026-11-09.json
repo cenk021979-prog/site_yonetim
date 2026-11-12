@@ -1,0 +1,411 @@
+{
+  "title": "Klasik korunarak isteğe bağlı Sade görünüm — araştırma ve taslak kararları",
+  "date": "2026-11-09",
+  "status": "Yalnız araştırma ve görsel prototip; üretim kodu uygulanmadı, test yayını veya canlı işlem yapılmadı.",
+  "reuse": "Kütüphanedeki REF-M03, S-03 ve bu dosyanın routing_contract ilkeleriyle Daireler sade görünümünü planlayalım.",
+  "predecessors": [
+    "ux-research.json",
+    "automation-research.json",
+    "modern-sade-kaporta-2026-11-09.json"
+  ],
+  "model_review": {
+    "argon": {
+      "requested_first": true,
+      "status": "response_obtained_with_transport_errors",
+      "response_obtained": true,
+      "model": "gemini-4-argon-high",
+      "transport": "Kurulu Antigravity agy CLI; ekran erişimi başarısız. Model listesi doğrulandı, plan/sandbox incelemesi yapıldı.",
+      "response": "argon-son-yanit-2026-11-09.json",
+      "limitation": "İlk çağrı print_timeout. Aynı konuşmada devir özeti alındı; ikinci JSON ERROR/DNS kaydı içeriyor. Temiz araç başarısı veya süre iddia edilmez."
+    },
+    "astra": {
+      "model": "gpt-6-astra",
+      "status": "completed_review_of_actual_argon_response",
+      "argon_response_seen": true,
+      "selection_basis": "Kullanıcının istediği bağımsız Astra incelemesi; marka/model tercihinden bağımsız kanıt ve kod uyumu.",
+      "accepted_criticisms": [
+        "Hesabım/İşler/Kayıtlar belirsiz; Ödemeler ve Daireler gibi somut başlık kullan.",
+        "Tüm işlemler tek erişim yolu olmasın; her özelliğin konu başlığında kalıcı adresi olsun.",
+        "Görünüm filtresi ile gerçek içerik/yetki politikası ayrılmalı.",
+        "Site+daire+rol bağlamı işlemlerden önce görünmeli.",
+        "Komut gönderimi, cihaz ACK ve fiziksel sonuç birbirinin yerine geçmemeli.",
+        "Site gideri ile kişisel borç, kasa bakiyesi ve tahsilat karıştırılmamalı.",
+        "Ay filtresi devam eden önemli duyuruyu yok etmemeli.",
+        "Cihaz içi görünüm tercihi mevcut site menü tercihi ve yetki sistemini kopyalamamalı."
+      ],
+      "report": "astra-argon-dogrulama-2026-11-09.txt",
+      "verified_findings": "argon-astra-inceleme-2026-11-09.json",
+      "note": "Önceki bağımsız eleştiriden sonra gerçek Argon metni bütünüyle okundu; iddialar kod ve birincil kaynaklarla yanlışlanmaya çalışıldı. Kullanıcı veya çalışma zamanı testi değildir."
+    },
+    "initial_review_history": {
+      "argon": {
+        "requested_first": true,
+        "status": "unavailable",
+        "response_obtained": false,
+        "evidence": "@oai/sky list_apps üç denemede native pipe bulunamadı; oturum sıfırlama sonrası da aynı. Alternatif CUA envanterinde apps/browsers boş, native pipe ve browser host unavailable.",
+        "limitation": "İstenen Argon yanıtı → Astra değerlendirmesi zinciri tamamlanmadı; bu dosyada Argon görüşü yoktur."
+      },
+      "astra": {
+        "model": "gpt-6-astra",
+        "status": "independent_initial_review_completed",
+        "argon_response_seen": false,
+        "selection_basis": "Kullanıcının istediği bağımsız Astra incelemesi; marka/model tercihinden bağımsız kanıt ve kod uyumu.",
+        "accepted_criticisms": [
+          "Hesabım/İşler/Kayıtlar belirsiz; Ödemeler ve Daireler gibi somut başlık kullan.",
+          "Tüm işlemler tek erişim yolu olmasın; her özelliğin konu başlığında kalıcı adresi olsun.",
+          "Görünüm filtresi ile gerçek içerik/yetki politikası ayrılmalı.",
+          "Site+daire+rol bağlamı işlemlerden önce görünmeli.",
+          "Komut gönderimi, cihaz ACK ve fiziksel sonuç birbirinin yerine geçmemeli.",
+          "Site gideri ile kişisel borç, kasa bakiyesi ve tahsilat karıştırılmamalı.",
+          "Ay filtresi devam eden önemli duyuruyu yok etmemeli.",
+          "Cihaz içi görünüm tercihi mevcut site menü tercihi ve yetki sistemini kopyalamamalı."
+        ]
+      }
+    }
+  },
+  "research_evaluation": {
+    "awards_are_not_task_success": true,
+    "new_sources": 12,
+    "access_limits": "REF-M04 doğrudan bot kontrolü nedeniyle tam açılamadı; REF-M05 open aracı text/markdown içeriğini okuyamadı. İkisi kısıtlı kanıt; kritik kararlar yalnız bunlara dayanmaz.",
+    "not_claimed": [
+      "En az ikonlu en başarılı uygulama sıralaması",
+      "Ölçülmüş zaman tasarrufu yüzdesi",
+      "Yeni taslağın kullanıcı testini geçtiği",
+      "Bütün internet/sosyal medya/YouTube içeriklerinin tarandığı"
+    ],
+    "retained_direction": "Beyaz ağırlıklı düz yüzey, okunaklı koyu metin, güçlü sıra, kısa metinli kontroller, az çerçeve, kayıt yanında eylem; mevcut TASARIM_DILI.md ile uyumlu. Dekoratif AI paneli, grafik duvarı ve sürekli animasyon eklenmez."
+  },
+  "navigation": {
+    "resident": [
+      "Bugün",
+      "Evim",
+      "Ödemeler",
+      "Site"
+    ],
+    "manager": [
+      "Bugün",
+      "Finans",
+      "Daireler",
+      "Yönetim"
+    ],
+    "resident_site_groups": [
+      "Duyurular ve belgeler",
+      "Talepler ve rezervasyon",
+      "Anket ve komşular",
+      "Yönetim ve rehber"
+    ],
+    "manager_groups": [
+      "İletişim",
+      "İşler ve bakım",
+      "Belgeler ve kararlar",
+      "Geçiş ve cihazlar",
+      "Hesap ve ayarlar"
+    ],
+    "persistent_context": [
+      "Site",
+      "Daire: yalnız gerçek sakin bağı varsa",
+      "Kullanım modu / rol"
+    ],
+    "conditional_fast_actions": [
+      "Kapılar: yalnız gerçek yetki ve cihaz kabiliyeti varsa",
+      "Acil yardım: oluşturma akışı",
+      "Alarmlar: yalnız gerçek alıcı kutusu; oluşturma akışından ayrı",
+      "Geçici geri bildirim: aynı sayfa bağlamı"
+    ],
+    "overflow": "Az alan için metin ve tıklama alanı küçültülmez; dar ekranda sarma/kaydırma. Ana bilgi yalnız hover içine saklanmaz.",
+    "status": "İlk aday; rol/bağ kapsamı ve görev karşılaştırması tamamlanmadan sabit optimum sayılmaz.",
+    "manager_alternative": [
+      "Bugün",
+      "Finans",
+      "Daireler",
+      "İşler",
+      "Yönetim"
+    ]
+  },
+  "routing_contract": {
+    "design": "Klasik ve Sade aynı AuthService, modeller, servisler, yetki/modül kapıları ve eylem yönlendiricisini kullanacak; HomePage kopyası veya ikinci ledger yok.",
+    "preference": "İlk uygulama adımında hesabın cihaz içi görünüm tercihi; varsayılan Klasik korunur. Cihazlar arası eşitleme varmış gibi varsayılmaz.",
+    "site_layout": "Mevcut site menü/öne çıkarma tercihi Klasik'te değişmez. Sade'de konu adresleri sabit, site tercihi yalnız öncelik/öne çıkarmayı etkiler; yetkiyi etkilemez.",
+    "all_actions": "Arama ve Tüm işlemler ek erişim yoludur; tek keşif yöntemi değildir.",
+    "coverage": "49 enum tanımı eşlendi; enum dışı ayar, şirket, güncelleme, yardım ve geri bildirim eylemleri nedeniyle bu bütün işlem envanteri veya erişim testi değildir. Tam rol × eylem matrisi henüz tamamlanmadı.",
+    "menu_routes": {
+      "dashboard": "Bugün",
+      "profilim": "Hesap ve ayarlar / Profilim",
+      "ellerSerbest": "Evim / Geçiş / Eller Serbest — ayrı sesli kapı/kestirme ayarı diyaloğu; normal _openMenuItem HandsFreeSettingsDialog açar, yalnız Kapılar kopyası değildir.",
+      "abonelikTalepleri": "Eski kapalı yol; etkinleştirilmez",
+      "siteOnayTalepleri": "Eski kapalı yol; etkinleştirilmez",
+      "kullaniciYonetimi": "Yönetim / Platform / Kullanıcılar [P]",
+      "superUserYonetimi": "Yönetim / Platform / Süper kullanıcılar [P]",
+      "siteYoneticileriYonetimi": "Yönetim / Platform / Site yöneticileri [P]",
+      "daireKullanicilariYonetimi": "Daireler / Daire odaklı site görünümü [P]",
+      "siteler": "Yönetim / Site Yönetimi",
+      "katilimVeKurulum": "Evim / Katılım ve başvurular",
+      "cihazEkle": "Yönetim / Geçiş ve cihazlar / Şirket kaydı [P]",
+      "kayitliCihazlar": "Yönetim / Geçiş ve cihazlar / Envanter",
+      "bluetoothWifiKur": "Geçiş ve cihazlar / Wi-Fi kurulumu [mobil]",
+      "moduller": "Yönetim / Hesap ve ayarlar / Modüller",
+      "denetimKaydi": "Yönetim / Platform / Denetim [P]",
+      "islemKayitlari": "Yönetim / İşlem kayıtları [Y]",
+      "modulTalepleri": "Yönetim / Platform / Modül talepleri [P]",
+      "kisiler": "Daireler / Kişiler, Daireler, Kadro, Araçlar",
+      "duyurular": "Site / Duyurular veya Yönetim / İletişim / Duyurular",
+      "siteBasvurulari": "Yönetim / Platform / Site başvuruları [P]",
+      "finans": "Finans / mevcut sekmeler ve işlemler",
+      "borcum": "Ödemeler / kendi daire hesabı",
+      "belgeler": "Site / Dosyalar veya Yönetim / Belgeler ve kararlar / Dosya Deposu",
+      "talepler": "Yönetim / İşler ve bakım / Talepler",
+      "taleplerim": "Site / Talepler / Taleplerim",
+      "rezervasyonlar": "Yönetim / Ortak alanlar ve konsiyerj",
+      "rezervasyon": "Site / Rezervasyon ve konsiyerj",
+      "platformAyarlari": "Yönetim / Platform / Ayarlar [P]",
+      "istemciHatalari": "Yönetim / Platform / İstemci hataları [P]",
+      "anketler": "Yönetim / İletişim / Anket ve oylama",
+      "anket": "Site / Anketler",
+      "ziyaretciKayitlari": "Yönetim / Ziyaretçi ve kargo",
+      "ziyaretcilerim": "Site / Ziyaretçi ve kargo / kendi dairesi",
+      "sozlesmeler": "Yönetim / İşler ve bakım / Sözleşmeler ve firmalar",
+      "sayaclar": "Finans / Sayaçlar",
+      "kararDefteri": "Yönetim / Belgeler ve kararlar / Karar Defteri",
+      "kararlar": "Site / Kararlar",
+      "rehber": "Site / Rehber",
+      "isletmeProjesi": "Finans / İşletme Projesi; mevcut ayrı işlem",
+      "komsuPanosu": "Site / Komşu panosu",
+      "faaliyetRaporu": "Yönetim / Belgeler ve kararlar / Faaliyet Raporu [mevcut erişim Y]",
+      "plakaTanima": "Yönetim / Geçiş ve cihazlar / Plaka Tanıma & Kameralar; sakin kendi misafir plakası kapsamı",
+      "odemeKamera": "Eski alias; Plaka Tanıma & Kameralar içinde, ayrı menü yeniden açılmaz",
+      "ekipmanBakim": "Yönetim / İşler ve bakım / Ekipman ve bakım",
+      "kapilar": "Yetkili Kapılar hızlı eylemi ve Evim / Geçiş",
+      "dairem": "Evim / Dairem",
+      "acilDurum": "Acil yardım / Yangın veya Asansör; alıcı SOS kutusundan ayrı",
+      "yeniSite": "Katılım ve başvurular / Yeni site başvurusu veya yetkili kurulum"
+    }
+  },
+  "policy_vs_presentation": {
+    "presentation_only": [
+      "Klasik/Sade tercihinin görünümü",
+      "Aynı yetkili ekranlara yeni konu gruplarından ulaşma",
+      "Başlat/Durdur tek durum kontrolü; beklerken çift işlem engeli",
+      "Sakinin varsayılan listesinde güncel ayı öne çıkarma",
+      "İndirme/paylaşma düğmesini taslak okuma görünümünde göstermeme"
+    ],
+    "separate_backend_work": [
+      "Eski ay duyurularının sakine gerçekten kapatılması; yalnız Sade'de gizlemek güvenlik değildir, Klasik erişimi de etkilenir.",
+      "Sakine aylık site gideri/yapılan iş/demirbaş için yönetimce yayımlanmış güvenli özet; ham yönetici finans uçları sakine açılmaz.",
+      "Belge/fatura ve geçmiş gider yayımlama politikası: mevcut belgelerin kitlesi kendiliğinden genişletilmez veya daraltılmaz.",
+      "Duyurunun geçerlilik ve ay sınırı: yayın tarihi ile etkinlik süresi ayrı değerlendirilir.",
+      "Uygulama kapalıyken güvenilir bildirim için FCM/kanal eksikleri; bu taslak teslimat kanıtı değildir."
+    ],
+    "download_limit": "İndirme düğmesinin kaldırılması ekran görüntüsü veya kullanıcı cihazına ulaşmış içeriği kaydetmeyi kesin engellemez.",
+    "financial_rules": "Aidat/Fon adları ve K3 açık hesap seçimi, günlük paylaşım, immutable ledger/ters kayıt aynı kalır; site gideri kişisel borç değildir. Her gider tek gruba sayılır; sınıflandırma olmayan kayda tahmini kategori atanmaz."
+  },
+  "phases": [
+    {
+      "phase": "Araştırma ve eleştiri",
+      "status": "Gerçek Argon devir metni alındı ve Astra tarafından kod/kaynaklarla değerlendirildi; taşıma hataları ayrı kayıtlı."
+    },
+    {
+      "phase": "Dört ekranlık görsel ve yerel etkileşim taslağı",
+      "status": "İlk PNG ve yerel taslak korunuyor. Argon/Astra eleştirileri görsellere henüz uygulanmadı."
+    },
+    {
+      "phase": "Aynı görevlerle Klasik/Sade karşılaştırma",
+      "status": "Henüz yapılmadı; görev süresi/ilk seçim/geri dönüş/hata gözlenecek"
+    },
+    {
+      "phase": "Seçilebilir ince görünüm katmanı",
+      "status": "Gelecek kodlama; mevcut işleri ve API yetkilerini koruma şartı"
+    },
+    {
+      "phase": "Yayın/erişim politikası ve güvenli sakin özetleri",
+      "status": "Ayrı backend tasarımı, test ve son toplu yayın gerektirir; uygulanmadı"
+    }
+  ],
+  "acceptance_not_executed": [
+    "320 dp, %200 metin, uzun site/kişi adları; taşma ve içerik kesilmesi olmamalı.",
+    "Klavye odağı ve mobil dokunma; gerekli bilgi hover olmadan anlaşılmalı.",
+    "Kapı açma, borç bulma, misafir daveti, belge bulma, talep oluşturma iki arayüzde aynı yetkili sonuca ulaşmalı.",
+    "Her aktif yetkili eski işlem Sade'de kalıcı bir adreste olmalı; kapalı eski menüler yeniden etkinleşmemeli.",
+    "Site/daire/hesap/mod değişiminde önceki yanıt ve bekleyen eylem taşınmamalı.",
+    "Ay değişimi etkin duyuruyu yok etmemeli; farklı daire duyurusu sızmamalı.",
+    "Gönderim beklenirken yinelenen dokunma engellenmeli; kapı komutu fiziksel açılma diye gösterilmemeli.",
+    "Site gideri 10000+4000+15500=29500 TL; kişisel 3000 TL borç bu toplama eklenmemeli.",
+    "Başarılı işlem sonrası özet/ayrıntı otomatik yenilenmeli; yeni arayüz tercihi eski görünümü silmemeli."
+  ],
+  "visuals": {
+    "board": "gorseller/sade-kaporta-taslak-2026-11-09.png",
+    "generation_record": "sade-kaporta-gorsel-kaydi-2026-11-09.json",
+    "inline_preview": "C:/Users/mehme/.codex/visualizations/2026/11/08/01a1b87f-28d8-7511-82f8-614ffb741be4/sade-kaporta-onizleme.html",
+    "inline_note": "Konuşma önizlemesi; kütüphaneye fragment kopyası konmaz. İşlev kodu veya uygulama entegrasyonu değildir.",
+    "review_status": "v1; argon-astra-inceleme-2026-11-09.json bulgularına göre revizyon bekliyor."
+  },
+  "no_operational_changes": [
+    "lib/server/firmware dosyaları",
+    "VPS/veritabanı",
+    "APK/web yayını",
+    "Git commit/push",
+    "Yeni geri dönüş/yedek arşivi",
+    "Ücretli abonelik/API anahtarı/araç satın alımı"
+  ],
+  "followup_review": {
+    "record": "argon-astra-inceleme-2026-11-09.json",
+    "readable": "argon-astra-inceleme-2026-11-09.html",
+    "date": "2026-11-09",
+    "decisions": [
+      "Mevcut attention_registry/getFinanceHome altyapısı önce değerlendirilir; yeni toplu uç zorunlu değildir.",
+      "Sakinin bazı ekranlarında site seçimi zaten vardır; birleşik Bugün kapsamı ayrıca tasarlanır.",
+      "Görünüm tercihi ile yeni içerik politikası ayrı yürür; bütün kabuk yeni API'leri beklemez.",
+      "Eller Serbest ayrı ayar akışıdır; ortak içerik switch'i normal açılışı tek başına açıklamaz.",
+      "Borç/fon, ay kapsamı, mobil Klasik dönüşü, düğme hiyerarşisi ve rol kapsamı bir sonraki görselde düzeltilir."
+    ]
+  },
+  "implementation_record": {
+    "status": "web_published_and_verified",
+    "date": "2026-11-09",
+    "web_verified_at": "2026-11-09T17:55:06.258Z",
+    "correction": "Earlier emergency/neighbor-board publication did not implement the complete Classic/Sade appearance choice. The earlier claim was incorrect. The actual optional choice was implemented and first publicly verified in operation 20261109_205023.",
+    "actual_source_paths": [
+      "lib/models/interface_mode.dart",
+      "lib/services/interface_mode_service.dart",
+      "lib/ui/design/interface_mode_switch.dart",
+      "lib/ui/helpers/simple_navigation.dart",
+      "lib/ui/widgets/simple_navigation.dart",
+      "lib/ui/pages/home_page.dart",
+      "lib/ui/widgets/yan_menu.dart",
+      "lib/ui/views/module_showcase_view.dart",
+      "lib/ui/widgets/manager_call_tile.dart"
+    ],
+    "pinned_source_manifest": "work/simple-appearance-2026-11-09/final-source-manifest.json",
+    "pinned_source_count": 27,
+    "exact_settings_path": "Ayarlar > Görünüm > Klasik / Sade",
+    "default_appearance": "Klasik",
+    "preference": {
+      "scope": "per-account on this device",
+      "key": "app_interface_mode_account_<accountId>",
+      "device_to_device_sync": false,
+      "independent_of_theme_easy_view_and_resident_mode": true
+    },
+    "routing": "Existing HomePage, AuthService, visible authorized menu list and guarded dispatcher; no second permission table or cloned HomePage.",
+    "web": {
+      "url": "https://api.gudeteknoloji.com.tr/",
+      "operation": "20261109_205023",
+      "main_dart_js_sha256": "6025f9b36e4e843467b68c28f76b6c7683516d512a45e1b83033f22b031406a3",
+      "runtime_markers": {
+        "app_interface_mode_account_": true,
+        "interface_mode_simple": true,
+        "interface_mode_classic": true
+      },
+      "proof": "work/simple-appearance-2026-11-09/web-public-proof.json"
+    },
+    "proofs": [
+      "work/simple-appearance-2026-11-09/simple-proof.json",
+      "work/simple-appearance-2026-11-09/alerts-scope-proof.json",
+      "work/simple-appearance-2026-11-09/independent-visual-proof.json"
+    ],
+    "actual_flutter_captures": [
+      "work/simple-appearance-2026-11-09/simple-apartmentOwner-1100-light-today.png",
+      "work/simple-appearance-2026-11-09/simple-siteManager-320-dark-settings.png",
+      "work/simple-appearance-2026-11-09/simple-siteManager-1100-light.png"
+    ],
+    "original_research_status_preserved": true,
+    "original_mockups_remain_drafts": true,
+    "no_new_backend": true,
+    "no_database_or_firmware_change": true,
+    "firebase_configured": false,
+    "physical_notification_delivery_or_sound_verified": false,
+    "android_test": {
+      "url": "https://api.gudeteknoloji.com.tr/test/site-yonetim-sanal-deneme-20261109.apk",
+      "sha256": "1ec552f12447deb3d61f4703eca6ac3cdd6c258b8ddd0897268a306f597a07a3",
+      "bytes": 420838582,
+      "signature": "Android Debug v2",
+      "proof": "work/simple-appearance-2026-11-09/android-test-public-proof.json",
+      "firebase_configured": false
+    },
+    "latest_refinement": {
+      "date": "2026-11-09",
+      "status": "web_published_and_verified",
+      "web_verified_at": "2026-11-09T19:22:50.610Z",
+      "changes": [
+        "Four topic chips centered when they fit; narrow/200% controls remain reachable",
+        "Today read-only overview with no repeated module/deep-action rows",
+        "Every authorized non-dashboard route has one permanent owner topic",
+        "Debt/payment hero and error CTA only Payments; personal/invitations/guest Home; unread announcement Site; admin finance Finance and setup/phone Management",
+        "Sade list/tiles choice uses existing ViewModeService with separate device key; Classic preference unchanged"
+      ],
+      "settings_path": "Ayarlar > Görünüm > Klasik / Sade",
+      "defaults": {
+        "application_appearance": "classic",
+        "simple_module_rendering": "list"
+      },
+      "preferences": {
+        "appearance": "per account on this device: app_interface_mode_account_<accountId>",
+        "simple_module_rendering": "per-screen device view preference: app_view_mode_simple_modules",
+        "classic_module_rendering_unchanged": "app_view_mode_modules",
+        "existing_local_data_wiper_key_preservation": true
+      },
+      "actual_source_paths": [
+        "lib/ui/helpers/simple_navigation.dart",
+        "lib/ui/widgets/simple_navigation.dart",
+        "lib/ui/views/module_showcase_view.dart",
+        "lib/ui/pages/home_page.dart",
+        "lib/services/view_mode_service.dart"
+      ],
+      "pinned_source_count": 31,
+      "pinned_source_manifest": "work/simple-navigation-refinement-2026-11-09/final-source-manifest.json",
+      "regression": {
+        "files": 18,
+        "passed": 465,
+        "failed": 0,
+        "skipped": 0,
+        "exitCode": 0,
+        "seconds": 66,
+        "log": "final-regression-tests.log"
+      },
+      "lint_followup": {
+        "passed": 8,
+        "failed": 0,
+        "skipped": 0,
+        "exitCode": 0,
+        "seconds": 2,
+        "log": "lint-followup-tests.log",
+        "note": "Only two for-statement brace additions in the new test file; product code unchanged after the regression run"
+      },
+      "counts_overlap": true,
+      "web": {
+        "operation": "20261109_221748",
+        "url": "https://api.gudeteknoloji.com.tr/",
+        "main_dart_js_sha256": "33f0d4e7ffaaaa7e51e44a2ef33e94aeb786a7d6da7fcd5ea4c000cfc81d5bc0",
+        "runtime_markers": {
+          "app_interface_mode_account_": true,
+          "interface_mode_simple": true,
+          "interface_mode_classic": true,
+          "app_view_mode_simple_modules": true
+        },
+        "proof": "work/simple-navigation-refinement-2026-11-09/web-public-proof.json"
+      },
+      "proofs": [
+        "work/simple-navigation-refinement-2026-11-09/refinement-proof.json",
+        "work/simple-navigation-refinement-2026-11-09/partition-widget-proof.json",
+        "work/simple-navigation-refinement-2026-11-09/route-partition-qa.json",
+        "work/simple-navigation-refinement-2026-11-09/independent-visual-proof.json"
+      ],
+      "actual_flutter_captures": [
+        "work/simple-navigation-refinement-2026-11-09/simple-apartmentOwner-1100-light-home-list.png",
+        "work/simple-navigation-refinement-2026-11-09/simple-apartmentOwner-1100-light-home-tiles.png",
+        "work/simple-navigation-refinement-2026-11-09/simple-siteManager-1100-dark-tiles.png"
+      ],
+      "no_new_backend": true,
+      "no_database_or_firmware_change": true,
+      "firebase_configured": false,
+      "physical_delivery_or_sound_verified": false,
+      "original_prototype_remains_draft": true,
+      "android_test": {
+        "url": "https://api.gudeteknoloji.com.tr/test/site-yonetim-sanal-deneme-20261109.apk",
+        "sha256": "3fd9359249b322e310fcc72a423dfc44800a6eb53b31ce49684470a19222da1b",
+        "bytes": 420883212,
+        "signature": "Android Debug v2",
+        "proof": "work/simple-navigation-refinement-2026-11-09/android-test-public-proof.json",
+        "firebase_configured": false
+      }
+    }
+  }
+}

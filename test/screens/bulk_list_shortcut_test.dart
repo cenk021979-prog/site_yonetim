@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:site_kapi_kontrol/models/bulk_import.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/services/bulk_api.dart';
@@ -76,6 +77,10 @@ Future<void> _pump(
 }
 
 Future<void> _tapKey(WidgetTester t, String key) async {
+  if (key.startsWith('people_tab_')) {
+    await selectPeopleSection(t, int.parse(key.substring('people_tab_'.length)));
+    return;
+  }
   final f = find.byKey(ValueKey<String>(key));
   expect(f, findsOneWidget, reason: key);
   await t.ensureVisible(f);

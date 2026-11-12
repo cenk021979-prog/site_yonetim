@@ -89,7 +89,7 @@ class DirectoryViewState extends State<DirectoryView> {
     if (_sites.isEmpty) {
       return Padding(
         padding: const EdgeInsets.all(AppSpace.lg),
-        child: Text('Yönetim bu özelliği açtığında rehber burada görünür.', style: secondary),
+        child: Text('Bir siteye bağlı olduğunuzda rehber burada görünür.', style: secondary),
       );
     }
     return Column(

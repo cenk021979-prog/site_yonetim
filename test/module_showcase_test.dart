@@ -134,6 +134,16 @@ void main() {
   });
 
   group('kart üretimi', () {
+    test('birleşik kamera menüsü tek karttır; tek başına eski giriş korunur ve erişim üretilmez', () {
+      final merged = buildShowcaseModel(
+        menuItems: [SirketMenuItem.odemeKamera, SirketMenuItem.plakaTanima], role: UserRole.superUser,
+      );
+      expect(merged.items, [SirketMenuItem.plakaTanima]);
+      final oldOnly = buildShowcaseModel(menuItems: [SirketMenuItem.odemeKamera], role: UserRole.superUser);
+      expect(oldOnly.items, [SirketMenuItem.odemeKamera]);
+      final distinct = buildShowcaseModel(menuItems: [SirketMenuItem.finans, SirketMenuItem.borcum], role: UserRole.superUser);
+      expect(distinct.items, [SirketMenuItem.finans, SirketMenuItem.borcum]);
+    });
     test('başlık menüdeki başlıktır, açıklama ve görsel dolu, rozet haritadan gelir', () {
       final model = buildShowcaseModel(
         menuItems: _menu(

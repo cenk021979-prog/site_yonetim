@@ -1,616 +1,574 @@
-// Acil durum ekranı (P2-24, karar K13): 112 büyük düğmesi, yangın ve asansör arızası hızlı düğmeleri, KURU MOD (arama kanalı yoksa /
-// başlatılamıyorsa numaralar + adres kopyalanabilir metin, SAHTE "arandı" YOK), adres DOĞRU siteden, bakım firması ipucu / düzenleme, ağ
-// hatasında 112'nin etkilenmemesi ve dar ekranda büyük yazıda taşma yok.
 import 'dart:async';
-
+import 'dart:io';
+import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/emergency_models.dart';
+import 'package:site_kapi_kontrol/models/emergency_alarm_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/emergency_api.dart';
-import 'package:site_kapi_kontrol/services/emergency_dialer.dart';
+import 'package:site_kapi_kontrol/styles/app_theme.dart';
 import 'package:site_kapi_kontrol/ui/views/emergency_view.dart';
-
-import 'dialog_layout_harness.dart' show settleFor;
-import 'list_fixtures.dart';
 import 'people_fixtures.dart';
 
-const EmergencySite _gul = EmergencySite(
-  siteCode: 11,
-  siteName: 'Gül Sitesi',
-  address: 'Atatürk Mah. 12. Sok. No: 5',
-  city: 'İstanbul',
-  district: 'Kadıköy',
-  elevatorFirmName: 'Yıldız Asansör',
-  elevatorFirmPhone: '0212 555 12 34',
-  canEdit: true,
-);
-const EmergencySite _lale = EmergencySite(
-  siteCode: 22,
-  siteName: 'Lale Sitesi',
-  address: 'Cumhuriyet Mah. 3. Cad. No: 9',
-  city: 'Ankara',
-  district: 'Çankaya',
-);
-const String _gulAddress = 'Atatürk Mah. 12. Sok. No: 5, Kadıköy / İstanbul';
-const String _laleAddress = 'Cumhuriyet Mah. 3. Cad. No: 9, Çankaya / Ankara';
-
-/// Sahte sunucu servisi: çağrılar kaydedilir; yanıtlar testten sürülür.
-class _FakeService extends EmergencyService {
-  _FakeService({List<EmergencySite>? sites})
-    : sites = sites ?? <EmergencySite>[_gul],
-      super(authService: PeopleFakeAuth());
-
-  List<EmergencySite> sites;
-  Object? listError;
-  Object? saveError;
-  int listCalls = 0;
-
-  /// Doluysa yanıt tamamlanana dek bekler (yükleniyor durumunu sınamak için).
+class AlarmFakeService extends EmergencyService {
+  AlarmFakeService() : super(authService: PeopleFakeAuth());
+  List<EmergencySite> sites = const [
+    EmergencySite(siteCode: 11, siteName: 'Gül Sitesi', canCreate: true),
+  ];
+  List<EmergencyElevator> elevators = const [
+    EmergencyElevator(
+      id: 71,
+      name: 'A Blok Asansörü',
+      location: 'A Blok giriş',
+    ),
+  ];
+  List<EmergencyLocation> locations = const [
+    EmergencyLocation(id: 'site', name: 'Ortak alan'),
+    EmergencyLocation(id: 'block:34', name: 'A Blok'),
+    EmergencyLocation(id: 'block:35', name: 'B Blok'),
+  ];
+  final List<
+    ({int site, String kind, int? equipment, String? location, String key})
+  >
+  requests = [];
+  Object? failure;
   Completer<void>? gate;
-  final List<({int site, String? name, String? phone})> saves = <({int site, String? name, String? phone})>[];
+  Completer<List<EmergencyLocation>>? locationGate;
+  Completer<List<EmergencyElevator>>? elevatorGate;
+  Object? elevatorFailure;
+  int locationCalls = 0;
+  @override
+  Future<List<EmergencySite>> listAlarmSites() async => sites;
+  @override
+  Future<List<EmergencyElevator>> listElevators(int siteCode) async {
+    if (elevatorFailure != null) throw elevatorFailure!;
+    return elevatorGate?.future ?? elevators;
+  }
 
   @override
-  Future<List<EmergencySite>> listSites() async {
-    listCalls++;
+  Future<List<EmergencyLocation>> listLocations(int siteCode) async {
+    locationCalls++;
+    return locationGate?.future ?? locations;
+  }
+
+  @override
+  Future<EmergencyAlarmReceipt> createAlarm({
+    required int siteCode,
+    required String kind,
+    int? equipmentId,
+    String? locationId,
+    required String idempotencyKey,
+  }) async {
+    requests.add((
+      site: siteCode,
+      kind: kind,
+      equipment: equipmentId,
+      location: locationId,
+      key: idempotencyKey,
+    ));
     await gate?.future;
-    final error = listError;
-    if (error != null) throw error;
-    return List<EmergencySite>.of(sites);
-  }
-
-  @override
-  Future<({String? name, String? phone})> saveElevatorFirm(int siteCode, {String? name, String? phone}) async {
-    saves.add((site: siteCode, name: name, phone: phone));
-    final error = saveError;
-    if (error != null) throw error;
-    return (name: name, phone: phone);
+    if (failure != null) throw failure!;
+    return EmergencyAlarmReceipt(
+      alarm: EmergencyAlarm(id: 81, siteCode: siteCode, kind: kind),
+      securityAssigned: 1,
+      managerNotified: 1,
+    );
   }
 }
 
-/// Sahte arama kanalı.
-class _FakeChannel implements EmergencyCallChannel {
-  _FakeChannel({this.may = true, this.probeResult = true, this.outcome = EmergencyDialOutcome.opened});
-
-  bool may;
-  bool probeResult;
-  EmergencyDialOutcome outcome;
-  int probes = 0;
-  final List<String> dialed = <String>[];
-
-  @override
-  bool get mayBeAvailable => may;
-
-  @override
-  Future<bool> probe() async {
-    probes++;
-    return probeResult;
-  }
-
-  @override
-  Future<EmergencyDialOutcome> dial(String number) async {
-    dialed.add(number);
-    return outcome;
-  }
+const boundaryKey = ValueKey('emergency_test_render');
+Future<void> loadAlarmReviewFont() async {
+  final loader = FontLoader('ReviewRoboto')
+    ..addFont(rootBundle.load('assets/fonts/Roboto-Regular.ttf'));
+  await loader.load();
+  final icons = FontLoader('MaterialIcons')
+    ..addFont(rootBundle.load('fonts/MaterialIcons-Regular.otf'));
+  await icons.load();
 }
 
-final RegExp _fakeCallClaim = RegExp('arandı|aranıyor|arama yapıldı|çağrı yapıldı', caseSensitive: false);
-
-/// Ekrandaki tüm metinler (Text + SelectableText).
-List<String> _texts(WidgetTester t) => <String>[
-  for (final w in t.widgetList<Text>(find.byType(Text)))
-    if ((w.data ?? w.textSpan?.toPlainText()) case final String s) s,
-  for (final w in t.widgetList<SelectableText>(find.byType(SelectableText)))
-    if ((w.data ?? w.textSpan?.toPlainText()) case final String s) s,
-];
-
-void _expectNoFakeCallClaim(WidgetTester t) {
-  final offenders = _texts(t).where(_fakeCallClaim.hasMatch).toList();
-  expect(offenders, isEmpty, reason: 'sahte "arandı" iddiası: $offenders');
-}
-
-String _selectable(WidgetTester t, String key) => t.widget<SelectableText>(find.byKey(ValueKey<String>(key))).data!;
-
-List<String> _mockClipboard(WidgetTester t) {
-  final clipboard = <String>[];
-  t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, (call) async {
-    if (call.method == 'Clipboard.setData') clipboard.add((call.arguments as Map)['text'] as String);
-    return null;
-  });
-  addTearDown(() => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(SystemChannels.platform, null));
-  return clipboard;
-}
-
-Future<void> _pump(
-  WidgetTester t, {
-  required _FakeService service,
-  required _FakeChannel channel,
-  int? preferred,
-  bool allowEdit = true,
-  double width = 400,
-  double height = 1000,
-  double scale = 1.0,
-  bool dark = false,
-}) async {
-  await pumpList(
-    t,
-    EmergencyView(authService: service.authService, service: service, channel: channel, preferredSiteCode: preferred, allowEdit: allowEdit),
-    width: width,
-    height: height,
-    scale: scale,
-    dark: dark,
+ThemeData alarmReviewTheme(bool dark) {
+  final base = dark ? AppTheme.dark() : AppTheme.light();
+  ButtonStyle? withFont(ButtonStyle? style) => style?.copyWith(
+    textStyle: WidgetStateProperty.resolveWith(
+      (states) => (style.textStyle?.resolve(states) ?? const TextStyle())
+          .copyWith(fontFamily: 'ReviewRoboto'),
+    ),
   );
-  await settleFor(t);
+  return base.copyWith(
+    textTheme: base.textTheme.apply(fontFamily: 'ReviewRoboto'),
+    scaffoldBackgroundColor: dark
+        ? const Color(0xFF0F172A)
+        : const Color(0xFFF8FAFC),
+    primaryTextTheme: base.primaryTextTheme.apply(fontFamily: 'ReviewRoboto'),
+    filledButtonTheme: FilledButtonThemeData(
+      style: withFont(base.filledButtonTheme.style),
+    ),
+    outlinedButtonTheme: OutlinedButtonThemeData(
+      style: withFont(base.outlinedButtonTheme.style),
+    ),
+    textButtonTheme: TextButtonThemeData(
+      style: withFont(base.textButtonTheme.style),
+    ),
+    dialogTheme: base.dialogTheme.copyWith(
+      titleTextStyle: base.dialogTheme.titleTextStyle?.copyWith(
+        fontFamily: 'ReviewRoboto',
+      ),
+    ),
+  );
 }
 
-/// Düğmeye dokunur. Önceki bildirim (SnackBar) alttaki düğmeyi örtebildiğinden önce kaldırılır.
-Future<void> _tapKey(WidgetTester t, String key) async {
-  final messenger = ScaffoldMessenger.maybeOf(t.element(find.byType(Scaffold).first));
-  messenger?.clearSnackBars();
-  messenger?.removeCurrentSnackBar();
+Future<void> pumpAlarm(
+  WidgetTester t,
+  AlarmFakeService service, {
+  double width = 400,
+  double scale = 1,
+  bool dark = false,
+  int? preferredSiteCode,
+}) async {
+  t.view.physicalSize = Size(width, 900);
+  t.view.devicePixelRatio = 1;
+  addTearDown(t.view.reset);
+  await t.pumpWidget(
+    MaterialApp(
+      theme: alarmReviewTheme(dark),
+      home: MediaQuery(
+        data: MediaQueryData(
+          size: Size(width, 900),
+          textScaler: TextScaler.linear(scale),
+        ),
+        child: Scaffold(
+          body: RepaintBoundary(
+            key: boundaryKey,
+            child: ColoredBox(
+              color: alarmReviewTheme(dark).scaffoldBackgroundColor,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(16),
+                child: EmergencyView(
+                  authService: service.authService,
+                  service: service,
+                  preferredSiteCode: preferredSiteCode,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
   await t.pump();
-  await t.pump(const Duration(milliseconds: 300));
-  await tapFinder(t, find.byKey(ValueKey<String>(key)));
+  await t.pump(const Duration(milliseconds: 50));
+  await t.pump(const Duration(milliseconds: 250));
+}
+
+Future<void> renderProof(WidgetTester t, String name) async {
+  final boundary = t.renderObject<RenderRepaintBoundary>(
+    find.byKey(boundaryKey),
+  );
+  await t.runAsync(() async {
+    final image = await boundary.toImage(pixelRatio: 1);
+    final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+    final directory = Directory('work/emergency-simple-2026-11-09');
+    await directory.create(recursive: true);
+    await File(
+      '${directory.path}/$name.png',
+    ).writeAsBytes(bytes!.buffer.asUint8List());
+    image.dispose();
+  });
 }
 
 void main() {
-  group('kuru mod: arama kanalı yok', () {
-    testWidgets('112 için arama düğmesi YOK; numara ve "Numarayı kopyala" var; açıklayıcı uyarı; sahte "arandı" yok', (t) async {
-      final clipboard = _mockClipboard(t);
-      final channel = _FakeChannel(may: false);
-      await _pump(t, service: _FakeService(), channel: channel);
-
-      expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsOneWidget);
-      expect(find.textContaining('Bu cihazdan arama başlatılamıyor'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_copy_112')), findsOneWidget);
-      expect(find.text('112'), findsWidgets);
-      // Kanal bu platformda hiç olamıyorsa "Tekrar Dene" önerilmez ve platforma sorulmaz.
-      expect(find.text('Tekrar Dene'), findsNothing);
-      expect(channel.probes, 0);
-      expect(channel.dialed, isEmpty);
-
-      await _tapKey(t, 'emergency_copy_112');
-      expect(clipboard, <String>['112']);
-      expect(find.text('112 numarası panoya kopyalandı.'), findsOneWidget);
-      _expectNoFakeCallClaim(t);
-    });
-
-    testWidgets('yangın: 112 + adres + sorular metin olarak; arama düğmesi yok; kopyalanan metin numara ve DOĞRU adresi taşır', (t) async {
-      final clipboard = _mockClipboard(t);
-      await _pump(t, service: _FakeService(), channel: _FakeChannel(may: false));
-
-      await _tapKey(t, 'emergency_quick_fire');
-      expect(find.byKey(const ValueKey<String>('emergency_panel_fire')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_copy_112_panel')), findsOneWidget);
-      expect(_selectable(t, 'emergency_say_line'), '"Yangın var."');
-      expect(_selectable(t, 'emergency_site_name'), 'Gül Sitesi');
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-      expect(find.textContaining('Yangın nerede?'), findsOneWidget);
-      expect(find.textContaining('asansör kullanmayın'), findsOneWidget);
-
-      await _tapKey(t, 'emergency_copy_script');
-      expect(clipboard.single, startsWith('ACİL DURUM - YANGIN'));
-      expect(clipboard.single, contains('Aranacak numara: 112'));
-      expect(clipboard.single, contains('Site: Gül Sitesi'));
-      expect(clipboard.single, contains('Adres: $_gulAddress'));
-      expect(find.text('Bilgiler panoya kopyalandı.'), findsOneWidget);
-
-      await _tapKey(t, 'emergency_copy_address');
-      expect(clipboard.last, 'Gül Sitesi\n$_gulAddress');
-      _expectNoFakeCallClaim(t);
-    });
-
-    testWidgets('asansör: bakım firması telefonu metin + kopyala; firma için arama düğmesi yok; 112 de yalnız kopyalanır', (t) async {
-      final clipboard = _mockClipboard(t);
-      await _pump(t, service: _FakeService(), channel: _FakeChannel(may: false));
-
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsNothing);
-      expect(find.text('Yıldız Asansör'), findsOneWidget);
-      expect(find.text('0212 555 12 34'), findsOneWidget);
-      await _tapKey(t, 'emergency_copy_firm');
-      expect(clipboard.single, '0212 555 12 34');
-      await _tapKey(t, 'emergency_copy_script');
-      expect(clipboard.last, contains('Asansör bakım firması: Yıldız Asansör, 0212 555 12 34'));
-      expect(clipboard.last, contains('Mahsur kalan kişide tehlike varsa: 112'));
-      _expectNoFakeCallClaim(t);
-    });
-  });
-
-  group('arama kanalı var', () {
-    testWidgets('112: arama düğmesi telefon uygulamasını açar; mesaj "açıldı" der, "arandı" DEMEZ; kuru moda geçilmez', (t) async {
-      final channel = _FakeChannel();
-      await _pump(t, service: _FakeService(), channel: channel);
-      expect(channel.probes, 1);
-      expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_copy_112')), findsNothing);
-
-      await _tapKey(t, 'emergency_call_112');
-      expect(channel.dialed, <String>['112']);
-      expect(find.text('Telefon uygulaması açıldı. Aramayı orada başlatın.'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsNothing);
-      _expectNoFakeCallClaim(t);
-    });
-
-    testWidgets('arama başlatılamazsa kuru moda geçilir: uyarı, numara metni ve kopyala; "arandı" iddiası yok', (t) async {
-      for (final outcome in <EmergencyDialOutcome>[EmergencyDialOutcome.failed, EmergencyDialOutcome.unavailable]) {
-        final channel = _FakeChannel(outcome: outcome);
-        await _pump(t, service: _FakeService(), channel: channel);
-        await _tapKey(t, 'emergency_call_112');
-        expect(channel.dialed, <String>['112'], reason: outcome.name);
-        expect(find.text('Arama başlatılamadı. 112 numarasını başka bir telefondan arayın.'), findsOneWidget, reason: outcome.name);
-        expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsOneWidget, reason: outcome.name);
-        expect(find.byKey(const ValueKey<String>('emergency_call_112')), findsNothing, reason: outcome.name);
-        expect(find.byKey(const ValueKey<String>('emergency_copy_112')), findsOneWidget, reason: outcome.name);
-        expect(find.text('Telefon uygulaması açıldı. Aramayı orada başlatın.'), findsNothing);
-        _expectNoFakeCallClaim(t);
-      }
-    });
-
-    testWidgets('yoklama başarısızsa (telefonsuz tablet) açılışta kuru mod; "Tekrar Dene" yeniden yoklar ve kanal gelince arama düğmesi döner', (t) async {
-      final channel = _FakeChannel(probeResult: false);
-      await _pump(t, service: _FakeService(), channel: channel);
-      expect(channel.probes, 1);
-      expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112')), findsNothing);
-
-      channel.probeResult = true;
-      await tapText(t, 'Tekrar Dene');
-      expect(channel.probes, 2);
-      expect(find.byKey(const ValueKey<String>('emergency_dry_banner')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112')), findsOneWidget);
-    });
-
-    testWidgets('yangın: panel içindeki 112 düğmesi de aynı kanaldan çağırır', (t) async {
-      final channel = _FakeChannel();
-      await _pump(t, service: _FakeService(), channel: channel);
-      await _tapKey(t, 'emergency_quick_fire');
-      await _tapKey(t, 'emergency_call_112_panel');
-      expect(channel.dialed, <String>['112']);
-    });
-
-    testWidgets('asansör: bakım firmasını arar (firmanın kayıtlı telefonu), 112 ayrı bir karttır; ikisi karışmaz', (t) async {
-      final channel = _FakeChannel();
-      await _pump(t, service: _FakeService(), channel: channel);
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.text('Asansör bakım firması'), findsOneWidget);
-      expect(find.text('Yıldız Asansör'), findsOneWidget);
-      await _tapKey(t, 'emergency_call_firm');
-      expect(channel.dialed, <String>['0212 555 12 34']);
-      await _tapKey(t, 'emergency_call_112_panel');
-      expect(channel.dialed, <String>['0212 555 12 34', '112']);
-      expect(find.textContaining('Hangi blok ve hangi asansör?'), findsOneWidget);
-      expect(find.textContaining('kapıyı zorlamayın'), findsOneWidget);
-    });
-
-    testWidgets('hızlı düğmeler: aynı düğmeye yeniden dokunmak genel ekrana döner; farklı düğme paneli değiştirir', (t) async {
-      await _pump(t, service: _FakeService(), channel: _FakeChannel());
-      expect(find.byKey(const ValueKey<String>('emergency_panel_general')), findsOneWidget);
-      await _tapKey(t, 'emergency_quick_fire');
-      expect(find.byKey(const ValueKey<String>('emergency_panel_fire')), findsOneWidget);
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.byKey(const ValueKey<String>('emergency_panel_elevator')), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_panel_fire')), findsNothing);
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.byKey(const ValueKey<String>('emergency_panel_general')), findsOneWidget);
-    });
-  });
-
-  group('adres DOĞRU siteden', () {
-    testWidgets('tek site: seçici yok, kendi adresi', (t) async {
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[_lale]), channel: _FakeChannel());
-      expect(find.text('Hangi site için?'), findsNothing);
-      expect(_selectable(t, 'emergency_site_name'), 'Lale Sitesi');
-      expect(_selectable(t, 'emergency_address'), _laleAddress);
-      expect(find.textContaining('Atatürk Mah.'), findsNothing);
-    });
-
-    testWidgets('iki site: ilk site açılır; seçici ile diğerine geçince adres ve kopyalanan metin ONUNKİ olur, öncekinin hiçbir izi kalmaz', (t) async {
-      final clipboard = _mockClipboard(t);
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[_gul, _lale]), channel: _FakeChannel());
-      expect(find.text('Hangi site için?'), findsOneWidget);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-
-      await tapText(t, 'Gül Sitesi');
-      await tapFinder(t, find.text('Lale Sitesi').last);
-      expect(_selectable(t, 'emergency_site_name'), 'Lale Sitesi');
-      expect(_selectable(t, 'emergency_address'), _laleAddress);
-      expect(find.text(_gulAddress), findsNothing);
-
-      await _tapKey(t, 'emergency_quick_fire');
-      await _tapKey(t, 'emergency_copy_script');
-      expect(clipboard.single, contains('Site: Lale Sitesi'));
-      expect(clipboard.single, contains(_laleAddress));
-      expect(clipboard.single, isNot(contains('Gül Sitesi')));
-      expect(clipboard.single, isNot(contains('Atatürk')));
-    });
-
-    testWidgets('çekmecedeki site seçimi (preferredSiteCode) başlangıç sitesini belirler; sonradan değişince ekran uyar', (t) async {
-      final service = _FakeService(sites: <EmergencySite>[_gul, _lale]);
-      final channel = _FakeChannel();
-      await _pump(t, service: service, channel: channel, preferred: 22);
-      expect(_selectable(t, 'emergency_address'), _laleAddress);
-
-      await pumpList(
-        t,
-        EmergencyView(authService: service.authService, service: service, channel: channel, preferredSiteCode: 11, allowEdit: true),
-        width: 400,
-        height: 1000,
-        scale: 1.0,
-        dark: false,
+  setUpAll(loadAlarmReviewFont);
+  testWidgets(
+    'kesin ret yeni seçime izin verir; belirsiz ağ sonucundan farklıdır',
+    (t) async {
+      final service = AlarmFakeService()
+        ..failure = ApiException('Asansör kaldırıldı.', statusCode: 404);
+      await pumpAlarm(t, service);
+      await t.tap(find.text('Asansör'));
+      await t.pump();
+      await t.tap(find.byKey(const ValueKey('emergency_elevator_71')));
+      await t.pump();
+      expect(
+        t
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('emergency_quick_fire')),
+            )
+            .onPressed,
+        isNotNull,
       );
-      await settleFor(t);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-    });
-
-    testWidgets('asansör firması da siteye özeldir: ikinci sitede firma yok -> ipucu, birinci sitedeki firma görünmez', (t) async {
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[_gul, _lale]), channel: _FakeChannel(), preferred: 22);
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.text('Yıldız Asansör'), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_firm_hint')), findsOneWidget);
-    });
-
-    testWidgets('adres kayıtlı değil: dürüst ipucu (yöneticiye ekleme yolu, diğerlerine "kendiniz söyleyin"); adres kopyala düğmesi yok', (t) async {
-      const empty = EmergencySite(siteCode: 33, siteName: 'Boş Site', canEdit: true);
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[empty]), channel: _FakeChannel());
-      expect(find.byKey(const ValueKey<String>('emergency_address')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_copy_address')), findsNothing);
-      expect(find.textContaining('“Site Yönetimi” ekranından adresi ekleyin'), findsOneWidget);
-      expect(_selectable(t, 'emergency_site_name'), 'Boş Site');
-
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[empty]), channel: _FakeChannel(), allowEdit: false);
-      expect(find.textContaining('Adresi kendiniz söyleyin ve site yönetiminden adresin eklenmesini isteyin'), findsOneWidget);
-      expect(find.textContaining('Site Yönetimi'), findsNothing);
-    });
-
-    testWidgets('hiç sitesi olmayan kullanıcı (bireysel): 112 ve içerik çalışır, adres uydurulmaz', (t) async {
-      final clipboard = _mockClipboard(t);
-      final channel = _FakeChannel();
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[]), channel: channel);
-      expect(find.textContaining('Bağlı olduğunuz bir site yok'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_site_name')), findsNothing);
-      await _tapKey(t, 'emergency_call_112');
-      expect(channel.dialed, <String>['112']);
-      await _tapKey(t, 'emergency_quick_fire');
-      await _tapKey(t, 'emergency_copy_script');
-      expect(clipboard.single, contains('Adres: kayıtlı değil, adresi kendiniz söyleyin'));
-    });
-  });
-
-  group('asansör bakım firması (site ayarı)', () {
-    const noFirm = EmergencySite(siteCode: 11, siteName: 'Gül Sitesi', address: 'Atatürk Mah.', canEdit: true);
-
-    testWidgets('firma yok + yönetici: yöneticiye ipucu ve "Bakım firmasını ekle"; 112 yine verilir', (t) async {
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[noFirm]), channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.textContaining('Asansör bakım firmasının telefonu kayıtlı değil. Ekleyin'), findsOneWidget);
-      expect(find.text('Bakım firmasını ekle'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsOneWidget);
-      _expectNoFakeCallClaim(t);
-    });
-
-    testWidgets('firma yok + sakin / kurul / sakin modundaki yönetici: "yönetimden isteyin", düzenleme düğmesi YOK', (t) async {
-      for (final (site, allowEdit) in <(EmergencySite, bool)>[
-        (noFirm.withElevatorFirm(), false), // yönetici ama sakin modunda
-        (const EmergencySite(siteCode: 11, siteName: 'Gül Sitesi'), true), // can_edit false (sakin, kurul, görevli)
-      ]) {
-        await _pump(t, service: _FakeService(sites: <EmergencySite>[site]), channel: _FakeChannel(), allowEdit: allowEdit);
-        await _tapKey(t, 'emergency_quick_elevator');
-        expect(find.textContaining('henüz eklenmemiş. Site yönetiminden isteyin'), findsOneWidget);
-        expect(find.byKey(const ValueKey<String>('emergency_edit_firm')), findsNothing);
-        expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsOneWidget);
-      }
-    });
-
-    testWidgets('site bilgisi alınamadıysa "kayıtlı değil" DENMEZ (bilinmiyor); sitesiz kullanıcıya yönetimden öğrenmesi söylenir', (t) async {
-      final failing = _FakeService()..listError = ApiException('Sunucuya bağlanılamadı.');
-      await _pump(t, service: failing, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.textContaining('Asansör bakım firması bilgisi alınamadı'), findsOneWidget);
-      expect(find.textContaining('henüz eklenmemiş'), findsNothing);
-      expect(find.textContaining('kayıtlı değil. Ekleyin'), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsOneWidget);
-
-      await _pump(t, service: _FakeService(sites: <EmergencySite>[]), channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.textContaining('Asansör bakım firmasını sitenizin yönetiminden öğrenin'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_edit_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112_panel')), findsOneWidget);
-    });
-
-    testWidgets('firma var: yalnız yönetici modundaki yönetici "düzenle" görür', (t) async {
-      await _pump(t, service: _FakeService(), channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.byKey(const ValueKey<String>('emergency_edit_firm')), findsOneWidget);
-
-      await _pump(t, service: _FakeService(), channel: _FakeChannel(), allowEdit: false);
-      await _tapKey(t, 'emergency_quick_elevator');
-      expect(find.byKey(const ValueKey<String>('emergency_edit_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsOneWidget);
-    });
-
-    testWidgets('yönetici firmayı ekler: sunucuya iki alan gider, kart anında görünür, bildirim "kaydedildi" der', (t) async {
-      final service = _FakeService(sites: <EmergencySite>[noFirm]);
-      await _pump(t, service: service, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      await _tapKey(t, 'emergency_edit_firm');
-      expect(find.byType(AlertDialog), findsOneWidget);
-
-      await t.enterText(find.byKey(const ValueKey<String>('emergency_firm_name')), 'Yıldız Asansör');
-      await t.enterText(find.byKey(const ValueKey<String>('emergency_firm_phone')), '444 1 234');
-      await tapFinder(t, find.byKey(const ValueKey<String>('emergency_firm_save')));
-      expect(service.saves.single, (site: 11, name: 'Yıldız Asansör', phone: '444 1 234'));
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(find.text('Asansör bakım firması kaydedildi.'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsOneWidget);
-      expect(find.text('Yıldız Asansör'), findsOneWidget);
-      expect(find.text('444 1 234'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_firm_hint')), findsNothing);
-    });
-
-    testWidgets('ad yazılıp telefon boş bırakılırsa pencere açık kalır ve hata gösterir; hiçbir şey kaydedilmez', (t) async {
-      final service = _FakeService(sites: <EmergencySite>[noFirm]);
-      await _pump(t, service: service, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      await _tapKey(t, 'emergency_edit_firm');
-      await t.enterText(find.byKey(const ValueKey<String>('emergency_firm_name')), 'Yıldız Asansör');
-      await tapFinder(t, find.byKey(const ValueKey<String>('emergency_firm_save')));
-      expect(find.text('Firma adını yazdıysanız telefonunu da yazın.'), findsOneWidget);
-      expect(find.byType(AlertDialog), findsOneWidget);
-      expect(service.saves, isEmpty);
-    });
-
-    testWidgets('firmayı kaldır: iki alan null gider, ipucu geri gelir', (t) async {
-      final service = _FakeService();
-      await _pump(t, service: service, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      await _tapKey(t, 'emergency_edit_firm');
-      await tapFinder(t, find.byKey(const ValueKey<String>('emergency_firm_remove')));
-      expect(service.saves.single, (site: 11, name: null, phone: null));
-      expect(find.text('Asansör bakım firması kaldırıldı.'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_call_firm')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_firm_hint')), findsOneWidget);
-    });
-
-    testWidgets('kayıt hatası: sunucu mesajı gösterilir, firma değişmez', (t) async {
-      final service = _FakeService()..saveError = ApiException('Bu işlem için yetkiniz yok.', statusCode: 403, code: 'FORBIDDEN_ROLE');
-      await _pump(t, service: service, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      await _tapKey(t, 'emergency_edit_firm');
-      await t.enterText(find.byKey(const ValueKey<String>('emergency_firm_name')), 'Başka Firma');
-      await tapFinder(t, find.byKey(const ValueKey<String>('emergency_firm_save')));
-      expect(find.text('Bu işlem için yetkiniz yok.'), findsOneWidget);
-      expect(find.text('Yıldız Asansör'), findsOneWidget);
-      expect(find.text('Başka Firma'), findsNothing);
-    });
-
-    testWidgets('vazgeçmek hiçbir şey göndermez', (t) async {
-      final service = _FakeService();
-      await _pump(t, service: service, channel: _FakeChannel());
-      await _tapKey(t, 'emergency_quick_elevator');
-      await _tapKey(t, 'emergency_edit_firm');
-      await tapText(t, 'Vazgeç');
-      expect(find.byType(AlertDialog), findsNothing);
-      expect(service.saves, isEmpty);
-    });
-  });
-
-  group('ağ hatası', () {
-    testWidgets('site bilgisi alınamazsa 112 ETKİLENMEZ; hata + "Tekrar Dene"; düzelince adres gelir', (t) async {
-      final service = _FakeService()..listError = ApiException('Sunucuya bağlanılamadı.');
-      final channel = _FakeChannel();
-      await _pump(t, service: service, channel: channel);
-      expect(find.byKey(const ValueKey<String>('emergency_load_error')), findsOneWidget);
-      expect(find.textContaining('112 aramanız bundan etkilenmez'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('emergency_address')), findsNothing);
-      expect(find.textContaining('Site adresi alınamadı. Adresi kendiniz söyleyin.'), findsOneWidget);
-      await _tapKey(t, 'emergency_call_112');
-      expect(channel.dialed, <String>['112']);
-
-      service.listError = null;
-      await tapText(t, 'Tekrar Dene');
-      expect(find.byKey(const ValueKey<String>('emergency_load_error')), findsNothing);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-    });
-
-    testWidgets('yenileme başarısızsa son bilinen bilgi korunur ve bunu söyler', (t) async {
-      final service = _FakeService();
-      final key = GlobalKey<EmergencyViewState>();
-      await pumpList(
-        t,
-        EmergencyView(key: key, authService: service.authService, service: service, channel: _FakeChannel()),
-        width: 400,
-        height: 1000,
-        scale: 1.0,
-        dark: false,
+      service.failure = null;
+      await t.tap(find.text('Yangın'));
+      await t.pump();
+      await t.ensureVisible(
+        find.byKey(const ValueKey('emergency_location_site')),
       );
-      await settleFor(t);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-
-      service.listError = ApiException('Sunucuya bağlanılamadı.');
-      await key.currentState!.reload();
-      await settleFor(t);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-      expect(find.textContaining('son alınan bilgiler gösteriliyor'), findsOneWidget);
-    });
-
-    testWidgets('ilk yüklemede "yükleniyor" der, "adres yok" demez', (t) async {
-      final service = _FakeService()..gate = Completer<void>();
-      await pumpList(
-        t,
-        EmergencyView(authService: service.authService, service: service, channel: _FakeChannel()),
-        width: 400,
-        height: 1000,
-        scale: 1.0,
-        dark: false,
+      await t.tap(find.byKey(const ValueKey('emergency_location_site')));
+      await t.pump();
+      await t.pump();
+      expect(service.requests.last.location, 'site');
+      expect(service.requests.last.key, isNot(service.requests.first.key));
+    },
+  );
+  testWidgets(
+    'yenilemede site kaldırılırsa eski konumlar ve geç gelen yanıt görünmez',
+    (t) async {
+      final service = AlarmFakeService()
+        ..locationGate = Completer<List<EmergencyLocation>>();
+      await pumpAlarm(t, service);
+      await t.tap(find.text('Yangın'));
+      await t.pump();
+      service.sites = [];
+      final state = t.state<EmergencyViewState>(find.byType(EmergencyView));
+      await state.reload();
+      await t.pump();
+      service.locationGate!.complete(const [
+        EmergencyLocation(id: 'block:34', name: 'ESKİ BLOK'),
+      ]);
+      await t.pump();
+      expect(find.text('ESKİ BLOK'), findsNothing);
+      expect(
+        t
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('emergency_quick_fire')),
+            )
+            .onPressed,
+        isNull,
       );
-      await settleFor(t);
-      // Sunucu yanıtı henüz gelmedi: adres "yükleniyor" der, "kayıtlı değil" DEMEZ; 112 yine kullanılabilir.
-      expect(find.text('Site adresi yükleniyor...'), findsOneWidget);
-      expect(find.textContaining('kayıtlı değil'), findsNothing);
-      expect(find.byKey(const ValueKey<String>('emergency_call_112')), findsOneWidget);
-
-      service.gate!.complete();
-      await settleFor(t);
-      expect(find.text('Site adresi yükleniyor...'), findsNothing);
-      expect(_selectable(t, 'emergency_address'), _gulAddress);
-    });
+    },
+  );
+  testWidgets(
+    'yalnız iki düğme; 112 rehberi yok, asansör seçimi anında alarm',
+    (t) async {
+      final service = AlarmFakeService();
+      await pumpAlarm(t, service);
+      expect(find.text('Asansör'), findsOneWidget);
+      expect(find.text('Yangın'), findsOneWidget);
+      expect(find.textContaining('112'), findsNothing);
+      await t.tap(find.byKey(const ValueKey('emergency_quick_elevator')));
+      await t.pump();
+      expect(service.requests, isEmpty);
+      await t.tap(find.byKey(const ValueKey('emergency_elevator_71')));
+      await t.pump();
+      await t.pump();
+      expect(service.requests.single.kind, 'elevator');
+      expect(service.requests.single.equipment, 71);
+      expect(find.text('Alarm #81 kaydedildi.'), findsOneWidget);
+      expect(find.textContaining('duyduğu anlamına gelmez'), findsOneWidget);
+    },
+  );
+  testWidgets('yangın önce konum; seçilen blok sunucuya gider', (t) async {
+    final service = AlarmFakeService();
+    await pumpAlarm(t, service);
+    await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+    await t.pump();
+    expect(service.requests, isEmpty);
+    expect(find.text('Yangın nerede?'), findsOneWidget);
+    await t.tap(find.byKey(const ValueKey('emergency_location_block:34')));
+    await t.pump();
+    await t.pump();
+    expect(service.requests.single.kind, 'fire');
+    expect(service.requests.single.location, 'block:34');
   });
-
-  group('taşma yok (AGENTS.md kural 6)', () {
-    for (final dry in <bool>[false, true]) {
-      listMatrix('acil durum ${dry ? 'kuru mod' : 'arama kanalı var'}', (t, width, height, scale, dark) async {
-        final service = _FakeService(sites: <EmergencySite>[_gul, _lale]);
-        await pumpList(
-          t,
-          EmergencyView(authService: service.authService, service: service, channel: _FakeChannel(may: !dry), allowEdit: true),
-          width: width,
-          height: height,
-          scale: scale,
-          dark: dark,
+  testWidgets('hızlı çift seçimde tek POST, hata sonrası aynı anahtar', (
+    t,
+  ) async {
+    final service = AlarmFakeService()
+      ..gate = Completer<void>()
+      ..failure = ApiException('Bağlantı kesildi.');
+    await pumpAlarm(t, service);
+    await t.tap(find.byKey(const ValueKey('emergency_quick_elevator')));
+    await t.pump();
+    await t.tap(find.byKey(const ValueKey('emergency_elevator_71')));
+    await t.tap(find.byKey(const ValueKey('emergency_elevator_71')));
+    await t.pump();
+    expect(service.requests.length, 1);
+    final key = service.requests.single.key;
+    service.gate!.complete();
+    await t.pump();
+    expect(find.byKey(const ValueKey('emergency_receipt')), findsNothing);
+    service.failure = null;
+    service.gate = null;
+    await t.ensureVisible(find.text('Tekrar dene'));
+    await t.tap(find.text('Tekrar dene'));
+    await t.pump();
+    await t.pump();
+    expect(service.requests.length, 2);
+    expect(service.requests.last.key, key);
+    expect(find.text('Alarm #81 kaydedildi.'), findsOneWidget);
+  });
+  testWidgets('asansör yoksa düğme gizlenir; eklenince yenilemede gelir', (
+    t,
+  ) async {
+    final service = AlarmFakeService()..elevators = [];
+    await pumpAlarm(t, service);
+    expect(
+      find.byKey(const ValueKey('emergency_quick_elevator')),
+      findsNothing,
+    );
+    expect(find.byKey(const ValueKey('emergency_quick_fire')), findsOneWidget);
+    service.elevators = const [EmergencyElevator(id: 72, name: 'Yeni asansör')];
+    await t.state<EmergencyViewState>(find.byType(EmergencyView)).reload();
+    await t.pump();
+    expect(
+      find.byKey(const ValueKey('emergency_quick_elevator')),
+      findsOneWidget,
+    );
+    expect(service.requests, isEmpty);
+  });
+  testWidgets('asansör yüklemesi ve hatası yokmuş gibi yorumlanmaz', (t) async {
+    final service = AlarmFakeService()
+      ..elevatorGate = Completer<List<EmergencyElevator>>();
+    await pumpAlarm(t, service);
+    expect(find.byType(LinearProgressIndicator), findsWidgets);
+    expect(service.requests, isEmpty);
+    service.elevatorGate!.completeError(
+      ApiException('Asansör bağlantısı kesildi.'),
+    );
+    await t.pump();
+    expect(find.text('Asansör bağlantısı kesildi.'), findsOneWidget);
+    service.elevatorGate = null;
+    await t.tap(find.text('Tekrar dene'));
+    await t.pump();
+    expect(
+      find.byKey(const ValueKey('emergency_quick_elevator')),
+      findsOneWidget,
+    );
+  });
+  for (final onlyBlock in [false, true]) {
+    testWidgets(
+      '${onlyBlock ? 'tek blok' : 'bloksuz site'} yangını tek dokunuşla doğru kapsama gönderir',
+      (t) async {
+        final service = AlarmFakeService()
+          ..locations = [
+            const EmergencyLocation(id: 'site', name: 'Tüm site / Ortak alan'),
+            if (onlyBlock)
+              const EmergencyLocation(id: 'block:34', name: 'A Blok'),
+          ];
+        await pumpAlarm(t, service);
+        expect(service.requests, isEmpty);
+        await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+        await t.pump();
+        await t.pump();
+        expect(
+          service.requests.single.location,
+          onlyBlock ? 'block:34' : 'site',
         );
-        await settleFor(t);
-        for (final key in <String>['emergency_quick_fire', 'emergency_quick_elevator']) {
-          await _tapKey(t, key);
-          await settleFor(t);
-        }
-        await _tapKey(t, 'emergency_edit_firm');
-        await settleFor(t);
-        expect(find.byType(AlertDialog), findsOneWidget);
-      });
-    }
-
-    testWidgets('masaüstü geniş ekran (820x1180 x1.0): yan yana hızlı düğmelerde sınırsız yükseklik hatası yok', (t) async {
-      final service = _FakeService(sites: <EmergencySite>[_gul, _lale]);
-      await _pump(t, service: service, channel: _FakeChannel(may: false), width: 820, height: 1180, scale: 1.0);
-      expect(t.takeException(), isNull);
-      await _tapKey(t, 'emergency_quick_fire');
-      await settleFor(t);
-      expect(t.takeException(), isNull);
-    });
-
-    listMatrix('acil durum: firma yok, hata ve adres yok durumları', (t, width, height, scale, dark) async {
-      final service = _FakeService(sites: <EmergencySite>[const EmergencySite(siteCode: 1, siteName: 'Çok Uzun Adlı Büyük Toplu Konut Sitesi Yönetimi', canEdit: true)])
-        ..listError = ApiException('Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
-      await pumpList(
-        t,
-        EmergencyView(authService: service.authService, service: service, channel: _FakeChannel(probeResult: false), allowEdit: true),
-        width: width,
-        height: height,
-        scale: scale,
-        dark: dark,
+        expect(find.text('Yangın nerede?'), findsNothing);
+        expect(find.byKey(const ValueKey('emergency_receipt')), findsOneWidget);
+      },
+    );
+  }
+  testWidgets(
+    'yangın tıklaması taze blok sayısını kullanır; yenileme kendi kendine alarm üretmez',
+    (t) async {
+      final service = AlarmFakeService();
+      await pumpAlarm(t, service);
+      await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+      await t.pump();
+      expect(find.text('Yangın nerede?'), findsOneWidget);
+      expect(service.requests, isEmpty);
+      service.locations = const [
+        EmergencyLocation(id: 'block:34', name: 'A Blok'),
+      ];
+      await t.state<EmergencyViewState>(find.byType(EmergencyView)).reload();
+      await t.pump();
+      expect(
+        service.requests,
+        isEmpty,
+        reason: 'Yalnız kullanıcının Yangın dokunuşu alarm başlatır.',
       );
-      await settleFor(t);
-      await _tapKey(t, 'emergency_quick_elevator');
-      await settleFor(t);
-      service.listError = null;
-      await tapText(t, 'Tekrar Dene');
-    });
+      await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+      await t.pump();
+      await t.pump();
+      expect(service.requests.single.location, 'block:34');
+    },
+  );
+  testWidgets(
+    'tek blok yangın çift dokunma ve belirsiz ağda ikinci alarm üretmez',
+    (t) async {
+      final service = AlarmFakeService()
+        ..locations = const [EmergencyLocation(id: 'block:34', name: 'A Blok')]
+        ..locationGate = Completer<List<EmergencyLocation>>()
+        ..failure = ApiException('Bağlantı kesildi.');
+      await pumpAlarm(t, service);
+      final fire = find.byKey(const ValueKey('emergency_quick_fire'));
+      await t.tap(fire);
+      await t.tap(fire);
+      expect(service.locationCalls, 1);
+      service.locationGate!.complete(service.locations);
+      await t.pump();
+      await t.pump();
+      expect(service.requests.length, 1);
+      final key = service.requests.single.key;
+      service.failure = null;
+      await t.ensureVisible(find.text('Tekrar dene'));
+      await t.tap(find.text('Tekrar dene'));
+      await t.pump();
+      await t.pump();
+      expect(service.requests.length, 2);
+      expect(service.requests.last.key, key);
+      expect(service.requests.last.location, 'block:34');
+    },
+  );
+  testWidgets('boş konum cevabı site geneli yangın alarmına dönüşmez', (
+    t,
+  ) async {
+    final service = AlarmFakeService()..locations = [];
+    await pumpAlarm(t, service);
+    await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+    await t.pump();
+    expect(service.requests, isEmpty);
+    expect(find.textContaining('Yangın konumu doğrulanamadı'), findsOneWidget);
   });
+  testWidgets(
+    'Yangın beklerken Asansör seçimi eski otomatik alarm niyetini iptal eder',
+    (t) async {
+      final service = AlarmFakeService()
+        ..locationGate = Completer<List<EmergencyLocation>>();
+      await pumpAlarm(t, service);
+      await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+      await t.pump();
+      await t.tap(find.byKey(const ValueKey('emergency_quick_elevator')));
+      await t.pump();
+      service.locationGate!.complete(const [
+        EmergencyLocation(id: 'block:34', name: 'GECİKMİŞ'),
+      ]);
+      await t.pump();
+      expect(service.requests, isEmpty);
+      expect(find.text('GECİKMİŞ'), findsNothing);
+      expect(
+        find.byKey(const ValueKey('emergency_elevator_71')),
+        findsOneWidget,
+      );
+    },
+  );
+  testWidgets('Yangın beklerken yenileme eski tekblok yanıtını alarm yapmaz', (
+    t,
+  ) async {
+    final service = AlarmFakeService()
+      ..locationGate = Completer<List<EmergencyLocation>>();
+    await pumpAlarm(t, service);
+    await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+    await t.pump();
+    await t.state<EmergencyViewState>(find.byType(EmergencyView)).reload();
+    service.locationGate!.complete(const [
+      EmergencyLocation(id: 'block:34', name: 'GECİKMİŞ'),
+    ]);
+    await t.pump();
+    expect(service.requests, isEmpty);
+    expect(find.text('GECİKMİŞ'), findsNothing);
+  });
+  testWidgets(
+    'tercih edilen site değişirse önceki tekblok yanıtı gönderilmez',
+    (t) async {
+      final service = AlarmFakeService()
+        ..sites = const [
+          EmergencySite(siteCode: 11, siteName: 'A', canCreate: true),
+          EmergencySite(siteCode: 22, siteName: 'B', canCreate: true),
+        ]
+        ..locationGate = Completer<List<EmergencyLocation>>();
+      await pumpAlarm(t, service, preferredSiteCode: 11);
+      await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+      await t.pump();
+      await pumpAlarm(t, service, preferredSiteCode: 22);
+      service.locationGate!.complete(const [
+        EmergencyLocation(id: 'block:34', name: 'GECİKMİŞ A'),
+      ]);
+      await t.pump();
+      expect(service.requests, isEmpty);
+      expect(find.text('GECİKMİŞ A'), findsNothing);
+    },
+  );
+  testWidgets(
+    'belirsiz alarm sonucunda tercih edilen site değişse de tekrar aynı payload ve anahtarı korur',
+    (t) async {
+      final service = AlarmFakeService()
+        ..sites = const [
+          EmergencySite(siteCode: 11, siteName: 'A', canCreate: true),
+          EmergencySite(siteCode: 22, siteName: 'B', canCreate: true),
+        ]
+        ..locations = const [EmergencyLocation(id: 'block:34', name: 'A Blok')]
+        ..failure = ApiException('Belirsiz ağ sonucu');
+      await pumpAlarm(t, service, preferredSiteCode: 11);
+      await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+      await t.pump();
+      await t.pump();
+      final first = service.requests.single;
+      await pumpAlarm(t, service, preferredSiteCode: 22);
+      service.failure = null;
+      await t.ensureVisible(find.text('Tekrar dene'));
+      await t.tap(find.text('Tekrar dene'));
+      await t.pump();
+      await t.pump();
+      expect(service.requests.last, first);
+    },
+  );
+  testWidgets('gerçek sakin yetkisi yoksa düğmeler pasif', (t) async {
+    final service = AlarmFakeService()
+      ..sites = const [
+        EmergencySite(siteCode: 11, siteName: 'Gül', canCreate: false),
+      ];
+    await pumpAlarm(t, service);
+    expect(
+      t
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('emergency_quick_fire')),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+  for (final dark in [false, true]) {
+    for (final oneBlock in [false, true]) {
+      testWidgets(
+        '320px yazı2 ${dark ? 'koyu' : 'açık'} asansörsüz ${oneBlock ? 'tek blok' : 'bloksuz'} sade yangın',
+        (t) async {
+          final service = AlarmFakeService()
+            ..elevators = []
+            ..locations = [
+              const EmergencyLocation(
+                id: 'site',
+                name: 'Tüm site / Ortak alan',
+              ),
+              if (oneBlock)
+                const EmergencyLocation(id: 'block:34', name: 'A Blok'),
+            ];
+          await pumpAlarm(t, service, width: 320, scale: 2, dark: dark);
+          expect(find.text('Asansör'), findsNothing);
+          expect(t.takeException(), isNull);
+          final suffix =
+              '${oneBlock ? 'tekblok' : 'bloksuz'}-${dark ? 'koyu' : 'acik'}';
+          await renderProof(t, 'asansor-yok-$suffix-320');
+          await t.tap(find.byKey(const ValueKey('emergency_quick_fire')));
+          await t.pump();
+          await t.pump();
+          expect(
+            service.requests.single.location,
+            oneBlock ? 'block:34' : 'site',
+          );
+          expect(find.text('Yangın nerede?'), findsNothing);
+          expect(t.takeException(), isNull);
+          await renderProof(t, 'yangin-direkt-$suffix-320');
+        },
+      );
+    }
+    testWidgets(
+      '320px yazı2 ${dark ? 'koyu' : 'açık'} iki düğme ve konum taşmaz',
+      (t) async {
+        final service = AlarmFakeService();
+        await pumpAlarm(t, service, width: 320, scale: 2, dark: dark);
+        expect(t.takeException(), isNull);
+        await renderProof(t, 'acil-320-${dark ? 'koyu' : 'acik'}');
+        final fire = find.byKey(const ValueKey('emergency_quick_fire'));
+        await t.ensureVisible(fire);
+        await t.tap(fire);
+        await t.pump();
+        expect(t.takeException(), isNull);
+        await renderProof(t, 'yangin-konum-320-${dark ? 'koyu' : 'acik'}');
+      },
+    );
+  }
 }

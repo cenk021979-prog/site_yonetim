@@ -232,11 +232,16 @@ class _DocumentDetailDialogState extends State<DocumentDetailDialog> {
   Future<void> _open(BuildContext buttonContext, {int? version}) async {
     final detail = _detail;
     if (detail == null || _busy) return;
+    final scope = widget.scope.siteCode;
+    final session = widget.service.authService.session;
     setState(() => _busy = true);
     try {
-      await downloadAndShareDocument(
+      await downloadAndDeliverDocument(
         context,
         title: detail.title,
+        canDeliver: () => mounted && session != null && widget.scope.siteCode == scope &&
+            widget.service.authService.session?.id == session.id &&
+            widget.service.authService.session?.token == session.token,
         originContext: buttonContext,
         sharer: widget.sharer,
         download: (onProgress, cancel) => widget.service.downloadManaged(

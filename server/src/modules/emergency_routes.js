@@ -11,8 +11,10 @@ import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { listEmergencySites, parseEmergencyInfoBody, saveElevatorFirm } from './emergency_service.js';
 import { resolvePeopleAccess } from './people_access.js';
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
+import { emergencyAlarmRouter } from './emergency_alarm_routes.js';
 
 export const emergencyRouter = express.Router();
+emergencyRouter.use(emergencyAlarmRouter);
 
 export const emergencyReadLimiter = createRuleLimiter({
   rules: [

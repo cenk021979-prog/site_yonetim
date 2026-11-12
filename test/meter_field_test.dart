@@ -12,6 +12,11 @@ import 'package:site_kapi_kontrol/services/meter_field_queue.dart';
 class _MemoryStore implements MeterFieldStore {
   List<PendingMeterReading> items = <PendingMeterReading>[];
   final Map<String, Uint8List> photos = <String, Uint8List>{};
+  bool failPhoto = false;
+  Completer<Uint8List?>? photoReadGate;
+  Completer<void>? photoReadStarted;
+  Completer<void>? photoWriteGate;
+  Completer<void>? photoWriteStarted;
 
   @override
   Future<List<PendingMeterReading>> load() async => List<PendingMeterReading>.of(items);
@@ -19,12 +24,18 @@ class _MemoryStore implements MeterFieldStore {
   Future<void> save(List<PendingMeterReading> next) async => items = List<PendingMeterReading>.of(next);
   @override
   Future<String?> writePhoto(String id, Uint8List bytes) async {
+    if (failPhoto) return null;
     photos['mem/$id'] = bytes;
+    photoWriteStarted?.complete();
+    if (photoWriteGate != null) await photoWriteGate!.future;
     return 'mem/$id';
   }
 
   @override
-  Future<Uint8List?> readPhoto(String path) async => photos[path];
+  Future<Uint8List?> readPhoto(String path) async {
+    photoReadStarted?.complete();
+    return photoReadGate == null ? photos[path] : photoReadGate!.future;
+  }
   @override
   Future<void> deletePhoto(String path) async => photos.remove(path);
   @override
@@ -78,6 +89,67 @@ FieldMeter jumpMeter({int id = 1, String label = 'A Blok - 1'}) => FieldMeter(
 const FieldReadingResult ok = FieldReadingResult(replayed: false, photoStorage: 'server');
 
 void main() {
+  test('fotoğraf yazılamayınca önceki bekleyen kayıt silinmez ve yeni kayıt başarılı sayılmaz', () async {
+    final store = _MemoryStore();
+    final queue = MeterFieldQueue(store: store);
+    final old = await queue.enqueue(siteCode: 7, meter: meter(1, 'A - 1'), date: '2026-11-08', value: '10');
+    store.failPhoto = true;
+    await expectLater(queue.enqueue(siteCode: 7, meter: meter(1, 'A - 1'), date: '2026-11-08', value: '11', photo: Uint8List.fromList([1]), replaceQueued: true), throwsStateError);
+    expect((await queue.items()).single.id, old.id);
+    expect((await queue.items()).single.value, '10');
+  });
+  test('fotoğraf kaybolmuşsa okuma fotoğrafsız sessiz gönderilmez', () async {
+    final store = _MemoryStore();
+    final queue = MeterFieldQueue(store: store);
+    await queue.enqueue(siteCode: 7, meter: meter(1, 'A - 1'), date: '2026-11-08', value: '10', photo: Uint8List.fromList([1]));
+    store.photos.clear();
+    final service = _FakeService((_, _) async => const FieldReadingResult(replayed: false, photoStorage: 'server'));
+    final report = await queue.flush(service);
+    expect(report.rejected, 1);
+    expect(service.calls, isEmpty);
+    expect((await queue.items()).single.errorCode, 'LOCAL_PHOTO_MISSING');
+  });
+  test('gönderim turunda hesap/site kapsamı değişirse sonraki kayıt gönderilmez', () async {
+    final queue = MeterFieldQueue(store: _MemoryStore());
+    for (final id in [1, 2]) { await queue.enqueue(siteCode: 7, meter: meter(id, 'A - $id'), date: '2026-11-08', value: '10'); }
+    var current = true;
+    final service = _FakeService((_, _) async { current = false; return const FieldReadingResult(replayed: false, photoStorage: 'none'); });
+    await queue.flush(service, canSend: () => current);
+    expect(service.calls, [1]);
+    expect((await queue.items()).single.meterId, 2);
+  });
+  test('fotoğraf disk/IDB okuması sürerken hesap değişirse POST yapılmaz; kuyruk ve fotoğraf korunur', () async {
+    final store = _MemoryStore();
+    final queue = MeterFieldQueue(store: store);
+    final photo = Uint8List.fromList([1, 2, 3]);
+    final queued = await queue.enqueue(siteCode: 7, meter: meter(1, 'A - 1'), date: '2026-11-08', value: '10', photo: photo);
+    store.photoReadGate = Completer<Uint8List?>();
+    store.photoReadStarted = Completer<void>();
+    var current = true;
+    final service = _FakeService((_, _) async => const FieldReadingResult(replayed: false, photoStorage: 'server'));
+    final flushing = queue.flush(service, canSend: () => current);
+    await store.photoReadStarted!.future;
+    current = false;
+    store.photoReadGate!.complete(photo);
+    await flushing;
+    expect(service.calls, isEmpty);
+    expect((await queue.items()).single.id, queued.id);
+    expect(store.photos[queued.photoPath], photo);
+  });
+  test('Kopyaları sil devam eden fotoğraf+metadata kaydını araya girip silemez', () async {
+    final store = _MemoryStore();
+    final queue = MeterFieldQueue(store: store);
+    store.photoWriteGate = Completer<void>();
+    store.photoWriteStarted = Completer<void>();
+    final enqueue = queue.enqueue(siteCode: 7, meter: meter(1, 'A - 1'), date: '2026-11-08', value: '10', photo: Uint8List.fromList([1, 2, 3]));
+    await store.photoWriteStarted!.future;
+    final cleanup = queue.deleteKeptPhotos();
+    store.photoWriteGate!.complete();
+    final pending = await enqueue;
+    expect(await cleanup, 0);
+    expect((await queue.items()).single.id, pending.id);
+    expect(store.photos[pending.photoPath], [1, 2, 3]);
+  });
   group('değer seçimi', () {
     test('en uzun rakam dizisi alınır, virgül noktaya döner', () {
       expect(pickMeterValue('M3\n00123,456\n12'), '00123.456');

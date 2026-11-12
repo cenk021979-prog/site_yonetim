@@ -77,6 +77,7 @@ describe('rota zinciri', () => {
     assert.deepEqual(Object.keys(byKey).sort(), [
       'DELETE /app/push/devices/:installId',
       'GET /admin/push/status',
+      'GET /app/push/capabilities',
       'GET /app/push/devices',
       'POST /app/push/test',
       'PUT /app/push/devices',

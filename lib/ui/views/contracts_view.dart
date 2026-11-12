@@ -213,15 +213,14 @@ class ContractsViewState extends State<ContractsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Sözleşmeler', icon: Icons.handshake_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          canWrite
+        PageHeaderCard(
+          title: 'Sözleşmeler',
+          icon: Icons.handshake_rounded,
+          help: canWrite
               ? 'Hizmet aldığınız firmaları ve sözleşmeleri kaydedin; bitişi yaklaşan sözleşmeleri zamanında görün.'
               : 'Sitenin hizmet aldığı firmaları ve sözleşmelerin bitiş tarihlerini izleyin.',
-          style: th.bodyMedium,
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (_sitesError != null) ...[
           InlineNotice(message: _sitesError!, onRetry: _loadSites),
           const SizedBox(height: AppSpace.md),

@@ -28,6 +28,7 @@ import '../views/legal_consent_field.dart';
 import '../widgets/crm_parts.dart';
 import '../widgets/management_type_selector.dart';
 import '../widgets/site_application_parts.dart';
+import '../widgets/site_setup_template_button.dart';
 import 'large_dialog_parts.dart';
 
 /// Site kurma formunun çalışma biçimi.
@@ -63,8 +64,8 @@ enum SetupSiteOutcome {
 
 class _BlockDraft {
   _BlockDraft({required this.name, required this.apartmentCount})
-      : nameController = TextEditingController(text: name),
-        countController = TextEditingController(text: apartmentCount.toString());
+    : nameController = TextEditingController(text: name),
+      countController = TextEditingController(text: apartmentCount.toString());
 
   String name;
   int apartmentCount;
@@ -72,7 +73,8 @@ class _BlockDraft {
   final TextEditingController countController;
 
   /// Ad alanının durumu: bir blok adı değişince öbürlerinin "benzersiz olmalı" hatası canlı güncellensin.
-  final GlobalKey<FormFieldState<String>> nameKey = GlobalKey<FormFieldState<String>>();
+  final GlobalKey<FormFieldState<String>> nameKey =
+      GlobalKey<FormFieldState<String>>();
 
   void dispose() {
     nameController.dispose();
@@ -128,7 +130,10 @@ class SetupSiteDialog extends StatefulWidget {
   /// Oturumun rolüne göre varsayılan çalışma biçimi: yalnızca süper kullanıcı doğrudan site kurabilir.
   /// Site yöneticisi, bireysel ve diğer tüm kullanıcılar süper kullanıcıdan onay almadan site kuramaz;
   /// talep başvuru kipine (`SetupSiteMode.application`) geçer ve süper kullanıcının onayına düşer.
-  static SetupSiteMode modeFor(AuthService authService, {bool? requiresApplication}) {
+  static SetupSiteMode modeFor(
+    AuthService authService, {
+    bool? requiresApplication,
+  }) {
     final role = authService.session?.role;
     if (role != UserRole.superUser) {
       return SetupSiteMode.application;
@@ -185,8 +190,11 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
 
   /// Çalışma biçimi. Anlık kurulum 409 `APPLICATION_REQUIRED` dönerse (eskimiş rol / alan) başvuru kipine
   /// geçilir: kullanıcı çıkmaza sokulmaz, girdiği bilgiler korunur.
-  late SetupSiteMode _mode = widget.mode ?? SetupSiteDialog.modeFor(widget.authService);
-  final FocusNode _successFocus = FocusNode(debugLabel: 'site_application_success');
+  late SetupSiteMode _mode =
+      widget.mode ?? SetupSiteDialog.modeFor(widget.authService);
+  final FocusNode _successFocus = FocusNode(
+    debugLabel: 'site_application_success',
+  );
 
   String? _selectedCity;
   String? _selectedDistrict;
@@ -221,7 +229,9 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       _outcome ??
       (_uncertain
           ? SetupSiteOutcome.uncertain
-          : (_sawApplicationRequired ? SetupSiteOutcome.applicationRequired : null));
+          : (_sawApplicationRequired
+                ? SetupSiteOutcome.applicationRequired
+                : null));
 
   @override
   void initState() {
@@ -236,7 +246,10 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       if (city != null && turkeyCitiesAndDistricts.containsKey(city)) {
         _selectedCity = city;
         final district = prefill.district;
-        if (district != null && (turkeyCitiesAndDistricts[city] ?? const <String>[]).contains(district)) {
+        if (district != null &&
+            (turkeyCitiesAndDistricts[city] ?? const <String>[]).contains(
+              district,
+            )) {
           _selectedDistrict = district;
         }
       }
@@ -245,14 +258,18 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       for (final block in prefill.blocks.take(SetupSiteDialog.maxBlocks)) {
         _blocks.add(
           _BlockDraft(
-            name: block.name.isEmpty ? 'Blok ${_blocks.length + 1}' : block.name,
+            name: block.name.isEmpty
+                ? 'Blok ${_blocks.length + 1}'
+                : block.name,
             apartmentCount: block.apartmentCount < 1 ? 1 : block.apartmentCount,
           ),
         );
       }
     }
     // Başlangıçta 1 blok ekle (kapılar site kurulumunda girilmez; Akıllı Geçiş Modülü'nde yönetilir)
-    if (_blocks.isEmpty) _blocks.add(_BlockDraft(name: 'A Blok', apartmentCount: 10));
+    if (_blocks.isEmpty) {
+      _blocks.add(_BlockDraft(name: 'A Blok', apartmentCount: 10));
+    }
 
     if (_isApplication) {
       _selectedDevice = widget.deviceUid ?? _noDevice;
@@ -310,7 +327,8 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       final devices = await widget.authService.getMyClaimedDevices();
       uids = <String>[
         for (final d in devices)
-          if (d['site_code'] == null && (d['device_uid']?.toString() ?? '').isNotEmpty)
+          if (d['site_code'] == null &&
+              (d['device_uid']?.toString() ?? '').isNotEmpty)
             d['device_uid'].toString(),
       ];
     } catch (e) {
@@ -324,13 +342,18 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       _devicesLoading = false;
       _devicesError = failure;
       final explicit = widget.deviceUid;
-      if (explicit != null && !uids.contains(explicit)) uids = <String>[explicit, ...uids];
+      if (explicit != null && !uids.contains(explicit)) {
+        uids = <String>[explicit, ...uids];
+      }
       _deviceUids = uids;
       // "Yeniden başvur": önceki cihaz hâlâ uygunsa seçili gelir; değilse sessizce cihazsız.
       final preferred = widget.deviceUid ?? widget.prefill?.deviceUid;
-      if (_selectedDevice == _noDevice && preferred != null && uids.contains(preferred)) {
+      if (_selectedDevice == _noDevice &&
+          preferred != null &&
+          uids.contains(preferred)) {
         _selectedDevice = preferred;
-      } else if (_selectedDevice != _noDevice && !uids.contains(_selectedDevice)) {
+      } else if (_selectedDevice != _noDevice &&
+          !uids.contains(_selectedDevice)) {
         _selectedDevice = _noDevice;
       }
       _deviceVersion++;
@@ -389,7 +412,9 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
   /// düzeltilmez).
   String? _validateApartmentCount(String? value) {
     final parsed = int.tryParse((value ?? '').trim());
-    if (parsed == null || parsed < 1 || parsed > SetupSiteDialog.maxApartments) {
+    if (parsed == null ||
+        parsed < 1 ||
+        parsed > SetupSiteDialog.maxApartments) {
       return 'Daire sayısı 1 ile ${SetupSiteDialog.maxApartments} arasında olmalı.';
     }
     return null;
@@ -411,10 +436,14 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       };
     }).toList();
 
-    final total = blockPayload.fold<int>(0, (sum, b) => sum + (b['apartmentCount'] as int));
+    final total = blockPayload.fold<int>(
+      0,
+      (sum, b) => sum + (b['apartmentCount'] as int),
+    );
     if (total > SetupSiteDialog.maxApartments) {
       setState(() {
-        _error = 'Toplam daire sayısı en fazla ${SetupSiteDialog.maxApartments} olabilir.';
+        _error =
+            'Toplam daire sayısı en fazla ${SetupSiteDialog.maxApartments} olabilir.';
       });
       return;
     }
@@ -492,24 +521,30 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       }
       // Anlık kurulum kapalı (sahip bağı olmayan yönetici ya da bayat alan): çıkmaz yok -> başvuru kipine
       // geçilir, girilen bilgiler korunur; çağıran durumu sunucudan yeniden okur (form kapanınca).
-      final switchToApplication = !_isApplication && e.code == 'APPLICATION_REQUIRED';
+      final switchToApplication =
+          !_isApplication && e.code == 'APPLICATION_REQUIRED';
       setState(() {
         if (switchToApplication) {
           _sawApplicationRequired = true;
           _mode = SetupSiteMode.application;
           _selectedDevice = widget.deviceUid ?? _noDevice;
-          if (widget.deviceUid != null && !_deviceUids.contains(widget.deviceUid)) {
+          if (widget.deviceUid != null &&
+              !_deviceUids.contains(widget.deviceUid)) {
             _deviceUids = <String>[widget.deviceUid!];
           }
           _error =
               'Site eklemek için başvuru yapmanız gerekiyor. Bilgileriniz korundu; '
               '"Başvuruyu Gönder" ile devam edebilirsiniz.';
         } else {
-          _error = limited ? RetryLock.messageFor(e) : crmMessageOf(e, _failureFallback);
+          _error = limited
+              ? RetryLock.messageFor(e)
+              : crmMessageOf(e, _failureFallback);
         }
         // İstek sunucuya ulaşmış olabilir (zaman aşımı / 5xx): form başvuru alınmadan kapanırsa çağıran durumu
         // yeniden okur.
-        if (_isApplication && (e.statusCode == null || e.isServerError)) _uncertain = true;
+        if (_isApplication && (e.statusCode == null || e.isServerError)) {
+          _uncertain = true;
+        }
         _submitting = false;
       });
       if (switchToApplication) {
@@ -550,12 +585,17 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
     // bırakmaz ve taşırdı (AppDialog notu: içeriğe Expanded verme, tüm pencere kaydırılsın). Bu durumlarda
     // başlık, form ve gönder düğmesi TEK kaydırma alanında akar; gönder düğmesi formun sonundadır.
     final screen = MediaQuery.sizeOf(context);
-    final available = screen.height - MediaQuery.viewInsetsOf(context).bottom - 2 * AppSpace.xl;
+    final available =
+        screen.height -
+        MediaQuery.viewInsetsOf(context).bottom -
+        2 * AppSpace.xl;
     final scrollAll = compactHeader || available < _scrollAllBelow;
     final subtitle = _isApplication
         ? 'Onaydan sonra site yöneticisi olursunuz'
         : 'Site Yönetimi Ayarları';
-    final dpaReason = (_dpaBlocksSubmit && !_submitting) ? _dpa?.blockReason : null;
+    final dpaReason = (_dpaBlocksSubmit && !_submitting)
+        ? _dpa?.blockReason
+        : null;
     final submitButton = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -576,17 +616,32 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
             key: const ValueKey<String>('setup_site_submit'),
             label: _submitting
                 ? (_isApplication ? 'Gönderiliyor...' : 'Site Kuruluyor...')
-                : (_isApplication ? 'Başvuruyu Gönder' : 'Site Kurulumunu Tamamla'),
-            icon: _isApplication ? Icons.send_rounded : Icons.check_circle_rounded,
+                : (_isApplication
+                      ? 'Başvuruyu Gönder'
+                      : 'Site Kurulumunu Tamamla'),
+            icon: _isApplication
+                ? Icons.send_rounded
+                : Icons.check_circle_rounded,
             loading: _submitting,
             // Gönderim sürerken, hız sınırı (429) sonrası kısa süre ve DPA onayı yokken kilitli.
-            onPressed: (_submitting || _retry.locked || _dpaBlocksSubmit) ? null : _submit,
+            onPressed: (_submitting || _retry.locked || _dpaBlocksSubmit)
+                ? null
+                : _submit,
           ),
         ),
       ],
     );
-    final header = _buildHeader(context, compactHeader: compactHeader, subtitle: subtitle);
-    const formPadding = EdgeInsets.fromLTRB(AppSpace.xl, AppSpace.lg, AppSpace.xl, AppSpace.lg);
+    final header = _buildHeader(
+      context,
+      compactHeader: compactHeader,
+      subtitle: subtitle,
+    );
+    const formPadding = EdgeInsets.fromLTRB(
+      AppSpace.xl,
+      AppSpace.lg,
+      AppSpace.xl,
+      AppSpace.lg,
+    );
 
     final Widget content;
     if (submitted) {
@@ -595,7 +650,11 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [header, const Divider(height: 1), _buildSuccess(context)],
+                children: [
+                  header,
+                  const Divider(height: 1),
+                  _buildSuccess(context),
+                ],
               ),
             )
           : Column(
@@ -604,7 +663,9 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
               children: [
                 header,
                 const Divider(height: 1),
-                Flexible(child: SingleChildScrollView(child: _buildSuccess(context))),
+                Flexible(
+                  child: SingleChildScrollView(child: _buildSuccess(context)),
+                ),
               ],
             );
     } else if (scrollAll) {
@@ -668,7 +729,12 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
           // Onay Butonu (sabit; yer darsa formun sonunda)
           const Divider(height: 1),
           Padding(
-            padding: const EdgeInsets.fromLTRB(AppSpace.xl, AppSpace.md, AppSpace.xl, AppSpace.xl),
+            padding: const EdgeInsets.fromLTRB(
+              AppSpace.xl,
+              AppSpace.md,
+              AppSpace.xl,
+              AppSpace.xl,
+            ),
             child: submitButton,
           ),
         ],
@@ -679,10 +745,15 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       // Gönderim sürerken geri tuşu pencereyi kapatmaz; başvuru gönderildiyse sonuçla kapanır.
       canPop: !_submitting && !submitted,
       onPopInvokedWithResult: (didPop, _) {
-        if (!didPop && submitted && !_submitting) popIfCurrent(context, _closeResult);
+        if (!didPop && submitted && !_submitting) {
+          popIfCurrent(context, _closeResult);
+        }
       },
       child: Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xl),
+        insetPadding: const EdgeInsets.symmetric(
+          horizontal: AppSpace.lg,
+          vertical: AppSpace.xl,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520, maxHeight: 720),
           child: content,
@@ -696,7 +767,11 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
   static const double _scrollAllBelow = 560;
 
   /// Başlık şeridi + sağ üstte kapatma düğmesi (başlık düğmenin altına girmesin diye sağdan pay).
-  Widget _buildHeader(BuildContext context, {required bool compactHeader, required String subtitle}) {
+  Widget _buildHeader(
+    BuildContext context, {
+    required bool compactHeader,
+    required String subtitle,
+  }) {
     return Stack(
       children: [
         Padding(
@@ -704,14 +779,18 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
           child: AppDialogHeader(
             title: _isApplication ? 'Site Başvurusu' : 'Site Kurulum Sihirbazı',
             subtitle: compactHeader ? null : subtitle,
-            icon: _isApplication ? Icons.domain_add_rounded : Icons.apartment_rounded,
+            icon: _isApplication
+                ? Icons.domain_add_rounded
+                : Icons.apartment_rounded,
           ),
         ),
         PositionedDirectional(
           top: AppSpace.sm,
           end: AppSpace.sm,
           child: IconButton(
-            onPressed: _submitting ? null : () => popIfCurrent(context, _closeResult),
+            onPressed: _submitting
+                ? null
+                : () => popIfCurrent(context, _closeResult),
             icon: const Icon(Icons.close_rounded),
             tooltip: 'Kapat',
             // Dokunma hedefi >= 48 dp.
@@ -804,9 +883,19 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
               decoration: const InputDecoration(
                 labelText: 'İl',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
               ),
-              items: cities.map((c) => DropdownMenuItem(value: c, child: Text(c, overflow: TextOverflow.ellipsis))).toList(),
+              items: cities
+                  .map(
+                    (c) => DropdownMenuItem(
+                      value: c,
+                      child: Text(c, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
               onChanged: _submitting
                   ? null
                   : (val) {
@@ -828,9 +917,19 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
               decoration: const InputDecoration(
                 labelText: 'İlçe',
-                contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 14,
+                ),
               ),
-              items: districts.map((d) => DropdownMenuItem(value: d, child: Text(d, overflow: TextOverflow.ellipsis))).toList(),
+              items: districts
+                  .map(
+                    (d) => DropdownMenuItem(
+                      value: d,
+                      child: Text(d, overflow: TextOverflow.ellipsis),
+                    ),
+                  )
+                  .toList(),
               onChanged: (_selectedCity == null || _submitting)
                   ? null
                   : (val) {
@@ -854,7 +953,8 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
           hintText: 'Mahalle, Cadde, Sokak No...',
           prefixIcon: Icon(Icons.location_on_outlined),
         ),
-        validator: (val) => (val ?? '').trim().length > SetupSiteDialog.maxAddressLength
+        validator: (val) =>
+            (val ?? '').trim().length > SetupSiteDialog.maxAddressLength
             ? 'Adres en çok ${SetupSiteDialog.maxAddressLength} karakter olabilir.'
             : null,
       ),
@@ -865,7 +965,8 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
         title: 'Bloklar ve Daireler',
         icon: Icons.apartment_rounded,
         trailing: TextButton.icon(
-          onPressed: (_submitting || _blocks.length >= SetupSiteDialog.maxBlocks)
+          onPressed:
+              (_submitting || _blocks.length >= SetupSiteDialog.maxBlocks)
               ? null
               : _addBlock,
           icon: const Icon(Icons.add_rounded, size: 18),
@@ -887,6 +988,9 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
       ],
       const SizedBox(height: AppSpace.xl),
 
+      SiteSetupTemplateButton(enabled: !_submitting),
+      const SizedBox(height: AppSpace.lg),
+
       if (_isApplication) ...[
         const SizedBox(height: AppSpace.xl),
         // Süper kullanıcıya iletilecek isteğe bağlı not.
@@ -901,8 +1005,13 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
           // birimdedir: kırpılmış metnin Unicode kod noktası.
           maxLengthEnforcement: MaxLengthEnforcement.none,
           onChanged: (_) => setState(() {}),
-          buildCounter: (context, {required currentLength, required isFocused, maxLength}) =>
-              characterCounter(
+          buildCounter:
+              (
+                context, {
+                required currentLength,
+                required isFocused,
+                maxLength,
+              }) => characterCounter(
                 context,
                 trimmedCodePoints(_noteController.text),
                 SetupSiteDialog.maxNoteLength,
@@ -914,7 +1023,8 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
             hintText: 'Süper kullanıcıya iletmek istediğiniz bilgi',
             alignLabelWithHint: true,
           ),
-          validator: (val) => trimmedCodePoints(val ?? '') > SetupSiteDialog.maxNoteLength
+          validator: (val) =>
+              trimmedCodePoints(val ?? '') > SetupSiteDialog.maxNoteLength
               ? 'Not en çok ${SetupSiteDialog.maxNoteLength} karakter olabilir.'
               : null,
         ),
@@ -1031,7 +1141,10 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
             icon: const Icon(Icons.keyboard_arrow_down_rounded),
             decoration: const InputDecoration(
               labelText: 'Bağlanacak cihaz (isteğe bağlı)',
-              contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 14,
+              ),
             ),
             items: [
               const DropdownMenuItem<String>(
@@ -1046,7 +1159,8 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
             ],
             onChanged: _submitting
                 ? null
-                : (value) => setState(() => _selectedDevice = value ?? _noDevice),
+                : (value) =>
+                      setState(() => _selectedDevice = value ?? _noDevice),
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
@@ -1164,8 +1278,9 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
                 return 'Blok adı en çok ${SetupSiteDialog.maxLabelLength} karakter olabilir.';
               }
               final key = _blockNameKey(b);
-              final sameCount =
-                  _blocks.where((o) => _blockNameKey(o) == key).length;
+              final sameCount = _blocks
+                  .where((o) => _blockNameKey(o) == key)
+                  .length;
               return sameCount > 1 ? 'Blok adı benzersiz olmalı.' : null;
             },
           );
@@ -1185,7 +1300,11 @@ class _SetupSiteDialogState extends State<SetupSiteDialog> {
           final deleteButton = _blocks.length > 1
               ? IconButton(
                   onPressed: _submitting ? null : () => _removeBlock(idx),
-                  icon: Icon(Icons.delete_outline_rounded, color: AppTone.danger.ink(p), size: 20),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    color: AppTone.danger.ink(p),
+                    size: 20,
+                  ),
                   // Bağlamlı ipucu / ekran okuyucu etiketi: hangi blok silinir.
                   tooltip: 'Bloğu sil: ${_effectiveBlockName(b)}',
                 )

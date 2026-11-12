@@ -582,7 +582,9 @@ class _PlateCameraTileState extends State<PlateCameraTile> with WidgetsBindingOb
     final (statusColor, statusText) = switch (decision?.decision) {
       PlateDecisionType.acildi => (
         const Color(0xFF10B981),
-        'GİRİŞ ONAYLANDI (KAPI AÇILDI)',
+        decision?.isGateTriggered == true
+            ? 'AÇMA KOMUTU GÖNDERİLDİ'
+            : 'GEÇİŞ İZNİ VAR (KOMUT TEYİDİ YOK)',
       ),
       PlateDecisionType.karaListe => (
         const Color(0xFFEF4444),
@@ -590,11 +592,11 @@ class _PlateCameraTileState extends State<PlateCameraTile> with WidgetsBindingOb
       ),
       PlateDecisionType.red => (
         const Color(0xFFF59E0B),
-        'GİRİŞ REDDEDİLDİ (PARK YERİ DOLU)',
+        'GİRİŞ REDDEDİLDİ',
       ),
       PlateDecisionType.tanimsiz => (
         const Color(0xFFF59E0B),
-        'TANIMSIZ PLAKA (KAPI AÇILMADI)',
+        'TANIMSIZ PLAKA (KOMUT VERİLMEDİ)',
       ),
       null => (
         const Color(0xFF10B981),

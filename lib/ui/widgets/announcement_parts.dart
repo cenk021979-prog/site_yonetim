@@ -324,10 +324,12 @@ class UrgentAnnouncementBanner extends StatelessWidget {
     required this.count,
     required this.onTap,
     this.title,
+    this.maxLines = 3,
   });
 
   final int count;
   final String? title;
+  final int maxLines;
   final VoidCallback onTap;
 
   String get message {
@@ -377,7 +379,7 @@ class UrgentAnnouncementBanner extends StatelessWidget {
                       // duyuruda bulunur.
                       child: Text(
                         text,
-                        maxLines: 3,
+                        maxLines: maxLines,
                         overflow: TextOverflow.ellipsis,
                         style: th.bodyMedium?.copyWith(
                           color: Colors.white,

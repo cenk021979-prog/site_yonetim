@@ -43,6 +43,21 @@ Map<String, dynamic> _recordJson({int id = 7, List<Map<String, dynamic>> attachm
 FeedbackApi _api(MockClient client) => FeedbackApi(baseUrl: 'http://localhost/', client: client);
 
 void main() {
+  test('personal history and images use owner endpoints, no caller supplied user/site scope', () async {
+    final seen = <http.Request>[];
+    final api = _api(MockClient((r) async {
+      seen.add(r);
+      if (r.url.path.endsWith('/content')) return http.Response.bytes([1, 2], 200, headers: {'content-type': 'image/png'});
+      return _json(200, {'items': [_recordJson()], 'next_cursor': 6});
+    }));
+    final page = await api.listMine(token: 'own', cursor: 12, limit: 10);
+    expect(page.items.single.id, 7);
+    expect(page.nextCursor, 6);
+    await api.downloadMineAttachment(token: 'own', feedbackId: 7, attachmentId: 3);
+    expect(seen.map((r) => r.url.path), ['/app/feedback/mine', '/app/feedback/7/attachments/3/content']);
+    expect(seen.first.url.queryParameters, {'cursor': '12', 'limit': '10'});
+    expect(seen.every((r) => r.headers['Authorization'] == 'Bearer own'), isTrue);
+  });
   group('sınırlar (istemci; sunucu aynılarını 400 ile doğrular)', () {
     const mb = 1024 * 1024;
 

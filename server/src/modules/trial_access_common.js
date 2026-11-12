@@ -172,6 +172,9 @@ const IMPORT_DENIED_SUB = new Set(['commit', 'accounts']);
 function decideSiteSubtree(method, segs) {
   // segs: ['manager','sites',<kod>,<d>, ...rest]
   const first = segs[3];
+  // Alarm alıcısı atamak platformdaki gerçek bir uygulama hesabına kapsam açar.
+  // Eski /emergency firma rehberi PUT'u bu yeni, dış etkili atama akışından ayrıdır.
+  if (first === 'emergency' && segs[4] === 'responders' && !isRead(method)) return DENY_ACTION;
   if (SITE_DENIED_FIRST.has(first)) {
     return DENY_ACTION;
   }
@@ -197,7 +200,12 @@ function decideSiteSubtree(method, segs) {
 
 // Oturum açan herkesin sakin tarafında kullandığı /app/* uçları kendi üyelikleriyle sınırlıdır (deneme hesabının tek bağı demo
 // site). Yine de kapı komutu, misafir geçiş belirteci ve davet kabulü deneme oturumuna KAPALIDIR.
-function decideApp(method, segs) {
+function decideApp(method, segs, demoSite) {
+  if (segs[1] === 'emergency') {
+    if (segs[2] === 'sites' && segs[3] !== undefined && segs[3] !== demoSite) return DENY_SCOPE;
+    // Deneme oturumu gerçek güvenlik/servise alarm gönderemez veya alıcı ACK'i yazamaz.
+    if (!isRead(method)) return DENY_ACTION;
+  }
   if (segs[1] === 'doors' && !isRead(method)) {
     return DENY_ACTION;
   }
@@ -258,7 +266,7 @@ export function evaluateTrialRequest({ trial, demoSiteCode, now = Date.now(), me
   }
 
   if (a === 'app') {
-    return decideApp(verb, segs);
+    return decideApp(verb, segs, site);
   }
 
   if (a === 'manager') {

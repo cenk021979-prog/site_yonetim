@@ -326,9 +326,9 @@ describe('kiracı çıkışı öncesi malike borç bildirimi (finance_exit_notic
 
   it('kaynak sözleşmesi: kiracı ilişkisi kapanırken closeResidency bildirimi ÇAĞIRIR (yalnız kiracı); apartment_mgmt çıkış metni borçlu / borçsuz', () => {
     const people = src('people_service.js');
-    assert.match(people, /if \(residency\.relation === 'tenant'\) \{\s*try \{\s*const \{ notifyOwnerOfTenantDebt \} = await import\('\.\/finance_exit_notice\.js'\);/);
+    assert.match(people, /if \(residency\.relation === 'tenant'\) \{\s*await reconcileApartmentAidat[\s\S]*?const \{ notifyOwnerOfTenantDebt \} = await import\('\.\/finance_exit_notice\.js'\);/);
     const mgmt = src('apartment_mgmt_service.js');
-    assert.match(mgmt, /const debtMinor = await tenantDebtMinorSafe\(client, site, state\.apartment\.id\);\s*closed = await endTenancy\(client, authUser, state, 'tenant_exit'\);/);
+    assert.match(mgmt, /closed = await endTenancy\(client, authUser, state, 'tenant_exit'\);\s*const debtMinor = await tenantDebtMinorSafe\(client, site, state\.apartment\.id\);/);
     assert.match(mgmt, /await exitDoneText\(aptLabel\(state\.apartment\), debtMinor\)/);
   });
 });

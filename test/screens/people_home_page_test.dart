@@ -149,6 +149,18 @@ Finder _tileTitle(String title) =>
 
 Finder _inAppBar(Finder f) => find.descendant(of: find.byType(AppBar), matching: f);
 
+Future<void> _refreshHeader(WidgetTester t) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.tap(find.byWidgetPredicate((w) => w is PopupMenuItem<String> && w.value == 'refresh'));
+  } else {
+    await t.tap(_inAppBar(find.byTooltip('Yenile')));
+  }
+}
+
 void main() {
   group('Kişiler menü öğesi', () {
     testWidgets('site yöneticisi: "Kişiler" çekmecede; seçilince PeopleView açılır, başlık "Kişiler", yazma yetkisi var', (t) async {
@@ -180,7 +192,7 @@ void main() {
       final peopleBefore = auth.peopleCalls.length;
 
       auth.peopleJson[9] = pplPersonJson(9, 'Yenileme Sonrası');
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _refreshHeader(t);
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       await settleFor(t);

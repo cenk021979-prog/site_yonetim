@@ -25,6 +25,7 @@ void main() {
       expect(service.modeOf(ViewScreen.modules), ListViewMode.tiles);
       expect(service.modeOf(ViewScreen.apartments), ListViewMode.list);
       expect(service.modeOf(ViewScreen.persons), ListViewMode.list);
+      expect(service.modeOf(ViewScreen.simpleModules), ListViewMode.list);
       await service.load();
       expect(service.modeOf(ViewScreen.modules), ListViewMode.tiles);
       expect(service.modeOf(ViewScreen.apartments), ListViewMode.list);
@@ -35,10 +36,12 @@ void main() {
       expect(ViewScreen.modules.storageKey, 'app_view_mode_modules');
       expect(ViewScreen.apartments.storageKey, 'app_view_mode_apartments');
       expect(ViewScreen.persons.storageKey, 'app_view_mode_persons');
+      expect(ViewScreen.simpleModules.storageKey, 'app_view_mode_simple_modules');
       expect(ViewModeKeys.all, <String>{
         'app_view_mode_modules',
         'app_view_mode_apartments',
         'app_view_mode_persons',
+        'app_view_mode_simple_modules',
       });
     });
 
@@ -181,6 +184,7 @@ void main() {
         ViewScreen.modules.storageKey: 'list',
         ViewScreen.apartments.storageKey: 'tiles',
         ViewScreen.persons.storageKey: 'tiles',
+        ViewScreen.simpleModules.storageKey: 'tiles',
       });
       final report = await LocalDataWiper(clearShortcuts: () async {}).wipe();
 
@@ -192,6 +196,7 @@ void main() {
       });
       expect(prefs.getBool(EasyViewService.storageKey), isTrue);
       expect(prefs.getString(ViewScreen.apartments.storageKey), 'tiles');
+      expect(prefs.getString(ViewScreen.simpleModules.storageKey), 'tiles');
       expect(report.complete, isTrue);
 
       // Silme sonrası uygulama açılışı aynı görünümü okur.
@@ -202,6 +207,7 @@ void main() {
       expect(easy.enabled, isTrue);
       expect(modes.modeOf(ViewScreen.modules), ListViewMode.list);
       expect(modes.modeOf(ViewScreen.persons), ListViewMode.tiles);
+      expect(modes.modeOf(ViewScreen.simpleModules), ListViewMode.tiles);
     });
   });
 }

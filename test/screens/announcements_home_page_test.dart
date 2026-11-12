@@ -727,7 +727,9 @@ void main() {
       final lists = auth.inboxCalls.length;
       final summaries = auth.summaryCalls;
       auth.inboxRows.add(inboxRow(13, title: 'Yenileme sonrası'));
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await t.tap(find.byKey(const ValueKey('compact_header_more')));
+      await t.pumpAndSettle();
+      await t.tap(find.text('Yenile'));
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       await settleFor(t);

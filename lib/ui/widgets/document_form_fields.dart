@@ -44,7 +44,7 @@ class DocumentCategoryField extends StatelessWidget {
   }
 }
 
-/// Kitle seçimi ("Kimler görebilir?"): üç seçenek, varsayılan seçili olmayabilir ([value] null). Hata metni
+/// Kitle seçimi ("Kimler görebilir?"): varsayılan seçili olmayabilir ([value] null). Hata metni
 /// canlı bölgedir.
 class DocumentAudienceField extends StatelessWidget {
   const DocumentAudienceField({
@@ -54,6 +54,8 @@ class DocumentAudienceField extends StatelessWidget {
     this.errorText,
     this.keyPrefix = 'document_upload_audience_',
     this.enabled = true,
+    this.preserveLegacyManagers = false,
+    this.preserveLegacyResidents = false,
   });
 
   final DocumentAudience? value;
@@ -61,6 +63,11 @@ class DocumentAudienceField extends StatelessWidget {
   final String? errorText;
   final String keyPrefix;
   final bool enabled;
+
+  /// Yalnız eski özel belgeyi düzenlerken kullanılır; aynı kapsamı koruma ve
+  /// kullanıcının yaptığı değişikliği geri alma seçeneği oturum boyunca kalır.
+  final bool preserveLegacyManagers;
+  final bool preserveLegacyResidents;
 
   @override
   Widget build(BuildContext context) {
@@ -74,7 +81,12 @@ class DocumentAudienceField extends StatelessWidget {
           child: Text('Kimler görebilir?', style: th.titleSmall),
         ),
         const SizedBox(height: AppSpace.sm),
-        for (final audience in DocumentAudience.choices) ...[
+        for (final audience in [
+          ...DocumentAudience.choices,
+          if (preserveLegacyResidents || value == DocumentAudience.residents)
+            DocumentAudience.residents,
+          if (preserveLegacyManagers) DocumentAudience.managers,
+        ]) ...[
           DocumentAudienceOption(
             key: ValueKey<String>('$keyPrefix${audience.apiValue}'),
             audience: audience,
@@ -83,6 +95,17 @@ class DocumentAudienceField extends StatelessWidget {
           ),
           const SizedBox(height: AppSpace.sm),
         ],
+        if (!preserveLegacyResidents && value != DocumentAudience.residents)
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton(
+              key: ValueKey<String>('${keyPrefix}residents'),
+              onPressed: enabled
+                  ? () => onChanged(DocumentAudience.residents)
+                  : null,
+              child: const Text('Belirli sakinleri seç'),
+            ),
+          ),
         if (errorText != null)
           Padding(
             padding: const EdgeInsets.only(top: AppSpace.xs),

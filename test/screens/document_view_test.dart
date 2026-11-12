@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:site_kapi_kontrol/services/document_file_share.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/document_admin_view.dart';
 import 'package:site_kapi_kontrol/ui/views/document_resident_view.dart';
@@ -116,8 +117,12 @@ void main() {
           seededDocuments(auth, board: true),
           manage: const <PeopleSite>[_read],
         );
+        await t.tap(find.byType(ContextHelp));
+        await t.pumpAndSettle();
         expect(find.textContaining(driveHint), findsNothing);
         expect(find.textContaining('görüntüleyebilirsiniz'), findsWidgets);
+        await t.tap(find.text('Kapat'));
+        await t.pumpAndSettle();
 
         // Yazma yetkisi: açıklama Drive bölümünü anar (koşulsuz).
         await _pump(
@@ -126,8 +131,15 @@ void main() {
           seededDocuments(auth),
           manage: const <PeopleSite>[_write],
         );
+        await t.tap(find.byType(ContextHelp));
+        await t.pumpAndSettle();
         expect(find.textContaining(driveHint), findsOneWidget);
-        expect(find.textContaining('yazma yetkiniz olan sitelerde'), findsNothing);
+        expect(
+          find.textContaining('yazma yetkiniz olan sitelerde'),
+          findsNothing,
+        );
+        await t.tap(find.text('Kapat'));
+        await t.pumpAndSettle();
 
         // Karma hesap (bir sitede yazma, diğerinde salt okur): Drive yalnız yazma yetkisi olan sitelerde.
         await _pump(
@@ -139,13 +151,25 @@ void main() {
             PeopleSite(code: 12, name: 'Lale Sitesi'),
           ],
         );
-        expect(find.textContaining('yazma yetkiniz olan sitelerde'), findsOneWidget);
+        await t.tap(find.byType(ContextHelp));
+        await t.pumpAndSettle();
+        expect(
+          find.textContaining('yazma yetkiniz olan sitelerde'),
+          findsOneWidget,
+        );
         expect(find.textContaining(driveHint), findsOneWidget);
+        await t.tap(find.text('Kapat'));
+        await t.pumpAndSettle();
 
         // Sistem yöneticisi (tüm siteler): yazma yetkisi.
         await _pump(t, auth, seededDocuments(auth), all: true);
+        await t.tap(find.byType(ContextHelp));
+        await t.pumpAndSettle();
         expect(find.textContaining(driveHint), findsOneWidget);
-        expect(find.textContaining('yazma yetkiniz olan sitelerde'), findsNothing);
+        expect(
+          find.textContaining('yazma yetkiniz olan sitelerde'),
+          findsNothing,
+        );
       },
     );
 
@@ -232,9 +256,10 @@ void main() {
 
   group('işlem sonrası otomatik yenileme (kural 7)', () {
     testWidgets(
-      'yükleme sonrası: bildirim + liste yenilenir + kota çubuğu güncellenir',
+      'Drive bağlıyken yükleme sonrası bildirim ve liste kendiliğinden yenilenir',
       (t) async {
         final auth = DocumentFakeAuth();
+        stubDriveStorageForTests(connected: true);
         final service = seededDocuments(auth);
         final picker = FakeDocumentPicker([
           fakeSource('Yeni Plan.pdf', size: 3 * 1024 * 1024),
@@ -247,7 +272,11 @@ void main() {
           picker: picker,
         );
         expect(find.byType(DocumentAdminCard), findsNWidgets(3));
-        expect(find.text('42 MB / 200 MB'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey<String>('document_usage_bar')),
+          findsNothing,
+        );
+        final before = service.listCalls.length;
 
         await tapFinder(t, _key('document_create'));
         await settleFor(t);
@@ -268,9 +297,15 @@ void main() {
           reason: 'başlık dosya adından önerilmişti',
         );
         expect(
-          find.text('45 MB / 200 MB'),
-          findsOneWidget,
-          reason: 'kullanım yeniden okundu',
+          service.listCalls.length,
+          greaterThan(before),
+          reason: 'yükleme sonrası liste sunucudan yeniden okunmalı',
+        );
+        expect(service.uploadCalls, 1);
+        expect(service.createCalls, hasLength(1));
+        expect(
+          find.byKey(const ValueKey<String>('document_usage_bar')),
+          findsNothing,
         );
       },
     );
@@ -373,6 +408,7 @@ void main() {
       '"Belge Yükle" art arda iki kez dokunulunca tek pencere açılır',
       (t) async {
         final auth = DocumentFakeAuth();
+        stubDriveStorageForTests(connected: true);
         final service = seededDocuments(auth);
         await _pump(t, auth, service, manage: const <PeopleSite>[_write]);
         final button = _key('document_create');

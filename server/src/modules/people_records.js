@@ -7,6 +7,7 @@ import { recordAudit } from './audit_service.js';
 import { logResidencyEvent } from './residency_log.js';
 import { INTERNAL_EMAIL_SUFFIX, runSyncSteps, siteTiePredicate } from './people_sync_sql.js';
 import { todayIso } from './people_common.js';
+import { reconcileApartmentAidat } from './finance_proration_service.js';
 
 async function audit(client, actor, action, siteCode, targetType, targetId, details) {
   await recordAudit(
@@ -101,7 +102,7 @@ export async function userHasActiveSiteTie(client, siteCode, userCode) {
  */
 export async function deactivatePersonUnlessTied(client, { siteCode, personId, userCode = null, actor, reason, contactEmail = null }) {
   if (userCode !== null && userCode !== undefined && (await userHasActiveSiteTie(client, siteCode, userCode))) {
-    await runSyncSteps(client, { siteCode, userCode: Number(userCode) });
+    await runSyncSteps(client, { siteCode, userCode: Number(userCode), dailyAidat: true });
     return { kept: true, deactivated: false };
   }
   const deactivated = await deactivatePersonRecord(client, { siteCode, personId, actor, reason, contactEmail });
@@ -127,6 +128,7 @@ export async function endResidenciesForMemberRemoval(
     return 0;
   }
   let ended = 0;
+  let financialWrite = false;
   try {
     const found = await client.query(
       `
@@ -145,6 +147,10 @@ export async function endResidenciesForMemberRemoval(
         `UPDATE apartment_residencies SET is_current = FALSE, move_out_date = $2, updated_at = NOW() WHERE id = $1`,
         [residency.id, moveOutDate],
       );
+      if (residency.relation === 'tenant') {
+        financialWrite = true;
+        await reconcileApartmentAidat(client, { siteCode: Number(residency.site_code), apartmentId: Number(apartmentId), fromDate: moveOutDate, actor });
+      }
       // ADLI KAYIT (residency_log): kişi hesaptan koparılmadan ÖNCE, aynı transaction'da.
       await logResidencyEvent(client, {
         siteCode: residency.site_code,
@@ -188,6 +194,7 @@ export async function endResidenciesForMemberRemoval(
     } catch (_rollbackError) {
       // bağlantı sorunu ana işlemde zaten görünür
     }
+    if (financialWrite) throw error;
     // eslint-disable-next-line no-console
     console.error('[people] daireden cikarma CRM yansimasi basarisiz:', error?.code || error?.message || error);
     ended = 0;

@@ -104,9 +104,12 @@ describe('051 açılış: ensureApartmentPinSchema + runApartmentPinBackfill (bc
   const saved = { ...apartmentPinTuning };
   let errors;
   let logs;
+  let testKeepAlive;
   const originalError = console.error;
   const originalLog = console.log;
   beforeEach(() => {
+    // Üretim geri doldurma bekleyişi unref timer kullanır; açık sunucusu olmayan unit process'in erken bitmesini önler.
+    testKeepAlive = setInterval(() => {}, 1000);
     Object.assign(apartmentPinTuning, { retryDelayMs: 1, passDelayMs: 1, batchSize: 2, verifyBatchSize: 2, maxPasses: 3, backgroundDelayMs: 1, backgroundRowPauseMs: 0 });
     errors = [];
     logs = [];
@@ -115,6 +118,7 @@ describe('051 açılış: ensureApartmentPinSchema + runApartmentPinBackfill (bc
   });
   afterEach(async () => {
     await apartmentPinBackgroundDone();
+    clearInterval(testKeepAlive);
     Object.assign(apartmentPinTuning, saved);
     console.error = originalError;
     console.log = originalLog;
@@ -503,6 +507,9 @@ describe('servisler: oluşturma / sıfırlama / e-posta', () => {
   });
 
   it('sendIssuedApartmentPin: SMTP süre sınırında bitmezse yanıt BEKLEMEZ ({sent: null, to}); gönderim arka planda sürer, geç hata yakalanır', async () => {
+    // Üretimdeki SMTP timeout unref'tir; test sunucusu yokken aynı davranışı gözlemlemek için yalnız bu teste canlı handle.
+    const keepAlive = setInterval(() => {}, 1000);
+    try {
     pool.query = async (text) => (SNAPSHOT.test(norm(text)) ? rowsOf([snapshotRow]) : rowsOf([]));
     let finish;
     nodemailer.createTransport = () => ({ sendMail: () => new Promise((resolve, reject) => { finish = { resolve, reject }; }) });
@@ -516,6 +523,9 @@ describe('servisler: oluşturma / sıfırlama / e-posta', () => {
     await new Promise((resolve) => setImmediate(resolve));
     assert.equal(logged.length, 1, 'geç hata yakalanır (işlenmemiş ret yok)');
     assert.equal(apartmentPinMailTuning.timeoutMs, 8000, 'varsayılan ~8 sn');
+    } finally {
+      clearInterval(keepAlive);
+    }
   });
 
   it('yeni hesap: istekte e-posta yoksa dairede kalmış ESKİ sakin adresi kullanılmaz (PIN eski sakine gitmez)', async () => {

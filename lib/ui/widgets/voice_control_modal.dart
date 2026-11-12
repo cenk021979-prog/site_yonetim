@@ -213,12 +213,20 @@ class _VoiceControlModalState extends State<VoiceControlModal>
         final status = widget.voiceService.status;
         final tone = _statusTone(status);
         final isListening = widget.voiceService.isListening;
+        final canToggleListening =
+            status == VoiceStatus.idle ||
+            status == VoiceStatus.error ||
+            status == VoiceStatus.listening;
+        final listenLabel = isListening ? 'Durdur' : 'Dinle';
         final maxHeight = MediaQuery.sizeOf(context).height * 0.92;
 
         void toggleListening() {
-          if (isListening) {
+          // A queued key/tap must also respect the latest service state.
+          final currentStatus = widget.voiceService.status;
+          if (currentStatus == VoiceStatus.listening) {
             widget.voiceService.stopListening();
-          } else {
+          } else if (currentStatus == VoiceStatus.idle ||
+              currentStatus == VoiceStatus.error) {
             widget.voiceService.startListening(
               candidateDoors: widget.candidateDoors,
             );
@@ -229,21 +237,6 @@ class _VoiceControlModalState extends State<VoiceControlModal>
           icon: const Icon(Icons.close_rounded, size: 18),
           label: const Text('Kapat'),
           onPressed: () => Navigator.of(context).pop(),
-        );
-        final listenButton = ElevatedButton.icon(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: tone.a,
-            foregroundColor: Colors.white,
-          ),
-          icon: Icon(
-            isListening ? Icons.stop_rounded : Icons.mic_rounded,
-            size: 18,
-          ),
-          label: Text(
-            isListening ? 'Durdur' : 'Tekrar Dinle',
-            style: const TextStyle(fontWeight: FontWeight.bold),
-          ),
-          onPressed: toggleListening,
         );
 
         return Container(
@@ -314,20 +307,34 @@ class _VoiceControlModalState extends State<VoiceControlModal>
                 ),
                 const SizedBox(height: 24),
 
-                // Dinleme küresi: cilalı küre + statik aura; nabız yalnız dinlerken ölçekler.
-                Semantics(
-                  button: true,
-                  label: isListening ? 'Durdur' : 'Tekrar Dinle',
-                  child: GestureDetector(
-                    onTap: toggleListening,
-                    child: AnimatedBuilder(
-                      animation: _pulseAnimation,
-                      // Küre bir kez kurulur; nabız karelerinde yalnız ölçek dönüşümü yenilenir.
-                      child: _buildOrb(tone, isListening),
-                      builder: (context, orb) => Transform.scale(
-                        scale: isListening ? _pulseAnimation.value : 1.0,
-                        child: orb,
-                      ),
+                // Tek dinleme kontrolü: Material düğmesi klavye, odak ve
+                // ekran okuyucuyu da destekler; altta aynı eylem tekrarlanmaz.
+                Tooltip(
+                  message: canToggleListening
+                      ? listenLabel
+                      : 'İşlem sürerken dinleme başlatılamaz',
+                  child: TextButton(
+                    key: const ValueKey('voice_listening_toggle'),
+                    onPressed: canToggleListening ? toggleListening : null,
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(116, 140),
+                      padding: const EdgeInsets.all(8),
+                      animationDuration: AppMotion.of(context, AppMotion.base),
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        AnimatedBuilder(
+                          animation: _pulseAnimation,
+                          child: _buildOrb(tone, isListening),
+                          builder: (context, orb) => Transform.scale(
+                            scale: isListening ? _pulseAnimation.value : 1.0,
+                            child: orb,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(listenLabel),
+                      ],
                     ),
                   ),
                 ),
@@ -363,31 +370,7 @@ class _VoiceControlModalState extends State<VoiceControlModal>
                 ),
                 const SizedBox(height: 20),
 
-                // Action Buttons: sığmazsa alt alta dizilir
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final stacked =
-                        MediaQuery.textScalerOf(context).scale(1) > 1.3 ||
-                        constraints.maxWidth < 300;
-                    if (stacked) {
-                      return Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          closeButton,
-                          const SizedBox(height: 8),
-                          listenButton,
-                        ],
-                      );
-                    }
-                    return Row(
-                      children: [
-                        Expanded(child: closeButton),
-                        const SizedBox(width: 12),
-                        Expanded(child: listenButton),
-                      ],
-                    );
-                  },
-                ),
+                SizedBox(width: double.infinity, child: closeButton),
               ],
             ),
           ),
@@ -396,4 +379,3 @@ class _VoiceControlModalState extends State<VoiceControlModal>
     );
   }
 }
-

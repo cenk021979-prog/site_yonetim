@@ -53,7 +53,7 @@ describe('syncSitePeople (acik cagri) kilidi BEKLER', () => {
     await syncSitePeople(SITE);
     assert.match(log[1].sql, /^SELECT pg_advisory_xact_lock/);
     assert.equal(log[1].params[0], `people_sync:${SITE}`);
-    assert.equal(log.length, 2 + SYNC_STEPS.length + 1);
+    assert.equal(log.length, 3 + SYNC_STEPS.length + 1);
   });
 
   it('gecersiz site kodu -> null (sorgu yok)', async () => {
@@ -150,7 +150,7 @@ describe('S8: kullanici bazli esitleme (my-records) CRM yazmalariyla yarismaz: i
     userSites = [1000000001, 1000000002];
     await syncUserPeopleSafe(20004);
     const locks = log.filter((q) => /^SELECT pg_try_advisory_xact_lock/.test(q.sql)).map((q) => q.params[0]);
-    assert.deepEqual(locks, ['people_sync_user:20004', 'people_sync:1000000001', 'people_sync:1000000002']);
+    assert.deepEqual(locks, ['people_sync_user:20004', 'people_sync:1000000001', 'people_sync:1000000002', 'finance_post:1000000001', 'finance_post:1000000002']);
     assert.ok(log.some((q) => /^WITH /.test(q.sql)), 'adimlar calisti');
     assert.equal(log[log.length - 1].sql, 'COMMIT');
   });
@@ -167,7 +167,7 @@ describe('S8: kullanici bazli esitleme (my-records) CRM yazmalariyla yarismaz: i
     userSites = [1000000001];
     await syncUserPeople(20004);
     const blocking = log.filter((q) => /^SELECT pg_advisory_xact_lock/.test(q.sql)).map((q) => q.params[0]);
-    assert.deepEqual(blocking, ['people_sync_user:20004', 'people_sync:1000000001']);
+    assert.deepEqual(blocking, ['people_sync_user:20004', 'people_sync:1000000001', 'finance_post:1000000001']);
   });
 
   it('kullanicinin sitesi yoksa yalniz kendi kilidi alinir ve adimlar yine calisir', async () => {

@@ -69,15 +69,17 @@ describe('menu yerlesimi: varsayilan kume (yonetim turu onerilerinden turetilir)
     });
     assert.deepEqual(business, ['people', 'announcements', 'finance', 'work_tracking', 'visitor_log', 'drive_storage']);
     const businessClosed = deriveDefaultCompactModules({ managementType: 'business_center', enabled: enabledAllCore() });
-    assert.ok(!businessClosed.includes('work_tracking'), 'onerilen ama KAPALI modul kumede olmaz');
-    assert.ok(!businessClosed.includes('visitor_log'));
+    assert.ok(businessClosed.includes('work_tracking'), 'temel öneri modülü her zaman açıktır');
+    assert.ok(businessClosed.includes('visitor_log'));
+    const disabled = deriveDefaultCompactModules({ managementType: 'business_center', enabled: { ...enabledAllCore(), work_tracking: false, visitor_log: false } });
+    assert.ok(!disabled.includes('work_tracking') && !disabled.includes('visitor_log'), 'saf menü işlevi kapalı yeteneği göstermez');
   });
 
   it('isteyerek acilan (temel olmayan) modul onerilmese de kumeye girer; kapali modul girmez', () => {
-    const open = deriveDefaultCompactModules({ managementType: 'apartment_site', enabled: enabledAllCore(['contracts', 'budget']) });
-    assert.ok(open.includes('contracts') && open.includes('budget'));
+    const open = deriveDefaultCompactModules({ managementType: 'apartment_site', enabled: enabledAllCore(['metering', 'card_access']) });
+    assert.ok(open.includes('metering') && open.includes('card_access'));
     const closed = deriveDefaultCompactModules({ managementType: 'apartment_site', enabled: enabledAllCore() });
-    assert.ok(!closed.includes('contracts') && !closed.includes('door_control'));
+    assert.ok(!closed.includes('metering') && !closed.includes('door_control'));
   });
 
   it('bilinmeyen tur / eksik veri: apartman/site onerileri; sonuc daima katalog sirasinda ve tekrarsiz', () => {
@@ -428,7 +430,7 @@ describe('GET /manager/sites/:siteCode/menu-layout', () => {
     assert.equal(byCode.survey.enabled, true, 'temel modul acik');
     assert.equal(byCode.survey.compact, false, 'ama varsayilan kumede degil');
     assert.equal(byCode.door_control.recommended, true);
-    assert.equal(byCode.reservation.enabled, false);
+    assert.equal(byCode.reservation.enabled, true, 'temel modül her sitede açıktır');
   });
 
   it('kayitli kume: customized true ve secim aynen doner', async () => {
@@ -553,7 +555,7 @@ describe('PUT /manager/sites/:siteCode/menu-layout', () => {
     const res = await call('GET', url(SITE_2), { user: users.mgrB });
     assert.equal(res.status, 200);
     assert.ok(res.body.compact_modules.includes('work_tracking'));
-    assert.ok(!res.body.compact_modules.includes('visitor_log'), 'kapali oneri yok');
+    assert.ok(res.body.compact_modules.includes('visitor_log'), 'temel öneri modülü her sitede açıktır');
   });
 });
 

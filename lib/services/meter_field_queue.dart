@@ -1,7 +1,8 @@
 // Sayaç saha okuması: cihazdaki bekleme kuyruğu + gönderim (internet yoksa okuma ve fotoğraf cihazda bekler, gelince gider).
 //
-// Kuyruk üstbilgisi SharedPreferences'ta (JSON), fotoğraflar uygulama belgeler klasöründe `meter_field/` altında dosyadır (web'de dosya yok:
-// web'de yalnız elle giriş, fotoğrafsız). Gönderim sırayla yapılır; ağ/sunucu (5xx, zaman aşımı) hatasında durur ve kalanlar bekler;
+// Kuyruk üstbilgisi SharedPreferences'ta (JSON), fotoğraflar native'de `meter_field/`, web'de IndexedDB'dedir.
+// Yeni saha kuyruğu hesap+site kapsamlıdır; eski sahipliği belirsiz v1 otomatik gönderilmez/silinmez.
+// Gönderim sırayla yapılır; ağ/sunucu (5xx, zaman aşımı) hatasında durur ve kalanlar bekler;
 // sunucunun kalıcı reddi (aynı gün farklı değer, sıra dışı, sayaç yok…) kayda `error` olarak yazılır ve görevli düzeltene dek yeniden denenmez.
 // Olağan dışı tüketim uyarısı (`READING_JUMP`) da bu biçimde durur ama ENGEL DEĞİLDİR: görevli "doğru" derse kayıt `confirm_jump` ile gider.
 // Sunucu aynı sayaç+tarih+değeri sessizce kabul ettiği için (replayed) bir yanıtı kaçırıp yeniden göndermek güvenlidir.
@@ -22,6 +23,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:site_kapi_kontrol/models/meter_field_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/meter_api.dart';
+import 'meter_photo_store_stub.dart' if (dart.library.js_interop) 'meter_photo_store_web.dart' as browser_photos;
 
 /// Kuyruğun depolama katmanı (testlerde bellek içi sahte).
 abstract class MeterFieldStore {
@@ -38,7 +40,14 @@ abstract class MeterFieldStore {
 }
 
 class LocalMeterFieldStore implements MeterFieldStore {
-  static const String _key = 'meter_field_queue_v1';
+  LocalMeterFieldStore({this.scope}) {
+    if (scope != null && !RegExp(r'^u\d+_s\d+$').hasMatch(scope!)) {
+      throw ArgumentError.value(scope, 'scope');
+    }
+  }
+  final String? scope;
+  String get _key => scope == null ? 'meter_field_queue_v1' : 'meter_field_queue_v2_$scope';
+  String get _photoPrefix => '${scope ?? 'legacy'}/';
 
   @override
   Future<List<PendingMeterReading>> load() async {
@@ -56,19 +65,25 @@ class LocalMeterFieldStore implements MeterFieldStore {
   @override
   Future<void> save(List<PendingMeterReading> items) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_key, jsonEncode(<Object?>[for (final i in items) i.toJson()]));
+    final saved = await prefs.setString(_key, jsonEncode(<Object?>[for (final i in items) i.toJson()]));
+    if (!saved) throw StateError('Okuma cihazda saklanamadı. Tekrar deneyin.');
   }
 
   Future<Directory> _dir() async {
     final base = await getApplicationDocumentsDirectory();
-    final dir = Directory('${base.path}/meter_field');
+    final dir = Directory('${base.path}/meter_field${scope == null ? '' : '/$scope'}');
     if (!dir.existsSync()) await dir.create(recursive: true);
     return dir;
   }
 
   @override
   Future<String?> writePhoto(String id, Uint8List bytes) async {
-    if (kIsWeb) return null;
+    if (!RegExp(r'^\d+$').hasMatch(id)) throw ArgumentError.value(id, 'id');
+    if (kIsWeb) {
+      final key = '$_photoPrefix$id.jpg';
+      await browser_photos.putMeterPhoto(key, bytes);
+      return 'idb:$key';
+    }
     try {
       final file = File('${(await _dir()).path}/$id.jpg');
       await file.writeAsBytes(bytes, flush: true);
@@ -80,8 +95,12 @@ class LocalMeterFieldStore implements MeterFieldStore {
 
   @override
   Future<Uint8List?> readPhoto(String path) async {
-    if (kIsWeb) return null;
+    if (kIsWeb) {
+      if (!path.startsWith('idb:$_photoPrefix')) return null;
+      return browser_photos.getMeterPhoto(path.substring(4));
+    }
     try {
+      if (!await _ownsPath(path)) return null;
       final file = File(path);
       return file.existsSync() ? await file.readAsBytes() : null;
     } on Object {
@@ -91,8 +110,12 @@ class LocalMeterFieldStore implements MeterFieldStore {
 
   @override
   Future<void> deletePhoto(String path) async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      if (path.startsWith('idb:$_photoPrefix')) await browser_photos.deleteMeterPhoto(path.substring(4));
+      return;
+    }
     try {
+      if (!await _ownsPath(path)) return;
       final file = File(path);
       if (file.existsSync()) await file.delete();
     } on Object {
@@ -102,13 +125,20 @@ class LocalMeterFieldStore implements MeterFieldStore {
 
   @override
   Future<List<String>> listPhotos() async {
-    if (kIsWeb) return <String>[];
+    if (kIsWeb) return [for (final key in await browser_photos.meterPhotoKeys(_photoPrefix)) 'idb:$key'];
     try {
       final dir = await _dir();
       return <String>[for (final entry in dir.listSync()) if (entry is File) entry.path];
     } on Object {
       return <String>[];
     }
+  }
+
+  Future<bool> _ownsPath(String path) async {
+    final dir = (await _dir()).absolute.path.replaceAll('\\', '/');
+    final file = File(path).absolute.path.replaceAll('\\', '/');
+    final tail = file.startsWith('$dir/') ? file.substring(dir.length + 1) : '';
+    return RegExp(r'^\d+\.jpg$').hasMatch(tail);
   }
 }
 
@@ -146,15 +176,19 @@ class MeterFieldQueue {
   bool _flushing = false;
   Future<void> _tail = Future<void>.value();
 
+  Future<T> _serialized<T>(Future<T> Function() action) {
+    final result = _tail.then((_) => action());
+    _tail = result.then<void>((_) {}, onError: (Object _) {});
+    return result;
+  }
+
   /// Listeyi okuyup [change] ile değiştirip yazar; bu tür işler sırayla çalışır (biri bitmeden öteki başlamaz). Yeni listeyi döner.
   Future<List<PendingMeterReading>> _apply(List<PendingMeterReading> Function(List<PendingMeterReading> current) change) {
-    final result = _tail.then((_) async {
+    return _serialized(() async {
       final next = change(await _store.load());
       await _store.save(next);
       return next;
     });
-    _tail = result.then<void>((_) {}, onError: (Object _) {});
-    return result;
   }
 
   Future<List<PendingMeterReading>> items() => _store.load();
@@ -169,9 +203,14 @@ class MeterFieldQueue {
     Uint8List? photo,
     bool replace = false,
     bool jumpConfirmed = false,
+    bool replaceQueued = false,
   }) async {
+    return _serialized(() async {
     final id = '${_now().microsecondsSinceEpoch}${_random.nextInt(1 << 20)}';
     final path = photo == null ? null : await _store.writePhoto(id, photo);
+    if (photo != null && path == null) {
+      throw StateError('Fotoğraf cihazda saklanamadı; okuma kaydedilmedi.');
+    }
     final item = PendingMeterReading(
       id: id,
       siteCode: siteCode,
@@ -184,8 +223,17 @@ class MeterFieldQueue {
       replace: replace,
       jumpConfirmed: jumpConfirmed,
     );
-    await _apply((all) => <PendingMeterReading>[...all, item]);
+    final replaced = <PendingMeterReading>[];
+    final all = await _store.load();
+      if (replaceQueued) replaced.addAll(all.where((old) => old.siteCode == siteCode && old.meterId == meter.id && old.date == date));
+    await _store.save([for (final old in all) if (!replaced.any((r) => r.id == old.id)) old, item]);
+    for (final old in replaced) {
+      if (old.photoPath != null) {
+        try { await _store.deletePhoto(old.photoPath!); } catch (_) { /* Keep an old orphan for explicit cleanup. */ }
+      }
+    }
     return item;
+    });
   }
 
   /// Bekleyen kaydı KULLANICI siler (Sil düğmesi): kaydın fotoğrafı da onunla gider.
@@ -209,18 +257,18 @@ class MeterFieldQueue {
   }
 
   /// Telefonda duran, gönderilmiş okuma fotoğrafı kopyası sayısı.
-  Future<int> keptPhotoCount() async => (await _keptPhotoPaths()).length;
+  Future<int> keptPhotoCount() => _serialized(() async => (await _keptPhotoPaths()).length);
 
   /// Gönderilmiş okumaların telefondaki fotoğraf kopyalarını siler. YALNIZ kullanıcı isteğiyle çağrılır ("Kopyaları sil"); uygulama bunu kendiliğinden yapmaz.
   /// Bekleyen ya da reddedilmiş kayıtların fotoğrafına dokunmaz. Silinen sayıyı döner.
-  Future<int> deleteKeptPhotos() async {
+  Future<int> deleteKeptPhotos() => _serialized(() async {
     var deleted = 0;
     for (final path in await _keptPhotoPaths()) {
       await _store.deletePhoto(path);
       deleted++;
     }
     return deleted;
-  }
+  });
 
   /// Reddedilen kaydın değerini düzeltir ve yeniden denemeye açar (yeni değer için önceki sıçrama onayı geçersizdir).
   Future<void> correct(String id, String value) async {
@@ -233,7 +281,7 @@ class MeterFieldQueue {
   }
 
   /// Bekleyenleri sırayla gönderir. Eşzamanlı ikinci çağrı boş rapor döner.
-  Future<MeterFlushReport> flush(MeterService service) async {
+  Future<MeterFlushReport> flush(MeterService service, {bool Function()? canSend}) async {
     if (_flushing) return MeterFlushReport(remaining: (await _store.load()).length);
     _flushing = true;
     var sent = 0;
@@ -244,15 +292,25 @@ class MeterFieldQueue {
     var photosMissed = 0;
     try {
       for (final queued in await _store.load()) {
+        if (canSend != null && !canSend()) break;
         // Tur sürerken görevli kaydı silmiş / değiştirmiş olabilir: güncel hâline bak.
         final item = (await _store.load()).where((e) => e.id == queued.id).firstOrNull;
+        if (canSend != null && !canSend()) break;
         if (item == null || item.error != null) continue;
         String? b64;
         if (item.photoPath != null) {
           final bytes = await _store.readPhoto(item.photoPath!);
-          if (bytes != null) b64 = base64Encode(bytes);
+          if (canSend != null && !canSend()) break;
+          if (bytes == null) {
+            await _apply((current) => [for (final x in current) x.id == item.id
+                ? x.copyWith(error: 'Fotoğrafın cihazdaki kopyası bulunamadı. Bu okumayı yeniden fotoğraflayın.', errorCode: 'LOCAL_PHOTO_MISSING') : x]);
+            rejected++;
+            continue;
+          }
+          b64 = base64Encode(bytes);
         }
         try {
+          if (canSend != null && !canSend()) break;
           final result = await service.postFieldReading(
             item.siteCode,
             meterId: item.meterId,

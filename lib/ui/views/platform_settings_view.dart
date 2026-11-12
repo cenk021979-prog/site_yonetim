@@ -573,14 +573,13 @@ class PlatformSettingsViewState extends State<PlatformSettingsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Platform Ayarları', icon: Icons.tune_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Uygulama sürümü, bakım modu, destek iletişimi ve şirket / yasal bilgiler. Boş bıraktığınız alan '
+        const PageHeaderCard(
+          title: 'Platform Ayarları',
+          icon: Icons.tune_rounded,
+          help: 'Uygulama sürümü, bakım modu, destek iletişimi ve şirket / yasal bilgiler. Boş bıraktığınız alan '
           '"ayarsız" sayılır.',
-          style: th.bodyMedium,
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         // Kurallar tablosu (G11; docs/PLATFORM_KURALLAR.md): platform geneli değerler ayrı sayfada değiştirilir (bu formun kaydından bağımsız).
         PlatformRulesEntryCard(authService: widget.authService, canEdit: true),
         const SizedBox(height: AppSpace.lg),

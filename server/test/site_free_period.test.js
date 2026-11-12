@@ -1,6 +1,6 @@
 // Kampanya "şimdi abone olana 2 ay ücretsiz" (115) testi (DB'siz): migration <-> site_free_period_schema.js aynı DDL (aynı sıra), ekleyici / idempotent,
 // db.js bağlantısı, yalnız eksik sütun için ALTER; saf yardımcılar (durum, gün sayısı, gövde doğrulaması, sıra) ve mapSiteRow alanları.
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -164,3 +164,8 @@ describe('site_free_period (saf yardimcilar)', () => {
     assert.equal(old.free_period_state, 'ended');
   });
 });
+
+// The production retry timer is unref'ed. Keep the test process alive while awaiting its bounded retries.
+let retryKeepAlive;
+before(() => { retryKeepAlive = setInterval(() => {}, 1000); });
+after(() => clearInterval(retryKeepAlive));

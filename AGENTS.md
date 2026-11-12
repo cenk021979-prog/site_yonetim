@@ -37,6 +37,8 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
    - Sayfalarda ayrıca kullanıcının dilediğinde sayfayı tazeleyebileceği `RefreshIndicator` (aşağı çekip yenileme) ve/veya yenileme butonları mutlaka aktif tutulmalıdır.
 
 8. **Sunucuyu (Backend VPS) Her Zaman Güncelle ve Canlı Doğrula (Zorunlu):**
+   - **Doğrulanmış SSH erişimi (2026-11-10):** `salihceylan@178.210.161.55`, port `22667`, mevcut SSH anahtarıyla giriş. `cenkgude` bu tarihte sunucu kullanıcı kayıtlarında bulunmadı; bu hesapla veya tahmini alternatif hesaplarla bağlantı deneme. Tek bağlantılık, parola geri dönüşü kapalı kontrol komutu ve sudo yöntemi için önce `deploy/README.md` içindeki SSH erişimi bölümünü oku. SSH/sudo parolalarını dosyalara veya günlüklere yazma.
+   - İlk başarısız SSH girişinde dur; otomatik tekrar, paralel giriş veya farklı hesap/parola denemesi yapma. Önce anahtar ve SSH/Fail2ban durumunu doğrula. 2026-11-10 canlı kontrolünde Fail2ban `sshd` engel süresi 3600 saniye (1 saat) olarak doğrulandı; ayar değişebilir.
    - Backend tarafında (servisler, rotalar, veritabanı şeması, migrasyonlar, MQTT köprüsü vb.) yapılan her değişiklik sonrasında sunucu güncellemesi MUTLAKA ve İSTİSNASIZ olarak canlı ortama (VPS `178.210.161.55` / `api.gudeteknoloji.com.tr`) anında dağıtılmalıdır.
    - Değiştirilen dosyalar SCP/SSH ile sunucuya aktarılmalı (`/var/www/site_kapi_kontrol/server/`), varsa migrasyon/şema kontrolleri çalıştırılmalı ve PM2 süreci (`pm2 restart kapi-api --update-env`) yeniden başlatılmalıdır.
    - Güncelleme sonrasında PM2 logları (`pm2 logs kapi-api --lines 20 --nostream`), sağlık kontrolü (`/health`) ve veritabanı/MQTT bağlantı durumu doğrulanmadan iş tamamlandı sayılmaz.

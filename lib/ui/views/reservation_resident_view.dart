@@ -193,13 +193,9 @@ class ReservationResidentViewState extends State<ReservationResidentView> {
         const PageHeaderCard(
           title: 'Rezervasyon',
           icon: Icons.event_available_rounded,
+          help: 'Ortak alanları ayırtın, rezervasyonlarınızı izleyin ve konsiyerj taleplerinizi iletin.',
         ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Ortak alanları ayırtın, rezervasyonlarınızı izleyin ve konsiyerj taleplerinizi iletin.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (widget.sites.isEmpty)
           const EmptyCard(
             icon: Icons.event_busy_rounded,

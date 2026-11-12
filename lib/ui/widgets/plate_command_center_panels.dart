@@ -25,12 +25,7 @@ class CommandCenterMenuCard extends StatelessWidget {
     required this.onRefresh,
     required this.onOpenSystemDetail,
     required this.onSimulateOrManualOpen,
-    required this.onAddCamera,
-    required this.onDiscoverCameras,
     required this.onGrantGuestPermit,
-    required this.onAddBlacklist,
-    required this.onEditGateTimings,
-    required this.onCreateGate,
     this.expandedHeight = true,
   });
 
@@ -48,12 +43,7 @@ class CommandCenterMenuCard extends StatelessWidget {
   final VoidCallback onRefresh;
   final VoidCallback onOpenSystemDetail;
   final VoidCallback onSimulateOrManualOpen;
-  final VoidCallback onAddCamera;
-  final VoidCallback onDiscoverCameras;
   final VoidCallback onGrantGuestPermit;
-  final VoidCallback onAddBlacklist;
-  final VoidCallback onEditGateTimings;
-  final VoidCallback onCreateGate;
   final bool expandedHeight;
 
   @override
@@ -72,12 +62,20 @@ class CommandCenterMenuCard extends StatelessWidget {
                 isExpanded: true,
                 isDense: true,
                 dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
                 items: <DropdownMenuItem<int>>[
                   for (final s in sites)
                     DropdownMenuItem<int>(
                       value: s.code,
-                      child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        s.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: (code) {
@@ -101,7 +99,11 @@ class CommandCenterMenuCard extends StatelessWidget {
                 isExpanded: true,
                 isDense: true,
                 dropdownColor: const Color(0xFF1E293B),
-                style: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w700),
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                ),
                 items: <DropdownMenuItem<int>>[
                   for (final g in gates)
                     DropdownMenuItem<int>(
@@ -152,13 +154,17 @@ class CommandCenterMenuCard extends StatelessWidget {
                         height: 8,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: engineRunning ? const Color(0xFF10B981) : const Color(0xFF38BDF8),
+                          color: engineRunning
+                              ? const Color(0xFF10B981)
+                              : const Color(0xFF38BDF8),
                         ),
                       ),
                       const SizedBox(width: 6),
                       Expanded(
                         child: Text(
-                          engineRunning ? '4 Kanal Paralel AI Aktif' : 'Canlı İzleme Aktif',
+                          engineRunning
+                              ? 'Plaka motoru açık'
+                              : 'Plaka motoru kapalı',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
@@ -168,13 +174,20 @@ class CommandCenterMenuCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const Icon(Icons.open_in_new_rounded, size: 13, color: Colors.white54),
+                      const Icon(
+                        Icons.open_in_new_rounded,
+                        size: 13,
+                        color: Colors.white54,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 3),
                   Text(
-                    'Kamera: ${slots.activeCount}/4 Canlı • 30-60 FPS GPU',
-                    style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 11),
+                    '${slots.activeCount}/4 kamera bağlı',
+                    style: const TextStyle(
+                      color: Color(0xFF94A3B8),
+                      fontSize: 11,
+                    ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -186,49 +199,19 @@ class CommandCenterMenuCard extends StatelessWidget {
         const SizedBox(height: 8),
 
         // Hızlı Operatör Menü Butonları
-        _MenuActionTile(
-          icon: Icons.lock_open_rounded,
-          color: const Color(0xFF10B981),
-          label: 'Kapı Tetikle / Plaka Test',
-          onTap: onSimulateOrManualOpen,
-        ),
+        if (site.canWrite)
+          _MenuActionTile(
+            icon: Icons.lock_open_rounded,
+            color: const Color(0xFF10B981),
+            label: 'Kapı Tetikle / Plaka Test',
+            onTap: onSimulateOrManualOpen,
+          ),
         if (site.canWrite) ...<Widget>[
-          _MenuActionTile(
-            icon: Icons.add_a_photo_outlined,
-            color: const Color(0xFF38BDF8),
-            label: 'Kamera Ekle',
-            onTap: onAddCamera,
-          ),
-          _MenuActionTile(
-            icon: Icons.wifi_find_rounded,
-            color: const Color(0xFF60A5FA),
-            label: 'Ağda Kamera Ara',
-            onTap: onDiscoverCameras,
-          ),
           _MenuActionTile(
             icon: Icons.badge_outlined,
             color: const Color(0xFFF59E0B),
             label: 'Misafir Plaka İzni Ver',
             onTap: onGrantGuestPermit,
-          ),
-          _MenuActionTile(
-            icon: Icons.block_rounded,
-            color: const Color(0xFFEF4444),
-            label: 'Kara Listeye Plaka Ekle',
-            onTap: onAddBlacklist,
-          ),
-          if (selectedGate != null)
-            _MenuActionTile(
-              icon: Icons.timer_outlined,
-              color: const Color(0xFFA78BFA),
-              label: 'Kapı Geçiş Süre Ayarları',
-              onTap: onEditGateTimings,
-            ),
-          _MenuActionTile(
-            icon: Icons.door_sliding_outlined,
-            color: const Color(0xFF34D399),
-            label: 'Yeni Geçiş Kapısı Ekle',
-            onTap: onCreateGate,
           ),
         ],
       ],
@@ -249,11 +232,15 @@ class CommandCenterMenuCard extends StatelessWidget {
           // Üst başlık çubuğu
           Row(
             children: <Widget>[
-              const Icon(Icons.dashboard_customize_rounded, size: 16, color: Color(0xFF38BDF8)),
+              const Icon(
+                Icons.dashboard_customize_rounded,
+                size: 16,
+                color: Color(0xFF38BDF8),
+              ),
               const SizedBox(width: 6),
               const Expanded(
                 child: Text(
-                  'Menüler & Diğer Bilgiler',
+                  'Kontroller',
                   style: TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w800,
@@ -270,8 +257,12 @@ class CommandCenterMenuCard extends StatelessWidget {
               ),
               const SizedBox(width: 4),
               _MiniIconBtn(
-                tooltip: isWindowFullscreen ? 'Pencere Modu (F11)' : 'Tam Ekran (F11)',
-                icon: isWindowFullscreen ? Icons.fullscreen_exit_rounded : Icons.fullscreen_rounded,
+                tooltip: isWindowFullscreen
+                    ? 'Pencere Modu (F11)'
+                    : 'Tam Ekran (F11)',
+                icon: isWindowFullscreen
+                    ? Icons.fullscreen_exit_rounded
+                    : Icons.fullscreen_rounded,
                 onTap: onToggleFullscreen,
               ),
               const SizedBox(width: 4),
@@ -288,9 +279,7 @@ class CommandCenterMenuCard extends StatelessWidget {
           const Divider(height: 1, color: Colors.white12),
           const SizedBox(height: 8),
           if (expandedHeight)
-            Expanded(
-              child: SingleChildScrollView(child: bodyContent),
-            )
+            Expanded(child: SingleChildScrollView(child: bodyContent))
           else
             bodyContent,
         ],
@@ -323,12 +312,16 @@ class CommandCenterParkingCard extends StatelessWidget {
     final totalSlots = data == null
         ? 0
         : data.apartments.fold<int>(0, (sum, a) => sum + a.parkingSlots);
-    final occupancyRatio = totalSlots > 0 ? (totalInside / totalSlots).clamp(0.0, 1.0) : 0.0;
+    final occupancyRatio = totalSlots > 0
+        ? (totalInside / totalSlots).clamp(0.0, 1.0)
+        : 0.0;
     final overdueCount = data?.overdue.length ?? 0;
 
     Widget vehicleRow(InsideItem item) {
       final isGuest = item.kind == 'guest';
-      final tagColor = isGuest ? const Color(0xFFF59E0B) : const Color(0xFF10B981);
+      final tagColor = isGuest
+          ? const Color(0xFFF59E0B)
+          : const Color(0xFF10B981);
       return Padding(
         padding: const EdgeInsets.only(bottom: 5),
         child: Material(
@@ -341,20 +334,30 @@ class CommandCenterParkingCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
               child: Row(
                 children: <Widget>[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF0B1120),
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: tagColor.withValues(alpha: 0.65)),
-                    ),
-                    child: Text(
-                      formatTrPlate(item.plate),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontFamily: 'monospace',
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
+                  Flexible(
+                    flex: 3,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0B1120),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: tagColor.withValues(alpha: 0.65),
+                        ),
+                      ),
+                      child: Text(
+                        formatTrPlate(item.plate),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontFamily: 'monospace',
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
                   ),
@@ -364,17 +367,24 @@ class CommandCenterParkingCard extends StatelessWidget {
                       (item.apartmentLabel ?? '').isNotEmpty
                           ? item.apartmentLabel!
                           : item.kindLabel,
-                      style: const TextStyle(color: Colors.white70, fontSize: 11),
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-                  Text(
-                    item.kindLabel,
-                    style: TextStyle(
-                      color: tagColor,
-                      fontSize: 10.5,
-                      fontWeight: FontWeight.w700,
+                  Flexible(
+                    child: Text(
+                      item.kindLabel,
+                      style: TextStyle(
+                        color: tagColor,
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   ),
                 ],
@@ -407,7 +417,11 @@ class CommandCenterParkingCard extends StatelessWidget {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    const Icon(Icons.local_parking_rounded, size: 17, color: Color(0xFF10B981)),
+                    const Icon(
+                      Icons.local_parking_rounded,
+                      size: 17,
+                      color: Color(0xFF10B981),
+                    ),
                     const SizedBox(width: 6),
                     const Expanded(
                       child: Text(
@@ -421,7 +435,11 @@ class CommandCenterParkingCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const Icon(Icons.open_in_new_rounded, size: 14, color: Colors.white54),
+                    const Icon(
+                      Icons.open_in_new_rounded,
+                      size: 14,
+                      color: Colors.white54,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
@@ -432,7 +450,9 @@ class CommandCenterParkingCard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: const Color(0xFF162238),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF10B981).withValues(alpha: 0.35)),
+                    border: Border.all(
+                      color: const Color(0xFF10B981).withValues(alpha: 0.35),
+                    ),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -485,16 +505,28 @@ class CommandCenterParkingCard extends StatelessWidget {
                         children: <Widget>[
                           Text(
                             'Sakin: $residentCount',
-                            style: const TextStyle(color: Color(0xFF38BDF8), fontSize: 11, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              color: Color(0xFF38BDF8),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           Text(
                             'Misafir: $guestCount',
-                            style: const TextStyle(color: Color(0xFFF59E0B), fontSize: 11, fontWeight: FontWeight.w700),
+                            style: const TextStyle(
+                              color: Color(0xFFF59E0B),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                           if (overdueCount > 0)
                             Text(
                               'Uzun Süreli: $overdueCount',
-                              style: const TextStyle(color: Color(0xFFF87171), fontSize: 11, fontWeight: FontWeight.w700),
+                              style: const TextStyle(
+                                color: Color(0xFFF87171),
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
                         ],
                       ),
@@ -514,7 +546,10 @@ class CommandCenterParkingCard extends StatelessWidget {
                         child: const Text(
                           'Şu anda içeride araç yok.\nAyrıntılar için tıklayın.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.white54, fontSize: 11.5),
+                          style: TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11.5,
+                          ),
                         ),
                       ),
                     )
@@ -556,6 +591,7 @@ class CommandCenterEventsCard extends StatelessWidget {
     required this.events,
     required this.onTapEvent,
     required this.onTapHeader,
+    this.dailyCount,
     this.expandedHeight = true,
   });
 
@@ -567,6 +603,7 @@ class CommandCenterEventsCard extends StatelessWidget {
   final List<PlateLiveStreamEvent> events;
   final void Function(PlateLiveStreamEvent event) onTapEvent;
   final VoidCallback onTapHeader;
+  final int? dailyCount;
   final bool expandedHeight;
 
   @override
@@ -595,21 +632,31 @@ class CommandCenterEventsCard extends StatelessWidget {
                   Row(
                     children: <Widget>[
                       // Monospace TR plaka etiketi
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF0B1120),
-                          borderRadius: BorderRadius.circular(5),
-                          border: Border.all(color: decColor.withValues(alpha: 0.75)),
-                        ),
-                        child: Text(
-                          ev.formattedPlate,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontFamily: 'monospace',
-                            fontWeight: FontWeight.w900,
-                            fontSize: 11.5,
-                            letterSpacing: 0.5,
+                      Flexible(
+                        flex: 3,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 7,
+                            vertical: 2.5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0B1120),
+                            borderRadius: BorderRadius.circular(5),
+                            border: Border.all(
+                              color: decColor.withValues(alpha: 0.75),
+                            ),
+                          ),
+                          child: Text(
+                            ev.formattedPlate,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w900,
+                              fontSize: 11.5,
+                              letterSpacing: 0.5,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
                         ),
                       ),
@@ -618,7 +665,10 @@ class CommandCenterEventsCard extends StatelessWidget {
                         child: Align(
                           alignment: Alignment.centerRight,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
                             decoration: BoxDecoration(
                               color: decColor.withValues(alpha: 0.18),
                               borderRadius: BorderRadius.circular(999),
@@ -655,7 +705,10 @@ class CommandCenterEventsCard extends StatelessWidget {
                       Expanded(
                         child: Text(
                           ev.gateName,
-                          style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10.5),
+                          style: const TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 10.5,
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
@@ -713,22 +766,34 @@ class CommandCenterEventsCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
                     decoration: BoxDecoration(
                       color: accentColor.withValues(alpha: 0.18),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: Text(
-                      '${events.length}',
-                      style: TextStyle(
-                        color: accentColor,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
+                    child: Tooltip(
+                      message:
+                          'Bugün • İstanbul saati. Kaydedilen plaka olayları; fiziksel geçiş sayısı değildir.',
+                      child: Text(
+                        key: ValueKey('${cardKey}_count'),
+                        dailyCount == null ? '—' : '$dailyCount',
+                        style: TextStyle(
+                          color: accentColor,
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                        ),
                       ),
                     ),
                   ),
                   const SizedBox(width: 4),
-                  const Icon(Icons.open_in_new_rounded, size: 13, color: Colors.white54),
+                  const Icon(
+                    Icons.open_in_new_rounded,
+                    size: 13,
+                    color: Colors.white54,
+                  ),
                 ],
               ),
             ),
@@ -743,7 +808,10 @@ class CommandCenterEventsCard extends StatelessWidget {
                       child: Text(
                         emptyText,
                         textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white54, fontSize: 11.5),
+                        style: const TextStyle(
+                          color: Colors.white54,
+                          fontSize: 11.5,
+                        ),
                       ),
                     )
                   : ListView.builder(
@@ -792,7 +860,11 @@ class _CompactDropdownContainer extends StatelessWidget {
         children: <Widget>[
           Text(
             label,
-            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w600),
+            style: const TextStyle(
+              color: Color(0xFF94A3B8),
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+            ),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
@@ -845,7 +917,11 @@ class _MenuActionTile extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Icon(Icons.chevron_right_rounded, size: 15, color: Colors.white38),
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  size: 15,
+                  color: Colors.white38,
+                ),
               ],
             ),
           ),
@@ -871,7 +947,9 @@ class _MiniIconBtn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = danger ? const Color(0xFFEF4444).withValues(alpha: 0.2) : Colors.white.withValues(alpha: 0.08);
+    final bg = danger
+        ? const Color(0xFFEF4444).withValues(alpha: 0.2)
+        : Colors.white.withValues(alpha: 0.08);
     final fg = danger ? const Color(0xFFFCA5A5) : Colors.white70;
     return Material(
       color: bg,

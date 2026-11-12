@@ -2,6 +2,8 @@
 
 Tarih: 2026-10-28 (ilk surum: 2026-03-09; bu surum koda karsi dogrulanarak guncellendi)
 
+SSH erisim notu: 2026-11-10 canli oturumla dogrulandi; asagidaki VPS bilgileri ve `deploy/README.md` SSH bolumu guncellendi.
+
 Bu dosya, `site_kapi_kontrol` ekosisteminde bugune kadar alinan teknik kararlarin, kurulum adimlarinin ve calisan mimarinin tek yerde toplanmis ozetidir.
 Ayrintili ve guncel konu belgeleri `docs/` altindadir (rol/durum sozlugu: `docs/DURUM_SOZLUGU.md`, ekran listesi: `docs/EKRAN_ENVANTERI.md`,
 platform modulleri: `docs/PLATFORM_*.md`). Bu dosya ile kod celisirse kod gecerlidir; celiskiyi duzeltin.
@@ -101,6 +103,10 @@ VPS:
 
 - Host IP: `178.210.161.55`
 - SSH port: `22667`
+- SSH kullanicisi: **`salihceylan`**; giris mevcut SSH anahtariyladir, parola tahmini yapilmaz.
+- `cenkgude` 2026-11-10 kontrolunde sunucu kullanici kayitlarinda bulunmadi; SSH hesabi olarak kullanilmaz. Uygulama hesaplari SSH hesaplariyla karistirilmaz.
+- Ilk basarisiz SSH girisinde durulur; farkli hesap/parola denenmez. Canli Fail2ban `sshd` engel suresi 2026-11-10'da 3600 saniye (1 saat) olarak dogrulandi.
+- Tek baglantilik kontrol komutu, sudo ayrimi ve engel inceleme adimlari: [deploy/README.md](deploy/README.md). SSH/sudo parolalari bu depoda tutulmaz.
 
 API sunum yapisi:
 

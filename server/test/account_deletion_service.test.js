@@ -269,7 +269,7 @@ describe('hesap silme: kilit sırası (mevcut akışlarla AYNI yön)', () => {
     state.apartments = [{ id: 501, site_code: 1000000005, resident_user_code: null }];
     await performAccountDeletion(12345);
     const keys = log.filter((e) => /^SELECT pg_advisory_xact_lock/.test(e.sql) && e.params[0] !== 'account_deletion').map((e) => e.params[0]);
-    assert.deepEqual(keys, [1000000001, 1000000005, 1000000009].map(peopleLockKey));
+    assert.deepEqual(keys, [...[1000000001, 1000000005, 1000000009].map(peopleLockKey), ...[1000000001, 1000000005, 1000000009].map((site) => `finance_post:${site}`)]);
   });
 
   it('daireler ve cihazlar id sırasıyla ve kullanıcı satırından ÖNCE kilitlenir; kullanıcı güncellemesinden sonra yalnız bu kullanıcıya özgü satırlar yazılır', async () => {

@@ -56,6 +56,8 @@ import { recordAudit } from './audit_service.js';
 import { todayIso } from './people_common.js';
 import { logResidencyEvent } from './residency_log.js';
 import { peopleLockKey } from './people_sync.js';
+import { financeLockKey } from './finance_common.js';
+import { reconcileApartmentAidat } from './finance_proration_service.js';
 import { deletePushDataForUser } from './push_devices.js';
 import { ownOpenDebts } from './finance_read_service.js';
 import { cancelUserPendingRefunds } from './account_refund_cleanup.js';
@@ -580,6 +582,9 @@ async function runAttempt(userCode) {
     for (const siteCode of scope.siteCodes) {
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [peopleLockKey(siteCode)]);
     }
+    for (const siteCode of scope.siteCodes) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [financeLockKey(siteCode)]);
+    }
     // Site silme talebindeki ad anlık görüntüsü (yapı düzenleme akışıyla aynı yön: people_sync -> UPDATE sites).
     await client.query(
       'UPDATE sites SET deletion_requested_by_name = $2 WHERE deletion_requested_by_user_code = $1 AND deletion_requested_by_name IS DISTINCT FROM $2',
@@ -807,7 +812,7 @@ async function runAttempt(userCode) {
     const loggedName = typeof user.full_name === 'string' && user.full_name.trim() !== '' ? user.full_name : null;
     const endingResidencies = await client.query(
       `
-        SELECT r.id, r.apartment_id, r.site_code
+        SELECT r.id, r.apartment_id, r.site_code, r.relation
         FROM apartment_residencies r
         INNER JOIN site_people sp ON sp.id = r.person_id
         WHERE sp.user_code = $1 AND r.is_current
@@ -850,6 +855,11 @@ async function runAttempt(userCode) {
       `,
       [userCode],
     );
+    for (const residency of endingResidencies.rows ?? []) {
+      if (residency.relation === 'tenant') {
+        await reconcileApartmentAidat(client, { siteCode: num(residency.site_code), apartmentId: num(residency.apartment_id), fromDate: todayIso() });
+      }
+    }
     await client.query(
       'UPDATE vehicles v SET is_active = FALSE FROM site_people sp WHERE v.person_id = sp.id AND sp.user_code = $1 AND v.is_active',
       [userCode],

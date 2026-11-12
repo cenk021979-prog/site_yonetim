@@ -32,6 +32,7 @@ function install() {
       if (pattern.test(sql)) return typeof handler === 'function' ? handler(sql, params ?? []) : handler;
     }
     if (INFRA.some((pattern) => pattern.test(sql)) || STEP_SQLS.has(sql)) return ok();
+    if (/FROM ledger_entries l INNER JOIN fee_runs fr ON fr.id = l.run_id/.test(sql)) return ok();
     throw new Error(`BEKLENMEYEN SQL (sahte DB kati): ${sql.slice(0, 220)}`);
   };
   pool.query = (text, params) => run(text, params, false);

@@ -7,7 +7,9 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:site_kapi_kontrol/models/document_models.dart' show formatDocumentSize;
+import 'package:site_kapi_kontrol/config/app_config.dart';
+import 'package:site_kapi_kontrol/models/document_models.dart'
+    show formatDocumentSize;
 import 'package:site_kapi_kontrol/models/feedback_models.dart';
 import 'package:site_kapi_kontrol/services/feedback_api.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
@@ -16,14 +18,18 @@ import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/cursor_loader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dialog_guard.dart';
+import 'package:site_kapi_kontrol/ui/helpers/feedback_reference.dart';
 import 'package:site_kapi_kontrol/ui/helpers/istanbul_time.dart';
-import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
+    show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/feedback_links.dart';
 
 class FeedbackInboxPage extends StatefulWidget {
-  const FeedbackInboxPage({super.key, required this.service, this.siteCode});
+  const FeedbackInboxPage({super.key, required this.service, this.siteCode, this.mine = false});
 
   final FeedbackService service;
+  final bool mine;
 
   /// Dolu: o sitenin geri bildirimleri (site yöneticisi, `/manager/sites/:siteCode/feedback`). null: platform sahibinin tüm kayıtları (`/admin/feedback`).
   final int? siteCode;
@@ -35,10 +41,11 @@ class FeedbackInboxPage extends StatefulWidget {
     BuildContext context, {
     required FeedbackService service,
     int? siteCode,
+    bool mine = false,
   }) {
     return Navigator.of(context).push<void>(
       MaterialPageRoute<void>(
-        builder: (_) => FeedbackInboxPage(service: service, siteCode: siteCode),
+        builder: (_) => FeedbackInboxPage(service: service, siteCode: siteCode, mine: mine),
       ),
     );
   }
@@ -48,21 +55,32 @@ class FeedbackInboxPage extends StatefulWidget {
 }
 
 class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
-  late final CursorLoader<FeedbackRecord> _loader = CursorLoader<FeedbackRecord>(
+  late final CursorLoader<FeedbackRecord>
+  _loader = CursorLoader<FeedbackRecord>(
     fetch: _fetch,
     keyOf: (record) => record.id,
     notify: () {
       if (mounted) setState(() {});
     },
     isAlive: () => mounted,
-    errorFallback: 'Geri bildirimler yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+    errorFallback:
+        'Geri bildirimler yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
   );
 
   Future<CursorPage<FeedbackRecord>> _fetch(int? cursor) async {
     final siteCode = widget.siteCode;
-    final page = siteCode == null
-        ? await widget.service.listAll(cursor: cursor, limit: FeedbackInboxPage.pageSize)
-        : await widget.service.listForSite(siteCode, cursor: cursor, limit: FeedbackInboxPage.pageSize);
+    final page = widget.mine
+        ? await widget.service.listMine(cursor: cursor, limit: FeedbackInboxPage.pageSize)
+        : siteCode == null
+        ? await widget.service.listAll(
+            cursor: cursor,
+            limit: FeedbackInboxPage.pageSize,
+          )
+        : await widget.service.listForSite(
+            siteCode,
+            cursor: cursor,
+            limit: FeedbackInboxPage.pageSize,
+          );
     return (items: page.items, next: page.nextCursor);
   }
 
@@ -88,10 +106,11 @@ class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
       } else if (l.error != null) {
         body = InlineNotice(message: l.error!, onRetry: _loader.reload);
       } else {
-        body = const EmptyCard(
+        body = EmptyCard(
           icon: Icons.rate_review_outlined,
-          title: 'Henüz geri bildirim yok.',
-          message: 'Kullanıcıların her ekrandan gönderdiği görüş ve öneriler burada listelenir.',
+          title: widget.mine ? 'Henüz geri bildirim göndermediniz.' : 'Henüz geri bildirim yok.',
+          message:
+              widget.mine ? 'Gönderdiğiniz notlar ve ekleri burada görünür.' : 'Kullanıcıların her ekrandan gönderdiği görüş ve öneriler burada listelenir.',
           tone: AppTone.info,
         );
       }
@@ -105,13 +124,14 @@ class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
           ],
           for (final record in l.items)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
+              padding: EdgeInsets.only(bottom: widget.mine ? AppSpace.sm : AppSpace.md),
               child: _FeedbackCard(
                 key: ValueKey<String>('feedback_item_${record.id}'),
                 record: record,
                 service: widget.service,
                 siteCode: widget.siteCode,
                 showSite: widget.siteCode == null,
+                mine: widget.mine,
               ),
             ),
           if (l.moreError != null) ...[
@@ -128,7 +148,9 @@ class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
                 variant: AppButtonVariant.tonal,
                 expand: false,
                 loading: l.loadingMore,
-                onPressed: (l.loadingMore || l.loading) ? null : _loader.loadMore,
+                onPressed: (l.loadingMore || l.loading)
+                    ? null
+                    : _loader.loadMore,
               ),
             ),
         ],
@@ -136,7 +158,7 @@ class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
     }
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gelen Geri Bildirimler'),
+        title: Text(widget.mine ? 'Gönderdiğim geri bildirimler' : 'Gelen Geri Bildirimler'),
         actions: [
           IconButton(
             key: const ValueKey<String>('feedback_inbox_refresh'),
@@ -173,24 +195,30 @@ class _FeedbackCard extends StatelessWidget {
     required this.service,
     required this.siteCode,
     required this.showSite,
+    this.mine = false,
   });
 
   final FeedbackRecord record;
   final FeedbackService service;
   final int? siteCode;
   final bool showSite;
+  final bool mine;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
-    final site = showSite ? (record.siteName ?? (record.siteCode == null ? 'Siteye bağlı değil' : 'Site ${record.siteCode}')) : null;
+    final site = showSite
+        ? (record.siteName ??
+              (record.siteCode == null
+                  ? 'Siteye bağlı değil'
+                  : 'Site ${record.siteCode}'))
+        : null;
     final meta = <String>[
       if (record.appVersion != null) 'Sürüm ${record.appVersion}',
       if (record.platform != null) record.platform!,
     ].join(' · ');
-    return AppCard(
-      child: Column(
+    final details = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Wrap(
@@ -198,8 +226,12 @@ class _FeedbackCard extends StatelessWidget {
             runSpacing: AppSpace.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text(record.userName, style: th.titleSmall?.copyWith(color: p.text)),
+              Text(
+                record.userName,
+                style: th.titleSmall?.copyWith(color: p.text),
+              ),
               InfoChip(record.roleLabel),
+              if (mine) const InfoChip('Alındı'),
             ],
           ),
           const SizedBox(height: 2),
@@ -210,15 +242,38 @@ class _FeedbackCard extends StatelessWidget {
             TextSpan(
               children: [
                 TextSpan(text: 'Ekran: ', style: th.bodySmall),
-                TextSpan(text: record.screenName, style: th.bodySmall?.copyWith(color: p.text, fontWeight: FontWeight.w700)),
-                TextSpan(text: '  (${record.screenRoute})', style: th.bodySmall),
+                TextSpan(
+                  text: record.screenName,
+                  style: th.bodySmall?.copyWith(
+                    color: p.text,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextSpan(
+                  text: '  (${record.screenRoute})',
+                  style: th.bodySmall,
+                ),
               ],
             ),
           ),
           if (site != null) Text('Site: $site', style: th.bodySmall),
           if (meta.isNotEmpty) Text(meta, style: th.bodySmall),
           const SizedBox(height: AppSpace.sm),
-          SelectableText(record.message, style: th.bodyMedium?.copyWith(color: p.text)),
+          SelectableText(
+            record.message,
+            style: th.bodyMedium?.copyWith(color: p.text),
+          ),
+          if (AppConfig.temporaryFeedbackLinks) ...[
+            const SizedBox(height: AppSpace.sm),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: FeedbackCopyButton(
+                key: ValueKey<String>('feedback_item_${record.id}_copy_review'),
+                value: feedbackReviewNote(record),
+                label: 'İnceleme notunu kopyala',
+              ),
+            ),
+          ],
           if (record.attachments.isNotEmpty) ...[
             const SizedBox(height: AppSpace.md),
             Wrap(
@@ -234,17 +289,31 @@ class _FeedbackCard extends StatelessWidget {
                         service: service,
                         siteCode: siteCode,
                         attachment: record.attachments[i],
+                        mine: mine,
                       ),
                     ),
                     icon: const Icon(Icons.image_outlined, size: 18),
-                    label: Text('Dosya ${i + 1} (${formatDocumentSize(record.attachments[i].sizeBytes)})'),
+                    label: Text(
+                      'Dosya ${i + 1} (${formatDocumentSize(record.attachments[i].sizeBytes)})',
+                    ),
                   ),
               ],
             ),
           ],
         ],
-      ),
-    );
+      );
+    return AppCard(padding: mine ? const EdgeInsets.symmetric(horizontal: 16, vertical: 8) : const EdgeInsets.all(AppSpace.lg), child: mine ? ExpansionTile(
+      key: ValueKey('my_feedback_expand_${record.id}'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: const EdgeInsets.only(top: 12),
+      title: Text('${record.screenName} · #${record.id}', style: th.titleMedium),
+      subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(record.message, maxLines: 1, overflow: TextOverflow.ellipsis, style: th.bodyMedium),
+        const SizedBox(height: 4),
+        Text('${formatIstanbulDateTime(record.createdAt)} · Alındı', style: th.bodySmall),
+      ]),
+      children: [details],
+    ) : details);
   }
 }
 
@@ -254,21 +323,29 @@ class _FeedbackImageDialog extends StatefulWidget {
     required this.service,
     required this.siteCode,
     required this.attachment,
+    this.mine = false,
   });
 
   final FeedbackService service;
   final int? siteCode;
   final FeedbackAttachment attachment;
+  final bool mine;
 
   static Future<void> show(
     BuildContext context, {
     required FeedbackService service,
     required int? siteCode,
     required FeedbackAttachment attachment,
+    bool mine = false,
   }) {
     return showDialog<void>(
       context: context,
-      builder: (_) => _FeedbackImageDialog(service: service, siteCode: siteCode, attachment: attachment),
+      builder: (_) => _FeedbackImageDialog(
+        service: service,
+        siteCode: siteCode,
+        attachment: attachment,
+        mine: mine,
+      ),
     );
   }
 
@@ -293,7 +370,10 @@ class _FeedbackImageDialogState extends State<_FeedbackImageDialog> {
       _error = null;
     });
     try {
-      final bytes = await widget.service.download(
+      final bytes = widget.mine ? await widget.service.downloadMine(
+        feedbackId: widget.attachment.feedbackId,
+        attachmentId: widget.attachment.id,
+      ) : await widget.service.download(
         siteCode: widget.siteCode,
         feedbackId: widget.attachment.feedbackId,
         attachmentId: widget.attachment.id,
@@ -307,7 +387,10 @@ class _FeedbackImageDialogState extends State<_FeedbackImageDialog> {
       if (!mounted) return;
       setState(() {
         _loading = false;
-        _error = crmMessageOf(e, 'Dosya açılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+        _error = crmMessageOf(
+          e,
+          'Dosya açılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+        );
       });
     }
   }
@@ -317,9 +400,15 @@ class _FeedbackImageDialogState extends State<_FeedbackImageDialog> {
     final bytes = _bytes;
     final Widget child;
     if (_loading) {
-      child = const SizedBox(height: 120, child: Center(child: CircularProgressIndicator()));
+      child = const SizedBox(
+        height: 120,
+        child: Center(child: CircularProgressIndicator()),
+      );
     } else if (_error != null || bytes == null) {
-      child = InlineNotice(message: _error ?? 'Dosya açılamadı.', onRetry: _load);
+      child = InlineNotice(
+        message: _error ?? 'Dosya açılamadı.',
+        onRetry: _load,
+      );
     } else {
       child = ConstrainedBox(
         constraints: const BoxConstraints(maxHeight: 420),
@@ -332,7 +421,8 @@ class _FeedbackImageDialogState extends State<_FeedbackImageDialog> {
             // Çözme belleği sınırlı kalsın: sunucu 12.000 piksel kenara kadar kabul eder.
             cacheWidth: 1600,
             semanticLabel: 'Geri bildirim eki',
-            errorBuilder: (context, error, stack) => const InlineNotice(message: 'Dosya görüntülenemedi.'),
+            errorBuilder: (context, error, stack) =>
+                const InlineNotice(message: 'Dosya görüntülenemedi.'),
           ),
         ),
       );

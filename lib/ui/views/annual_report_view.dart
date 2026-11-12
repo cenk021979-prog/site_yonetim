@@ -8,6 +8,8 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/pdf_annual_report_service.dart';
 import 'package:site_kapi_kontrol/services/pdf_decision_service.dart' show DecisionPdfOutcome;
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart' show PeopleSite;
+import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 
 /// "Faaliyet Raporu" (`annual_report` modülü, yönetici). Yıl seçilir; sistem kayıtlardan dokuz bölümü doldurur, yönetici her
 /// bölümü düzenler ("Taslağı kaydet" ile saklanır), "PDF" raporu verir. Düzenlenmeyen bölüm her açılışta güncel kayıtlardan gelir.
@@ -156,10 +158,14 @@ class AnnualReportViewState extends State<AnnualReportView> {
     return ListView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
       padding: const EdgeInsets.all(16),
       children: <Widget>[
-        Text('Faaliyet Raporu', style: Theme.of(context).textTheme.titleLarge),
-        const SizedBox(height: 4),
-        const Text('Sistem kayıtlardan taslağı hazırlar. Her bölümü düzenleyebilir, taslağı saklayıp PDF alabilirsiniz.'),
-        const SizedBox(height: 12),
+        const SectionHeader(
+          title: 'Faaliyet Raporu',
+          trailing: ContextHelp(
+            title: 'Faaliyet Raporu',
+            message: 'Sistem kayıtlardan taslağı hazırlar. Her bölümü düzenleyebilir, taslağı saklayıp PDF alabilirsiniz.',
+          ),
+        ),
+        const SizedBox(height: 8),
         if (widget.sites.length > 1)
           DropdownButtonFormField<int>(
             initialValue: _site!.code,

@@ -52,6 +52,7 @@ export const DEFAULT_SITE_SETTINGS = Object.freeze({
   inside_timeout_hours: 24,
   alert_interval_minutes: 60,
   resident_notify_max_age_minutes: 15,
+  resident_movement_notifications_enabled: false,
   // Sürüm 3 (migration 122): komut ömrü, görüntü karosu aralıkları (izleyen varken / yokken) ve son karenin saklama süresi (KVKK).
   command_ttl_seconds: 600,
   snapshot_interval_seconds: 4,
@@ -289,6 +290,12 @@ export function parseGateInput(body, { partial = false } = {}) {
 /** Site ayarı yaması: yalnız gönderilen alanlar; birleştirilmiş değer ilişkisi (kritik > uyarı) `mergeSettings` ile doğrulanır. */
 export function parseSettingsInput(body) {
   const out = {};
+  if (body.resident_movement_notifications_enabled !== undefined) {
+    if (typeof body.resident_movement_notifications_enabled !== 'boolean') {
+      throw invalidField('Sakin araç bildirimi izni doğru/yanlış olmalı.', 'resident_movement_notifications_enabled');
+    }
+    out.resident_movement_notifications_enabled = body.resident_movement_notifications_enabled;
+  }
   if (body.guest_rule !== undefined) {
     if (!GUEST_RULES.includes(body.guest_rule)) throw invalidField('Misafir kuralı geçersiz.', 'guest_rule');
     out.guest_rule = body.guest_rule;

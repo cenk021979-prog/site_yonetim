@@ -24,12 +24,14 @@ import 'people_fixtures.dart';
 
 /// Dosya Deposu ekranının "Google Drive" bölümü (Belgeler ile aynı modül) gerçek ağa çıkmasın: "Google Drive bağlantısı Yakında…"
 /// durumu (hata bildirimi yok). Belge ekranı testlerinin sahte kimlik doğrulaması bunu kurar.
-void stubDriveStorageForTests() {
+void stubDriveStorageForTests({bool connected = false}) {
   DriveStorageCard.debugApi = DriveStorageApi(
     baseUrl: 'http://localhost',
     client: MockClient(
       (request) async => http.Response(
-        '{"configured":false,"connected":false,"status":"disconnected"}',
+        connected
+            ? '{"configured":true,"connected":true,"status":"connected","account_email":"test@example.invalid"}'
+            : '{"configured":false,"connected":false,"status":"disconnected"}',
         200,
         headers: const <String, String>{'content-type': 'application/json'},
       ),
@@ -531,8 +533,8 @@ class FakeDocumentService extends DocumentService {
     // onaylanınca duyuru ekleri çıkarılır.
     final nextAudience = fields['audience'] as String?;
     if (nextAudience != null &&
-        nextAudience != 'residents' &&
-        doc.audience == 'residents' &&
+        !const ['residents', 'all'].contains(nextAudience) &&
+        const ['residents', 'all'].contains(doc.audience) &&
         doc.attachedAnnouncements.isNotEmpty) {
       if (!confirm) {
         throw ApiException(
@@ -555,6 +557,11 @@ class FakeDocumentService extends DocumentService {
     }
     if (fields.containsKey('audience')) {
       doc.audience = fields['audience']! as String;
+      if (doc.audience != 'residents') {
+        doc.targetType = 'site';
+        doc.blockIds = <int>[];
+        doc.apartmentIds = <int>[];
+      }
     }
     final target = fields['target'];
     if (target is Map) {

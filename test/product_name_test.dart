@@ -15,11 +15,13 @@ import 'package:site_kapi_kontrol/config/app_config.dart';
 import 'package:site_kapi_kontrol/main.dart';
 import 'package:site_kapi_kontrol/models/site_join_token_record.dart';
 import 'package:site_kapi_kontrol/models/site_record.dart';
+import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/models/audit_log.dart';
 import 'package:site_kapi_kontrol/services/auth_api.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/ble_wifi_provision_service.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/site_join_qr_dialog.dart';
+import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 
 import 'screens/dialog_layout_harness.dart';
 
@@ -170,7 +172,10 @@ void main() {
 
   test('Panel başlığı (home_page) "Panel"dir; AHBU Panel kalmadı', () {
     final source = _read('lib/ui/pages/home_page.dart');
-    expect(source, contains("return 'Panel';"));
+    expect(source, contains('return YanMenu.titleFor(item,'));
+    for (final role in UserRole.values) {
+      expect(YanMenu.titleFor(SirketMenuItem.dashboard, role), 'Panel');
+    }
     expect(source.contains('AHBU Panel'), isFalse);
   });
 }

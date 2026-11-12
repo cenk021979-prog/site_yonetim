@@ -7,6 +7,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart' show compute;
 import 'package:site_kapi_kontrol/models/bulk_import.dart';
+import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/bulk_cell_safety.dart';
 import 'package:site_kapi_kontrol/services/bulk_csv_codec.dart';
 import 'package:site_kapi_kontrol/services/bulk_formatting.dart';
@@ -28,7 +29,12 @@ class RenderedFile {
 }
 
 /// Metin sütunları: Excel'in sayıya çevirmemesi için XLSX'te metin biçimli (`@`) tanımlanır.
-const Set<String> kTextFormattedKeys = <String>{'telefon', 'plaka', 'blok', 'daire_no'};
+const Set<String> kTextFormattedKeys = <String>{
+  'telefon',
+  'plaka',
+  'blok',
+  'daire_no',
+};
 
 const String _fallbackBase = 'dosya';
 
@@ -47,13 +53,20 @@ String safeFileBase(String base) {
       out.write('_');
     }
   }
-  var s = out.toString().replaceAll(RegExp(r'_+'), '_').replaceAll(RegExp(r'^[._-]+|[._-]+$'), '');
+  var s = out
+      .toString()
+      .replaceAll(RegExp(r'_+'), '_')
+      .replaceAll(RegExp(r'^[._-]+|[._-]+$'), '');
   if (s.length > 80) s = s.substring(0, 80);
   return s.isEmpty ? _fallbackBase : s;
 }
 
 /// Zarfı [format] dosyasına çevirir.
-RenderedFile renderExport(ExportEnvelope envelope, ExportFormat format, {String? sheetName}) {
+RenderedFile renderExport(
+  ExportEnvelope envelope,
+  ExportFormat format, {
+  String? sheetName,
+}) {
   final base = safeFileBase(envelope.filenameBase);
   switch (format) {
     case ExportFormat.csv:
@@ -81,7 +94,9 @@ Future<RenderedFile> renderExportAsync(
   int inlineLimit = 1500,
 }) {
   if (envelope.rowCount <= inlineLimit) {
-    return Future<RenderedFile>.value(renderExport(envelope, format, sheetName: sheetName));
+    return Future<RenderedFile>.value(
+      renderExport(envelope, format, sheetName: sheetName),
+    );
   }
   return compute(_renderEntry, (envelope, format, sheetName));
 }
@@ -111,7 +126,10 @@ Uint8List _renderCsv(ExportEnvelope envelope) {
   final rows = <List<String>>[
     <String>[for (final c in envelope.columns) escapeCsvFormula(c.label)],
     for (final row in envelope.rows)
-      <String>[for (var i = 0; i < envelope.columns.length; i++) csvCellText(envelope.columns[i], row[i])],
+      <String>[
+        for (var i = 0; i < envelope.columns.length; i++)
+          csvCellText(envelope.columns[i], row[i]),
+      ],
   ];
   return csvBytes(rows);
 }
@@ -119,27 +137,185 @@ Uint8List _renderCsv(ExportEnvelope envelope) {
 // --- XLSX -------------------------------------------------------------------------------------
 
 Uint8List _renderXlsx(ExportEnvelope envelope, {required String sheetName}) {
+  return buildXlsx(<XlsxSheet>[_xlsxSheet(envelope, sheetName)]);
+}
+
+/// One Excel worksheet with independently headed column groups. Records keep
+/// their own row; blank groups never imply a relationship between unrelated data.
+/// Existing single-table CSV/XLSX exports keep their original contract.
+const int maxExportWorkbookRows = 100000;
+const int maxExportWorkbookBytes = 64 * 1024 * 1024;
+
+/// Check before allocating XML/archive buffers. This counts UTF-8 cell text
+/// without constructing a second byte array; nothing is truncated on overflow.
+void validateExportWorkbookSize(
+  List<ExportEnvelope> envelopes, {
+  int maxRows = maxExportWorkbookRows,
+  int maxTextBytes = maxExportWorkbookBytes,
+}) {
+  if (envelopes.fold<int>(0, (total, sheet) => total + sheet.rowCount) >
+      maxRows) {
+    throw ApiException(
+      'Tek Excel dosyası en çok $maxRows satır içerebilir. Dosya hazırlanmadı.',
+    );
+  }
+  var bytes = 0;
+  void add(Object? value) {
+    if (value == null) return;
+    for (final rune in value.toString().runes) {
+      bytes += rune <= 0x7f
+          ? 1
+          : rune <= 0x7ff
+          ? 2
+          : rune <= 0xffff
+          ? 3
+          : 4;
+      if (bytes > maxTextBytes) {
+        throw ApiException(
+          'Birleşik Excel verisi çok büyük. Dosya hazırlanmadı; hiçbir kayıt eksik aktarılmadı.',
+        );
+      }
+    }
+  }
+
+  for (final envelope in envelopes) {
+    for (final column in envelope.columns) {
+      add(column.label);
+    }
+    for (final row in envelope.rows) {
+      for (final value in row) {
+        add(value);
+      }
+    }
+  }
+}
+
+RenderedFile _checkWorkbookBytes(RenderedFile file) {
+  if (file.bytes.length > maxExportWorkbookBytes) {
+    throw ApiException(
+      'Birleşik Excel dosyası 64 MB sınırını aştı. Dosya kaydedilmedi.',
+    );
+  }
+  return file;
+}
+
+RenderedFile renderExportWorkbook(
+  List<ExportEnvelope> envelopes, {
+  required List<String> sheetNames,
+  String filenameBase = 'site_kayitlari',
+}) {
+  validateExportWorkbookSize(envelopes);
+  return _checkWorkbookBytes(
+    _buildExportWorkbook(
+      envelopes,
+      sheetNames: sheetNames,
+      filenameBase: filenameBase,
+    ),
+  );
+}
+
+RenderedFile _buildExportWorkbook(
+  List<ExportEnvelope> envelopes, {
+  required List<String> sheetNames,
+  required String filenameBase,
+}) {
+  if (envelopes.isEmpty || envelopes.length != sheetNames.length) {
+    throw ArgumentError('Her dışa aktarma bölümü için bir başlık gerekir.');
+  }
   final columns = <XlsxColumn>[
-    for (final c in envelope.columns)
-      XlsxColumn(
-        c.label,
-        format: switch (c.type) {
-          ExportColumnType.text => kTextFormattedKeys.contains(c.key) ? XlsxFormat.text : XlsxFormat.general,
-          ExportColumnType.number => (c.scale ?? 0) > 0 ? XlsxFormat.decimal : XlsxFormat.general,
-          ExportColumnType.date => XlsxFormat.date,
-          ExportColumnType.money => XlsxFormat.money,
-        },
-        scale: c.scale ?? 2,
+    const XlsxColumn('Kayıt Türü', format: XlsxFormat.text),
+  ];
+  final rows = <List<Object?>>[];
+  for (var section = 0; section < envelopes.length; section++) {
+    final envelope = envelopes[section];
+    final offset = columns.length;
+    columns.addAll([
+      for (final column in envelope.columns)
+        _xlsxColumn(column, label: '${sheetNames[section]} · ${column.label}'),
+    ]);
+    for (final row in envelope.rows) {
+      rows.add([
+        sheetNames[section],
+        ...List<Object?>.filled(offset - 1, null),
+        for (var i = 0; i < envelope.columns.length; i++)
+          _xlsxValue(envelope.columns[i], row[i]),
+      ]);
+    }
+  }
+  return RenderedFile(
+    bytes: buildXlsx([
+      XlsxSheet(
+        name: 'Site Kayıtları',
+        columns: columns,
+        rows: rows,
+        autoFilter: true,
       ),
+    ]),
+    fileName: '${safeFileBase(filenameBase)}.xlsx',
+    mimeType: ExportFormat.xlsx.mimeType,
+    format: ExportFormat.xlsx,
+  );
+}
+
+Future<RenderedFile> renderExportWorkbookAsync(
+  List<ExportEnvelope> envelopes, {
+  required List<String> sheetNames,
+  String filenameBase = 'site_kayitlari',
+}) {
+  validateExportWorkbookSize(envelopes);
+  if (envelopes.fold<int>(0, (total, sheet) => total + sheet.rowCount) <=
+      1500) {
+    return Future.value(
+      renderExportWorkbook(
+        envelopes,
+        sheetNames: sheetNames,
+        filenameBase: filenameBase,
+      ),
+    );
+  }
+  return compute(_renderWorkbookEntry, (
+    envelopes,
+    sheetNames,
+    filenameBase,
+  )).then(_checkWorkbookBytes);
+}
+
+RenderedFile _renderWorkbookEntry(
+  (List<ExportEnvelope>, List<String>, String) input,
+) => _buildExportWorkbook(
+  input.$1,
+  sheetNames: input.$2,
+  filenameBase: input.$3,
+);
+
+XlsxSheet _xlsxSheet(ExportEnvelope envelope, String sheetName) {
+  final columns = <XlsxColumn>[
+    for (final c in envelope.columns) _xlsxColumn(c),
   ];
   final rows = <List<Object?>>[];
   for (final row in envelope.rows) {
     rows.add(<Object?>[
-      for (var i = 0; i < envelope.columns.length; i++) _xlsxValue(envelope.columns[i], row[i]),
+      for (var i = 0; i < envelope.columns.length; i++)
+        _xlsxValue(envelope.columns[i], row[i]),
     ]);
   }
-  return buildXlsx(<XlsxSheet>[XlsxSheet(name: sheetName, columns: columns, rows: rows)]);
+  return XlsxSheet(name: sheetName, columns: columns, rows: rows);
 }
+
+XlsxColumn _xlsxColumn(ExportColumn column, {String? label}) => XlsxColumn(
+  label ?? column.label,
+  format: switch (column.type) {
+    ExportColumnType.text =>
+      kTextFormattedKeys.contains(column.key)
+          ? XlsxFormat.text
+          : XlsxFormat.general,
+    ExportColumnType.number =>
+      (column.scale ?? 0) > 0 ? XlsxFormat.decimal : XlsxFormat.general,
+    ExportColumnType.date => XlsxFormat.date,
+    ExportColumnType.money => XlsxFormat.money,
+  },
+  scale: column.scale ?? 2,
+);
 
 Object? _xlsxValue(ExportColumn column, Object? value) {
   if (value == null) return null;

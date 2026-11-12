@@ -1,0 +1,17 @@
+{
+  "research_date": "2026-11-10",
+  "report": "2026-11-10-system-feedback-research.md",
+  "evidence": {"feedback_count": 7, "feedback_ids": [2,3,4,5,6,7,8], "database_access": "read-only", "images_reviewed": [4,5,6,7,8], "workflow_status_column": false},
+  "sources": [
+    {"id":"condo-requests","url":"https://support.condocontrol.com/hc/en-us/articles/4766968577051-Service-Requests-Creating-Requests-Resident-Video-Guide","type":"official_help","application":"Kullanıcı gönderdiği talebe listeden geri dönebilsin; durum ve ekler bağlamında olsun."},
+    {"id":"govuk-confirmation","url":"https://design-system.service.gov.uk/patterns/confirmation-pages/","type":"official_design_pattern","application":"Gönderim sonrası referans numarası ve geçmişe dönme olanağı.","license_note":"Sayfa OGL v3.0 belirtir; burada yalnız özgün özet ve bağlantı saklandı."},
+    {"id":"atlassian-reference","url":"https://support.atlassian.com/navigation/docs/navigation-reference-guide/","type":"official_help","application":"Tek görev sözlüğü, tutarlı konum ve bağlam."},
+    {"id":"atlassian-navigation","url":"https://support.atlassian.com/navigation/docs/navigation-best-practices/","type":"official_help","application":"Sık hedefler görünür, nadir olanlar kişisel düzenlenebilir, iş alanına yer bırak."},
+    {"id":"carbon-table","url":"https://www.carbondesignsystem.com/building-blocks/core/components/data-table/guidelines","type":"official_design_system","application":"Yoğun kayıtlar için arama ve satır eylemleri; detayları gerekince aç."},
+    {"id":"fluent-layout","url":"https://fluent2.microsoft.design/layout","type":"official_design_system","application":"Geniş ekranı işlevsel kolonlarla kullan, küçük ekranı yeniden akıt."},
+    {"id":"w3c-reflow","url":"https://www.w3.org/WAI/WCAG22/Understanding/reflow.html","type":"standard_explanation","application":"320 CSS px eşdeğerinde bilgi/işlev kaybetmeden akış."},
+    {"id":"w3c-targets","url":"https://www.w3.org/TR/WCAG22/#target-size-minimum","type":"standard","application":"Yoğunluk için dokunma hedeflerini küçültme; WCAG istisnalarını bağlamında değerlendir."}
+  ],
+  "limitations": ["Ürün kılavuzu bağımsız başarı ölçümü değildir.", "Makalelerin tam metni veya dış görsellerin kopyası tutulmadı.", "İş akışı durumu olmayan kayıtta Çözüldü/İnceleniyor iddiası yapılamaz.", "Görsel referans gerçek kullanıcı testi yerine geçmez."],
+  "priorities": ["own-feedback-history", "responsive-content-columns", "single-site-context", "role-specific-actions", "truthful-status"]
+}

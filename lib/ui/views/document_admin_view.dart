@@ -182,6 +182,7 @@ class DocumentAdminViewState extends State<DocumentAdminView> {
 
   void _resetList(int? siteCode) {
     _siteCode = siteCode;
+    _driveConnected = null;
     _listKey = GlobalKey<DocumentAdminListState>();
   }
 
@@ -296,7 +297,11 @@ class DocumentAdminViewState extends State<DocumentAdminView> {
             authService: widget.authService,
             siteCode: site.code,
             onConnectedChanged: (connected) {
-              if (mounted && connected != _driveConnected) setState(() => _driveConnected = connected);
+              if (mounted &&
+                  _siteCode == site.code &&
+                  connected != _driveConnected) {
+                setState(() => _driveConnected = connected);
+              }
             },
           ),
           const SizedBox(height: AppSpace.xl),

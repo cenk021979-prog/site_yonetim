@@ -56,6 +56,8 @@ import { fundOfChargeParty } from './finance_funds.js';
 import { MAX_RUN_TOTAL_MINOR, bigintsToSqlArray, minorToNumber } from './finance_money.js';
 import { accountForCharge, tenantOnDateSql } from './finance_parties.js';
 import { decisionAuditDetails, describeDecisionRequirement, resolveRunDecision } from './finance_run_decision.js';
+import { chargeLinesOf } from './finance_proration.js';
+import { addDailyAidatShares } from './finance_proration_service.js';
 import { isPeriodClosed, lockActorRow, recordFinanceAudit, withFinanceTransaction } from './finance_tx.js';
 
 // ---------------------------------------------------------------------------
@@ -234,10 +236,13 @@ async function computePlan(db, siteCode, spec, options) {
     chargeParty: spec.chargeParty ?? 'occupant',
     withPersonCount: spec.distribution === 'person_count',
   });
-  return buildDistributionPlan(
+  const plan = buildDistributionPlan(
     { distribution: spec.distribution, areaBasis: spec.areaBasis, amountMinor: spec.amountMinor, categoryAmounts: spec.categoryAmounts },
     apartments,
   );
+  return spec.kind === 'recurring' && (spec.chargeParty ?? 'occupant') === 'occupant' && options.onDate
+    ? addDailyAidatShares(db, siteCode, plan, options.onDate)
+    : plan;
 }
 
 /**
@@ -263,6 +268,10 @@ function previewBody({ plan, period, definitionId, alreadyPosted, closed, dueDat
       amount_minor: minorToNumber(line.amount),
       // Dağıtım tabanının daire için değeri (arsa payı kesri ya da kişi sayısı); eşit / sabit / kategoride null. Yalnız gösterim.
       basis_value: line.basisValue ?? null,
+      ...(line.proration ? { proration: {
+        period: line.proration.period, total_days: line.proration.total_days, overlap_days: line.proration.overlap_days,
+        shares: line.proration.shares.map((share) => ({ ...share, amount_minor: minorToNumber(share.amount_minor) })),
+      } } : {}),
     })),
     missing_data: plan.missing.map((entry) => ({
       apartment_id: entry.apartmentId,
@@ -546,7 +555,7 @@ function verifyPlan(plan, { skipMissing, expectedTotal, expectedCount, expectedH
 }
 
 /** Çalıştırma + defter satırları (tek INSERT ... SELECT ... FROM unnest). Çağıran kilidi ve doğrulamaları yapmış olmalıdır. */
-async function writeRun(client, { siteCode, definitionId, definitionName, plan, timing, idempotencyKey, requestFingerprint, naturalKey, actorUserCode, fund, decision }) {
+export async function writeRun(client, { siteCode, definitionId, definitionName, plan, timing, idempotencyKey, requestFingerprint, naturalKey, actorUserCode, fund, decision }) {
   // Tahakkuk dayanağı (K2): Karar Defteri kaydı ve/veya gerekçe, çalıştırma yazılırken konur (fee_runs eklemelidir; sonradan DEĞİŞMEZ)
   const inserted = await client.query(
     `
@@ -573,14 +582,14 @@ async function writeRun(client, { siteCode, definitionId, definitionName, plan, 
     ],
   );
   const run = { ...inserted.rows[0], ...(decision.label ?? {}) };
-  const lines = [...plan.lines].sort((a, b) => a.apartmentId - b.apartmentId);
+  const lines = chargeLinesOf(plan).sort((a, b) => a.apartmentId - b.apartmentId);
   const written = await client.query(
     `
       INSERT INTO ledger_entries (
-        site_code, apartment_id, kind, amount_minor, period, entry_date, due_date, definition_id, definition_name, run_id, payer_party, created_by, account_party, fund
+        site_code, apartment_id, kind, amount_minor, period, entry_date, due_date, definition_id, definition_name, run_id, payer_party, created_by, account_party, fund, proration, description
       )
-      SELECT $1, t.apartment_id, 'charge', t.amount, $2::DATE, $3::DATE, $4::DATE, $5, $6::TEXT, $7, t.payer, $8, t.account, $13::TEXT
-      FROM unnest($9::BIGINT[], $10::BIGINT[], $11::TEXT[], $12::TEXT[]) AS t(apartment_id, amount, payer, account)
+      SELECT $1, t.apartment_id, 'charge', t.amount, $2::DATE, $3::DATE, $4::DATE, $5, $6::TEXT, $7, t.payer, $8, t.account, $13::TEXT, t.proration::JSONB, t.description
+      FROM unnest($9::BIGINT[], $10::BIGINT[], $11::TEXT[], $12::TEXT[], $14::TEXT[], $15::TEXT[]) AS t(apartment_id, amount, payer, account, proration, description)
       ORDER BY t.apartment_id
     `,
     [
@@ -599,6 +608,8 @@ async function writeRun(client, { siteCode, definitionId, definitionName, plan, 
       lines.map((line) => line.accountParty ?? (line.payerParty === 'tenant' ? 'tenant' : 'owner')),
       // Kasa (docs/PLATFORM_FINANS_KASALAR.md 2): tanimin "kim oder" degerinden (owner => capital, occupant => operating); tum satirlarda ayni
       fund,
+      lines.map((line) => line.proration ? JSON.stringify({ ...line.proration, generation: 0 }) : null),
+      lines.map((line) => line.description ?? null),
     ],
   );
   if (written.rowCount !== lines.length) {

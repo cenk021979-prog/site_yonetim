@@ -687,7 +687,9 @@ describe('finans: okuma uçları ve kurul yanıtı temizliği', () => {
     assert.equal((await call('GET', `${base(SITE_2)}/apartments/5/account`, { user: users.mgrB })).status, 404, 'daire SITE_2\'ye ait değil');
   });
 
-  it('dönemler: kurul kapatan adını göremez; open_period; closed_through', async () => {
+  it('dönemler: kurul kapatan adını göremez; open_period; closed_through', async (t) => {
+    // Ekim kapanış senaryosu çalıştırıldığı gerçek aya bağlı değildir; timerlar gerçek çalışmaya devam eder.
+    t.mock.timers.enable({ apis: ['Date'], now: new Date('2026-10-21T09:00:00Z') });
     handlers.push([/^SELECT to_char\(c\.period, 'YYYY-MM-DD'\) AS period, c\.closed_at, u\.full_name AS closed_by_name FROM finance_period_closures c/, () => ok([
       { period: '2026-08-01', closed_at: new Date('2026-09-02T09:00:00Z'), closed_by_name: 'Ayşe Yönetici' },
       { period: '2026-09-01', closed_at: new Date('2026-10-02T09:00:00Z'), closed_by_name: 'Ayşe Yönetici' },

@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:site_kapi_kontrol/models/document_models.dart';
+import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/document_file_share.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/document_download_dialog.dart';
@@ -23,11 +24,13 @@ class DocumentAttachmentsList extends StatefulWidget {
     required this.attachments,
     required this.download,
     this.sharer,
+    this.authService,
   });
 
   final List<DocumentAttachment> attachments;
   final DocumentAttachmentDownload download;
   final DocumentFileSharer? sharer;
+  final AuthService? authService;
 
   @override
   State<DocumentAttachmentsList> createState() =>
@@ -42,10 +45,15 @@ class _DocumentAttachmentsListState extends State<DocumentAttachmentsList> {
     BuildContext buttonContext,
   ) async {
     if (_busyId != null) return;
+    final auth = widget.authService;
+    final session = auth?.session;
     setState(() => _busyId = attachment.documentId);
     try {
-      await downloadAndShareDocument(
+      await downloadAndDeliverDocument(
         context,
+        canDeliver: () => mounted && (auth == null ||
+            (identical(widget.authService, auth) && session != null &&
+                auth.session?.id == session.id && auth.session?.token == session.token)),
         title: attachment.title,
         originContext: buttonContext,
         sharer: widget.sharer,

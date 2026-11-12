@@ -9,6 +9,7 @@
 // kişilerle sınırlıdır (applyPeopleOps `accountCandidates` döner). Her kişi kendi SAVEPOINT'inde işlenir; üyelik kuralı people_service.grantApartmentAccess'indir.
 
 import { hashPassword } from '../security/password_hashing.js';
+import { assertTenantAccountReady, reconcileApartmentAidat } from './finance_proration_service.js';
 import { generateUniqueApartmentLoginName } from '../services/apartment_service.js';
 import { generateInternalApartmentEmail } from '../utils/helpers.js';
 import { LOGIN_NAME_BASE_MAX, claimLoginName, normalizeTypedLoginName, slugifyLoginName } from './bulk_import_login_names.js';
@@ -266,6 +267,13 @@ export async function applyPeopleOps(client, { siteCode, ops, runId, today, acto
   }
 
   // 3. ilişkiler: yükseltmeler, sonra eklemeler (aynı daire için malik/kiracı çakışması planlayıcıda elenmiştir)
+  const tenantStartDates = new Map();
+  for (const entry of [
+    ...residencyAdds.filter((op) => op.relation === 'tenant'),
+    ...residencyUpgrades.filter((op) => op.to === 'tenant'),
+  ]) {
+    await assertTenantAccountReady(client, { siteCode, apartmentId: Number(entry.aptId), personId: personIdOf(entry.ref) });
+  }
   for (const part of chunksOf(residencyUpgrades, ENTITY_CHUNK)) {
     const result = await run(
       client,
@@ -274,12 +282,14 @@ export async function applyPeopleOps(client, { siteCode, ops, runId, today, acto
         SET relation = v.relation, origin = 'manual', updated_at = NOW()
         FROM jsonb_to_recordset($1::jsonb) AS v(id bigint, relation text)
         WHERE r.id = v.id AND r.site_code = $2::BIGINT AND r.is_current = TRUE AND r.relation = 'resident'
+        RETURNING r.apartment_id, r.relation, to_char(COALESCE(r.move_in_date, (r.created_at AT TIME ZONE 'Europe/Istanbul')::DATE), 'YYYY-MM-DD') AS move_in
       `,
       [JSON.stringify(part.map((op) => ({ id: op.residencyId, relation: op.to }))), siteCode],
     );
     if (Number(result.rowCount) !== part.length) {
       throw staleError();
     }
+    for (const row of result.rows ?? []) if (row.relation === 'tenant') tenantStartDates.set(Number(row.apartment_id), row.move_in);
     // ADLI KAYIT (residency_log): "sakin" -> malik / kiraci / aile yukseltmesi (rol degisimi), ayni transaction'da.
     await logResidenciesBulk(client, { ids: part.map((op) => op.residencyId), eventType: 'role_changed', actorUserCode });
   }
@@ -365,6 +375,10 @@ export async function applyPeopleOps(client, { siteCode, ops, runId, today, acto
       ...residencyUpgrades.filter((op) => op.to === 'tenant').map((op) => Number(op.aptId)),
     ]),
   ];
+  for (const apartmentId of tenantApartmentIds) {
+    const dates = residencyAdds.filter((entry) => Number(entry.aptId) === apartmentId && entry.relation === 'tenant').map((entry) => entry.moveIn).filter(Boolean).sort();
+    await reconcileApartmentAidat(client, { siteCode, apartmentId, fromDate: dates[0] ?? tenantStartDates.get(apartmentId) ?? today, actor: { user_code: actorUserCode }, requireComplete: true });
+  }
   return { audits, idByRef, accountCandidates: collectAccountCandidates({ newPeople, residencyAdds, idByRef }), tenantApartmentIds };
 }
 

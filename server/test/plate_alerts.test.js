@@ -189,12 +189,13 @@ describe('sakin bildirimi ve yonetici uyarisi (sahte db + sahte push)', () => {
 
   it('eski olay (site ayari yasi) ve tercihi kapali sakin icin gonderilmez; acik tercihte metin gider', async (t) => {
     const sent = capturePush(t);
-    const stale = await notifyResidentMovement({ siteCode: 1, vehicle, direction: 'giris', seenAt: new Date(Date.now() - 3_600_000) }, fakeDb([]));
+    const enabledSettings = [/FROM plate_site_settings/, [{ resident_movement_notifications_enabled: true }]];
+    const stale = await notifyResidentMovement({ siteCode: 1, vehicle, direction: 'giris', seenAt: new Date(Date.now() - 3_600_000) }, fakeDb([enabledSettings]));
     assert.deepEqual(stale, { skipped: 'stale' });
-    const closed = fakeDb([[/FROM site_people/, [{ user_code: 7 }]]]);
+    const closed = fakeDb([enabledSettings, [/FROM site_people/, [{ user_code: 7 }]]]);
     assert.deepEqual(await notifyResidentMovement({ siteCode: 1, vehicle, direction: 'giris', seenAt: new Date() }, closed), { skipped: 'no_opt_in' });
     assert.equal(sent.length, 0);
-    const open = fakeDb([[/FROM site_people/, [{ user_code: 7 }]], [/FROM plate_notify_prefs/, [{ user_code: 7 }]], [/FROM push_devices/, [{ fcm_token: 'T1' }]]]);
+    const open = fakeDb([enabledSettings, [/FROM site_people/, [{ user_code: 7 }]], [/FROM plate_notify_prefs/, [{ user_code: 7 }]], [/FROM push_devices/, [{ fcm_token: 'T1' }]]]);
     const seenAt = new Date();
     const result = await notifyResidentMovement({ siteCode: 1, vehicle, direction: 'cikis', seenAt }, open);
     assert.equal(result.recipients, 1);

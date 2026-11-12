@@ -372,6 +372,45 @@ describe('düzenleme', () => {
     assert.deepEqual(updatedDetails, { fields: ['audience', 'target'], audience: { from: 'residents', to: 'board' }, target_type: { from: 'blocks', to: 'site' } });
   });
 
+  it('eski istemcinin all→managers varsayımı reddedilir; açık paylaşım ve eski özel kayıtlar korunur', async () => {
+    for (const metadata of [{ title: 'Yeni başlık' }, { category: 'notice' }]) {
+      log.length = 0;
+      handlers = [lockDoc(docRow({ audience: 'all' }))];
+      const result = await code(updateDocument({ siteCode: SITE, rawId: '77', actor: ACTOR, body: { ...metadata, audience: 'managers' }, limits }));
+      assert.equal(result, '409:DOCUMENT_AUDIENCE_UNSUPPORTED');
+      assert.ok(!sqlOrder().some((sql) => /^UPDATE documents SET/.test(sql)), 'metadata da kitle de değişmedi');
+      assert.ok(!sqlOrder().some((sql) => /^INSERT INTO audit_log/.test(sql)));
+    }
+    for (const [previous, body, expected] of [
+      ['all', { title: 'Yeni başlık' }, 'all'],
+      ['all', { audience: 'board' }, 'board'],
+      ['all', { audience: 'residents' }, 'residents'],
+      ['managers', { title: 'Özel başlık' }, 'managers'],
+      ['managers', { title: 'Özel başlık', audience: 'managers' }, 'managers'],
+      ['managers', { audience: 'board' }, 'board'],
+    ]) {
+      log.length = 0;
+      handlers = [
+        lockDoc(docRow({ audience: previous })),
+        [/^SELECT COUNT\(\*\)::INTEGER AS n FROM announcement_attachments aa/, ok([{ n: 0 }])],
+        [/^DELETE FROM announcement_attachments aa USING announcements a/, ok()],
+        [/^UPDATE documents SET /, ok()],
+        [/^SELECT d\.id, d\.title, .* WHERE d\.id = \$1 AND d\.site_code = \$2 LIMIT 1$/, ok([summaryRow({ audience: expected })])],
+        [/^SELECT v\.version_no/, ok()],
+        [/^SELECT a\.id, a\.status FROM announcement_attachments aa/, ok()],
+      ];
+      const updated = await updateDocument({ siteCode: SITE, rawId: '77', actor: ACTOR, body, limits });
+      assert.equal(updated.document.audience, expected);
+      const update = log.find((entry) => /^UPDATE documents SET /.test(entry.sql));
+      if (body.audience && body.audience !== previous) {
+        assert.match(update.sql, /audience = \$/);
+        assert.ok(update.params.includes(expected));
+      } else {
+        assert.doesNotMatch(update.sql, /audience = \$/);
+      }
+    }
+  });
+
   it('değişiklik yoksa UPDATE gitmez; başlık / açıklama DEĞERİ audit\'e girmez (yalnız alan adı); yalnız yayındaki belge düzenlenir', async () => {
     handlers.push(lockDoc(docRow({ status: 'deleted', deleted_at: new Date() })));
     assert.equal(await code(updateDocument({ siteCode: SITE, rawId: '77', actor: ACTOR, body: { title: 'Yeni' }, limits })), '409:INVALID_STATE');

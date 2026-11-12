@@ -8,6 +8,7 @@
 //  - Yazma işlemleri site bazlı advisory kilit altında (eşitleme ile aynı anahtar) tek transaction'da yapılır.
 
 import { pool } from '../db.js';
+import { naturalOrderSql, PERSON_LOCATION_JOIN, PERSON_LOCATION_ORDER } from './people_order.js';
 import { sendIssuedApartmentPin, provisionApartmentResident, ensureUniqueLoginName } from '../services/apartment_service.js';
 import { clearAccountLocks } from '../middlewares/login_throttle.js';
 import { hashPassword } from '../security/password_hashing.js';
@@ -52,6 +53,8 @@ import { closeLogFor, logResidencyEvent } from './residency_log.js';
 import { INTERNAL_EMAIL_SUFFIX, runSyncSteps, siteTiePredicate } from './people_sync_sql.js';
 import { peopleLockKey, syncSitePeopleSafe } from './people_sync.js';
 import { ensureTenantIsAdmin } from './apartment_tenant_admin.js';
+import { financeLockKey } from './finance_common.js';
+import { assertTenantAccountReady, reconcileApartmentAidat } from './finance_proration_service.js';
 
 export const PERSON_NOT_FOUND = () => new PlatformError(404, 'PERSON_NOT_FOUND', 'Kişi bulunamadı.');
 export const RESIDENCY_NOT_FOUND = () => new PlatformError(404, 'RESIDENCY_NOT_FOUND', 'İlişki kaydı bulunamadı.');
@@ -256,6 +259,7 @@ async function runSiteTransactionOnce(siteCode, work) {
     await client.query('BEGIN');
     began = true;
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [peopleLockKey(siteCode)]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [financeLockKey(siteCode)]);
     const result = await work(client);
     await client.query('COMMIT');
     return result;
@@ -375,7 +379,7 @@ async function loadCurrentResidencies(db, personIds) {
       INNER JOIN apartments a ON a.id = r.apartment_id
       INNER JOIN site_blocks b ON b.id = a.block_id
       WHERE r.person_id = ANY($1::BIGINT[]) AND r.is_current = TRUE
-      ORDER BY b.sort_order, a.sort_order, r.id
+      ORDER BY ${naturalOrderSql('b.block_name')}, ${naturalOrderSql('a.unit_label')}, r.id
     `,
     [personIds],
   );
@@ -433,8 +437,9 @@ export async function listPeople(siteCode, query = {}, db = pool) {
   const pageResult = await db.query(
     `
       ${PERSON_SELECT}
+      ${PERSON_LOCATION_JOIN}
       WHERE ${sql}
-      ORDER BY ${foldSql("COALESCE(NULLIF(u.full_name, ''), sp.full_name)")}, sp.id
+      ORDER BY ${PERSON_LOCATION_ORDER}
       LIMIT $${params.length + 1} OFFSET $${params.length + 2}
     `,
     pageParams,
@@ -593,6 +598,7 @@ export async function grantApartmentAccess(client, { siteCode, apartmentId, user
  */
 async function insertResidency(client, { siteCode, apartmentId, personId, relation, moveInDate, actor = null, reasonCode = 'manual_add', actorRole = null }) {
   try {
+    if (relation === 'tenant') await assertTenantAccountReady(client, { siteCode, apartmentId, personId });
     const result = await client.query(
       `
         INSERT INTO apartment_residencies (site_code, apartment_id, person_id, relation, is_current, move_in_date)
@@ -602,6 +608,7 @@ async function insertResidency(client, { siteCode, apartmentId, personId, relati
       [siteCode, apartmentId, personId, relation, moveInDate],
     );
     const residencyId = Number(result.rows[0].id);
+    if (relation === 'tenant') await reconcileApartmentAidat(client, { siteCode, apartmentId, fromDate: moveInDate ?? todayIso(), actor, requireComplete: true });
     await logResidencyEvent(client, { siteCode, apartmentId, residencyId, eventType: 'moved_in', reasonCode, actor, actorRole });
     return residencyId;
   } catch (error) {
@@ -682,17 +689,6 @@ async function closeResidency(client, { siteCode, residency, userCode, moveOutDa
   );
   const apartment = apartmentLock.rows?.[0] ?? { id: residency.apartment_id, resident_user_code: null, resident_email: null };
 
-  // Kiracı çıkmadan ÖNCE hesabında ödenmemiş borç varsa malike bildirim (K1 / P1-1). Çıkışı ENGELLEMEZ; bildirim hatası çıkışı bozmaz.
-  // Dinamik içe aktarma: finans -> kişi bağımlılığı döngü kurmasın (kiracı olmayan çıkışlarda modül hiç yüklenmez).
-  if (residency.relation === 'tenant') {
-    try {
-      const { notifyOwnerOfTenantDebt } = await import('./finance_exit_notice.js');
-      await notifyOwnerOfTenantDebt(client, { siteCode, apartmentId: residency.apartment_id, actor });
-    } catch (_error) {
-      // bildirim modülü yüklenemese de çıkış sürer
-    }
-  }
-
   const updated = await client.query(
     `
       UPDATE apartment_residencies
@@ -704,6 +700,16 @@ async function closeResidency(client, { siteCode, residency, userCode, moveOutDa
   );
   if (!updated.rows?.[0]) {
     throw RESIDENCY_NOT_CURRENT();
+  }
+  if (residency.relation === 'tenant') {
+    await reconcileApartmentAidat(client, { siteCode, apartmentId: Number(residency.apartment_id), fromDate: moveOutDate, actor });
+    // Malike tam ayın eski borcu değil, günlük paylaşım SONRASI kalan kiracı borcu bildirilir.
+    try {
+      const { notifyOwnerOfTenantDebt } = await import('./finance_exit_notice.js');
+      await notifyOwnerOfTenantDebt(client, { siteCode, apartmentId: residency.apartment_id, actor });
+    } catch (_error) {
+      // Bildirim hatası çıkışı engellemez; finans yazımı ise aynı transaction'da atomiktir.
+    }
   }
 
   // ADLI KAYIT (residency_log): ayrılma / çıkarma olayı, kişi hesaptan koparılmadan ve erişim kapanmadan ÖNCE (anlık görüntü doğru kalsın), AYNI transaction'da.
@@ -1132,7 +1138,7 @@ export async function updatePerson({ siteCode, personId, body = {}, actor, inclu
         await client.query(`SELECT id FROM apartments WHERE id = ANY($1::BIGINT[]) ORDER BY id FOR UPDATE`, [knownIds]);
       }
       // Pasifleştirmeden ÖNCE erişim üyelikleriyle eşitle: yansımamış bir üyelik sonradan kişiyi yeniden etkinleştirmesin.
-      await runSyncSteps(client, { siteCode, userCode: null });
+      await runSyncSteps(client, { siteCode, userCode: null, dailyAidat: true });
     }
     // Ad/telefon hesabın kendisine yazılabilir mi? Karar için hesap satırı kişi satırından ÖNCE kilitlenir (apartments -> users -> kişi):
     // kişi bu arada parolayı sahiplenip hesabı "kendisinin" yapamaz. Kişinin hesap kodu kilitsiz okunur; kilitten sonra aynı mı diye
@@ -1444,6 +1450,7 @@ export async function updateResidency({ siteCode, residencyId, body = {}, actor,
     if (relation !== undefined && relation !== row.relation) {
       if (row.is_current === true) {
         await assertRelationAvailable(client, Number(row.apartment_id), relation, { excludeResidencyId: id });
+        if (relation === 'tenant') await assertTenantAccountReady(client, { siteCode, apartmentId: Number(row.apartment_id), personId: Number(row.person_id) });
       }
       changes.push({ field: 'relation', from: row.relation, to: relation });
       values.push(relation);
@@ -1492,6 +1499,10 @@ export async function updateResidency({ siteCode, residencyId, body = {}, actor,
           // İlişki türü kiracıya çevrildi: kiracı her zaman daire admini (hesabı ve aktif üyeliği varsa).
           await ensureTenantIsAdmin(client, { apartmentIds: [Number(row.apartment_id)], overrideManager: true, via: 'residency_changed', actor });
         }
+      }
+      if (row.relation === 'tenant' || relation === 'tenant') {
+        const dates = [dateToIso(row.move_in_date), moveInDate].filter(Boolean).sort();
+        await reconcileApartmentAidat(client, { siteCode, apartmentId: Number(row.apartment_id), fromDate: dates[0] ?? todayIso(), actor, requireComplete: true });
       }
     }
     return Number(row.person_id);

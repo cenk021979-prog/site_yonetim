@@ -4,9 +4,12 @@
 // Fotoğrafla sayaç okuma ekranı: "silmeyi biz yapmayız" (K6). Gönderim sonrası fotoğrafın telefondaki kopyası SİLİNMEZ; ekran bunu söyler ve kopyaları
 // yalnız kullanıcı isterse ("Kopyaları sil") siler. Sunucu fotoğrafı almadıysa bu da bildirilir. AGENTS.md kural 6: dar ekran / koyu tema taşmaz.
 import 'dart:typed_data';
+import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:site_kapi_kontrol/models/meter_field_models.dart';
 import 'package:site_kapi_kontrol/models/meter_models.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
@@ -17,6 +20,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/meter_api.dart';
 import 'package:site_kapi_kontrol/services/meter_field_queue.dart';
 import 'package:site_kapi_kontrol/services/meter_ocr.dart';
+import 'package:site_kapi_kontrol/services/meter_photo_picker.dart';
 import 'package:site_kapi_kontrol/ui/views/meter_field_view.dart';
 
 import 'dialog_layout_harness.dart' show settleFor;
@@ -25,14 +29,19 @@ import 'people_fixtures.dart';
 
 class _Auth extends AuthService {
   _Auth() : super(api: AuthApi(baseUrl: 'http://localhost'));
+  bool other = false;
+  void switchAccount() { other = true; notifyListeners(); }
 
   @override
-  UserSession? get session => const UserSession(id: 1, fullName: 'Görevli Kişi', email: 'g@x.com', loginName: null, role: UserRole.siteManager, isActive: true, token: 'tok');
+  UserSession? get session => other
+      ? const UserSession(id: 2, fullName: 'Başka Kişi', email: 'b@x.com', loginName: null, role: UserRole.siteManager, isActive: true, token: 'other')
+      : const UserSession(id: 1, fullName: 'Görevli Kişi', email: 'g@x.com', loginName: null, role: UserRole.siteManager, isActive: true, token: 'tok');
 }
 
 class _MemoryStore implements MeterFieldStore {
   List<PendingMeterReading> items = <PendingMeterReading>[];
   final Map<String, Uint8List> photos = <String, Uint8List>{};
+  bool failPhoto = false;
 
   @override
   Future<List<PendingMeterReading>> load() async => List<PendingMeterReading>.of(items);
@@ -40,6 +49,7 @@ class _MemoryStore implements MeterFieldStore {
   Future<void> save(List<PendingMeterReading> next) async => items = List<PendingMeterReading>.of(next);
   @override
   Future<String?> writePhoto(String id, Uint8List bytes) async {
+    if (failPhoto) return null;
     photos['mem/$id'] = bytes;
     return 'mem/$id';
   }
@@ -81,12 +91,14 @@ class _NoOcr implements MeterOcr {
 typedef _Post = ({int meterId, String value, bool? confirmJump, bool replace});
 
 class _FakeMeters implements MeterService {
-  _FakeMeters(this.meters, {this.onPost});
+  _FakeMeters(this.meters, {this.onPost, this.photoStorage = 'none'});
 
   final List<FieldMeter> meters;
   final Future<FieldReadingResult> Function(_Post post)? onPost;
   final List<_Post> posts = <_Post>[];
   final List<String?> listedDates = <String?>[];
+  final List<String?> postedPhotos = [];
+  final String photoStorage;
 
   @override
   Future<List<FieldMeter>> listFieldMeters(int siteCode, {MeterKind? kind, String? date}) async {
@@ -106,7 +118,8 @@ class _FakeMeters implements MeterService {
   }) async {
     final post = (meterId: meterId, value: value, confirmJump: confirmJump, replace: replace);
     posts.add(post);
-    return onPost == null ? const FieldReadingResult(replayed: false, photoStorage: 'none') : onPost!(post);
+    postedPhotos.add(photoBase64);
+    return onPost == null ? FieldReadingResult(replayed: false, photoStorage: photoStorage) : onPost!(post);
   }
 
   @override
@@ -133,7 +146,7 @@ FieldMeter jumpy(int id, String block, String unit) =>
 const ValueKey<String> _valueField = ValueKey<String>('reading_value');
 const ValueKey<String> _confirmButton = ValueKey<String>('reading_confirm');
 
-Future<MeterFieldQueue> _pumpField(WidgetTester tester, _FakeMeters service, {MeterFieldQueue? queue}) async {
+Future<MeterFieldQueue> _pumpField(WidgetTester tester, _FakeMeters service, {MeterFieldQueue? queue, MeterPhotoPicker? pickPhoto, _Auth? auth, MeterKind? initialKind}) async {
   tester.view.physicalSize = const Size(800, 1600);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(tester.view.reset);
@@ -141,7 +154,7 @@ Future<MeterFieldQueue> _pumpField(WidgetTester tester, _FakeMeters service, {Me
   await tester.pumpWidget(
     MaterialApp(
       home: MeterFieldView(
-        authService: _Auth(),
+        authService: auth ?? _Auth(),
         siteCode: 7,
         siteName: 'Gül Sitesi',
         service: service,
@@ -149,6 +162,9 @@ Future<MeterFieldQueue> _pumpField(WidgetTester tester, _FakeMeters service, {Me
         ocr: _NoOcr(),
         enableCamera: false,
         clock: () => DateTime(2026, 10, 28, 10),
+        pickPhoto: pickPhoto,
+        initialKind: initialKind,
+        preparePhoto: (raw) async => shrinkMeterPhoto(raw),
       ),
     ),
   );
@@ -207,13 +223,88 @@ void main() {
     expect(service.listedDates, <String?>['2026-10-28']);
   });
 
-  testWidgets('kamera desteklenmeyen platformda (web, masaüstü) boş alan yerine kısa açıklama gösterilir', (tester) async {
+  testWidgets('web/masaüstü fotoğraf ekleme sunar ve otomatik OCR iddiası yoktur', (tester) async {
     final service = _FakeMeters(<FieldMeter>[plain(1, 'A Blok', '1')]);
     await _pumpField(tester, service);
-    expect(find.byKey(const ValueKey<String>('meter_no_camera_note')), findsOneWidget);
-    expect(find.text('Bu cihazda fotoğrafla okuma yok; değeri elle yazın.'), findsOneWidget);
+    expect(find.byKey(const ValueKey<String>('meter_photo_manual_note')), findsOneWidget);
+    expect(find.textContaining('otomatik metin okuma yok'), findsOneWidget);
+    expect(find.byKey(const ValueKey('meter_pick_photo')), findsOneWidget);
     expect(find.byKey(_valueField), findsOneWidget, reason: 'elle giriş alanı yerinde');
   });
+
+  testWidgets('fotoğraf önizlenir; yalnız açık onaydan sonra JPEG kanıtıyla gönderilir ve yerel kopya korunur', (tester) async {
+    final raw = Uint8List.fromList(img.encodePng(img.Image(width: 3, height: 4)));
+    final store = _MemoryStore();
+    final service = _FakeMeters([plain(1, 'A Blok', '1')], photoStorage: 'server');
+    await _pumpField(tester, service, queue: MeterFieldQueue(store: store), pickPhoto: () async => (name: 'meter.png', path: null, bytes: raw));
+    await tester.tap(find.byKey(const ValueKey('meter_pick_photo')));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('meter_photo_preview')), findsOneWidget);
+    expect(find.textContaining('otomatik okuma yapılmadı'), findsOneWidget);
+    expect(service.posts, isEmpty);
+    await enterAndConfirm(tester, '12,5');
+    expect(service.posts.single.value, '12.5');
+    expect(img.decodeJpg(base64Decode(service.postedPhotos.single!)), isNotNull);
+    expect(store.photos, hasLength(1), reason: 'K6: otomatik silme yok');
+  });
+
+  testWidgets('fotoğraf kalıcı yazılamazsa değer/fotoğraf saklandı denmez ve sunucuya gönderilmez', (tester) async {
+    final raw = Uint8List.fromList(img.encodePng(img.Image(width: 3, height: 4)));
+    final store = _MemoryStore()..failPhoto = true;
+    final service = _FakeMeters([plain(1, 'A', '1')]);
+    await _pumpField(tester, service, queue: MeterFieldQueue(store: store), pickPhoto: () async => (name: 'meter.png', path: null, bytes: raw));
+    await tester.tap(find.byKey(const ValueKey('meter_pick_photo')));
+    await tester.pumpAndSettle();
+    await enterAndConfirm(tester, '12');
+    expect(find.textContaining('Kaydedilmedi'), findsOneWidget);
+    expect(service.posts, isEmpty);
+    expect(store.items, isEmpty);
+    expect(find.byKey(const ValueKey('meter_photo_preview')), findsOneWidget);
+  });
+
+  testWidgets('geç gelen dosya seçimi başka hesaba fotoğraf veya kayıt taşımaz', (tester) async {
+    final chosen = Completer<MeterPhotoFile?>();
+    final auth = _Auth();
+    final service = _FakeMeters([plain(1, 'A', '1')]);
+    await _pumpField(tester, service, auth: auth, pickPhoto: () => chosen.future);
+    await tester.tap(find.byKey(const ValueKey('meter_pick_photo')));
+    await tester.pump();
+    auth.switchAccount();
+    chosen.complete((name: 'meter.png', path: null, bytes: Uint8List.fromList(img.encodePng(img.Image(width: 2, height: 2)))));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('meter_photo_preview')), findsNothing);
+    expect(service.posts, isEmpty);
+  });
+
+  testWidgets('boş başlangıç türü yerine mevcut etkin tür açılır; kullanılmayan tür yoktur', (tester) async {
+    final service = _FakeMeters([plain(1, 'A', '1')]);
+    await _pumpField(tester, service, initialKind: MeterKind.electricity);
+    expect(tester.widget<DropdownButton<MeterKind>>(find.byType(DropdownButton<MeterKind>)).value, MeterKind.water);
+    await tester.tap(find.byType(DropdownButton<MeterKind>));
+    await tester.pumpAndSettle();
+    expect(find.text('Elektrik'), findsNothing);
+  });
+
+  for (final size in const [Size(320, 640), Size(640, 320)]) {
+    testWidgets('fotoğraflı okuma dar/yatay ekranda %200 yazıyla taşmaz: $size', (tester) async {
+      final store = _MemoryStore();
+      final queue = MeterFieldQueue(store: store);
+      final service = _FakeMeters([plain(1, 'Çok uzun blok adı', '101')]);
+      tester.view.physicalSize = size;
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(MaterialApp(
+        builder: (context, child) => MediaQuery(data: MediaQuery.of(context).copyWith(textScaler: TextScaler.linear(2)), child: child!),
+        home: MeterFieldView(authService: _Auth(), siteCode: 7, siteName: 'Çok uzun site ve apartman adı', service: service, queue: queue, ocr: _NoOcr(), enableCamera: false, clock: () => DateTime(2026, 10, 28)),
+      ));
+      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(find.byKey(const ValueKey('meter_pick_photo')), 150, scrollable: find.byType(Scrollable).first);
+      expect(find.byKey(const ValueKey('meter_pick_photo')), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      await tester.scrollUntilVisible(find.byKey(_confirmButton), 180, scrollable: find.byType(Scrollable).first);
+      expect(tester.takeException(), isNull);
+    });
+  }
 
   group('sıçrama uyarısı (K12)', () {
     testWidgets('eşik aşılınca sorulur; "Değeri düzelt" hiçbir şey kaydetmez, "Doğru, kaydet" onay bayrağıyla gönderir', (tester) async {
@@ -280,7 +371,7 @@ void main() {
       expect(find.byKey(const ValueKey<String>('jump_dialog')), findsNothing);
       expect(service.posts.single.confirmJump, isFalse);
       expect(find.textContaining('1 okuma olağan dışı tüketim nedeniyle onayınızı bekliyor'), findsOneWidget);
-      expect(find.text('Bekleyen: 1'), findsOneWidget);
+      expect(find.byTooltip('Bekleyen: 1'), findsOneWidget);
       expect(find.descendant(of: find.byKey(const ValueKey<String>('pending_badge')), matching: find.text('1')), findsOneWidget, reason: 'kırmızı rozet: sorunlu kayıt sayısı');
       final waiting = (await queue.items()).single;
       expect(waiting.needsJumpConfirm, isTrue);
@@ -429,7 +520,7 @@ void main() {
     final (store, _, service) = await _pump(t);
     expect(service.posted, 1);
     expect(find.textContaining('1 okuma gönderildi.'), findsOneWidget);
-    expect(find.textContaining('Fotoğrafların telefonunuzdaki kopyası silinmedi'), findsOneWidget);
+    expect(find.textContaining('Fotoğrafların cihazınızdaki kopyası silinmedi'), findsOneWidget);
     expect(find.textContaining('isterseniz siz silebilirsiniz'), findsOneWidget);
     expect(store.photos, hasLength(1), reason: 'uygulama kopyayı kendiliğinden silmedi');
     expect(find.byKey(const ValueKey<String>('meter_kept_copies')), findsOneWidget);
@@ -442,7 +533,7 @@ void main() {
     await t.tap(find.byKey(const ValueKey<String>('meter_kept_copies')));
     await settleFor(t, 100);
     await settleFor(t, 300);
-    expect(find.text('Telefondaki fotoğraf kopyaları'), findsOneWidget);
+    expect(find.text('Cihazdaki fotoğraf kopyaları'), findsOneWidget);
     expect(find.textContaining('kendiliğinden silmez'), findsOneWidget);
 
     await t.tap(find.text('Kalsın'));
@@ -458,7 +549,7 @@ void main() {
     await settleFor(t, 100);
     await settleFor(t, 300);
     expect(store.photos, isEmpty);
-    expect(find.textContaining('1 fotoğraf kopyası telefondan silindi.'), findsOneWidget);
+    expect(find.textContaining('1 fotoğraf kopyası cihazdan silindi.'), findsOneWidget);
     expect(find.byKey(const ValueKey<String>('meter_kept_copies')), findsNothing);
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox.shrink());
@@ -467,7 +558,7 @@ void main() {
   testWidgets('sunucu fotoğrafı almadıysa ("none") bildirilir: kopyası telefonunuzda duruyor', (t) async {
     final (store, _, _) = await _pump(t, photoStorage: 'none', dark: true, width: 320);
     expect(find.textContaining('fotoğrafı sunucuya ulaşmadı'), findsOneWidget);
-    expect(find.textContaining('kopyası telefonunuzda duruyor'), findsOneWidget);
+    expect(find.textContaining('kopyası cihazınızda duruyor'), findsOneWidget);
     expect(store.photos, hasLength(1));
     expect(t.takeException(), isNull);
     await t.pumpWidget(const SizedBox.shrink());

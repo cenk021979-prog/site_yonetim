@@ -13,15 +13,16 @@ import 'list_fixtures.dart' show listMatrix, pumpList, tapFinder;
 import 'people_fixtures.dart' show PeopleFakeAuth;
 
 class _FakeMeterService extends MeterService {
-  _FakeMeterService({required super.authService, this.tariffs = const <MeterTariff>[]}) : super(api: MeterApi(baseUrl: 'http://localhost'));
+  _FakeMeterService({required super.authService, this.tariffs = const <MeterTariff>[], this.meters = const []}) : super(api: MeterApi(baseUrl: 'http://localhost'));
 
   final List<MeterTariff> tariffs;
+  final List<Meter> meters;
 
   @override
   Future<List<MeterTariff>> listTariffs(int siteCode) async => tariffs;
 
   @override
-  Future<List<Meter>> listMeters(int siteCode, {MeterKind? kind}) async => const <Meter>[];
+  Future<List<Meter>> listMeters(int siteCode, {MeterKind? kind}) async => meters;
 
   @override
   Future<List<MeterBilling>> listBillings(int siteCode) async => const <MeterBilling>[];
@@ -38,13 +39,14 @@ Future<void> _open(
   double scale = 1.0,
   bool dark = false,
   List<MeterTariff> tariffs = const <MeterTariff>[],
+  List<Meter> meters = const [],
 }) async {
   final auth = PeopleFakeAuth();
   await pumpList(
     t,
     MetersView(
       authService: auth,
-      service: _FakeMeterService(authService: auth, tariffs: tariffs),
+      service: _FakeMeterService(authService: auth, tariffs: tariffs, meters: meters),
       sites: <MeterSite>[MeterSite(code: 11, name: 'Gül Sitesi', canWrite: canWrite)],
     ),
     width: width,
@@ -76,6 +78,20 @@ Future<void> _selectHeatMethod(WidgetTester t) async {
 }
 
 void main() {
+  testWidgets('Tümü yok; yalnız tanımlı türler vardır ve pasif sayaç türü geçmişiyle erişilebilir', (t) async {
+    await _open(t, canWrite: true, meters: const [
+      Meter(id: 1, kind: MeterKind.water, serialNo: 'S1', isActive: true, apartmentId: 1, apartmentLabel: 'A - 1'),
+      Meter(id: 2, kind: MeterKind.electricity, serialNo: 'E1', isActive: false, apartmentId: 1, apartmentLabel: 'A - 1'),
+    ]);
+    expect(find.widgetWithText(ChoiceChip, 'Tümü'), findsNothing);
+    expect(find.widgetWithText(ChoiceChip, 'Su'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Elektrik'), findsOneWidget);
+    expect(find.widgetWithText(ChoiceChip, 'Isı'), findsNothing);
+    expect(find.widgetWithText(ChoiceChip, 'Sıcak su'), findsNothing);
+    await tapFinder(t, find.widgetWithText(ChoiceChip, 'Elektrik'));
+    expect(find.textContaining('Pasif'), findsOneWidget);
+    expect(find.textContaining('E1'), findsOneWidget);
+  });
   group('dağıtım yöntemi adları (model)', () {
     test('ısı payının alan kısmı m² demez: "alan payı" (m² 078\'de kaldırıldı; arsa payı ya da eşit)', () {
       expect(MeterMethod.unitPrice.label, 'Birim fiyat');

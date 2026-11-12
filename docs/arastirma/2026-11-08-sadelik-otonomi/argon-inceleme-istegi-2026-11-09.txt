@@ -1,0 +1,47 @@
+ARGON İNCELEMESİ — SADE KAPORTA / 09.11.2026
+
+Sana proje sahibinin açık talebiyle Polaris/Codex üzerinden başvuruyoruz. Birden fazla modelle sıralı çalışacağız: önce gerçek Gemini Argon senin incelemen; ardından senin yanıtın değiştirilmeden gpt-6-astra modeline iletilecek ve bulgularını kod, resmi kaynaklar ve karşı kanıtlarla araştırması istenecek. Son kararı model çoğunluğuna değil doğrulanabilir kanıta göre vereceğiz. Eleştiri ve farklı tasarım önermek serbest; önceki taslağı onaylamak zorunda değilsin.
+
+Bu yalnız salt okunur araştırma ve tasarım eleştirisidir. Uygulama, sunucu, firmware, veritabanı, hesap veya ayar değiştirme. Dosya yazma, paket kurma, test çalıştırma, commit/push/deploy yapma. Canlı API, SSH, kapı, alarm veya ödeme işlemi başlatma. Şifre, anahtar, .env, hesap yedeği veya özel sohbet okuma. Sonucunu yalnız bu konuşmanın yanıtında ver. İnceleme için ilgili kodu, aşağıdaki araştırma belgelerini ve kamuya açık kaynakları okuyabilirsin. Ek ücret/abonelik/API anahtarı oluşturma. Kullanıcıya soru sorma; belirsizlikleri açıkça belirt.
+
+İSTENEN SONUÇ
+Mevcut site/apartman yönetimi yazılımında eski Klasik arayüz korunacak. İsteğe bağlı Sade görünüm aynı yetkili işleri daha kolay bulunur, az tekrarlı, modern, okunaklı şekilde sunacak. Önce görsel taslak ve sağlam kurgu; henüz ürün kodlaması yok. Sektör bağımsız başarılı örnekler kullanılabilir. Az ikon/sayfa sayısı tek başına başarı değildir. Gerektiğinde bir kontrol gerçek durumuna göre Başlat/Durdur olabilir; alakasız veya kritik işlemler aynı düğmeye doldurulmaz.
+
+KULLANICI SENARYOSU
+Sakin güncel duyuruları, yalnız kendi dairesine özel bildirileri ve yönetimin yayımladığı ay içi iş/gider/servis/bakım/demirbaş özetini görsün. Duyurulara cevap verme olmasın. Belge/fatura ve eski harcama paylaşımı yönetimin kararına bağlı isteniyor. Duyuru görüntüleyicide indirme eylemi istenmiyor, fakat ekran görüntüsünü mutlak engelleme iddiası yapılmayacak. Örnek site gideri: Demirbaş 10.000 + elektrik/su 4.000 + servis/bakım/temizlik 15.500 = 29.500 TL. Bu kişisel aidat borcu değildir. Eski aylara erişimi gerçekten kapatma görünümden ayrı sunucu politikasıdır; Klasik yetkiler korunacak sözüyle çelişkisi çözülmeden uygulanmaz. Devam eden önemli duyuru ay değişince kaybolmamalı.
+
+MEVCUT ÇALIŞMAYI ÖNCE OKU
+Çalışma dizini C:/projeler/site_kapi_kontrol.
+1) AGENTS.md ve docs/TASARIM_DILI.md.
+2) docs/arastirma/2026-11-08-sadelik-otonomi/ux-research.json
+3) docs/arastirma/2026-11-08-sadelik-otonomi/automation-research.json
+4) docs/arastirma/2026-11-08-sadelik-otonomi/modern-sade-kaporta-2026-11-09.json
+5) docs/arastirma/2026-11-08-sadelik-otonomi/sade-kaporta-kararlar-2026-11-09.json
+6) docs/arastirma/2026-11-08-sadelik-otonomi/modern-sade-kaporta-katalog.html
+7) Görsel yeteneğin varsa docs/arastirma/2026-11-08-sadelik-otonomi/gorseller/sade-kaporta-taslak-2026-11-09.png. Göremiyorsan görseli incelemiş gibi iddia etme.
+8) İlgili kod: lib/menu.dart, lib/ui/helpers/menu_layout.dart, lib/ui/pages/home_page.dart ve yalnız gerekli bağlanan modüller. Kod iddiasına güncel dosya ve satır numarası ekle.
+
+Önceki görüşme kaybolmasın diye özet: 49 menü tanımı yeni konu adreslerine eşlendi. Bu erişim testi değildir. Dört ekranlık görsel/yerel önizleme var; uygulama kodu uygulanmadı, gerçek tarayıcı/kullanıcı görevi testi yapılmadı. Daha önce Argon ekran bağlantısı başarısız olduğu için hiçbir gerçek Argon cevabı alınamadı. Mevcut Astra eleştirisi senden bağımsız ilk incelemeydi; onun eleştirileri karar dosyasında açıkça yer alır. Şimdiki sıra ilk kez gerçek Argon -> Astra olacaktır.
+
+GEÇİCİ TASARIM
+Sakin: Bugün / Evim / Ödemeler / Site.
+Yönetici: Bugün / Finans / Daireler / Yönetim.
+Site, gerçek daire bağı ve kullanım modu görünür. Sakin Modu başka bir sakinin hesabına dönüşmek değildir. Klasik ve Sade aynı AuthService, servisler, modeller, API izinleri ve ortak işlem yönlendiricisini paylaşacak; HomePage/iş kuralı/ledger/yetki motoru kopyalanmayacak. Varsayılan Klasik; ilk tercih hesapla ayrılmış cihaz içi tercih. Tüm işlemler ve arama ek yollar; özelliklerin tek adresi gizli depo olmayacak.
+Mevcut tasarım dili beyaz ağırlık, düz yüzeyler, okunaklı koyu metin, az çerçeve; koyu tema korunur. Hareket ve dekorasyon göreve hizmet ettiği ölçüde. Masaüstünde kısa metinli gezinme, ilgili satırda işlem; dar ekranda okunaklı uyarlanma. 320dp ve %200 metin, uzun adlar, klavye/ekran okuyucu, hover dışı açıklama gerekli. Rahat 44–48 hedef önerisi WCAG AA'nın her durumda zorunlu sayısı değildir.
+
+KORUNACAK SINIRLAR
+15 temel modül/21 katalog, kapalı eski menüler yeniden açılmaz. Yeni m² alanı yok. Aidat/Fon, K3 açık hesap seçimi, mevcut günlük paylaşım ve değiştirilemez defter/ters kayıt korunur. Sakin için yeni aylık güvenli özet ham yönetici finans API'sini açmak değildir. Belge kitlesi kendiliğinden genişlemez. SOS oluşturma ve alıcı alarm listesi farklıdır. FCM eksikliği kapalı uygulamada garantili bildirim diye gösterilemez. Kapı komutu, cihaz ACK ve fiziksel açılma farklıdır. C3/WROOM ve OTA güvenliği değişmez. Yeni yedek arşivi ve APK yok; ilk adım tasarım.
+
+KANIT SINIRLARI
+Kütüphanedeki 12 yeni kaynak ödül, üretici beyanı, tasarım standardı ve araştırma olarak ayrıldı. Apple Flighty/Crouton ödülleri bizim görev başarımızı kanıtlamaz. Shopify üretici tasarım gerekçesi bağımsız kullanıcı deneyi değildir. REF-M04 Scottish Government doğrudan bot engelli; REF-M05 Stripe open aracında içerik türü engelli: bunlar sınırlı kanıt. Arxiv Dashboard Design Patterns 144 panel/23 katılımcı atölye genel tasarım incelemesidir. GOV.UK Details/Tasklist, IBM Carbon, NN/G ve W3C kaynakları application/caveat ile beraber değerlendirilmeli. Tam makale kopyalamıyoruz; kaynak bağlantısı ve özgün kısa özet yeterli.
+
+İSTENEN RAPOR (TÜRKÇE)
+A. Gerçekte hangi dosyaları/kaynakları/görselleri okudun; göremediğin veya doğrulayamadığın neler? Kullandığın model kimliği arayüzde sana verilmediyse tahmin etme.
+B. İlk kurgu için önem sıralı en fazla 10 bulgu: iddia, kanıt (dosya:satır veya resmi URL), hangi rolün hangi işini etkiler, somut düzeltme, güven düzeyi. Kesin bilgi ile öneri/varsayımı ayır.
+C. Mevcut 4+4 gezinmeyi eleştir; daha iyi alternatif varsa örnek görevlerle açıkla. En az sakin/manager/güvenlik/kurul/platform ve çok site rolleri kaybolmasın. Sekme sayısını kanıtlanmış optimum varsayma.
+D. Sunum değişikliğiyle iş/yetki değişikliğini ayrı listele. Klasik korunurken Sade nasıl modüler kurulmalı? Kodla doğrulanmış bağlantı noktalarını ver.
+E. Kütüphanede eksik olan gerçekten yararlı en fazla 4 birincil kaynak veya karşı kanıt öner; erişebiliyorsan araştır. Tarama yapamadıysan açıkça söyle, kaynak uydurma.
+F. Kodlamadan önce netleşmesi gereken başlangıç sırası ve kabul senaryoları: bağlam değişimi, bekleyen işlem, boş/hata/çevrimdışı, aylık duyuru, gider/borç ayrımı, küçük ekran, Klasik geri dönüş.
+G. Astra'nın özellikle araştırıp yanlışlayabileceği sorular ve iddialar listesi. Astra sana katılmak zorunda değil; model oybirliği başarı ölçütü değil.
+
+Kısa ama somut bir rapor üret; tasarımı güzel diye övme, çalışmayan varsayımları göster. Dosya değiştirmeden yalnız yanıt ver.

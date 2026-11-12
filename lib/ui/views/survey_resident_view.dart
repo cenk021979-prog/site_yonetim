@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:site_kapi_kontrol/models/survey_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
@@ -7,6 +8,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/survey_api.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/crm_confirm_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/cursor_loader.dart';
@@ -22,11 +24,13 @@ import 'package:site_kapi_kontrol/ui/widgets/survey_parts.dart';
 /// - HATA ASLA "anket yok" demez; modül kapalıysa (403 `MODULE_DISABLED`) açıklayıcı kart çıkar.
 /// - [SurveyResidentViewState.reload] sayfa kabuğunun aşağı çekip yenilemesinden çağrılır.
 class SurveyResidentView extends StatefulWidget {
-  const SurveyResidentView({super.key, required this.authService, this.service, this.sites = const <PeopleSite>[]});
+  const SurveyResidentView({super.key, required this.authService, this.service, this.sites = const <PeopleSite>[], this.scopedSiteCode});
 
   final AuthService authService;
   final SurveyService? service;
   final List<PeopleSite> sites;
+  /// Üst sayfadaki site seçimini izler; başka bir siteye kendiliğinden geçmez.
+  final int? scopedSiteCode;
 
   @override
   State<SurveyResidentView> createState() => SurveyResidentViewState();
@@ -37,12 +41,14 @@ class SurveyResidentViewState extends State<SurveyResidentView> {
 
   int? _siteFilter;
   bool _moduleOff = false;
+  bool get _scopeAllowed => widget.scopedSiteCode == null || widget.sites.any((site) => site.code == widget.scopedSiteCode);
 
   late SurveyService _service = widget.service ?? SurveyService(authService: widget.authService);
 
   late final CursorLoader<SurveyResidentItem> _loader = CursorLoader<SurveyResidentItem>(
     fetch: (before) async {
-      final page = await _service.listMine(siteCode: _siteFilter, limit: 30, beforeId: before);
+      if (!_scopeAllowed) return (items: <SurveyResidentItem>[], next: null);
+      final page = await _service.listMine(siteCode: widget.scopedSiteCode ?? _siteFilter, limit: 30, beforeId: before);
       if (before == null) _moduleOff = false;
       return (items: page.items, next: page.nextBeforeId);
     },
@@ -67,12 +73,17 @@ class SurveyResidentViewState extends State<SurveyResidentView> {
   @override
   void didUpdateWidget(SurveyResidentView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.service, widget.service) || !identical(oldWidget.authService, widget.authService)) {
+    final serviceChanged = !identical(oldWidget.service, widget.service) || !identical(oldWidget.authService, widget.authService);
+    if (serviceChanged) {
       _service = widget.service ?? SurveyService(authService: widget.authService);
     }
     final filter = _siteFilter;
-    if (filter != null && !widget.sites.any((s) => s.code == filter)) {
+    final filterRemoved = filter != null && !widget.sites.any((s) => s.code == filter);
+    if (filterRemoved) {
       _siteFilter = null;
+    }
+    if (filterRemoved || serviceChanged || oldWidget.scopedSiteCode != widget.scopedSiteCode || !listEquals(oldWidget.sites, widget.sites)) {
+      _moduleOff = false;
       _loader.reset();
       unawaited(_loader.reload());
     }
@@ -120,7 +131,7 @@ class SurveyResidentViewState extends State<SurveyResidentView> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
-    final multiSite = widget.sites.length > 1;
+    final multiSite = widget.scopedSiteCode == null && widget.sites.length > 1;
     final items = _loader.items;
     final open = items.where((s) => s.isOpen).toList(growable: false);
     final closed = items.where((s) => !s.isOpen).toList(growable: false);
@@ -128,19 +139,18 @@ class SurveyResidentViewState extends State<SurveyResidentView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Anketler', icon: Icons.poll_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text('Yönetimin açtığı anketlerde oy kullanın ve sonuçları görün.', style: th.bodyMedium),
-        const SizedBox(height: AppSpace.lg),
         if (multiSite) ...[
-          AppCard(
+          Align(
+            alignment: Alignment.centerLeft,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 420),
             child: DropdownButtonFormField<int>(
               key: ValueKey<String>('survey_resident_site_${_siteFilter ?? 0}'),
               isExpanded: true,
               initialValue: _siteFilter ?? _allSites,
               dropdownColor: p.surface,
               style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(labelText: 'Site', prefixIcon: Icon(Icons.apartment_rounded)),
+              decoration: const InputDecoration(labelText: 'Site', isDense: true, prefixIcon: Icon(Icons.apartment_rounded)),
               items: [
                 const DropdownMenuItem<int>(value: _allSites, child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis)),
                 for (final s in widget.sites)
@@ -155,25 +165,26 @@ class SurveyResidentViewState extends State<SurveyResidentView> {
                 unawaited(_loader.reload());
               },
             ),
+            ),
           ),
           const SizedBox(height: AppSpace.md),
         ],
         SectionHeader(
           title: 'Açık anketler',
-          trailing: IconButton(
+          trailing: Row(mainAxisSize: MainAxisSize.min, children: [IconButton(
             onPressed: _loader.loading ? null : reload,
             tooltip: 'Yenile',
             icon: const Icon(Icons.refresh_rounded),
-          ),
+          ), const ContextHelp(title: 'Anketler', message: 'Yönetimin açtığı anketlerde oy kullanın ve sonuçları görün.')]),
         ),
         const SizedBox(height: AppSpace.md),
         if (_moduleOff)
           const SurveyModuleOffCard()
-        else if (widget.sites.isEmpty)
+        else if (widget.sites.isEmpty || !_scopeAllowed)
           const EmptyCard(
             icon: Icons.poll_outlined,
             title: 'Anket görebileceğiniz site yok.',
-            message: 'Anketler, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
+            message: 'Anketler, seçili sitede daire sakini olarak bağlı olduğunuzda burada görünür.',
           )
         else if (_loader.loading && !_loader.loadedOnce)
           const ListSkeleton(rows: 2)

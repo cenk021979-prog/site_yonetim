@@ -1,17 +1,22 @@
-// İndirilmiş belgeyi paylaşım / "ile aç" menüsüne verir (share_plus) ve geçici kopyayı siler.
+// İndirilen belgeyi platforma göre kaydeder; açık paylaşım isteği ayrıca korunur.
 //
 // Belge zaten geçici klasöre akışla yazılmıştır ([TempFileDocumentSink]); burada yalnız paylaşım ve temizlik
-// yapılır. Silme zamanı AccountExportSharer ile aynı gerekçeyle ertelenir: Android'de alıcı uygulama dosyayı hâlâ
+// yapılır. Mobil paylaşımda silme zamanı ertelenir: Android'de alıcı uygulama dosyayı hâlâ
 // okurken silmek yüklemeyi / eki bozar; iOS'ta paylaşım yaprağı kapanınca alıcı kopyayı almıştır.
 // Süreç öldürülürse zamanlayıcı çalışmaz: bir sonraki paylaşımda ve hesap silinince (önek, bkz.
 // document_download.dart) eski klasörler süpürülür.
 import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform, visibleForTesting;
 import 'package:share_plus/share_plus.dart';
+import 'package:site_kapi_kontrol/models/document_upload_models.dart'
+    show kDocumentAbsoluteMaxBytes;
 import 'package:site_kapi_kontrol/services/document_download.dart';
+import 'package:site_kapi_kontrol/services/file_save.dart';
 import 'package:site_kapi_kontrol/services/local_cache_purge.dart';
 
 /// Paylaşım sonucu (arayüz için sadeleştirilmiş).
@@ -26,6 +31,15 @@ enum DocumentShareOutcome {
   unknown,
 }
 
+/// A browser can confirm download initiation, not that a user saved the file.
+enum DocumentDeliveryOutcome {
+  saved,
+  downloadStarted,
+  shared,
+  cancelled,
+  unknown,
+}
+
 class DocumentFileSharer {
   DocumentFileSharer({
     Future<ShareResult> Function(ShareParams params)? shareFn,
@@ -33,12 +47,21 @@ class DocumentFileSharer {
     Duration staleAfter = const Duration(minutes: 10),
     bool sweepStaleOnShare = true,
     Future<void> Function()? purgeSharedCaches,
+    SaveFileBytes? saveFn,
+    bool? useSaveDialog,
+    bool? isWeb,
+    Future<Uint8List> Function(DownloadedDocument document)? readBytes,
   }) : _share = shareFn ?? SharePlus.instance.share,
        _cleanupDelay = cleanupDelay ?? _defaultCleanupDelay(),
        _staleAfter = staleAfter,
        _sweepStaleOnShare = sweepStaleOnShare,
        _purgeSharedCaches =
-           purgeSharedCaches ?? (() => purgeLocalSharedCaches(pickerCache: false));
+           purgeSharedCaches ??
+           (() => purgeLocalSharedCaches(pickerCache: false)),
+       _save = saveFn ?? saveFileBytes,
+       _useSaveDialog = useSaveDialog ?? platformUsesFileSave,
+       _isWeb = isWeb ?? kIsWeb,
+       _readBytes = readBytes ?? _documentBytes;
 
   /// Zamanlanmış (gecikmeli) silmeler: klasör yolu -> zamanlayıcı.
   static final Map<String, Timer> _timers = <String, Timer>{};
@@ -48,6 +71,10 @@ class DocumentFileSharer {
   static int get pendingCleanupCount => _timers.length;
 
   final Future<ShareResult> Function(ShareParams params) _share;
+  final SaveFileBytes _save;
+  final bool _useSaveDialog;
+  final bool _isWeb;
+  final Future<Uint8List> Function(DownloadedDocument document) _readBytes;
   final Duration _cleanupDelay;
   final Duration _staleAfter;
 
@@ -64,6 +91,85 @@ class DocumentFileSharer {
     // iOS: paylaşım yaprağı alıcı kopyayı aldıktan sonra kapanır; hemen silinebilir.
     if (defaultTargetPlatform == TargetPlatform.iOS) return Duration.zero;
     return const Duration(minutes: 2);
+  }
+
+  static Future<Uint8List> _documentBytes(DownloadedDocument document) async {
+    final bytes = document.bytes;
+    if (bytes != null) return bytes;
+    final path = document.path;
+    if (path == null) throw StateError('İndirilen dosya bulunamadı.');
+    final file = File(path);
+    if (await file.length() != document.sizeBytes) {
+      throw StateError('İndirilen dosya tamamlanmadı. Yeniden indirin.');
+    }
+    final builder = BytesBuilder(copy: false);
+    var count = 0;
+    await for (final chunk in file.openRead()) {
+      count += chunk.length;
+      if (count > document.sizeBytes) {
+        throw StateError('İndirilen dosyanın boyutu değişti. Yeniden indirin.');
+      }
+      builder.add(chunk);
+    }
+    return builder.takeBytes();
+  }
+
+  /// The app's Download action: desktop/web save, mobile share. Explicit
+  /// [share] remains available and keeps its existing mobile cleanup contract.
+  /// A cancelled native save never opens a share sheet or retries the download.
+  Future<DocumentDeliveryOutcome> deliver(
+    DownloadedDocument document, {
+    Rect? sharePositionOrigin,
+    bool Function()? canDeliver,
+  }) async {
+    bool allowed() => canDeliver?.call() ?? true;
+    if (!_useSaveDialog) {
+      if (!allowed()) {
+        await scheduleDelete(document);
+        return DocumentDeliveryOutcome.cancelled;
+      }
+      return switch (await share(
+        document,
+        sharePositionOrigin: sharePositionOrigin,
+        canShare: canDeliver,
+      )) {
+        DocumentShareOutcome.shared => DocumentDeliveryOutcome.shared,
+        DocumentShareOutcome.dismissed => DocumentDeliveryOutcome.cancelled,
+        DocumentShareOutcome.unknown => DocumentDeliveryOutcome.unknown,
+      };
+    }
+    var temporaryCopyCleaned = false;
+    try {
+      if (!allowed()) return DocumentDeliveryOutcome.cancelled;
+      if (document.sizeBytes < 0 ||
+          document.sizeBytes > kDocumentAbsoluteMaxBytes + 1024 * 1024) {
+        throw StateError('Dosya kaydetme sınırını aşıyor.');
+      }
+      final bytes = await _readBytes(document);
+      if (!allowed()) return DocumentDeliveryOutcome.cancelled;
+      if (bytes.length != document.sizeBytes) {
+        throw StateError('İndirilen dosya tamamlanmadı. Yeniden indirin.');
+      }
+      // FilePicker requires bytes. The bounded copy is ready, so release our
+      // private cache BEFORE Save As. Cleanup after the dialog must never touch
+      // a location the user has just chosen, even if it reuses the same path.
+      await TempFileDocumentSink.deleteDirectory(document.directoryPath);
+      temporaryCopyCleaned = true;
+      if (!allowed()) return DocumentDeliveryOutcome.cancelled;
+      final result = await _save(
+        fileName: safeDocumentFileName(document.fileName),
+        bytes: bytes,
+        mimeType: document.mimeType,
+      );
+      if (_isWeb) return DocumentDeliveryOutcome.downloadStarted;
+      return result == null
+          ? DocumentDeliveryOutcome.cancelled
+          : DocumentDeliveryOutcome.saved;
+    } finally {
+      if (!temporaryCopyCleaned) {
+        await TempFileDocumentSink.deleteDirectory(document.directoryPath);
+      }
+    }
   }
 
   /// Önceki oturumlardan kalan `kisisel_veri_belge_*` klasörlerini siler (en iyi çaba, hata fırlatmaz).
@@ -115,9 +221,11 @@ class DocumentFileSharer {
   Future<DocumentShareOutcome> share(
     DownloadedDocument document, {
     Rect? sharePositionOrigin,
+    bool Function()? canShare,
   }) async {
     try {
       await _sweepStale();
+      if (!(canShare?.call() ?? true)) return DocumentShareOutcome.dismissed;
       final path = document.path;
       final file = path != null
           ? XFile(path, mimeType: document.mimeType, name: document.fileName)

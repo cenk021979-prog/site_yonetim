@@ -1,5 +1,7 @@
 # Platform — Belgeler (dosya deposu) ve Telefon Bildirimi (Faz 3b) sözleşmesi
 
+> **2026-11-09 değişiklik (migration 131):** Yeni belge formunda **Herkes** (`all`, yalnız tüm site; aktif sakinler, görevliler ve yönetim) ve **Yönetim** (`board`, yöneticiler ve kurul) bulunur. Blok/daire paylaşımı **Belirli sakinleri seç** ile eski `residents` kapsamını kullanır. Eski `residents` ve özel `managers` kayıtları güncellenmez veya kendiliğinden genişlemez; kurul/görevli yazma yetkisi kazanmaz. Eski istemcinin `all` belgesini bilinmeyen kitle sayıp `managers` göndermesi açıklayıcı 409 ile engellenir. İndirme masaüstü/webde kaydetme, mobilde mevcut paylaşım yolunu kullanır; açık paylaşım API'si korunur. Ayrıntılı değişiklik ve doğrulama kaydı: `docs/DEGISIKLIK_KAYDI.md`.
+
 > **2026-10-28 DEĞİŞİKLİK (migration 084): Belgeler ayrı modül değildir.** Bu belgede geçen `documents` MODÜL kodu, "Belgeler modülü" ve "`Modüller` kartında `documents`"
 > ifadeleri eski adlandırmadır: Belgeler, Dosya Deposu (`drive_storage`) modülünün parçasıdır (tek modül "Dosya Deposu"; modül kapısı `drive_storage`). Dosya Deposu ayrıca
 > TEMEL modüldür (AGENTS.md Kural 25, migration 082): her sitede açıktır, talep edilmez, kapatılamaz; bu belgedeki "modül kapalıyken 403 `MODULE_DISABLED`" ifadeleri

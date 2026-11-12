@@ -94,7 +94,7 @@ Future<void> _tap(WidgetTester t, String key) async {
   await tapFinder(t, _key(key));
 }
 
-/// Formu doldurur: dosya seç, başlık, kitle (Yalnız yöneticiler) — gönderime hazır.
+/// Formu doldurur: dosya seç, başlık, kitle (Yönetim) — gönderime hazır.
 Future<void> _fill(
   WidgetTester t,
   _Rig rig, {
@@ -103,10 +103,36 @@ Future<void> _fill(
   await _tap(t, 'document_upload_pick');
   await settleFor(t);
   await _type(t, 'document_upload_title', title);
-  await _tap(t, 'document_upload_audience_managers');
+  await _tap(t, 'document_upload_audience_board');
 }
 
 void main() {
+  testWidgets(
+    'yeni belge tek Yönetim seçeneği sunar; eski özel kitleyi sunmaz',
+    (t) async {
+      final rig = _Rig();
+      await rig.open(t);
+      expect(_key('document_upload_audience_board'), findsOneWidget);
+      expect(_key('document_upload_audience_managers'), findsNothing);
+      expect(find.text('Yönetim'), findsOneWidget);
+    },
+  );
+
+  testWidgets('Herkes yeni all kitlesini tüm siteye gönderir', (t) async {
+    final rig = _Rig(picks: [fakeSource('a.pdf')]);
+    await rig.open(t);
+    await _fill(t, rig);
+    await _tap(t, 'document_upload_audience_all');
+    expect(_key('document_upload_target_site'), findsNothing);
+    await _tap(t, 'document_upload_submit');
+    await settleFor(t);
+    await settleFor(t);
+    await settleFor(t);
+    expect(rig.closed, isTrue);
+    expect(rig.service.createCalls.single.audience, DocumentAudience.all);
+    expect(rig.service.createCalls.single.target, isNull);
+  });
+
   group('eklenti önbelleği temizliği (seçici release, R12 P1-2)', () {
     testWidgets(
       'başarılı yüklemeden sonra seçici kopyaları BİR kez temizlenir',
@@ -354,7 +380,7 @@ void main() {
         expect(_key('document_upload_pick'), findsOneWidget);
         expect(find.text('Başlık'), findsOneWidget);
         expect(find.text('Kimler görebilir?'), findsOneWidget);
-        for (final audience in const ['residents', 'board', 'managers']) {
+        for (final audience in const ['all', 'board', 'residents']) {
           expect(_key('document_upload_audience_$audience'), findsOneWidget);
         }
         expect(
@@ -574,7 +600,7 @@ void main() {
         );
         expect(_key('document_upload_file_error'), findsNothing);
         await _type(t, 'document_upload_title', 'Büyük belge');
-        await _tap(t, 'document_upload_audience_managers');
+        await _tap(t, 'document_upload_audience_board');
         await _tap(t, 'document_upload_submit');
         await settleFor(t);
         await settleFor(t);
@@ -673,7 +699,7 @@ void main() {
         final request = rig.service.createCalls.single;
         expect(request.title, 'Site Yönetmeliği');
         expect(request.category, DocumentCategory.regulation);
-        expect(request.audience, DocumentAudience.managers);
+        expect(request.audience, DocumentAudience.board);
         expect(request.target, isNull, reason: 'hedef yalnız sakin kitlesinde');
         expect(request.description, ' Güncel yönetmelik ');
         expect(request.file.name, 'yonetmelik.pdf');
@@ -1190,10 +1216,10 @@ void main() {
       await rig.open(t);
       await _tap(t, 'document_upload_audience_board');
       final selected = t.getSemantics(_key('document_upload_audience_board'));
-      expect(selected.label, contains('Yönetim kurulu'));
+      expect(selected.label, contains('Yönetim'));
       // ignore: deprecated_member_use
       expect(selected.hasFlag(SemanticsFlag.isSelected), isTrue);
-      final other = t.getSemantics(_key('document_upload_audience_managers'));
+      final other = t.getSemantics(_key('document_upload_audience_residents'));
       // ignore: deprecated_member_use
       expect(other.hasFlag(SemanticsFlag.isSelected), isFalse);
       handle.dispose();

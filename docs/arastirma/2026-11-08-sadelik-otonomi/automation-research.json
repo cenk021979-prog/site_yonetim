@@ -1,0 +1,324 @@
+﻿{
+    "research_date":  "2026-11-08",
+    "scope":  "Resmi ürün/kılavuz kaynakları ve mevcut kodla karşılaştırma; yeni otomasyon kodlanmadı, hesap/API satın alınmadı, mesaj veya fiziksel komut gönderilmedi.",
+    "conclusion":  "Öncelik yeni bir AI ajanı veya yeni panel değil; mevcut kuyrukları, görevleri ve dikkat çubuğunu birbirine bağlayıp yalnız istisnaları yöneticiye göstermek.",
+    "method_limits":  "Resmi ürün sayfası veya ekran resmi tüm ürünün kullanılabilirlik testi değildir. En az sayfa/ikon kullanan başarılı ürün sıralaması kanıtlanamaz. Tasarruf yüzdeleri ve otonom AI iddiaları üretici pazarlamasıdır; burada bağımsız doğrulanmış sonuç sayılmaz. Kodda mevcut olması canlı ayarların açık veya teslimin başarılı olduğunu kanıtlamaz.",
+    "sources":  [
+                    {
+                        "id":  "apsiyon",
+                        "title":  "Apsiyon Online Banka Entegrasyonu",
+                        "url":  "https://www.apsiyon.com/online-banka-entegrasyonu",
+                        "kind":  "official_product",
+                        "summary":  "Hesap hareketlerini görüntüleme, kişiyle eşleştirme ve evrak oluşturma aynı finans akışında sunuluyor. Bizdeki karşılığı banka satırı önizleme/eşleşme kuyruğu; bu, iki kasalı borçta kasa seçimini otomatik yapma gerekçesi değildir.",
+                        "confidence":  "Ürün iddiası; banka bağlantısı ve paket şartları ayrıca doğrulanmalı."
+                    },
+                    {
+                        "id":  "senyonet",
+                        "title":  "Senyonet SSS",
+                        "url":  "https://www.senyonet.net/sss/",
+                        "kind":  "official_product_faq",
+                        "summary":  "Finans, talepler, bakım/checklist ve raporları ortak sistemde anlatıyor; online banka ve dışa aktarma mevcut özellikler olarak sunuluyor. Bizde temel modüller zaten var; yeni ayrı modül açmak yerine bağlantıları iyileştirmek anlamlı.",
+                        "confidence":  "Resmi özellik beyanı, bütün akışlar giriş yapılarak sınanmadı."
+                    },
+                    {
+                        "id":  "buildium",
+                        "title":  "Buildium Tasks and Maintenance",
+                        "url":  "https://help.buildium.com/hc/s/article/How-do-I-track-tasks-and-maintenance-in-Buildium",
+                        "kind":  "official_help",
+                        "summary":  "Görevlerin tarih ve bildirimle takip edilmesi; aylık bakım, yıllık kontrol gibi tekrar eden görevler anlatılıyor. Tekrarlı işler günlük gece toplu işleminde üretiliyor. Somut örnek, ekipman planını tekil işe dönüştürmek için uygun.",
+                        "confidence":  "Yardım kılavuzunda tanımlı iş akışı; bağımsız başarı ölçümü değildir."
+                    },
+                    {
+                        "id":  "appfolio",
+                        "title":  "AppFolio Workflow Automation",
+                        "url":  "https://www.appfolio.com/property-manager/workflow-automation",
+                        "kind":  "official_product",
+                        "summary":  "Şablonlar, olay/tarih temelli başlangıç, tek durum görünümü ve denetim kayıtları var. Realm-X ajanlarının sonuç ve verimlilik iddiaları pazarlama olarak ayrıldı; bize uygulanacak somut fikir kural, istisna kuyruğu ve kayıt geçmişidir.",
+                        "confidence":  "Üretici özellik ve AI pazarlaması; ROI yüzdeleri benimsenmedi."
+                    },
+                    {
+                        "id":  "condo_maintenance",
+                        "title":  "Condo Control Preventive Maintenance",
+                        "url":  "https://www.condocontrol.com/maintenance/preventive-maintenance/",
+                        "kind":  "official_product_with_screenshot",
+                        "summary":  "Tek seferlik/tekrarlı bakımın planlanması, görevliye atama ve tarihten önce hatırlatma açıklanıyor. Ekipman–görev bağını aynı ekran listesi/takvim görünümüyle yönetme örneği.",
+                        "confidence":  "Resmi özellik açıklaması ve görsel referans; ürün hesabıyla uçtan uca test edilmedi."
+                    },
+                    {
+                        "id":  "condo_booking",
+                        "title":  "Condo Control Amenity Booking",
+                        "url":  "https://www.condocontrol.com/resident/amenity-booking/",
+                        "kind":  "official_product_with_screenshot",
+                        "summary":  "Alan/tarih/seçenek üzerinden rezervasyon; yönetici kararı sonrasında talep sahibine bildirim; süre ve sıklık sınırları anlatılıyor. Bizde alanın otomatik/yönetici onaylı seçimi ve kapasite denetimi zaten var.",
+                        "confidence":  "Ürün beyanı; her rezervasyonun onaysız kabul edildiği çıkarılmamalı."
+                    },
+                    {
+                        "id":  "asana",
+                        "title":  "Asana Conditions and Branching",
+                        "url":  "https://help.asana.com/s/article/conditions-and-branching-in-rules",
+                        "kind":  "official_help",
+                        "summary":  "Tetikleyici, koşul ve eylem ayrımıyla basit kurallar kuruluyor. Karmaşık akışlar koşulla dallanıyor. Bizde az sayıda hazır kural ve açık etkin/pasif durum, ayrı ayrı çalıştır/durdur düğmelerinden daha anlaşılır olur.",
+                        "confidence":  "Kılavuzdaki model; her eylemi gözetimsiz yapma önerisi değildir."
+                    },
+                    {
+                        "id":  "todoist",
+                        "title":  "Todoist Introduction to Reminders",
+                        "url":  "https://www.todoist.com/help/todoist/features/introduction-to-reminders-9PezfU",
+                        "kind":  "official_help",
+                        "summary":  "Tarih/saat verilen işe göre göreli hatırlatma ve tek ayardan kapatma var. Vade günü ile uyarı saatini ayırmak, aynı iş için tekrar tekrar bildirim üretmemek ve tercihi görünür tutmak bizim için yararlı.",
+                        "confidence":  "Kılavuz erişim tarihinde güncel; fiyat/plan önerisi yapılmadı."
+                    }
+                ],
+    "visual_examples":  [
+                            {
+                                "path":  "docs/arastirma/2026-11-08-sadelik-otonomi/gorseller/condo-amenity-booking.jpg",
+                                "source_id":  "condo_booking",
+                                "image_url":  "https://www.condocontrol.com/wp-content/uploads/2026/06/Resident_AmenityBooking.jpg",
+                                "type":  "official_ui_screenshot",
+                                "visually_inspected":  true,
+                                "takeaway":  "Alan ve tarih aynı satırda. Ancak büyük görsel ve çok kalemli sol menü bizim yer kazanma hedefimize uygun değil; olduğu gibi kopyalanmamalı.",
+                                "bytes":  152900,
+                                "sha256":  "47acd142b522e1e9701dcdcc6dc020cb353beb0192df1f4632751bc3f58bb51a"
+                            },
+                            {
+                                "path":  "docs/arastirma/2026-11-08-sadelik-otonomi/gorseller/condo-maintenance-tracking.jpg",
+                                "source_id":  "condo_maintenance",
+                                "image_url":  "https://www.condocontrol.com/wp-content/uploads/2026/06/Maintenance_MaintenanceTracking.jpg",
+                                "type":  "official_ui_screenshot",
+                                "visually_inspected":  true,
+                                "takeaway":  "Aynı işlerin liste/takvim görünümü; atanan kişi, tarih ve durum tek tabloda. Ayrı sayfa gerektirmeyen görünüm değişimi örneği; satırdaki üç küçük ikonu bizim tasarıma taşımamalıyız.",
+                                "bytes":  76815,
+                                "sha256":  "61ed1376914a8cb825fe68f5e8f94fb9638069d17216990912aebcfa5ef30159"
+                            },
+                            {
+                                "path":  "docs/arastirma/2026-11-08-sadelik-otonomi/gorseller/condo-booking-approval.png",
+                                "source_id":  "condo_booking",
+                                "image_url":  "https://www.condocontrol.com/wp-content/themes/condocontrol/assets-new-design/img/product/Resident/Smart%20notification%20system%20for%20booking%20approvals%20and%20reminders.png",
+                                "type":  "official_status_illustration",
+                                "visually_inspected":  true,
+                                "takeaway":  "Tek anlamlı durum etiketi; bu resim gerçek uygulama ekranı değil, açıklayıcı illüstrasyondur.",
+                                "bytes":  20575,
+                                "sha256":  "4e4f47ea7e933b6b311b1133c02dfbb8fec8e8c7c09ad35495fb7fe75bbea079"
+                            }
+                        ],
+    "reuse_notice":  "Bağlantılar, özgün özetler ve referans ekranları araştırma için saklandı. Görseller Condo Control\u0027a aittir; lisanslandıkları veya ürüne serbestçe gömülebilecekleri iddia edilmez. Tam makale metni saklanmadı.",
+    "priorities":  [
+                       {
+                           "rank":  1,
+                           "title":  "Mevcut dikkat çubuğunu ortak istisna kuyruğuna genişlet",
+                           "state":  "partial",
+                           "evidence":  [
+                                            "server/src/modules/attention_registry.js",
+                                            "server/src/modules/bank_import_service.js:498",
+                                            "server/src/modules/finance_refunds.js:463",
+                                            "lib/ui/widgets/manager_attention_bar.dart"
+                                        ],
+                           "trigger":  "Modülde insan kararı bekleyen iş oluşması",
+                           "automatic_step":  "Mevcut barın kaynaklarına gecikmiş bakım, atanmamış iş ve işlenmemiş geri bildirimi ekle",
+                           "human_or_failure":  "Rol/site filtresi zorunlu; kaynak hatasını iş yok diye saklamamak için bilinmeyen durum göster; karar kullanıcıda",
+                           "dedup":  "Kaynak anahtarı+nesneID, aynı iş tek satır",
+                           "gain":  "Menü menü arama azalır; yeni ana panel açılmaz",
+                           "effort":  "orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "appfolio",
+                                           "asana"
+                                       ]
+                       },
+                       {
+                           "rank":  2,
+                           "title":  "Bakım planından tekil iş taslağı üret",
+                           "state":  "missing_bridge",
+                           "evidence":  [
+                                            "server/src/modules/equipment_service.js:332",
+                                            "server/src/modules/equipment_service.js:393",
+                                            "server/src/modules/work_equipment_history.js"
+                                        ],
+                           "trigger":  "Planın next_due tarihine tanımlı süre kalması",
+                           "automatic_step":  "Ekipmana bağlı bir iş taslağı/hatırlatma oluştur",
+                           "human_or_failure":  "Hizmet satın alma, gider veya bakım tamamlandı kaydı otomatik yapılmaz; kişi işi onaylar",
+                           "dedup":  "site+planID+vade benzersiz; plan iptalinde bekleyen taslak kapanır",
+                           "gain":  "Bakımı takip etmek için takvim kontrolü ve yeniden veri girişi azalır",
+                           "effort":  "orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "buildium",
+                                           "condo_maintenance"
+                                       ]
+                       },
+                       {
+                           "rank":  3,
+                           "title":  "Kategoriye göre görevli öner ve gecikmeyi yükselt",
+                           "state":  "partial",
+                           "evidence":  [
+                                            "server/src/modules/work_tracking_resident.js:207",
+                                            "server/src/modules/work_tracking_service.js:356",
+                                            "server/src/modules/work_tracking_service.js:399"
+                                        ],
+                           "trigger":  "Yeni talep veya due_date aşımı",
+                           "automatic_step":  "Kategori/blok için uygun görevliyi öner; gecikeni mevcut dikkat barına al",
+                           "human_or_failure":  "Varsayılan öneri, atama yönetici onayıyla; görevli yetkisi her çalışmada doğrulanır; acil alarm veya kapı komutu başlatılmaz",
+                           "dedup":  "işID+kuralID+eşik; değişen atama eskisini geçersiz kılar",
+                           "gain":  "İşlerin sahipsiz kalması ve takip telefonları azalır",
+                           "effort":  "orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "asana",
+                                           "condo_maintenance"
+                                       ]
+                       },
+                       {
+                           "rank":  4,
+                           "title":  "Borç hatırlatmasını otomatik gönderimden önce hazırla",
+                           "state":  "partial",
+                           "evidence":  [
+                                            "server/src/modules/finance_settings.js:55",
+                                            "server/src/modules/finance_reminders.js:417",
+                                            "server/src/modules/finance_reminder_scheduler.js"
+                                        ],
+                           "trigger":  "Yönetimce belirlenmiş vade/yaşlandırma kuralı",
+                           "automatic_step":  "Önizleme ve alıcı sayısını hazırla, bekleyen işe koy",
+                           "human_or_failure":  "legal_ok ve reminders_enabled kapalı güvenli; SMTP yoksa gönderme; hukuki tebligat diye sunma; insan gönderim onayı korunsun",
+                           "dedup":  "site+gün+idempotency; eski önizleme yenilenmeden gönderilmez",
+                           "gain":  "Tek tek borçlu seçmek azalır, yanlış alıcı/tutar riski sınırlanır",
+                           "effort":  "orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "todoist",
+                                           "apsiyon"
+                                       ]
+                       },
+                       {
+                           "rank":  5,
+                           "title":  "Banka istisnalarını tek onay akışında göster",
+                           "state":  "already_core_exists",
+                           "evidence":  [
+                                            "server/src/modules/bank_import_service.js:170",
+                                            "server/src/modules/bank_import_service.js:215",
+                                            "server/src/modules/bank_line_match.js",
+                                            "server/src/modules/finance_fund_choice.js:89"
+                                        ],
+                           "trigger":  "Banka dosyası önizlemesinde zayıf/çift-fonlu eşleşme",
+                           "automatic_step":  "Eşleşme nedeni ve eksik seçimi aynı satırda hazırla",
+                           "human_or_failure":  "K3 gereği iki tür borç varsa fonu yönetici seçer; kapalı dönem durur; ledger silinmez/değiştirilmez",
+                           "dedup":  "Mevcut fingerprint ve idempotent postPayment tek geçit",
+                           "gain":  "Güçlü eşleşmeye tekrar veri yazılmaz, yalnız istisna incelenir",
+                           "effort":  "küçük-orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "apsiyon",
+                                           "senyonet"
+                                       ]
+                       },
+                       {
+                           "rank":  6,
+                           "title":  "Zamanlanmış duyuru ve sözleşme uyarılarını tek takvimde sun",
+                           "state":  "implemented_ux_extension",
+                           "evidence":  [
+                                            "server/src/modules/announcement_scheduler.js:64",
+                                            "server/src/modules/announcement_service.js:518",
+                                            "server/src/modules/contracts_reminders.js:1",
+                                            "server/src/server.js:437"
+                                        ],
+                           "trigger":  "publish_at veya sözleşmenin bildirim/bitim eşiği",
+                           "automatic_step":  "Mevcut zamanlayıcıların sıradaki/başarısız işini ortak görünümde göster",
+                           "human_or_failure":  "Duyuru metni/kitle insan tarafından belirlenir; sözleşme yenileme/fesih otomatik imzalanmaz; SMTP yokken hazırmış gibi gösterilmez",
+                           "dedup":  "Mevcut advisory kilit, tekrar sayacı ve contract+kind+due benzersizliği",
+                           "gain":  "Ayrı durum kontrol sayfaları azalır; zaten çalışan otomasyon yeniden yazılmaz",
+                           "effort":  "küçük-orta",
+                           "priority":  "P2",
+                           "sources":  [
+                                           "todoist",
+                                           "appfolio"
+                                       ]
+                       },
+                       {
+                           "rank":  7,
+                           "title":  "Rezervasyon onayını kurala bağla, durum eylemini birleştir",
+                           "state":  "already_exists",
+                           "evidence":  [
+                                            "server/src/modules/reservation_schema.js:40",
+                                            "server/src/modules/reservation_resident.js:351",
+                                            "server/src/modules/reservation_resident.js:272"
+                                        ],
+                           "trigger":  "Alan, saat ve kapasitesi uygun rezervasyon",
+                           "automatic_step":  "Mevcut otomatik/yönetici_onaylı ayarını kullan; yalnız bekleyenleri göster",
+                           "human_or_failure":  "Bu projede DB varsayılanı otomatik; bunu gizlice değiştirme. Ücret/teminat ve istisna için yönetim kararı ayrı; acil olayla bağlama",
+                           "dedup":  "Mevcut kullanıcı+site+idempotency ve kapasite transaction kontrolü",
+                           "gain":  "Zaten onaylı rezervasyona tekrar onay ikonu çıkmaz; yalnız geçerli durum eylemi görünür",
+                           "effort":  "küçük",
+                           "priority":  "P2",
+                           "sources":  [
+                                           "condo_booking"
+                                       ]
+                       },
+                       {
+                           "rank":  8,
+                           "title":  "Sayaç okuma adayını ve eksik okumayı otomatik sırala",
+                           "state":  "partial_platform_support",
+                           "evidence":  [
+                                            "lib/services/meter_ocr.dart:1",
+                                            "lib/services/meter_field_queue.dart",
+                                            "server/src/modules/metering_service.js"
+                                        ],
+                           "trigger":  "Fotoğraf seçimi veya dönem sonu eksik okuma",
+                           "automatic_step":  "OCR adayı, eski değere göre sapma ve eksik sayaç listesini hazırla",
+                           "human_or_failure":  "Fotoğraf desteğiyle OCR aynı şey değil; desteklenmeyen yerde manuel değer. Nihai değer insan onayı olmadan borçlandırılmaz",
+                           "dedup":  "Sayaç+dönem; çevrimdışı kuyruk tekrar gönderiminde çift okuma önlenmeli",
+                           "gain":  "Saha sırası ve veri girişi azalır, şüpheli değerler ayrılır",
+                           "effort":  "orta",
+                           "priority":  "P2",
+                           "sources":  [
+                                           "asana"
+                                       ]
+                       },
+                       {
+                           "rank":  9,
+                           "title":  "Geri bildirimi bir iş kaydına dönüştür",
+                           "state":  "missing_lifecycle",
+                           "evidence":  [
+                                            "server/src/modules/feedback_schema.js:30",
+                                            "server/src/modules/feedback_service.js",
+                                            "lib/ui/views/feedback_inbox_view.dart"
+                                        ],
+                           "trigger":  "Yeni not/ek veya bir bölümde tekrar eden sorun",
+                           "automatic_step":  "Ekran ve bölümden kategori öner, mükerrerleri grupla ve kod görevi taslağı hazırla",
+                           "human_or_failure":  "Şu an AI\u0027a sürekli otomatik teslim yok; inceleme kullanıcı isteğiyle. Düzeltme/test/çözüm onayı insanda, ham yorum doğrudan kod komutu olamaz",
+                           "dedup":  "feedbackID→tek work-item bağlantısı; durum/çözüm notu gerekir",
+                           "gain":  "Notun okunup okunmadığı kaybolmaz; çözüm hangi sayfaya ait izlenir",
+                           "effort":  "orta",
+                           "priority":  "P1",
+                           "sources":  [
+                                           "asana",
+                                           "appfolio"
+                                       ]
+                       },
+                       {
+                           "rank":  10,
+                           "title":  "Toplu kaydın mevcut hesap açma otomasyonunu görünür kıl",
+                           "state":  "already_exists",
+                           "evidence":  [
+                                            "server/src/modules/bulk_import_writer.js:615",
+                                            "server/src/modules/bulk_import_writer.js:666",
+                                            "lib/ui/dialogs/force_change_password_dialog.dart"
+                                        ],
+                           "trigger":  "Yönetici onaylı Excel önizlemesi/aktarım",
+                           "automatic_step":  "Mevcut username, hesap bağlama, daire admini ve zorunlu parola değişimi sürecini kullan; yalnız atlananları kuyruğa al",
+                           "human_or_failure":  "Yükleme onayı, mükerrer kontrolü ve hata listesi korunur. PIN/şifre dışa aktarılan genel dosyaya eklenmez",
+                           "dedup":  "Mevcut import run/idempotency+DB username uniqueness",
+                           "gain":  "Aynı sakin için tekrar hesap açma ve elle dağıtım azalır",
+                           "effort":  "küçük",
+                           "priority":  "P2",
+                           "sources":  [
+                                           "senyonet"
+                                       ]
+                       }
+                   ],
+    "menu_principles":  [
+                            "Bakım planı, bakım geçmişi ve ilgili iş aynı ekipman bağlamında görünüm olabilir; veri/yetki modüllerini birleştirmek gerekmez.",
+                            "Başlat/durdur için tek durum düğmesi; etkin durumu, bekleyen istek ve hata ayrı görünür; çift komut engellenir.",
+                            "Aynı verinin liste/takvim görünümü ayrı ana menü olmaz. Sadece o durumdaki geçerli eylem birincil olur.",
+                            "Sakin için günlük görev odaklı az menü; yönetici ayarları gerektiğinde açılır. Yetki ve hukuki/fon kararı tooltip içine saklanmaz.",
+                            "Yeni karmaşık kural tasarlayıcı yerine az sayıda hazır kural, varsayılan kapalı yeni otomasyonlar, önizleme, dry-run, kayıt ve durdurma tercih edilir. Mevcut rezervasyon varsayılanı açıkça korunur."
+                        ]
+}

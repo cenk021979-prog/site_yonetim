@@ -53,6 +53,13 @@ const SITE_2 = 1000000002;
 // ---------------------------------------------------------------------------
 
 describe('islem kayitlari: eylem katalogu', () => {
+  it('günlük aidat ve acil alarm eylemleri Türkçe ve site kapsamındaki kayıt başlıklarıdır', () => {
+    for (const action of ['finance.aidat_proration.reconciled', 'emergency.responders_updated', 'emergency.alarm_created', 'emergency.alarm_resolved', 'emergency.alarm_acknowledged']) {
+      assert.ok(isVisibleToManager(action), action);
+      assert.ok(Object.hasOwn(SITE_AUDIT_LABELS, action), action);
+      assert.ok(actionLabelOf(action).length > 4, action);
+    }
+  });
   it('kategori anahtarlari ve basliklari sabit; anahtarlar benzersiz', () => {
     assert.deepEqual(
       SITE_AUDIT_CATEGORIES.map((c) => [c.key, c.label]),

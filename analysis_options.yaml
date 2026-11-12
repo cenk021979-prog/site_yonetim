@@ -2,6 +2,7 @@ analyzer:
   exclude:
     - .claude/**
     - build/**
+    - work/**
     - .dart_tool/**
     - .pio/**
     - android/**

@@ -4,6 +4,21 @@ VPS: `178.210.161.55` (SSH portu `22667`, kullanıcı `salihceylan`, **anahtarla
 
 Betikler sır içermez. Parola/anahtar yazılmaz; `.env` dosyası dağıtım paketine GİRMEZ.
 
+## SSH erişimi ve başarısız bağlantıda durma (2026-11-10 doğrulandı)
+
+- Doğrulanan SSH kullanıcısı **`salihceylan`**, yöntem **mevcut SSH anahtarıyla giriş**tir. Canlı oturumda `id` çıktısı bu hesabı doğruladı.
+- `cenkgude`, 2026-11-10 kontrolünde sunucunun kullanıcı kayıtlarında bulunmadı (`getent passwd cenkgude` sonuç vermedi). Uygulama kullanıcı adları SSH hesabı değildir; `cenkgude`, `cenk` veya `root` gibi alternatif hesaplarla giriş denemesi yapmayın.
+- İlk erişim kontrolünü tek bağlantıyla, parola geri dönüşü kapalı olarak yapın:
+
+  ```powershell
+  ssh -o BatchMode=yes -o PreferredAuthentications=publickey -o IdentitiesOnly=yes -o ConnectionAttempts=1 -o ConnectTimeout=12 -p 22667 salihceylan@178.210.161.55 "id -un; hostname"
+  ```
+
+  Beklenen kullanıcı çıktısı `salihceylan` olmalıdır. Anahtar yeni bilgisayarda hazır değilse parola veya hesap tahminiyle devam etmeyin; yetkili SSH anahtarının kurulumunu doğrulayın. Anahtarın kendisini depoya koymayın.
+- **İlk başarısız girişte durun.** `Permission denied`, `Connection reset` veya zaman aşımından sonra aynı işlemi döngüyle, paralel oturumlarla ya da başka kullanıcı/parola kombinasyonlarıyla tekrarlamayın. Önce istemci anahtarını ve sunucu konsolundan SSH/Fail2ban durumunu doğrulayın; neden giderildiğinde tek kontrol yapın. `Connection reset` tek başına parola hatasını veya IP engelini kanıtlamaz.
+- Canlı kontrolde Fail2ban `sshd` engel süresi **3600 saniye (1 saat)** çıktı; önceki bağlantının dış IP'si engel listesindeydi. Bu, 2026-11-10 tarihli durumdur; ayar değişebilir. Kesin süre ve engel durumu, erişim varsa salt okunur `sudo -n fail2ban-client get sshd bantime` ve `sudo -n fail2ban-client status sshd` ile kontrol edilir.
+- SSH girişi ile **sudo yetkilendirmesi ayrıdır**. Genel yönetim işlemleri sudo parolası isteyebilir; mevcut NOPASSWD sarmalayıcılar kendi kapsamlarında kalır. Gerekiyorsa anahtarla etkileşimli oturum (`ssh -tt -o BatchMode=yes -p 22667 salihceylan@178.210.161.55`) açıp `sudo -v` kullanın; yetkili parolayı yalnız gizli isteme girin ve ilk başarısız sudo doğrulamasında durun. Parolaları proje notlarına, komut satırına, betiklere veya günlüklere yazmayın. İş bitince `sudo -k` ile sudo yetki önbelleğini kapatın.
+
 ## Adımlar
 
 1. **Yerel doğrulama:** `cd server && npm test && npm run lint` (hepsi geçmeli).

@@ -97,12 +97,12 @@ describe('GET /app/reservations ve /app/reservations/:id (yazmaz)', () => {
     assert.ok(firstWords().every((word) => word === 'SELECT'), 'GET yazmaz');
   });
 
-  it('site_code verilince sayaç da site süzgecini taşır ([kullanıcı, site]); modül KAPALI + siteyle bağ yok -> { items:[], next_before_id:null, unread_count:0 }', async () => {
+  it('site_code verilince sayaç da site süzgecini taşır; temel modül açıkken de yabancı sitede kendi kaydı yoksa liste ve sayaç boştur', async () => {
     handlers.push(
       [MODULE_ENABLED, (sql, params) => ok([{ enabled: Number(params[0]) === SITE }])],
       [SITE_RELATION, ok([{ related: false }])],
-      [RES_LIST, ok([resRow(9)])],
-      [RES_COUNT, ok([{ n: 1 }])],
+      [RES_LIST, (sql, params) => ok(params[1] === SITE ? [resRow(9)] : [])],
+      [RES_COUNT, (sql, params) => ok([{ n: params[1] === SITE ? 1 : 0 }])],
     );
     const result = await listMyReservations(USER, { site_code: String(SITE) });
     assert.equal(result.unread_count, 1);
@@ -172,10 +172,12 @@ describe('GET /app/concierge-requests, GET /:id ve POST /:id/seen', () => {
     assert.ok(firstWords().every((word) => word === 'SELECT'));
   });
 
-  it('modül KAPALI + bağ yok -> unread_count 0 ile boş liste; ayrıntı: sahip 200 (unread, staff_note), başkasının / geçersiz kimlik 404 CONCIERGE_NOT_FOUND; yazmaz', async () => {
+  it('Temel modül açık; yabancı sitede kendi kaydı yok -> boş liste; ayrıntı: sahip 200 (unread, staff_note), başkasının / geçersiz kimlik 404 CONCIERGE_NOT_FOUND; yazmaz', async () => {
     handlers.push(
       [MODULE_ENABLED, ok([{ enabled: false }])],
       [SITE_RELATION, ok([{ related: false }])],
+      [REQ_LIST, ok([])],
+      [REQ_COUNT, ok([{ n: 0 }])],
       [REQ_DETAIL, (sql, params) => ok(Number(params[1]) === 4 ? [reqRow(4, { unread: true, status: 'hazirlaniyor', staff_note: 'Hazır' })] : [])],
     );
     assert.deepEqual(await listMyRequests(USER, { site_code: '1000000002' }), { items: [], next_before_id: null, unread_count: 0 });

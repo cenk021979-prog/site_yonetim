@@ -59,7 +59,7 @@ describe('065 migration <-> şema', () => {
 
 describe('katalog', () => {
   it('kamera ve plaka modülü varsayılan KAPALI, çekirdek değil', () => {
-    const def = getModuleDefinition('plate_cameras');
+    const def = getModuleDefinition('plate_recognition');
     assert.equal(def.core, false);
     assert.equal(def.defaultEnabled, false);
   });

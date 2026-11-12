@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:site_kapi_kontrol/models/residency_relation.dart';
 import 'package:site_kapi_kontrol/models/site_record.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
@@ -20,6 +21,7 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/person_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/vehicle_card.dart';
 
+import '../license_plate_finder.dart';
 import 'dialog_layout_harness.dart' show settleFor;
 import 'list_fixtures.dart';
 import 'people_fixtures.dart';
@@ -60,7 +62,7 @@ Future<GlobalKey<PeopleViewState>> _pump(
 Finder _tab(int index) => find.byKey(ValueKey<String>('people_tab_$index'));
 
 Future<void> _openTab(WidgetTester t, int index) async {
-  await tapFinder(t, _tab(index));
+  await selectPeopleSection(t, index);
   await settleFor(t);
 }
 
@@ -122,7 +124,7 @@ void main() {
       expect(find.text('Kişi Ekle'), findsOneWidget);
       expect(find.text('Kişi ara'), findsOneWidget);
       expect(find.byTooltip('Yenile'), findsOneWidget);
-      for (var i = 0; i < 3; i++) {
+      for (final i in [1, 3]) {
         expect(_tab(i), findsOneWidget);
       }
       expect(find.text('Yönetim kurulu üyesi olarak kayıtları yalnızca görüntüleyebilirsiniz.'), findsNothing);
@@ -178,8 +180,8 @@ void main() {
       await _openTab(t, 2);
 
       expect(find.byType(VehicleCard), findsNWidgets(2));
-      expect(find.text('34 ABC 123'), findsOneWidget);
-      expect(find.text('06 XYZ 789'), findsOneWidget);
+      expect(findLicensePlate('34 ABC 123'), findsOneWidget);
+      expect(findLicensePlate('06 XYZ 789'), findsOneWidget);
       expect(find.text('Araç Ekle'), findsOneWidget);
       expect(_removeButtons, findsNWidgets(2));
       expect(_removeFor('34 ABC 123'), findsOneWidget);
@@ -690,7 +692,7 @@ void main() {
       await _debounce(t);
       expect(auth.vehicleCalls.last.query, 'xyz');
       expect(find.byType(VehicleCard), findsOneWidget);
-      expect(find.text('06 XYZ 789'), findsOneWidget);
+      expect(findLicensePlate('06 XYZ 789'), findsOneWidget);
 
       await tapFinder(t, _removeButtons);
       expect(find.text('06 XYZ 789 plakalı araç kaldırılsın mı? Kayıt silinmez, pasifleşir.'), findsOneWidget);

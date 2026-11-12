@@ -6,6 +6,7 @@ import 'package:site_kapi_kontrol/brand/gude_logo_animated.dart';
 import 'package:site_kapi_kontrol/config/app_config.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/ui/design/easy_view_switch.dart';
+import 'package:site_kapi_kontrol/ui/design/interface_mode_switch.dart';
 import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 
@@ -466,10 +467,18 @@ class YanMenu extends StatelessWidget {
       isResidentMode: isResidentMode,
       canToggleMode: canToggleMode,
     );
-    return _withExtras(roleItems, additionalItems)
+    return withoutMergedMenuAliases(_withExtras(roleItems, additionalItems)
         .where((item) => !hiddenItems.contains(item))
-        .toList(growable: false);
+        .toList(growable: false));
   }
+
+  /// Eski kamera ekranı aynı birleşik Plaka Tanıma ekranıyla birlikte gelirse
+  /// yalnız güncel giriş kalır. Tek başına gelen eski giriş korunur; farklı
+  /// sakin/yönetici ekranları aynı modülde olsalar da birleştirilmez.
+  static List<SirketMenuItem> withoutMergedMenuAliases(List<SirketMenuItem> items) =>
+      items.contains(SirketMenuItem.plakaTanima)
+          ? items.where((item) => item != SirketMenuItem.odemeKamera).toList(growable: false)
+          : items;
 
   /// Görünür öğelerin ([visibleItems]) çekmece bölümleri: [SirketMenuGroup.drawerGroups] sırasıyla, yalnız öğesi olan
   /// başlıklar; grup içinde menü sırası korunur. Ayarlar öğeleri burada YOKTUR ([settingsItems]).
@@ -823,6 +832,7 @@ class YanMenuAyarlar extends StatelessWidget {
     final list = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const InterfaceModeSwitch(),
         if (hasEasySwitch) ...[
           const EasyViewSwitchTile(),
           if (items.isNotEmpty || extraActions.isNotEmpty) const _MenuDivider(),

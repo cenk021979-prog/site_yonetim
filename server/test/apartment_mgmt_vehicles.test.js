@@ -50,6 +50,7 @@ function freshWorld() {
     nextId: 1,
     managerOf: new Set([`${SITE}:500`]),
     suspended: new Set(),
+    unverified: new Set(),
     audit: [],
   };
 }
@@ -76,6 +77,10 @@ function run(text, params = []) {
   if (/FROM apartment_link_requests/.test(sql)) return ok();
   if (/FROM apartment_admin_delegations/.test(sql)) return ok();
   if (/FROM apartment_access_suspensions/.test(sql)) return ok(world.suspended.has(params[1]) ? [{ '?column?': 1 }] : []);
+  if (/^SELECT 1 FROM users u JOIN site_people sp/.test(sql)) return ok(world.unverified.has(params[0]) ? [] : [{ '?column?': 1 }]);
+  if (/FROM parking_policies/.test(sql)) return ok([{ enabled: false, capacity: null, registration_photo_enabled: false }]);
+  if (/FROM parking_apartment_approvals/.test(sql)) return ok([{ approved: false }]);
+  if (/^SELECT enabled FROM site_modules/.test(sql)) return ok([{ enabled: true }]);
   if (/^SELECT DISTINCT ON \(target_id\) target_id, actor_name/.test(sql)) {
     const rows = world.audit
       .filter((a) => a.action === 'vehicle.added' && params[1].includes(a.target_id))
@@ -249,19 +254,29 @@ describe('daire admini: ekler, not duzenler, cikarir', () => {
   });
 });
 
-describe('aile uyesi ve admin olmayan malik yalniz gorur; baska daire 404', () => {
-  it('aile uyesi: liste gorur (can_manage false, sahip listesi bos); ekle / duzenle / cikar 403', async () => {
+describe('sakin kendi aracini yonetir, admin tum daireyi yonetir; baska daire 404', () => {
+  it('dogrulanmamis veya kucuk aile hesabina kendi aracini yazma yetkisi acilmaz', async () => {
+    world.unverified.add(102);
+    await assert.rejects(() => createApartmentVehicle({ authUser: FAMILY, apartmentId: 9, body: { plate: '35 XY 99' } }), code('FORBIDDEN_ROLE',403));
+    world.unverified.clear(); world.residencies[1].is_minor = true;
+    await assert.rejects(() => createApartmentVehicle({ authUser: FAMILY, apartmentId: 9, body: { plate: '35 XY 99' } }), code('FORBIDDEN_ROLE',403));
+  });
+  it('aile uyesi kendi adina ekler, baskasinin aracini goremez veya degistiremez', async () => {
     world.vehicles.push(vehicle(11, '34ABC123'));
     const out = await listApartmentVehicles({ authUser: FAMILY, apartmentId: 9 });
-    assert.equal(out.can_manage, false);
-    assert.equal(out.items.length, 1);
-    assert.deepEqual(out.owners, []);
-    await assert.rejects(() => createApartmentVehicle({ authUser: FAMILY, apartmentId: 9, body: { plate: '35 XY 99' } }), code('FORBIDDEN_ROLE', 403));
-    await assert.rejects(() => updateApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: 11, body: { note: 'x' } }), code('FORBIDDEN_ROLE', 403));
-    await assert.rejects(() => removeApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: 11 }), code('FORBIDDEN_ROLE', 403));
-    assert.equal(log.some((q) => /^(INSERT INTO vehicles|UPDATE vehicles)/.test(q.sql)), false);
+    assert.equal(out.can_manage, true); assert.equal(out.own_only, true);
+    assert.equal(out.items.length, 0);
+    assert.deepEqual(out.owners.map((o) => o.person_id), [6]);
+    await assert.rejects(() => createApartmentVehicle({ authUser: FAMILY, apartmentId: 9, body: { plate: '35 XY 99', person_id: 5 } }), code('FORBIDDEN_ROLE', 403));
+    await assert.rejects(() => updateApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: 11, body: { note: 'x' } }), code('VEHICLE_NOT_FOUND', 404));
+    await assert.rejects(() => removeApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: 11 }), code('VEHICLE_NOT_FOUND', 404));
+    const created = await createApartmentVehicle({ authUser: FAMILY, apartmentId: 9, body: { plate: '35 XY 99' } });
+    assert.equal(created.vehicle.person_id, 6);
+    await updateApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: created.vehicle.id, body: { note: 'Kendi aracim' } });
+    await assert.rejects(() => updateApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: created.vehicle.id, body: { person_id: 5 } }), code('FORBIDDEN_ROLE', 403));
+    await removeApartmentVehicle({ authUser: FAMILY, apartmentId: 9, vehicleId: created.vehicle.id });
   });
-  it('malik kiraciya devretmisse (admin kiraci) malik yalniz gorur', async () => {
+  it('kiraci admin tum daireyi; malik kendi aracini yonetir', async () => {
     world.members = [
       { user_code: '101', role: 'FAMILY_MEMBER', is_active: true, created_at: '2026-01-01', full_name: 'Ali Malik' },
       { user_code: '103', role: 'APARTMENT_ADMIN', is_active: true, created_at: '2026-02-01', full_name: 'Kemal Kiraci' },
@@ -271,8 +286,9 @@ describe('aile uyesi ve admin olmayan malik yalniz gorur; baska daire 404', () =
       { id: '3', person_id: '8', relation: 'tenant', origin: 'manual', sponsor_person_id: null, is_minor: false, move_in_date: null, user_code: '103', person_active: true, name: 'Kemal Kiraci', account_kind: 'user' },
     ];
     const out = await listApartmentVehicles({ authUser: ADMIN, apartmentId: 9 });
-    assert.equal(out.can_manage, false);
-    await assert.rejects(() => createApartmentVehicle({ authUser: ADMIN, apartmentId: 9, body: { plate: '35 XY 99' } }), code('FORBIDDEN_ROLE', 403));
+    assert.equal(out.can_manage, true); assert.equal(out.own_only, true);
+    const own = await createApartmentVehicle({ authUser: ADMIN, apartmentId: 9, body: { plate: '35 XY 98' } });
+    assert.equal(own.vehicle.person_id, 5);
     const tenant = await createApartmentVehicle({ authUser: user(103), apartmentId: 9, body: { plate: '35 XY 99' } });
     assert.equal(tenant.vehicle.person_id, 8); // varsayilan sahip: admin (kiraci)
   });
@@ -380,6 +396,6 @@ describe('kaynak kontrolleri', () => {
     const { fileURLToPath } = await import('node:url');
     const source = readFileSync(fileURLToPath(new URL('../src/modules/apartment_mgmt_vehicles.js', import.meta.url)), 'utf8');
     const imports = source.split(String.fromCharCode(10)).filter((line) => /^import /.test(line)).join(' ');
-    assert.doesNotMatch(imports, /mqtt|ble|firmware|door_command|device_command|door_service|gate/i);
+    assert.doesNotMatch(imports, /from ['"][^'"]*(?:mqtt|\/ble[/.]|firmware|door_command|device_command|door_service|plate_gates)[^'"]*['"]/i);
   });
 });

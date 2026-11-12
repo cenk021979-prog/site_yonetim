@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:site_kapi_kontrol/models/finance.dart';
-import 'package:site_kapi_kontrol/models/person_record.dart' show crmApartmentTitle;
+import 'package:site_kapi_kontrol/models/person_record.dart'
+    show crmApartmentTitle;
 import 'package:site_kapi_kontrol/models/residency_relation.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
@@ -143,7 +144,8 @@ String financeApartmentTitle(String? blockName, String label) =>
 String financeDate(DateTime? day) => formatCrmDate(day);
 
 /// Aylık tanımın vade günü metni: "Her ayın 15'i".
-String dueDayText(int? day) => day == null ? 'Vade günü belirtilmemiş' : "Her ayın $day'i";
+String dueDayText(int? day) =>
+    day == null ? 'Vade günü belirtilmemiş' : "Her ayın $day'i";
 
 /// Dönem aralığı: "Ocak 2026 - süresiz" / "Ocak 2026 - Aralık 2026".
 String periodRangeText(FinancePeriod? start, FinancePeriod? end) {
@@ -159,14 +161,20 @@ String definitionAmountText(FeeDefinition d) {
   switch (d.distribution) {
     case FeeDistribution.category:
       final count = d.categoryAmounts.length;
-      return count == 0 ? 'Kategoriye göre' : 'Kategoriye göre ($count kategori)';
+      return count == 0
+          ? 'Kategoriye göre'
+          : 'Kategoriye göre ($count kategori)';
     case FeeDistribution.fixed:
-      return d.amountMinor == null ? 'Tutar okunamadı' : 'Daire başı ${formatMinor(d.amountMinor!)}';
+      return d.amountMinor == null
+          ? 'Tutar okunamadı'
+          : 'Daire başı ${formatMinor(d.amountMinor!)}';
     case FeeDistribution.equal:
     case FeeDistribution.landShare:
     case FeeDistribution.personCount:
     case FeeDistribution.area:
-      return d.amountMinor == null ? 'Tutar okunamadı' : 'Toplam ${formatMinor(d.amountMinor!)}';
+      return d.amountMinor == null
+          ? 'Tutar okunamadı'
+          : 'Toplam ${formatMinor(d.amountMinor!)}';
     case FeeDistribution.unknown:
       return 'Tutar bilinmiyor';
   }
@@ -201,14 +209,18 @@ class FinanceSummaryCard extends StatelessWidget {
       ),
       if (summary.chargedMinor != null)
         _Metric(
-          period == null ? 'Bu dönem borçlandırılan' : '${period.label} borçlandırılan',
+          period == null
+              ? 'Bu dönem borçlandırılan'
+              : '${period.label} borçlandırılan',
           summary.chargedMinor!,
           Icons.receipt_long_rounded,
           AppTone.info,
         ),
       if (summary.collectedMinor != null)
         _Metric(
-          period == null ? 'Bu dönem tahsil edilen' : '${period.label} tahsil edilen',
+          period == null
+              ? 'Bu dönem tahsil edilen'
+              : '${period.label} tahsil edilen',
           summary.collectedMinor!,
           Icons.payments_rounded,
           AppTone.success,
@@ -227,13 +239,18 @@ class FinanceSummaryCard extends StatelessWidget {
           ),
           if (period != null) ...[
             const SizedBox(height: AppSpace.xs),
-            Text('Açık dönem: ${period.label}', style: th.bodySmall?.copyWith(color: p.textSecondary)),
+            Text(
+              'Açık dönem: ${period.label}',
+              style: th.bodySmall?.copyWith(color: p.textSecondary),
+            ),
           ],
           const SizedBox(height: AppSpace.md),
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth >= 420 ? 2 : 1;
-              final width = (constraints.maxWidth - AppSpace.md * (columns - 1)) / columns;
+              final width =
+                  (constraints.maxWidth - AppSpace.md * (columns - 1)) /
+                  columns;
               return Wrap(
                 spacing: AppSpace.md,
                 runSpacing: AppSpace.md,
@@ -291,10 +308,15 @@ class _MetricTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(metric.label, style: th.bodySmall?.copyWith(color: p.textSecondary)),
+                    Text(
+                      metric.label,
+                      style: th.bodySmall?.copyWith(color: p.textSecondary),
+                    ),
                     Text(
                       formatMinor(metric.minor),
-                      style: th.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+                      style: th.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
                   ],
                 ),
@@ -308,7 +330,11 @@ class _MetricTile extends StatelessWidget {
 }
 
 class _CountTile extends StatelessWidget {
-  const _CountTile({required this.label, required this.count, required this.icon});
+  const _CountTile({
+    required this.label,
+    required this.count,
+    required this.icon,
+  });
 
   final String label;
   final int count;
@@ -332,8 +358,16 @@ class _CountTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(label, style: th.bodySmall?.copyWith(color: p.textSecondary)),
-                    Text('$count', style: th.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+                    Text(
+                      label,
+                      style: th.bodySmall?.copyWith(color: p.textSecondary),
+                    ),
+                    Text(
+                      '$count',
+                      style: th.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -370,7 +404,9 @@ class BalanceRowCard extends StatelessWidget {
     // İP-1A: kiracı hesabında hareket varsa iki hesap AYRI gösterilir (toplam bakiye yanıltır: bir hesabın alacağı diğerinin
     // borcunu kapatmaz). Kiracı hesabı boşsa eski tek rozet (ev sahibi hesabı = toplam) kalır.
     final accounts = <(AccountParty, AccountTotals)>[
-      if (row.hasTenantBalance && row.ownerAccount != null && row.tenantAccount != null) ...[
+      if (row.hasTenantBalance &&
+          row.ownerAccount != null &&
+          row.tenantAccount != null) ...[
         (AccountParty.tenant, row.tenantAccount!),
         (AccountParty.owner, row.ownerAccount!),
       ],
@@ -380,10 +416,14 @@ class BalanceRowCard extends StatelessWidget {
       semantic.write(' ${balance.semanticLabel}.');
     } else {
       for (final (party, totals) in accounts) {
-        semantic.write(' ${party.label}: ${describeBalance(totals.balanceMinor).semanticLabel}.');
+        semantic.write(
+          ' ${party.label}: ${describeBalance(totals.balanceMinor).semanticLabel}.',
+        );
       }
     }
-    if (hasOverdue) semantic.write(' Vadesi geçen: ${moneySemanticLabel(overdue)}.');
+    if (hasOverdue) {
+      semantic.write(' Vadesi geçen: ${moneySemanticLabel(overdue)}.');
+    }
     for (final name in names) {
       semantic.write(' $name.');
     }
@@ -402,19 +442,28 @@ class BalanceRowCard extends StatelessWidget {
                 children: [
                   Text(title, style: th.titleMedium),
                   for (final name in names)
-                    Text(name, style: th.bodyMedium?.copyWith(color: p.textSecondary)),
+                    Text(
+                      name,
+                      style: th.bodyMedium?.copyWith(color: p.textSecondary),
+                    ),
                   const SizedBox(height: AppSpace.sm),
                   Wrap(
                     spacing: AppSpace.sm,
                     runSpacing: AppSpace.xs,
                     children: [
                       if (accounts.isEmpty)
-                        DialogMetaPill(balance.badgeText, tone: balance.tone, icon: balance.icon)
+                        DialogMetaPill(
+                          balance.badgeText,
+                          tone: balance.tone,
+                          icon: balance.icon,
+                        )
                       else
                         for (final (party, totals) in accounts)
                           DialogMetaPill(
                             '${party.label}: ${describeBalance(totals.balanceMinor).badgeText}',
-                            key: ValueKey<String>('balance_row_${row.apartmentId}_${party.apiValue}'),
+                            key: ValueKey<String>(
+                              'balance_row_${row.apartmentId}_${party.apiValue}',
+                            ),
                             tone: describeBalance(totals.balanceMinor).tone,
                             icon: describeBalance(totals.balanceMinor).icon,
                           ),
@@ -480,21 +529,26 @@ class LedgerEntryTile extends StatelessWidget {
   final VoidCallback? onExplainLateFee;
 
   /// "05.10.2026 • 500,00 ₺" (tarih ve tutar); kayıt bilinmiyorsa null.
-  static String? _brief(LedgerEntry? e) =>
-      e == null ? null : '${formatCrmDate(e.entryDate)} • ${formatMinor(e.amountMinor.abs())}';
+  static String? _brief(LedgerEntry? e) => e == null
+      ? null
+      : '${formatCrmDate(e.entryDate)} • ${formatMinor(e.amountMinor.abs())}';
 
   /// Ters kayıt satırı: hangi kaydı tersine çevirdiği (numara gösterilmez).
   String? _reversesText() {
     if (entry.reversesEntryId == null) return null;
     final brief = _brief(related[entry.reversesEntryId]);
-    return brief == null ? 'Daha önceki bir kaydın ters kaydı' : 'Şu kaydın ters kaydı: $brief';
+    return brief == null
+        ? 'Daha önceki bir kaydın ters kaydı'
+        : 'Şu kaydın ters kaydı: $brief';
   }
 
   /// İptal edilen kayıt satırı: hangi ters kayıtla iptal edildiği (numara gösterilmez).
   String? _reversedByText() {
     if (entry.reversedByEntryId == null) return null;
     final brief = _brief(related[entry.reversedByEntryId]);
-    return brief == null ? 'Ters kayıtla iptal edildi' : 'Ters kayıtla iptal edildi: $brief';
+    return brief == null
+        ? 'Ters kayıtla iptal edildi'
+        : 'Ters kayıtla iptal edildi: $brief';
   }
 
   static (AppTone, IconData) _style(LedgerEntry e) {
@@ -519,7 +573,9 @@ class LedgerEntryTile extends StatelessWidget {
     final e = entry;
     final (tone, icon) = _style(e);
     final kindLabel = e.isReversal ? LedgerKind.reversal.label : e.kind.label;
-    final effect = e.amountMinor > 0 ? 'Borca eklendi' : (e.amountMinor < 0 ? 'Borçtan düşüldü' : '');
+    final effect = e.amountMinor > 0
+        ? 'Borca eklendi'
+        : (e.amountMinor < 0 ? 'Borçtan düşüldü' : '');
     // Yönetici notları yalnız yazma yetkisi olan ekranda ([showNotes]); sakin / kurul sunucu göndermiş olsa bile
     // not görmez. Not yoksa başlık yalnız tanım adıdır.
     final note = showNotes ? e.description : null;
@@ -531,30 +587,48 @@ class LedgerEntryTile extends StatelessWidget {
     final reversesText = _reversesText();
     final reversedByText = _reversedByText();
     final canAct = actionsEnabled && (onCorrect != null || onReverse != null);
-    final hasExtraActions = (onOpenReceipt != null && e.receipt != null) ||
-        (onIssueReceipt != null && (e.receipt == null || e.receipt!.isCancelled)) ||
+    final hasExtraActions =
+        (onOpenReceipt != null && e.receipt != null) ||
+        (onIssueReceipt != null &&
+            (e.receipt == null || e.receipt!.isCancelled)) ||
         (onExplainLateFee != null && e.isLateFee);
 
     final semantic = StringBuffer('$kindLabel. ${formatCrmDate(e.entryDate)}.');
     if (e.isReversed) semantic.write(' İptal edildi.');
-    semantic.write(' ${e.amountMinor > 0 ? 'Borç artar' : 'Borç azalır'}: ${moneySemanticLabel(e.amountMinor.abs())}.');
+    semantic.write(
+      ' ${e.amountMinor > 0 ? 'Borç artar' : 'Borç azalır'}: ${moneySemanticLabel(e.amountMinor.abs())}.',
+    );
     if (e.isLateFee) semantic.write(' Gecikme tazminatı.');
     final entryFund = e.fund;
     if (entryFund != null) {
-      semantic.write(e.kind == LedgerKind.payment ? ' Yalnız ${entryFund.label}.' : ' Kasa: ${entryFund.label}.');
+      semantic.write(
+        e.kind == LedgerKind.payment
+            ? ' Yalnız ${entryFund.label}.'
+            : ' Kasa: ${entryFund.label}.',
+      );
     }
     final split = e.fundSplit;
-    if (split != null) semantic.write(' Dağıtım: ${spokenMoneyText(fundSplitText(split))}.');
+    if (split != null) {
+      semantic.write(' Dağıtım: ${spokenMoneyText(fundSplitText(split))}.');
+    }
     final receipt = e.receipt;
-    if (receipt != null) semantic.write(' Makbuz ${receipt.number}${receipt.isCancelled ? ', iptal edildi' : ''}.');
+    if (receipt != null) {
+      semantic.write(
+        ' Makbuz ${receipt.number}${receipt.isCancelled ? ', iptal edildi' : ''}.',
+      );
+    }
     if (title.isNotEmpty) semantic.write(' $title.');
     if (e.isOpeningCredit) {
       semantic.write(' Devir alacağı.');
     } else if (e.method != null) {
       semantic.write(' ${e.method!.label}.');
     }
-    if (reversesText != null) semantic.write(' ${spokenMoneyText(reversesText)}.');
-    if (reversedByText != null) semantic.write(' ${spokenMoneyText(reversedByText)}.');
+    if (reversesText != null) {
+      semantic.write(' ${spokenMoneyText(reversesText)}.');
+    }
+    if (reversedByText != null) {
+      semantic.write(' ${spokenMoneyText(reversedByText)}.');
+    }
     if (reason != null) semantic.write(' Neden: $reason.');
     // Tahakkuk dayanağı (K2): borcun yazıldığı çalıştırmanın karar kaydı / gerekçesi
     final basis = e.kind == LedgerKind.charge ? e.decision : null;
@@ -585,14 +659,24 @@ class LedgerEntryTile extends StatelessWidget {
                         ),
                       // Devir alacağı gerçek bir havale / nakit tahsilatı DEĞİLDİR: yöntem çipi yerine "Devir alacağı" (kaynak izi opening)
                       if (e.isOpeningCredit)
-                        const DialogMetaPill('Devir alacağı', tone: AppTone.info, icon: Icons.history_rounded)
+                        const DialogMetaPill(
+                          'Devir alacağı',
+                          tone: AppTone.info,
+                          icon: Icons.history_rounded,
+                        )
                       else if (e.method != null)
                         DialogMetaPill(e.method!.label),
                       if (e.isLateFee)
-                        const DialogMetaPill('Gecikme tazminatı', tone: AppTone.warning, icon: Icons.gavel_rounded),
+                        const DialogMetaPill(
+                          'Gecikme tazminatı',
+                          tone: AppTone.warning,
+                          icon: Icons.gavel_rounded,
+                        ),
                       if (entryFund != null)
                         DialogMetaPill(
-                          e.kind == LedgerKind.payment ? 'Yalnız ${entryFund.shortLabel}' : entryFund.shortLabel,
+                          e.kind == LedgerKind.payment
+                              ? 'Yalnız ${entryFund.shortLabel}'
+                              : entryFund.shortLabel,
                           tone: AppTone.info,
                           icon: fundIcon(entryFund),
                         ),
@@ -603,7 +687,10 @@ class LedgerEntryTile extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        child: Text(formatCrmDate(e.entryDate), style: th.titleSmall),
+                        child: Text(
+                          formatCrmDate(e.entryDate),
+                          style: th.titleSmall,
+                        ),
                       ),
                       const SizedBox(width: AppSpace.sm),
                       Flexible(
@@ -612,22 +699,33 @@ class LedgerEntryTile extends StatelessWidget {
                           textAlign: TextAlign.end,
                           style: th.titleMedium?.copyWith(
                             fontWeight: FontWeight.w800,
-                            decoration: e.isReversed ? TextDecoration.lineThrough : null,
+                            decoration: e.isReversed
+                                ? TextDecoration.lineThrough
+                                : null,
                           ),
                         ),
                       ),
                     ],
                   ),
-                  if (effect.isNotEmpty) Text(effect, style: th.bodySmall?.copyWith(color: p.textSecondary)),
+                  if (effect.isNotEmpty)
+                    Text(
+                      effect,
+                      style: th.bodySmall?.copyWith(color: p.textSecondary),
+                    ),
                   if (title.isNotEmpty) ...[
                     const SizedBox(height: AppSpace.xs),
                     Text(title, style: th.bodyMedium),
                   ],
-                  if (e.definitionName != null && note != null) Text(note, style: secondary),
-                  if (e.period != null) Text('Dönem: ${e.period!.label}', style: secondary),
-                  if (e.dueDate != null) Text('Vade: ${formatCrmDate(e.dueDate)}', style: secondary),
-                  if (reversesText != null) Text(reversesText, style: secondary),
-                  if (reversedByText != null) Text(reversedByText, style: secondary),
+                  if (e.definitionName != null && note != null)
+                    Text(note, style: secondary),
+                  if (e.period != null)
+                    Text('Dönem: ${e.period!.label}', style: secondary),
+                  if (e.dueDate != null)
+                    Text('Vade: ${formatCrmDate(e.dueDate)}', style: secondary),
+                  if (reversesText != null)
+                    Text(reversesText, style: secondary),
+                  if (reversedByText != null)
+                    Text(reversedByText, style: secondary),
                   if (reason != null) Text('Neden: $reason', style: secondary),
                   if (basis != null)
                     Text(
@@ -635,7 +733,8 @@ class LedgerEntryTile extends StatelessWidget {
                       key: ValueKey<String>('ledger_basis_${e.id}'),
                       style: secondary,
                     ),
-                  if (e.payerParty != null) Text(payerPartyLabel(e.payerParty!), style: secondary),
+                  if (e.payerParty != null)
+                    Text(payerPartyLabel(e.payerParty!), style: secondary),
                   if (split != null)
                     Text(
                       'Dağıtım: ${fundSplitText(split)}',
@@ -661,17 +760,27 @@ class LedgerEntryTile extends StatelessWidget {
                   TextButton.icon(
                     key: ValueKey<String>('ledger_receipt_${e.id}'),
                     onPressed: actionsEnabled ? onOpenReceipt : null,
-                    icon: Icon(receipt.isCancelled ? Icons.receipt_long_outlined : Icons.receipt_long_rounded, size: 18),
+                    icon: Icon(
+                      receipt.isCancelled
+                          ? Icons.receipt_long_outlined
+                          : Icons.receipt_long_rounded,
+                      size: 18,
+                    ),
                     label: Text('Makbuz ${receipt.number}'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
-                if (onIssueReceipt != null && (receipt == null || receipt.isCancelled))
+                if (onIssueReceipt != null &&
+                    (receipt == null || receipt.isCancelled))
                   TextButton.icon(
                     key: ValueKey<String>('ledger_issue_receipt_${e.id}'),
                     onPressed: actionsEnabled ? onIssueReceipt : null,
                     icon: const Icon(Icons.note_add_rounded, size: 18),
                     label: const Text('Makbuz Düzenle'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 if (onExplainLateFee != null && e.isLateFee)
                   TextButton.icon(
@@ -679,7 +788,9 @@ class LedgerEntryTile extends StatelessWidget {
                     onPressed: actionsEnabled ? onExplainLateFee : null,
                     icon: const Icon(Icons.help_outline_rounded, size: 18),
                     label: const Text('Nasıl hesaplandı?'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 if (canAct && onCorrect != null)
                   TextButton.icon(
@@ -687,7 +798,9 @@ class LedgerEntryTile extends StatelessWidget {
                     onPressed: actionsEnabled ? onCorrect : null,
                     icon: const Icon(Icons.edit_rounded, size: 18),
                     label: const Text('Düzelt'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 if (canAct && onReverse != null)
                   TextButton.icon(
@@ -753,14 +866,25 @@ class FeeDefinitionCard extends StatelessWidget {
     // Tek seferlik tanımın dönemi yoktur (ay seçimi etkisizdi); vadesi borçlandırılırken belirlenir.
     final schedule = d.isRecurring
         ? '${dueDayText(d.dueDay)} • ${periodRangeText(d.startPeriod, d.endPeriod)}'
-        : (d.kind == FeeKind.oneTime ? 'Vade: borçlandırılırken belirlenir' : null);
-    final hasActions = onPost != null || onEdit != null || onToggleActive != null;
+        : (d.kind == FeeKind.oneTime
+              ? 'Vade: borçlandırılırken belirlenir'
+              : null);
+    final hasActions =
+        onPost != null || onEdit != null || onToggleActive != null;
 
-    final semantic = StringBuffer('Tanım: $name. ${d.kind.label}. ${d.isActive ? 'Aktif' : 'Pasif'}.');
-    semantic.write(' ${d.distribution.label}. ${spokenMoneyText(definitionAmountText(d))}.');
+    final semantic = StringBuffer(
+      'Tanım: $name. ${d.kind.label}. ${d.isActive ? 'Aktif' : 'Pasif'}.',
+    );
+    semantic.write(
+      ' ${d.distribution.label}. ${spokenMoneyText(definitionAmountText(d))}.',
+    );
     semantic.write(' Hedef: ${d.target.summary}.');
     semantic.write(' Kasa: ${d.effectiveFund.label}.');
-    semantic.write(last == null ? ' Henüz borçlandırılmadı.' : ' Son borçlandırma: ${last.label}.');
+    semantic.write(
+      last == null
+          ? ' Henüz borçlandırılmadı.'
+          : ' Son borçlandırma: ${last.label}.',
+    );
     final disabled = busy || !actionsEnabled;
 
     return AppCard(
@@ -783,12 +907,16 @@ class FeeDefinitionCard extends StatelessWidget {
                       DialogMetaPill(
                         d.kind.label,
                         tone: AppTone.info,
-                        icon: d.isRecurring ? Icons.event_repeat_rounded : Icons.looks_one_rounded,
+                        icon: d.isRecurring
+                            ? Icons.event_repeat_rounded
+                            : Icons.looks_one_rounded,
                       ),
                       DialogMetaPill(
                         d.isActive ? 'Aktif' : 'Pasif',
                         tone: d.isActive ? AppTone.success : AppTone.neutral,
-                        icon: d.isActive ? Icons.check_circle_rounded : Icons.pause_circle_rounded,
+                        icon: d.isActive
+                            ? Icons.check_circle_rounded
+                            : Icons.pause_circle_rounded,
                       ),
                     ],
                   ),
@@ -808,7 +936,9 @@ class FeeDefinitionCard extends StatelessWidget {
                     style: secondary,
                   ),
                   Text(
-                    last == null ? 'Henüz borçlandırılmadı' : 'Son borçlandırma: ${last.label}',
+                    last == null
+                        ? 'Henüz borçlandırılmadı'
+                        : 'Son borçlandırma: ${last.label}',
                     style: secondary,
                   ),
                 ],
@@ -833,9 +963,14 @@ class FeeDefinitionCard extends StatelessWidget {
                   TextButton.icon(
                     key: ValueKey<String>('fee_definition_post_${d.id}'),
                     onPressed: disabled ? null : onPost,
-                    icon: const Icon(Icons.playlist_add_check_rounded, size: 18),
+                    icon: const Icon(
+                      Icons.playlist_add_check_rounded,
+                      size: 18,
+                    ),
                     label: const Text('Borçlandır'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 if (onEdit != null)
                   TextButton.icon(
@@ -843,7 +978,9 @@ class FeeDefinitionCard extends StatelessWidget {
                     onPressed: disabled ? null : onEdit,
                     icon: const Icon(Icons.edit_rounded, size: 18),
                     label: const Text('Düzenle'),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
                 if (onToggleActive != null)
                   TextButton.icon(
@@ -865,7 +1002,9 @@ class FeeDefinitionCard extends StatelessWidget {
                           ? busyLabel!
                           : (d.isActive ? 'Pasifleştir' : 'Etkinleştir'),
                     ),
-                    style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(48, 48),
+                    ),
                   ),
               ],
             ),
@@ -890,14 +1029,19 @@ class FeePreviewLineTile extends StatelessWidget {
     final th = Theme.of(context).textTheme;
     final title = financeApartmentTitle(line.blockName, line.label);
     // İP-1A: sunucu borcun yazılacağı hesabı verdiyse o yazılır ("Kiracı hesabı"); eski sunucuda "kim öder" etiketi.
-    final who = line.accountParty?.label ?? payerPartyLabel(line.payerParty);
+    final who = line.prorationShares.length > 1
+        ? 'Günlük aidat paylaşımı'
+        : line.accountParty?.label ?? payerPartyLabel(line.payerParty);
     // Dağıtım tabanının daire için değeri (arsa payı kesri ya da kişi sayısı): tutarların NEDEN farklı olduğu görünür (karar K5). Eşit / sabit / kategoride yok.
     final basis = line.basisValue;
-    final basisText = basis == null ? null : (basis.contains('/') ? 'Arsa payı $basis' : '$basis kişi');
+    final basisText = basis == null
+        ? null
+        : (basis.contains('/') ? 'Arsa payı $basis' : '$basis kişi');
     final subtitle = basisText == null ? who : '$who · $basisText';
     return Semantics(
       container: true,
-      label: '$title. $subtitle. ${moneySemanticLabel(line.amountMinor)}.',
+      label:
+          '$title. $subtitle. ${moneySemanticLabel(line.amountMinor)}. ${line.prorationShares.map((s) => '${s.accountParty.label}, ${s.days}/${line.prorationDays} gün, ${moneySemanticLabel(s.amountMinor)}').join('. ')}',
       child: ExcludeSemantics(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AppSpace.xs),
@@ -911,11 +1055,19 @@ class FeePreviewLineTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(title, style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    title,
+                    style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  ),
                   Text(
                     subtitle,
                     style: th.bodySmall?.copyWith(color: p.textSecondary),
                   ),
+                  for (final share in line.prorationShares)
+                    Text(
+                      '${share.accountParty.label}: ${share.days}/${line.prorationDays} gün · ${formatMinor(share.amountMinor)}',
+                      style: th.bodySmall?.copyWith(color: p.textSecondary),
+                    ),
                 ],
               ),
               Text(

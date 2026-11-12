@@ -24,7 +24,8 @@ extension PushPermissionX on PushPermission {
   bool get isGranted => this == PushPermission.granted;
 
   /// Uygulama izin penceresini (yeniden) açabilir mi?
-  bool get canAsk => this == PushPermission.notDetermined || this == PushPermission.denied;
+  bool get canAsk =>
+      this == PushPermission.notDetermined || this == PushPermission.denied;
 }
 
 /// Gelen bildirimin `data` yükü (FCM'de tüm değerler metindir). Başlık / gövde kasıtlı olarak tutulmaz:
@@ -38,8 +39,50 @@ class PushMessage {
   /// Yük geçerli bir duyuru bildirimiyse numarası; değilse null (yük yok sayılır).
   int? get announcementId => pushAnnouncementIdOf(data);
 
+  /// IDs are only references. Alarm content/recipient rights come from the API.
+  EmergencyPushReference? get emergency => emergencyPushReferenceOf(data);
+
   /// `POST /app/push/test` bildirimi (`type == 'test'`). Yönlendirme yapmaz; ön planda yalnız uygulama içi bilgi.
   bool get isTest => data['type'] == 'test';
+}
+
+@immutable
+class EmergencyPushReference {
+  const EmergencyPushReference({required this.alarmId, required this.siteCode});
+  final int alarmId;
+  final int siteCode;
+}
+
+EmergencyPushReference? emergencyPushReferenceOf(Map<String, Object?> data) {
+  if (data['type'] != 'emergency') return null;
+  int? id(Object? value) {
+    final text = value is String ? value : (value is int ? '$value' : '');
+    return _positiveId.hasMatch(text) ? int.tryParse(text) : null;
+  }
+
+  final alarm = id(data['alarm_id']);
+  final site = id(data['site_code']);
+  return alarm == null || site == null
+      ? null
+      : EmergencyPushReference(alarmId: alarm, siteCode: site);
+}
+
+@immutable
+class PushCapabilities {
+  const PushCapabilities({
+    this.available = false,
+    this.canRegister = false,
+    this.emergencyOnly = false,
+  });
+  final bool available;
+  final bool canRegister;
+  final bool emergencyOnly;
+  factory PushCapabilities.fromJson(Map<String, dynamic> json) =>
+      PushCapabilities(
+        available: json['push_available'] == true,
+        canRegister: json['can_register'] == true,
+        emergencyOnly: json['emergency_only'] == true,
+      );
 }
 
 final RegExp _positiveId = RegExp(r'^[1-9][0-9]{0,14}$');
@@ -118,7 +161,10 @@ class PushPreferences {
   final int deviceCount;
 
   /// Eksik/yanlış tipli alan [fallback]'teki (PUT yanıtında: istenen) değere, o da yoksa varsayılana düşer.
-  factory PushPreferences.fromJson(Map<String, dynamic> json, {PushPreferences? fallback}) {
+  factory PushPreferences.fromJson(
+    Map<String, dynamic> json, {
+    PushPreferences? fallback,
+  }) {
     final base = fallback ?? const PushPreferences();
     final quiet = json['push_quiet'];
     final quietMap = quiet is Map ? quiet : const <String, Object?>{};
@@ -127,7 +173,8 @@ class PushPreferences {
     final count = _intOrNull(json['push_devices']);
     return PushPreferences(
       available: _flagOrNull(json['push_available']) ?? base.available,
-      announcements: _flagOrNull(json['push_announcements']) ?? base.announcements,
+      announcements:
+          _flagOrNull(json['push_announcements']) ?? base.announcements,
       showPreview: _flagOrNull(json['push_show_preview']) ?? base.showPreview,
       quietEnabled: _flagOrNull(quietMap['enabled']) ?? base.quietEnabled,
       quietStart: start,
@@ -247,7 +294,9 @@ class PushDevice {
     return PushDevice(
       installId: id.trim(),
       platform: platform is String ? platform.trim().toLowerCase() : '',
-      appVersion: version is String && version.trim().isNotEmpty ? version.trim() : null,
+      appVersion: version is String && version.trim().isNotEmpty
+          ? version.trim()
+          : null,
       lastSeenAt: seen is String ? DateTime.tryParse(seen) : null,
     );
   }
@@ -286,7 +335,10 @@ class PushTestResult {
   factory PushTestResult.fromJson(Map<String, dynamic> json) {
     final sent = _intOrNull(json['sent']) ?? 0;
     final failed = _intOrNull(json['failed']) ?? 0;
-    return PushTestResult(sent: sent < 0 ? 0 : sent, failed: failed < 0 ? 0 : failed);
+    return PushTestResult(
+      sent: sent < 0 ? 0 : sent,
+      failed: failed < 0 ? 0 : failed,
+    );
   }
 
   final int sent;

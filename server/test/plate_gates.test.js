@@ -44,13 +44,23 @@ describe('plate_gates_schema (120)', () => {
     const actual = normalize(MIGRATION);
     let cursor = 0;
     for (const name of PLATE_GATES_DDL_ORDER) {
-      const statement = normalize(PLATE_GATES_DDL[name]);
+      if (name === 'gatesCooldownColumns') continue; // 125 ile eklendi; aşağıda ayrıca doğrulanır.
+      const ddl = name === 'gatesTable' ? PLATE_GATES_DDL[name]
+        .replace(/^.*(?:consecutive_vehicle_delay_seconds INTEGER|entry_rear_suppress_seconds INTEGER|exit_rear_suppress_seconds INTEGER|CONSTRAINT chk_plate_gates_consecutive_cd|CONSTRAINT chk_plate_gates_entry_rear|CONSTRAINT chk_plate_gates_exit_rear).*\n/gm, '')
+        .replace(/(CONSTRAINT chk_plate_gates_device_uid[^\n]*),/, '$1') : PLATE_GATES_DDL[name];
+      const statement = normalize(ddl);
       const at = actual.indexOf(statement, cursor);
       assert.ok(at >= cursor, `sirasiz ya da eksik: ${name}`);
       cursor = at + statement.length;
     }
     assert.ok(!/\b(DROP|TRUNCATE)\b|; ?(DELETE|UPDATE) /i.test(actual));
     assert.deepEqual(findUnsafeStatements(MIGRATION), []);
+    const cooldownMigration = readFileSync(path.join(DEFAULT_MIGRATIONS_DIR, '125_plate_gate_cooldowns.sql'), 'utf8');
+    assert.ok(normalize(cooldownMigration).includes(normalize(PLATE_GATES_DDL.gatesCooldownColumns)));
+    for (const constraint of ['chk_plate_gates_consecutive_cd', 'chk_plate_gates_entry_rear', 'chk_plate_gates_exit_rear']) {
+      const clause = PLATE_GATES_DDL.gatesTable.split('\n').find((line) => line.includes(`CONSTRAINT ${constraint} CHECK (`)).trim().replace(/,$/, '');
+      assert.ok(normalize(cooldownMigration).includes(normalize(clause)), constraint);
+    }
   });
 
   it('CHECK listeleri sabitlerle ayni (yeni deger = tek migration + bir sabit satiri)', () => {
@@ -83,7 +93,7 @@ describe('plate_gates_schema (120)', () => {
     };
     const tables = ['plate_gates', 'plate_gate_cameras', 'plate_edge_clients', 'plate_camera_status', 'plate_site_settings', 'plate_presence', 'sites', 'plate_events', 'apartments'];
     const indexes = ['uq_plate_gates_name', 'uq_plate_gate_cameras_camera', 'idx_plate_gate_cameras_gate', 'idx_plate_edge_clients_site', 'idx_plate_camera_status_site', 'uq_plate_presence_plate', 'idx_plate_presence_inside', 'idx_plate_presence_updated', 'uq_plate_events_client_event'];
-    const columns = ['gate_id', 'direction', 'decision_kind', 'edge_client_id', 'client_event_id', 'schema_version', 'confidence', 'reason'].map((c) => `plate_events.${c}`).concat('apartments.parking_slots');
+    const columns = ['gate_id', 'direction', 'decision_kind', 'edge_client_id', 'client_event_id', 'schema_version', 'confidence', 'reason'].map((c) => `plate_events.${c}`).concat('apartments.parking_slots', 'plate_gates.consecutive_vehicle_delay_seconds', 'plate_gates.entry_rear_suppress_seconds', 'plate_gates.exit_rear_suppress_seconds');
     const full = make({ tables, indexes, columns });
     await ensurePlateGatesSchema(full);
     assert.equal(full.calls.length, 1);

@@ -30,7 +30,7 @@ import {
   parseFeedbackAttachmentId,
   parseFeedbackId,
 } from './feedback_common.js';
-import { completeFeedbackUpload, findFeedbackUploadTarget, resolveFeedbackDownload } from './feedback_service.js';
+import { completeFeedbackUpload, findFeedbackUploadTarget, resolveFeedbackDownload, resolveOwnFeedbackDownload } from './feedback_service.js';
 import { newErrorId } from '../middlewares/error_handler.js';
 import { PlatformError } from './errors.js';
 
@@ -201,8 +201,10 @@ export async function receiveFeedbackContent(req, { rawId, rawAttId, actor }) {
  * değil / yabancı site -> 404. Dosya kayıpsa 500 FEEDBACK_FILE_MISSING (+ errorId). Hata yanıtını kendisi yazmaz: çağıran respondError ile yazar.
  * @param {{ siteCode?: number|null, rawId: string, rawAttId: string }} context siteCode verilirse yalnız o sitenin geri bildirimi (yönetici ucu)
  */
-export async function sendFeedbackContent(req, res, { siteCode = null, rawId, rawAttId }) {
-  const target = await resolveFeedbackDownload({ siteCode, rawId, rawAttId });
+export async function sendFeedbackContent(req, res, { siteCode = null, rawId, rawAttId, ownerOnly = false, actor }) {
+  const target = ownerOnly
+    ? await resolveOwnFeedbackDownload({ actor, rawId, rawAttId })
+    : await resolveFeedbackDownload({ siteCode, rawId, rawAttId });
   const storage = await checkStorage();
   if (!storage.ok) {
     throw feedbackStorageUnavailable();

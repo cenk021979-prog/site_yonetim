@@ -169,6 +169,17 @@ const INSERT_RESIDENCIES_SQL = `
  * user_code NULL olur (taşınan kişinin hesabını sonradan değiştirdiği bilgi bu sitede görünmesin). Hesapsız kişilere dokunulmaz.
  * Sistem adına audit satırı yazılır.
  */
+const TENANT_CLOSURES_RESULT_SQL = `SELECT d.id,
+    (SELECT COUNT(*)::INTEGER FROM deactivated) AS changed_people_count,
+    (SELECT COALESCE(jsonb_agg(jsonb_build_object('site_code', e.site_code, 'apartment_id', e.apartment_id,
+      'move_out_date', to_char(CURRENT_DATE, 'YYYY-MM-DD'))), '[]'::JSONB) FROM ended e WHERE e.relation = 'tenant') AS tenant_changes
+  FROM deactivated d
+  UNION ALL
+  SELECT NULL, 0,
+    (SELECT jsonb_agg(jsonb_build_object('site_code', e.site_code, 'apartment_id', e.apartment_id,
+      'move_out_date', to_char(CURRENT_DATE, 'YYYY-MM-DD'))) FROM ended e WHERE e.relation = 'tenant')
+  WHERE NOT EXISTS (SELECT 1 FROM deactivated) AND EXISTS (SELECT 1 FROM ended e WHERE e.relation = 'tenant')`;
+
 const END_UNBACKED_SQL = `
   WITH ended AS (
     UPDATE apartment_residencies r
@@ -249,7 +260,7 @@ const END_UNBACKED_SQL = `
     FROM deactivated d
     RETURNING id
   )
-  SELECT id FROM deactivated
+  ${TENANT_CLOSURES_RESULT_SQL}
 `;
 
 /**
@@ -319,7 +330,7 @@ const DEACTIVATE_ORPHANS_SQL = `
     FROM deactivated d
     RETURNING id
   )
-  SELECT id FROM deactivated
+  ${TENANT_CLOSURES_RESULT_SQL}
 `;
 
 export const SYNC_STEPS = Object.freeze([
@@ -337,11 +348,20 @@ export const SYNC_STEPS = Object.freeze([
  * @param {{ siteCode?: number|null, userCode?: number|null }} [filters]
  * @returns {Promise<Record<string, number>>} adım başına etkilenen satır sayısı
  */
-export async function runSyncSteps(client, { siteCode = null, userCode = null } = {}) {
+export async function runSyncSteps(client, { siteCode = null, userCode = null, dailyAidat = false } = {}) {
   const counts = {};
   for (const step of SYNC_STEPS) {
     const result = await client.query(step.sql, [siteCode, userCode]);
-    counts[step.name] = Number(result?.rowCount ?? 0);
+    counts[step.name] = Number(result?.rows?.[0]?.changed_people_count ?? result?.rowCount ?? 0);
+    if (dailyAidat) {
+      const changes = result?.rows?.[0]?.tenant_changes ?? [];
+      if (changes.length) {
+        const { reconcileApartmentAidat } = await import('./finance_proration_service.js');
+        for (const change of changes) await reconcileApartmentAidat(client, {
+          siteCode: Number(change.site_code), apartmentId: Number(change.apartment_id), fromDate: change.move_out_date,
+        });
+      }
+    }
   }
   return counts;
 }

@@ -25,12 +25,14 @@ import { apartmentLabel, invalidBody, parsePositiveId } from './people_common.js
 import { withSiteTransaction } from './people_service.js';
 import { formatPlate, maskPlate, requireTrPlate } from './plate_recognition_common.js';
 import { VEHICLE_SOURCE_APARTMENT_ADMIN, VEHICLE_SOURCE_SITE_MANAGER, loadVehicleSources, sourceOf } from './vehicle_service.js';
+import { loadParkingPolicy, parseRegistrationPhoto } from './parking_access_common.js';
+import { isModuleEnabled } from './module_service.js';
 
 export const ADMIN_VEHICLE_LIMIT = 4;
 export const MANAGER_VEHICLE_LIMIT = 8;
 export const VEHICLE_NOTE_MAX = 200;
 // Ekranda gosterilen etki uyarisi (istemci ile ayni cumle; docs ve yardim bunu anlatir).
-export const PLATE_RECOGNITION_NOTICE = 'Eklediğiniz plaka, sitede plaka tanıma açıksa yetkili araç sayılır.';
+export const PLATE_RECOGNITION_NOTICE = 'Araçlarınız dairenize kaydedilir. Plakayla giriş için dairenizin yönetim onayı gerekir. Kapasite denetimi açıksa eşzamanlı araç giriş hakkınız da uygulanır. Otomatik giriş için izleme uygulamasının sunucu bağlantısı gerekir.';
 
 const notFound = () => new PlatformError(404, 'APARTMENT_NOT_FOUND', 'Daire bulunamadı ya da bu daireyle bağınız yok.');
 const vehicleNotFound = () => new PlatformError(404, 'VEHICLE_NOT_FOUND', 'Araç bulunamadı.');
@@ -126,7 +128,8 @@ export function limitReached(access) {
 // Dairenin aktif araclari: bu daireye bagli olanlar (apartment_id) + eski kayitlar (apartment_id bos, sahibi dairenin guncel sakini).
 const SCOPE_SQL = `
   SELECT v.id, v.plate, v.plate_display, v.note, v.person_id, v.apartment_id, v.is_active,
-         COALESCE(NULLIF(u.full_name, ''), sp.full_name) AS person_name
+         COALESCE(NULLIF(u.full_name, ''), sp.full_name) AS person_name,
+         EXISTS(SELECT 1 FROM vehicle_registration_photos vrp WHERE vrp.vehicle_id=v.id) AS has_registration_photo
   FROM vehicles v
   LEFT JOIN site_people sp ON sp.id = v.person_id
   LEFT JOIN users u ON u.user_code = sp.user_code
@@ -149,6 +152,7 @@ function viewOf(row, sources) {
     person_id: row.person_id === null || row.person_id === undefined ? null : Number(row.person_id),
     person_name: row.person_name ?? null,
     is_active: row.is_active === true,
+    has_registration_photo: row.has_registration_photo === true,
     source: info.source,
     added_by: info.added_by,
   };
@@ -181,7 +185,15 @@ export async function resolveVehicleAccess(db, authUser, state) {
     throw new PlatformError(401, 'ACCOUNT_DELETED', 'Oturum geçersiz.');
   }
   const me = await meOf(db, state, userCode);
-  return vehicleAccess({ kind: 'member', me });
+  const access = vehicleAccess({ kind: 'member', me });
+  if (access.canManage || me.suspended === true) return access;
+  const own = state.residencies.find((r) => Number(r.user_code) === userCode && r.person_active !== false && r.is_minor !== true);
+  const verified = !own ? false : (await db.query(`SELECT 1 FROM users u JOIN site_people sp ON sp.user_code=u.user_code
+    WHERE u.user_code=$1 AND u.is_active AND u.deleted_at IS NULL AND u.email_verified=TRUE
+    AND COALESCE(u.approval_status,'approved')='approved' AND sp.id=$2 AND sp.site_code=$3 AND sp.is_active LIMIT 1`,
+    [userCode, own.person_id, state.apartment.site_code])).rows.length > 0;
+  // Family/co-owner accounts manage only vehicles attached to their OWN active person record.
+  return own && verified ? { ...access, canManage: true, ownOnly: true, ownPersonId: Number(own.person_id) } : access;
 }
 
 function requireManage(access) {
@@ -226,17 +238,69 @@ async function audit(client, authUser, action, state, vehicleId, details) {
 export async function listApartmentVehicles({ authUser, apartmentId }) {
   const state = await loadState(pool, apartmentId);
   const access = await resolveVehicleAccess(pool, authUser, state);
-  const rows = await readScope(pool, state);
+  const scope = await readScope(pool, state);
+  const rows = access.ownOnly ? scope.filter((r) => Number(r.person_id) === access.ownPersonId) : scope;
   const sources = await loadVehicleSources(pool, state.apartment.site_code, rows);
+  const policy = await loadParkingPolicy(pool, state.apartment.site_code);
+  const approval = (await pool.query('SELECT approved FROM parking_apartment_approvals WHERE apartment_id=$1', [state.apartment.id])).rows[0];
+  const plateEnabled = await isModuleEnabled(state.apartment.site_code, 'plate_recognition');
   return {
     apartment_id: state.apartment.id,
     label: apartmentLabel(state.apartment.block_name, state.apartment.unit_label),
     items: rows.map((row) => viewOf(row, sources)),
     can_manage: access.canManage,
     limit: access.limit,
-    owners: access.canManage ? ownerOptions(state) : [],
+    owners: access.canManage ? ownerOptions(state).filter((o) => !access.ownOnly || o.person_id === access.ownPersonId) : [],
+    own_only: access.ownOnly === true,
     notice: PLATE_RECOGNITION_NOTICE,
+    parking_enabled: policy.enabled,
+    apartment_approved: approval?.approved === true,
+    registration_photo_enabled: plateEnabled && policy.registration_photo_enabled,
   };
+}
+
+async function requirePhotoPolicy(state, db = pool) {
+  const siteCode = state.apartment.site_code;
+  if (!(await isModuleEnabled(siteCode, 'plate_recognition')) || !(await loadParkingPolicy(db, siteCode)).registration_photo_enabled) {
+    throw new PlatformError(403, 'REGISTRATION_PHOTO_DISABLED', 'Yönetim ruhsat fotoğrafı yüklemesini açmamış veya plaka tanıma modülü etkin değil.');
+  }
+}
+
+export async function putVehicleRegistrationPhoto({ authUser, apartmentId, vehicleId, body }) {
+  const photo = parseRegistrationPhoto(body);
+  await writeInApartment(authUser, apartmentId, async ({ client, state }) => {
+    await requirePhotoPolicy(state, client);
+    const access = await resolveVehicleAccess(client, authUser, state);
+    const row = await lockVehicle(client, state, vehicleId, access);
+    await client.query(`INSERT INTO vehicle_registration_photos(vehicle_id,mime_type,image_bytes,uploaded_by) VALUES($1,$2,$3,$4)
+      ON CONFLICT(vehicle_id) DO UPDATE SET mime_type=EXCLUDED.mime_type,image_bytes=EXCLUDED.image_bytes,uploaded_by=EXCLUDED.uploaded_by,updated_at=NOW()`,
+    [row.id, photo.mime, photo.bytes, actorFromAuthUser(authUser).userCode]);
+    await audit(client, authUser, 'vehicle.registration_photo_updated', state, row.id, { apartment_id: state.apartment.id });
+  });
+  return { ok: true };
+}
+
+export async function getVehicleRegistrationPhoto({ authUser, apartmentId, vehicleId }) {
+  const state = await loadState(pool, apartmentId);
+  const access = await resolveVehicleAccess(pool, authUser, state);
+  requireManage(access);
+  await requirePhotoPolicy(state);
+  const row = (await pool.query(`${SCOPE_SQL} AND v.id=$3`, [state.apartment.site_code, state.apartment.id, parsePositiveId(vehicleId)])).rows[0];
+  if (!row) throw vehicleNotFound();
+  if (access.ownOnly && Number(row.person_id) !== access.ownPersonId) throw vehicleNotFound();
+  const photo = (await pool.query('SELECT mime_type,image_bytes FROM vehicle_registration_photos WHERE vehicle_id=$1', [row.id])).rows[0];
+  if (!photo) throw new PlatformError(404, 'REGISTRATION_PHOTO_NOT_FOUND', 'Ruhsat fotoğrafı yok.');
+  return { mime_type: photo.mime_type, image_base64: photo.image_bytes.toString('base64') };
+}
+
+export async function removeVehicleRegistrationPhoto({ authUser, apartmentId, vehicleId }) {
+  await writeInApartment(authUser, apartmentId, async ({ client, state }) => {
+    const access = await resolveVehicleAccess(client, authUser, state);
+    const row = await lockVehicle(client, state, vehicleId, access);
+    await client.query('DELETE FROM vehicle_registration_photos WHERE vehicle_id=$1', [row.id]);
+    await audit(client, authUser, 'vehicle.registration_photo_removed', state, row.id, { apartment_id: state.apartment.id });
+  });
+  return { ok: true };
 }
 
 /** POST /app/apartments/:apartmentId/vehicles  { plate, note?, person_id? } -> { vehicle } */
@@ -245,7 +309,8 @@ export async function createApartmentVehicle({ authUser, apartmentId, body = {} 
   const display = formatPlate(plate);
   const note = parseVehicleNote(body.note);
   const { state, id } = await writeInApartment(authUser, apartmentId, async ({ client, state, access }) => {
-    const personId = pickOwner(state, body.person_id);
+    if (access.ownOnly && body.person_id !== undefined && Number(body.person_id) !== access.ownPersonId) throw forbidden('Yalnız kendi adınıza araç kaydedebilirsiniz.');
+    const personId = access.ownOnly ? access.ownPersonId : pickOwner(state, body.person_id);
     const scope = await readScope(client, state);
     if (scope.length >= access.limit) {
       throw limitReached(access);
@@ -279,11 +344,12 @@ export async function createApartmentVehicle({ authUser, apartmentId, body = {} 
   return { vehicle: await readOne(state, id) };
 }
 
-async function lockVehicle(client, state, rawVehicleId) {
+async function lockVehicle(client, state, rawVehicleId, access) {
   const vehicleId = parsePositiveId(rawVehicleId);
   if (vehicleId === null) throw vehicleNotFound();
   const row = (await client.query(`${SCOPE_SQL} AND v.id = $3 FOR UPDATE OF v`, [state.apartment.site_code, state.apartment.id, vehicleId])).rows?.[0];
   if (!row) throw vehicleNotFound();
+  if (access?.ownOnly && Number(row.person_id) !== access.ownPersonId) throw vehicleNotFound();
   return row;
 }
 
@@ -296,13 +362,14 @@ export async function updateApartmentVehicle({ authUser, apartmentId, vehicleId,
   }
   const note = hasNote ? parseVehicleNote(body.note) : null;
   const { state, id } = await writeInApartment(authUser, apartmentId, async ({ client, state, access }) => {
-    const row = await lockVehicle(client, state, vehicleId);
+    const row = await lockVehicle(client, state, vehicleId, access);
     const changes = [];
     if (hasNote && (row.note ?? null) !== note) {
       await client.query(`UPDATE vehicles SET note = $2 WHERE id = $1`, [row.id, note]);
       changes.push('note');
     }
     if (hasOwner) {
+      if (access.ownOnly && Number(body.person_id) !== access.ownPersonId) throw forbidden('Başka bir sakinin adına araç kaydedemezsiniz.');
       const personId = pickOwner(state, body.person_id);
       if (Number(row.person_id) !== personId) {
         await client.query(`UPDATE vehicles SET person_id = $2 WHERE id = $1`, [row.id, personId]);
@@ -325,7 +392,7 @@ export async function updateApartmentVehicle({ authUser, apartmentId, vehicleId,
 /** DELETE /app/apartments/:apartmentId/vehicles/:vehicleId -> { ok: true }. Kayit silinmez: is_active = false. */
 export async function removeApartmentVehicle({ authUser, apartmentId, vehicleId }) {
   await writeInApartment(authUser, apartmentId, async ({ client, state, access }) => {
-    const row = await lockVehicle(client, state, vehicleId);
+    const row = await lockVehicle(client, state, vehicleId, access);
     await client.query(`UPDATE vehicles SET is_active = FALSE WHERE id = $1`, [row.id]);
     await audit(client, authUser, 'vehicle.removed', state, row.id, {
       plate: maskPlate(row.plate),

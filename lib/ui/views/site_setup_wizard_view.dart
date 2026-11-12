@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/views/site_setup_controller.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_setup_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_setup_steps.dart';
+import 'package:site_kapi_kontrol/ui/widgets/site_setup_template_button.dart';
 
 /// Kurulum sihirbazı kapanırken çağırana dönen sonuç.
 class SiteSetupOutcome {
@@ -117,7 +118,9 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
 
   void _onChanged() {
     if (!mounted) return;
-    final moved = _c.started && (_c.current != _lastStep || _c.showingSummary != _lastSummary);
+    final moved =
+        _c.started &&
+        (_c.current != _lastStep || _c.showingSummary != _lastSummary);
     if (moved) {
       final firstShow = _lastStep == null;
       _lastStep = _c.current;
@@ -143,7 +146,12 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
   void _close({bool finished = false}) {
     if (_closing) return;
     _closing = true;
-    Navigator.of(context).pop(SiteSetupOutcome(changed: _c.dataChanged, finished: finished || _c.progress.finished));
+    Navigator.of(context).pop(
+      SiteSetupOutcome(
+        changed: _c.dataChanged,
+        finished: finished || _c.progress.finished,
+      ),
+    );
   }
 
   Future<void> _finish() async {
@@ -153,7 +161,9 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
     _close(finished: true);
   }
 
-  List<SiteSetupStatus> get _statuses => <SiteSetupStatus>[for (final step in SiteSetupStep.values) _c.statusOf(step)];
+  List<SiteSetupStatus> get _statuses => <SiteSetupStatus>[
+    for (final step in SiteSetupStep.values) _c.statusOf(step),
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -161,7 +171,11 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
     final hPad = size.width < 360 ? AppSpace.md : AppSpace.lg;
     final largeText = MediaQuery.textScalerOf(context).scale(1) > 1.3;
     final ready = _c.isAllowed && _c.started;
-    final pinned = ready && !_c.showingSummary && size.height >= _pinnedNavMinHeight && !largeText;
+    final pinned =
+        ready &&
+        !_c.showingSummary &&
+        size.height >= _pinnedNavMinHeight &&
+        !largeText;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) {
@@ -183,7 +197,9 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
               key: const ValueKey<String>('site_setup_refresh'),
               tooltip: 'Yenile',
               icon: const Icon(Icons.refresh_rounded),
-              onPressed: (!ready || _c.loading) ? null : () => unawaited(_c.refresh()),
+              onPressed: (!ready || _c.loading)
+                  ? null
+                  : () => unawaited(_c.refresh()),
             ),
           ],
         ),
@@ -196,12 +212,20 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
               controller: _scroll,
               physics: const AlwaysScrollableScrollPhysics(),
               keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.xl),
+              padding: EdgeInsets.fromLTRB(
+                hPad,
+                AppSpace.sm,
+                hPad,
+                AppSpace.xl,
+              ),
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: 640),
-                  child: _buildBody(context, inlineNav: ready && !_c.showingSummary && !pinned),
+                  child: _buildBody(
+                    context,
+                    inlineNav: ready && !_c.showingSummary && !pinned,
+                  ),
                 ),
               ),
             ),
@@ -210,7 +234,12 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
         bottomNavigationBar: pinned
             ? SafeArea(
                 child: Padding(
-                  padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.md),
+                  padding: EdgeInsets.fromLTRB(
+                    hPad,
+                    AppSpace.sm,
+                    hPad,
+                    AppSpace.md,
+                  ),
                   child: Align(
                     alignment: Alignment.centerRight,
                     heightFactor: 1,
@@ -236,7 +265,10 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
       );
     }
     if (!c.started) {
-      return const Padding(padding: EdgeInsets.only(top: AppSpace.md), child: ListSkeleton(rows: 3));
+      return const Padding(
+        padding: EdgeInsets.only(top: AppSpace.md),
+        child: ListSkeleton(rows: 3),
+      );
     }
     final terms = c.snapshot.terms;
     return Column(
@@ -244,6 +276,12 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
       children: [
         _SiteLine(name: c.displayName),
         const SizedBox(height: AppSpace.md),
+        if (!c.showingSummary &&
+            (c.current == SiteSetupStep.apartments ||
+                c.current == SiteSetupStep.people)) ...[
+          const SiteSetupTemplateButton(),
+          const SizedBox(height: AppSpace.md),
+        ],
         SiteSetupStepHeader(
           step: c.current,
           terms: terms,
@@ -256,7 +294,10 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
           _Summary(controller: c, onFinish: () => unawaited(_finish()))
         else ...[
           SiteSetupStepBody(controller: c),
-          if (inlineNav) ...[const SizedBox(height: AppSpace.lg), _NavButtons(controller: c)],
+          if (inlineNav) ...[
+            const SizedBox(height: AppSpace.lg),
+            _NavButtons(controller: c),
+          ],
         ],
       ],
     );
@@ -283,7 +324,10 @@ class _SiteLine extends StatelessWidget {
             key: const ValueKey<String>('site_setup_site_name'),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
-            style: th.bodyMedium?.copyWith(color: p.textSecondary, fontWeight: FontWeight.w600),
+            style: th.bodyMedium?.copyWith(
+              color: p.textSecondary,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ),
       ],
@@ -316,7 +360,8 @@ class _NavButtons extends StatelessWidget {
           ),
         if (c.canSkip)
           Semantics(
-            hint: 'Bu adımı şimdi yapmadan sıradakine geçer; özetten sonra tamamlayabilirsiniz.',
+            hint:
+                'Bu adımı şimdi yapmadan sıradakine geçer; özetten sonra tamamlayabilirsiniz.',
             child: PrimaryActionButton(
               key: const ValueKey<String>('site_setup_skip'),
               label: 'Atla',
@@ -329,7 +374,9 @@ class _NavButtons extends StatelessWidget {
         PrimaryActionButton(
           key: const ValueKey<String>('site_setup_next'),
           label: c.isLast ? 'Özeti gör' : 'Devam',
-          icon: c.isLast ? Icons.fact_check_rounded : Icons.arrow_forward_rounded,
+          icon: c.isLast
+              ? Icons.fact_check_rounded
+              : Icons.arrow_forward_rounded,
           expand: false,
           onPressed: c.canContinue ? c.next : null,
         ),
@@ -351,7 +398,9 @@ class _Summary extends StatelessWidget {
     final terms = c.snapshot.terms;
     final th = Theme.of(context).textTheme;
     final p = context.palette;
-    final allDone = SiteSetupStep.values.every((s) => c.statusOf(s) == SiteSetupStatus.done);
+    final allDone = SiteSetupStep.values.every(
+      (s) => c.statusOf(s) == SiteSetupStatus.done,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -371,7 +420,11 @@ class _Summary extends StatelessWidget {
         ],
         const SizedBox(height: AppSpace.sm),
         InlineNotice(
-          key: ValueKey<String>(allDone ? 'site_setup_summary_all_done' : 'site_setup_summary_pending'),
+          key: ValueKey<String>(
+            allDone
+                ? 'site_setup_summary_all_done'
+                : 'site_setup_summary_pending',
+          ),
           tone: allDone ? AppTone.success : AppTone.info,
           message: allDone
               ? 'Tüm adımlar tamam. Kurulumu bitirebilirsiniz.'
@@ -407,7 +460,12 @@ class _Summary extends StatelessWidget {
 }
 
 class _SummaryRow extends StatelessWidget {
-  const _SummaryRow({required this.step, required this.title, required this.status, required this.onOpen});
+  const _SummaryRow({
+    required this.step,
+    required this.title,
+    required this.status,
+    required this.onOpen,
+  });
 
   final SiteSetupStep step;
   final String title;
@@ -426,7 +484,12 @@ class _SummaryRow extends StatelessWidget {
         children: [
           Row(
             children: [
-              IconTile(icon: siteSetupStepIcon(step), tone: siteSetupStatusTone(status), size: 40, gap: AppSpace.md),
+              IconTile(
+                icon: siteSetupStepIcon(step),
+                tone: siteSetupStatusTone(status),
+                size: 40,
+                gap: AppSpace.md,
+              ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -445,7 +508,9 @@ class _SummaryRow extends StatelessWidget {
               key: ValueKey<String>('site_setup_summary_open_${step.name}'),
               onPressed: onOpen,
               style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-              child: Text(done ? '$title adımını gözden geçir' : '$title adımını tamamla'),
+              child: Text(
+                done ? '$title adımını gözden geçir' : '$title adımını tamamla',
+              ),
             ),
           ),
         ],

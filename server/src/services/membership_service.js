@@ -23,6 +23,8 @@ import {
 } from '../security/attempt_limits.js';
 import { reissueDeviceToken } from '../security/login_device_token.js';
 import { endResidenciesForMemberRemoval } from '../modules/people_records.js';
+import { peopleLockKey } from '../modules/people_sync.js';
+import { financeLockKey } from '../modules/finance_common.js';
 import { logResidencyEvent } from '../modules/residency_log.js';
 import { closeDelegationsOnLeave, endOpenDelegation } from '../modules/apartment_delegation_close.js';
 import { pickAdminSuccessor } from '../modules/apartment_admin_successor.js';
@@ -1863,6 +1865,8 @@ export async function removeApartmentMember({ apartmentId, targetUserCode, authU
   let committed = false;
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [peopleLockKey(apt.site_code)]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [financeLockKey(apt.site_code)]);
     const aptLock = await client.query(
       `SELECT id, site_code, resident_user_code FROM apartments WHERE id = $1 FOR UPDATE`,
       [apt.id],
@@ -2079,6 +2083,8 @@ export async function deleteApartmentMember({ apartmentId, targetUserCode, authU
   let committed = false;
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [peopleLockKey(apt.site_code)]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [financeLockKey(apt.site_code)]);
     const aptLock = await client.query(
       `SELECT id, site_code, resident_user_code FROM apartments WHERE id = $1 FOR UPDATE`,
       [apt.id],

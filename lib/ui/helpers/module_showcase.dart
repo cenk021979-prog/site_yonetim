@@ -164,7 +164,7 @@ const Map<SirketMenuItem, String> _descriptions = <SirketMenuItem, String>{
   SirketMenuItem.plakaTanima: 'Araç plakası kayıtları ve misafir plakası',
   SirketMenuItem.odemeKamera: 'Plaka tanıyan kameralar',
   SirketMenuItem.ekipmanBakim: 'Ekipman, bakım planı ve teklifler',
-  SirketMenuItem.acilDurum: '112, yangın ve asansör arızası',
+  SirketMenuItem.acilDurum: 'Asansör ve yangın için site ekibine alarm',
   SirketMenuItem.siteler: 'Site, blok, daire ve kapılar',
   SirketMenuItem.siteBasvurulari: 'Site kurma başvuruları',
   SirketMenuItem.siteOnayTalepleri: 'Onay bekleyen siteler',
@@ -278,7 +278,7 @@ ShowcaseModel buildShowcaseModel({
   final features = <ShowcaseEntry>[];
   final tools = <ShowcaseEntry>[];
   final secondary = <ShowcaseEntry>[];
-  for (final item in menuItems) {
+  for (final item in YanMenu.withoutMergedMenuAliases(menuItems)) {
     if (item == SirketMenuItem.dashboard || !seen.add(item)) continue;
     if (showcaseSecondaryItems.contains(item)) {
       secondary.add(entry(item));

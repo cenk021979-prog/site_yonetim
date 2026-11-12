@@ -194,7 +194,8 @@ describe('oluşturma girdisi', () => {
     assert.deepEqual(input.file, { name: 'a.pdf', size: 1000, contentType: null });
     assert.equal(code(() => parseCreateInput(body({ audience: undefined }), limits)), '400:INVALID_BODY');
     assert.equal(code(() => parseCreateInput(body({ audience: 'public' }), limits)), '400:INVALID_BODY');
-    assert.deepEqual([...AUDIENCES], ['residents', 'board', 'managers']);
+    assert.deepEqual([...AUDIENCES], ['residents', 'board', 'managers', 'all']);
+    assert.equal(parseCreateInput(body({ audience: 'all' }), limits).audience, 'all');
     assert.deepEqual([...CATEGORIES], ['regulation', 'minutes', 'contract', 'notice', 'other']);
   });
 
@@ -202,6 +203,8 @@ describe('oluşturma girdisi', () => {
     const blocks = parseCreateInput(body({ target: { type: 'blocks', block_ids: [9, 3, 3, '5'] } }), limits);
     assert.deepEqual(blocks.target, { type: 'blocks', blockIds: [3, 5, 9], apartmentIds: [] });
     assert.equal(code(() => parseCreateInput(body({ audience: 'board', target: { type: 'blocks', block_ids: [1] } }), limits)), '400:INVALID_TARGET');
+    assert.equal(code(() => parseCreateInput(body({ audience: 'all', target: { type: 'blocks', block_ids: [1] } }), limits)), '400:INVALID_TARGET');
+    assert.equal(code(() => parseCreateInput(body({ audience: 'all', target: { type: 'apartments', apartment_ids: [1] } }), limits)), '400:INVALID_TARGET');
     assert.equal(code(() => parseCreateInput(body({ audience: 'managers', target: { type: 'apartments', apartment_ids: [1] } }), limits)), '400:INVALID_TARGET');
     assert.deepEqual(parseCreateInput(body({ audience: 'board', target: { type: 'site' } }), limits).target.type, 'site');
     assert.equal(code(() => parseCreateInput(body({ target: { type: 'blocks', block_ids: [] } }), limits)), '400:INVALID_TARGET');

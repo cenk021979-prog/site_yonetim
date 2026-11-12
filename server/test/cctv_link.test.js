@@ -8,7 +8,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { DEFAULT_MIGRATIONS_DIR, findUnsafeStatements } from '../scripts/migrate.js';
 import { CCTV_STEPS, cctvMigrationBody, ensureCctvSchema, schemaTuning } from '../src/modules/cctv_schema.js';
-import { MODULE_CATALOG } from '../src/modules/catalog.js';
+import { MODULE_CATALOG, retiredModuleNotice } from '../src/modules/catalog.js';
 import {
   fetchSnapshot,
   isLocalHostname,
@@ -65,12 +65,10 @@ describe('cctv sema', () => {
     await ensureCctvSchema(mk(all.filter((n) => n !== 'idx_cctv_camera_doors_door')));
     assert.equal(sent.filter((s) => /CREATE INDEX/.test(s)).length, 1);
   });
-  it('modul katalogda var, kullanilabilir ve varsayilan KAPALI', () => {
+  it('kaldırılmış CCTV modülü katalogda yoktur ve eski istemciye açıklama verilir', () => {
     const entry = MODULE_CATALOG.find((m) => m.code === 'cctv_link');
-    assert.ok(entry);
-    assert.equal(entry.status, 'available');
-    assert.equal(entry.defaultEnabled, false);
-    assert.equal(entry.core, false);
+    assert.equal(entry, undefined);
+    assert.match(retiredModuleNotice('cctv_link'), /kaldırılmıştır/);
   });
 });
 

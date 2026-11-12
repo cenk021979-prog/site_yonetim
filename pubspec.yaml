@@ -62,6 +62,7 @@ flutter:
   generate: true
   uses-material-design: true
   assets:
+    - assets/audio/emergency_alarm.wav
     - assets/fonts/Roboto-Regular.ttf
     - assets/fonts/Roboto-Bold.ttf
     - assets/fonts/LICENSE_Roboto.txt

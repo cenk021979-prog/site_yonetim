@@ -69,7 +69,9 @@ class DocumentsViewState extends State<DocumentsView> {
     super.initState();
     // Önceki oturumdan kalmış (süreç öldürüldüğü için silinememiş) geçici belge kopyalarını süpür; paylaşımda
     // olabilecek yeni kopyalara dokunmaz (yalnız 10 dakikadan eskiler). Hata fırlatmaz.
-    unawaited(DocumentFileSharer.sweepAll(staleAfter: const Duration(minutes: 10)));
+    unawaited(
+      DocumentFileSharer.sweepAll(staleAfter: const Duration(minutes: 10)),
+    );
   }
 
   @override
@@ -92,7 +94,8 @@ class DocumentsViewState extends State<DocumentsView> {
 
   /// Yönetilen TÜM sitelerde yazma yetkisi var mı (karma hesapta Drive bölümü bazı sitelerde görünmez).
   bool get _canWriteAll =>
-      widget.manageAllSites || widget.manageSites.every((site) => site.canWrite);
+      widget.manageAllSites ||
+      widget.manageSites.every((site) => site.canWrite);
 
   /// Gösterilen görünüm: seçilen hâlâ varsa o, yoksa yönetim, yoksa sakin.
   _Mode? get _mode {
@@ -118,7 +121,6 @@ class DocumentsViewState extends State<DocumentsView> {
 
   @override
   Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
     final mode = _mode;
     final Widget content;
     switch (mode) {
@@ -153,9 +155,9 @@ class DocumentsViewState extends State<DocumentsView> {
       _Mode.manage when !_canWriteAny =>
         'Yönetimin yüklediği belgeleri buradan görüntüleyebilirsiniz.',
       _Mode.manage =>
-        'Yönetmelik, toplantı tutanağı ve sözleşme gibi belgeleri yükleyin; sakinlere, kurula ya da yalnız '
-            'yöneticilere açın. Sitenin dosyalarını kendi Google Drive hesabınızda saklamak için '
-            '${_canWriteAll ? '' : 'yazma yetkiniz olan sitelerde '}en alttaki Google Drive bölümünü kullanın.',
+        'Belgeleri Herkes veya Yönetim ile paylaşın; gerekirse belirli sakinleri seçin. '
+            'Sitenin dosyalarını kendi Google Drive hesabınızda saklamak için '
+            '${_canWriteAll ? '' : 'yazma yetkiniz olan sitelerde '}üstteki Google Drive bölümünü kullanın.',
       _Mode.resident =>
         'Yönetimin sizinle paylaştığı belgeleri buradan açabilir ya da kaydedebilirsiniz.',
       null => 'Sitenizin belgeleri ve dosyaları burada görünür.',
@@ -163,10 +165,8 @@ class DocumentsViewState extends State<DocumentsView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Dosya Deposu', icon: Icons.folder_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(description, style: th.bodyMedium),
-        const SizedBox(height: AppSpace.lg),
+        PageHeaderCard(title: 'Dosya Deposu', icon: Icons.folder_rounded, help: description),
+        const SizedBox(height: AppSpace.md),
         if (_hasManage && _hasResident) ...[
           Wrap(
             spacing: AppSpace.sm,

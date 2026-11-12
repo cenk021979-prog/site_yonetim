@@ -11,6 +11,7 @@ import { attachmentNotAllowed, invalidField } from './document_common.js';
 import { assertDocumentsEnabled } from './document_access.js';
 import { MODULE_ENABLED_SQL, myApartmentsCte, userInDocumentSiteSql } from './document_resident.js';
 import { parsePositiveId } from './people_common.js';
+import { isPublicDocumentAudience, publicDocumentAccessSql } from './document_visibility.js';
 
 export const MAX_ATTACHMENTS = 5;
 
@@ -63,7 +64,7 @@ export async function setAnnouncementAttachments(client, { siteCode, announcemen
     const byId = new Map((locked.rows ?? []).map((row) => [Number(row.id), row]));
     for (const id of added) {
       const row = byId.get(id);
-      if (!row || Number(row.site_code) !== Number(siteCode) || row.status !== 'active' || row.audience !== 'residents') {
+      if (!row || Number(row.site_code) !== Number(siteCode) || row.status !== 'active' || !isPublicDocumentAudience(row.audience)) {
         throw attachmentNotAllowed();
       }
     }
@@ -138,7 +139,7 @@ export async function loadAttachments(db, announcementIds, { forManager = false,
       ${residentScope ? `WITH ${myApartmentsCte('$2')}` : ''}
       SELECT aa.announcement_id, d.id AS document_id, d.title,
              cv.display_name, cv.mime_type, cv.size_bytes,
-             (d.status = 'active' AND d.audience = 'residents' AND cv.version_no IS NOT NULL AND ${MODULE_ENABLED_SQL('d')}${residentScope ? ` AND ${userInDocumentSiteSql('d', '$2')}` : ''}) AS available
+             (d.status = 'active' AND d.audience IN ('residents', 'all') AND cv.version_no IS NOT NULL AND ${MODULE_ENABLED_SQL('d')}${residentScope ? ` AND ${publicDocumentAccessSql('d', '$2', userInDocumentSiteSql('d', '$2'))}` : ''}) AS available
       FROM announcement_attachments aa
       INNER JOIN announcements a ON a.id = aa.announcement_id
       INNER JOIN documents d ON d.id = aa.document_id AND d.site_code = a.site_code

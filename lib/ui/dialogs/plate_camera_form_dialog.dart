@@ -5,9 +5,14 @@ import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/plate_camera_snapshot.dart';
 import 'package:site_kapi_kontrol/services/plate_cameras_api.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
-import 'package:site_kapi_kontrol/ui/dialogs/plate_discovery_dialog.dart' show InlineNoticeText;
+import 'package:site_kapi_kontrol/ui/dialogs/plate_discovery_dialog.dart'
+    show InlineNoticeText;
 
-const Map<String, String> _directionLabels = <String, String>{'giris': 'Giriş', 'cikis': 'Çıkış', 'auto': 'Otomatik'};
+const Map<String, String> _directionLabels = <String, String>{
+  'giris': 'Giriş',
+  'cikis': 'Çıkış',
+  'auto': 'Otomatik',
+};
 
 /// Kapı moduna uyan kamera yönleri: giriş kapısı Giriş / Otomatik, çıkış kapısı Çıkış / Otomatik, çift yönde hepsi (sunucu aynı kuralı doğrular).
 List<String> cameraDirectionsFor(String? gateMode) => switch (gateMode) {
@@ -94,14 +99,14 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
   bool _busy = false;
   String? _error;
 
-
   @override
   void initState() {
     super.initState();
     final c = widget.editing;
     final d = widget.prefill;
     _brand = c?.brand ?? 'onvif';
-    final suggestedName = (c?.name ?? d?.name ?? widget.initialName ?? '').trim();
+    final suggestedName = (c?.name ?? d?.name ?? widget.initialName ?? '')
+        .trim();
     _name = TextEditingController(text: suggestedName);
     _host = TextEditingController(text: c?.host ?? d?.ip ?? '');
     final port = c?.port ?? d?.rtspPort;
@@ -112,38 +117,59 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
     if (gate != null && widget.overview.gates.any((g) => g.id == gate.id)) {
       _gateId = gate.id;
       _direction = c?.direction ?? 'auto';
-    } else if (c == null && widget.initialGateId != null && widget.overview.gates.any((g) => g.id == widget.initialGateId)) {
+    } else if (c == null &&
+        widget.initialGateId != null &&
+        widget.overview.gates.any((g) => g.id == widget.initialGateId)) {
       _gateId = widget.initialGateId;
-      if (widget.initialDirection != null && widget.initialDirection!.isNotEmpty) {
+      if (widget.initialDirection != null &&
+          widget.initialDirection!.isNotEmpty) {
         _direction = widget.initialDirection!;
       }
-    } else if (c == null && widget.initialDirection != null && widget.initialDirection!.isNotEmpty) {
+    } else if (c == null &&
+        widget.initialDirection != null &&
+        widget.initialDirection!.isNotEmpty) {
       _direction = widget.initialDirection!;
     }
   }
 
   @override
   void dispose() {
-    for (final controller in <TextEditingController>[_name, _host, _port, _rtsp, _user, _pass]) {
+    for (final controller in <TextEditingController>[
+      _name,
+      _host,
+      _port,
+      _rtsp,
+      _user,
+      _pass,
+    ]) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  PlateCameraGate? get _gate => _gateId == null ? null : widget.overview.gates.cast<PlateCameraGate?>().firstWhere((g) => g!.id == _gateId, orElse: () => null);
+  PlateCameraGate? get _gate => _gateId == null
+      ? null
+      : widget.overview.gates.cast<PlateCameraGate?>().firstWhere(
+          (g) => g!.id == _gateId,
+          orElse: () => null,
+        );
 
-
-  String get _rtspHint => 'Boş bırakılırsa sistem ONVIF ile kamerayı kendisi bulur (örn. rtsp://kamera-ip:554/h264/ch1/main)';
+  String get _rtspHint =>
+      'Boş bırakılırsa sistem ONVIF ile kamerayı kendisi bulur (örn. rtsp://kamera-ip:554/h264/ch1/main)';
 
   String? _validate() {
     if (_name.text.trim().isEmpty) return 'Kamera adını yazın.';
     final rtsp = _rtsp.text.trim().toLowerCase();
     final hasUrl = rtsp.startsWith('rtsp://') || rtsp.startsWith('rtsps://');
-    if (_host.text.trim().isEmpty && !hasUrl) return 'Kameranın IP adresini ya da tam RTSP adresini yazın.';
+    if (_host.text.trim().isEmpty && !hasUrl) {
+      return 'Kameranın IP adresini ya da tam RTSP adresini yazın.';
+    }
     final port = _port.text.trim();
     if (port.isNotEmpty) {
       final n = int.tryParse(port);
-      if (n == null || n < 1 || n > 65535) return 'Port 1-65535 arasında olmalı.';
+      if (n == null || n < 1 || n > 65535) {
+        return 'Port 1-65535 arasında olmalı.';
+      }
     }
     return null;
   }
@@ -206,25 +232,57 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              const Text('Kamera yerel ağ üzerinden izlenir; plaka otomatik tespit edilip kapı tetiklenir.'),
+              Text(
+                _gateId == null
+                    ? 'Kamerayı kapısız kaydedebilirsiniz. Otomatik geçiş açmak için daha sonra gerçek SmartKeyPass kapısına bağlayın.'
+                    : 'Kamera yerel ağ üzerinden izlenir. Otomatik geçiş, bağlı SmartKeyPass kapısının izin ve otomatik açma ayarlarına göre çalışır.',
+                key: const ValueKey<String>('camera_gate_guidance'),
+              ),
               const SizedBox(height: AppSpace.sm),
-              TextField(key: const ValueKey<String>('cam_name'), controller: _name, maxLength: 60, enabled: !_busy, decoration: const InputDecoration(labelText: 'Ad (örn. Giriş kapısı)')),
-              TextField(key: const ValueKey<String>('cam_host'), controller: _host, enabled: !_busy, keyboardType: TextInputType.url, decoration: const InputDecoration(labelText: 'IP adresi')),
+              TextField(
+                key: const ValueKey<String>('cam_name'),
+                controller: _name,
+                maxLength: 60,
+                enabled: !_busy,
+                decoration: const InputDecoration(
+                  labelText: 'Ad (örn. Giriş kapısı)',
+                ),
+              ),
+              TextField(
+                key: const ValueKey<String>('cam_host'),
+                controller: _host,
+                enabled: !_busy,
+                keyboardType: TextInputType.url,
+                decoration: const InputDecoration(labelText: 'IP adresi'),
+              ),
               TextField(
                 key: const ValueKey<String>('cam_port'),
                 controller: _port,
                 enabled: !_busy,
                 keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'RTSP portu (isteğe bağlı)'),
+                decoration: const InputDecoration(
+                  labelText: 'RTSP portu (isteğe bağlı)',
+                ),
               ),
               TextField(
                 key: const ValueKey<String>('cam_rtsp'),
                 controller: _rtsp,
                 enabled: !_busy,
                 keyboardType: TextInputType.url,
-                decoration: InputDecoration(labelText: 'RTSP adresi ya da yolu (isteğe bağlı)', helperText: _rtspHint, helperMaxLines: 3),
+                decoration: InputDecoration(
+                  labelText: 'RTSP adresi ya da yolu (isteğe bağlı)',
+                  helperText: _rtspHint,
+                  helperMaxLines: 3,
+                ),
               ),
-              TextField(key: const ValueKey<String>('cam_user'), controller: _user, enabled: !_busy, decoration: const InputDecoration(labelText: 'Kullanıcı adı (isteğe bağlı)')),
+              TextField(
+                key: const ValueKey<String>('cam_user'),
+                controller: _user,
+                enabled: !_busy,
+                decoration: const InputDecoration(
+                  labelText: 'Kullanıcı adı (isteğe bağlı)',
+                ),
+              ),
               TextField(
                 key: const ValueKey<String>('cam_pass'),
                 controller: _pass,
@@ -232,7 +290,9 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
                 obscureText: true,
                 decoration: InputDecoration(
                   labelText: 'Parola (sunucuda şifreli saklanır)',
-                  helperText: editing != null && editing.hasPassword ? 'Boş bırakılırsa mevcut parola korunur.' : null,
+                  helperText: editing != null && editing.hasPassword
+                      ? 'Boş bırakılırsa mevcut parola korunur.'
+                      : null,
                   helperMaxLines: 2,
                 ),
               ),
@@ -242,7 +302,9 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
                   value: _clearPassword,
-                  onChanged: _busy ? null : (v) => setState(() => _clearPassword = v ?? false),
+                  onChanged: _busy
+                      ? null
+                      : (v) => setState(() => _clearPassword = v ?? false),
                   title: const Text('Kayıtlı parolayı sil'),
                 ),
               DropdownButtonFormField<int?>(
@@ -251,8 +313,15 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Kapı'),
                 items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(value: null, child: Text('Kapı yok')),
-                  for (final g in widget.overview.gates) DropdownMenuItem<int?>(value: g.id, child: Text(g.name, overflow: TextOverflow.ellipsis)),
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Kapı yok'),
+                  ),
+                  for (final g in widget.overview.gates)
+                    DropdownMenuItem<int?>(
+                      value: g.id,
+                      child: Text(g.name, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: _busy ? null : (v) => setState(() => _gateId = v),
               ),
@@ -260,21 +329,46 @@ class _PlateCameraFormDialogState extends State<PlateCameraFormDialog> {
                 key: ValueKey<String>('cam_direction_${_gateId ?? 'none'}'),
                 initialValue: _direction,
                 isExpanded: true,
-                decoration: InputDecoration(labelText: 'Yön', helperText: _gateId == null ? 'Yön, kamera bir kapıya bağlanınca seçilir.' : null, helperMaxLines: 2),
-                items: <DropdownMenuItem<String>>[for (final d in directions) DropdownMenuItem<String>(value: d, child: Text(_directionLabels[d] ?? d))],
-                onChanged: _busy || _gateId == null ? null : (v) => setState(() => _direction = v ?? _direction),
+                decoration: InputDecoration(
+                  labelText: 'Yön',
+                  helperText: _gateId == null
+                      ? 'Yön, kamera bir kapıya bağlanınca seçilir.'
+                      : null,
+                  helperMaxLines: 2,
+                ),
+                items: <DropdownMenuItem<String>>[
+                  for (final d in directions)
+                    DropdownMenuItem<String>(
+                      value: d,
+                      child: Text(_directionLabels[d] ?? d),
+                    ),
+                ],
+                onChanged: _busy || _gateId == null
+                    ? null
+                    : (v) => setState(() => _direction = v ?? _direction),
               ),
               if (_error != null) ...<Widget>[
                 const SizedBox(height: AppSpace.sm),
-                InlineNoticeText(key: const ValueKey<String>('cam_error'), tone: AppTone.danger, text: _error!),
+                InlineNoticeText(
+                  key: const ValueKey<String>('cam_error'),
+                  tone: AppTone.danger,
+                  text: _error!,
+                ),
               ],
             ],
           ),
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: _busy ? null : () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-        FilledButton(key: const ValueKey<String>('cam_save'), onPressed: _busy ? null : () => unawaited(_save()), child: Text(_busy ? 'Kaydediliyor…' : 'Kaydet')),
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.pop(context, false),
+          child: const Text('Vazgeç'),
+        ),
+        FilledButton(
+          key: const ValueKey<String>('cam_save'),
+          onPressed: _busy ? null : () => unawaited(_save()),
+          child: Text(_busy ? 'Kaydediliyor…' : 'Kaydet'),
+        ),
       ],
     );
   }

@@ -399,6 +399,14 @@ class VisitorManagerViewState extends State<VisitorManagerView> {
         PageHeaderCard(
           title: 'Ziyaretçi ve Kargo',
           icon: Icons.door_front_door_rounded,
+          help: switch (site.access) {
+            VisitorSiteAccess.staff =>
+              'Gelen kargoyu ve ziyaretçiyi kaydedin; teslim ya da çıkışta kapatın. Sakin uygulama içinde görür.',
+            VisitorSiteAccess.board =>
+              'Sitedeki ziyaretçi ve kargo kayıtlarını izleyin.',
+            VisitorSiteAccess.manager =>
+              'Kapıdan giren kargo ve ziyaretçileri kaydedin; sakin uygulama içinde bildirim görür.',
+          },
           action: canWrite && !_moduleOff
               ? ElevatedButton.icon(
                   key: const ValueKey<String>('visitor_new_entry'),
@@ -408,19 +416,7 @@ class VisitorManagerViewState extends State<VisitorManagerView> {
                 )
               : null,
         ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          switch (site.access) {
-            VisitorSiteAccess.staff =>
-              'Gelen kargoyu ve ziyaretçiyi kaydedin; teslim ya da çıkışta kapatın. Sakin uygulama içinde görür.',
-            VisitorSiteAccess.board =>
-              'Sitedeki ziyaretçi ve kargo kayıtlarını izleyin.',
-            VisitorSiteAccess.manager =>
-              'Kapıdan giren kargo ve ziyaretçileri kaydedin; sakin uygulama içinde bildirim görür.',
-          },
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (_sitesError != null) ...[
           InlineNotice(message: _sitesError!, onRetry: reload),
           const SizedBox(height: AppSpace.md),

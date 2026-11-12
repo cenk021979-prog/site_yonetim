@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:site_kapi_kontrol/ui/dialogs/plate_statistics_dialog.dart';
 
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -23,6 +24,7 @@ import 'package:site_kapi_kontrol/ui/helpers/plate_input.dart';
 import 'package:site_kapi_kontrol/ui/widgets/plate_camera_live_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/plate_gates_panel.dart';
 import 'package:site_kapi_kontrol/ui/widgets/plate_live_feed_panel.dart';
+import 'package:site_kapi_kontrol/ui/widgets/parking_access_panel.dart';
 
 /// "Plaka Tanıma" ekranı (`plate_recognition` modülü, varsayılan KAPALI).
 ///
@@ -34,21 +36,38 @@ import 'package:site_kapi_kontrol/ui/widgets/plate_live_feed_panel.dart';
 /// - Yetkili araçlar (kalıcı araç listesi) Araçlar ekranından yönetilir; burada tekrarlanmaz.
 /// - [PlateRecognitionViewState.reload] sayfa kabuğunun aşağı çekip yenilemesinden çağrılır.
 class PlateRecognitionView extends StatefulWidget {
-  const PlateRecognitionView({super.key, required this.authService, required this.sites, this.service, this.camerasService});
+  const PlateRecognitionView({
+    super.key,
+    required this.authService,
+    required this.sites,
+    this.service,
+    this.camerasService,
+    this.onOpenVehicles,
+  });
 
   final AuthService authService;
   final List<PlateSite> sites;
   final PlateRecognitionService? service;
   final PlateCamerasService? camerasService;
+  final VoidCallback? onOpenVehicles;
 
   @override
   State<PlateRecognitionView> createState() => PlateRecognitionViewState();
 }
 
 class PlateRecognitionViewState extends State<PlateRecognitionView> {
-  late final PlateRecognitionService _service = widget.service ?? PlateRecognitionService(authService: widget.authService);
-  late final PlateCamerasService _cameras = widget.camerasService ?? PlateCamerasService(authService: widget.authService);
-  static const List<String> _tabs = <String>['Geçiş noktaları', 'Olaylar', 'Canlı akış', 'Ayarlar'];
+  late final PlateRecognitionService _service =
+      widget.service ??
+      PlateRecognitionService(authService: widget.authService);
+  late final PlateCamerasService _cameras =
+      widget.camerasService ??
+      PlateCamerasService(authService: widget.authService);
+  static const List<String> _tabs = <String>[
+    'Geçiş noktaları',
+    'Olaylar',
+    'Canlı akış',
+    'Ayarlar',
+  ];
   static const String _kvkkNote =
       'Plaka kişisel veridir; yalnızca site güvenliği amacıyla işlenir ve sakinlerle paylaşılmaz.';
 
@@ -78,15 +97,18 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   void initState() {
     super.initState();
     _site = widget.sites.isEmpty ? null : widget.sites.first;
-    _engineDecisionSub = PlateRecognitionEngine.instance.decisionsStream.listen((decision) {
-      if (!mounted || decision.fromServer) return;
-      Future<void>.delayed(const Duration(milliseconds: 600), () {
-        if (!mounted) return;
-        if (_tab == 1 || (_tab == 0 && decision.decision == PlateDecisionType.acildi)) {
-          unawaited(reload(silent: true));
-        }
-      });
-    });
+    _engineDecisionSub = PlateRecognitionEngine.instance.decisionsStream.listen(
+      (decision) {
+        if (!mounted || decision.fromServer) return;
+        Future<void>.delayed(const Duration(milliseconds: 600), () {
+          if (!mounted) return;
+          if (_tab == 1 ||
+              (_tab == 0 && decision.decision == PlateDecisionType.acildi)) {
+            unawaited(reload(silent: true));
+          }
+        });
+      },
+    );
     unawaited(reload());
   }
 
@@ -96,7 +118,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     final current = _site;
     if (current != null && !widget.sites.contains(current)) {
       final same = widget.sites.where((s) => s.code == current.code);
-      _site = same.isNotEmpty ? same.first : (widget.sites.isEmpty ? null : widget.sites.first);
+      _site = same.isNotEmpty
+          ? same.first
+          : (widget.sites.isEmpty ? null : widget.sites.first);
       unawaited(reload());
     }
   }
@@ -130,7 +154,8 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             if (silent && _gates != null) {
               final inside = await _service.inside(site.code);
               if (!_isCurrent(token)) return;
-              if (_inside?.total != inside.total || _inside?.items.length != inside.items.length) {
+              if (_inside?.total != inside.total ||
+                  _inside?.items.length != inside.items.length) {
                 setState(() => _inside = inside);
               }
             } else {
@@ -145,8 +170,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           case 1:
             final rows = await _service.events(site.code);
             if (!_isCurrent(token)) return;
-            final changed = _events.length != rows.length ||
-                (_events.isNotEmpty && rows.isNotEmpty && _events.first.id != rows.first.id);
+            final changed =
+                _events.length != rows.length ||
+                (_events.isNotEmpty &&
+                    rows.isNotEmpty &&
+                    _events.first.id != rows.first.id);
             if (!silent || changed) {
               setState(() => _events = rows);
             }
@@ -205,8 +233,14 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         title: Text(title),
         content: Text(message),
         actions: <Widget>[
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-          FilledButton(onPressed: () => Navigator.pop(context, true), child: Text(yes)),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Vazgeç'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(yes),
+          ),
         ],
       ),
     );
@@ -218,28 +252,46 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   Future<void> _addPermit(PlateSite site) async {
     final resident = _resident;
     if (site.isResident && resident != null && resident.dailyRemaining <= 0) {
-      AppSnack.show(context, 'Bugün için ${resident.dailyLimit} misafir plakası hakkınızı kullandınız. Yarın tekrar deneyin.', kind: AppSnackKind.error);
+      AppSnack.show(
+        context,
+        'Bugün için ${resident.dailyLimit} misafir plakası hakkınızı kullandınız. Yarın tekrar deneyin.',
+        kind: AppSnackKind.error,
+      );
       return;
     }
     final draft = await showDialog<PermitDraft>(
       context: context,
       builder: (context) => _PermitDialog(
-        residentApartments: site.isResident ? (resident?.apartments ?? const <PlateApartment>[]) : null,
-        search: site.isResident ? null : (q) => _service.searchApartments(site.code, q),
+        residentApartments: site.isResident
+            ? (resident?.apartments ?? const <PlateApartment>[])
+            : null,
+        search: site.isResident
+            ? null
+            : (q) => _service.searchApartments(site.code, q),
         maxDays: resident?.maxDays ?? 30,
       ),
     );
     if (draft == null) return;
     await _run(
-      () => site.isResident ? _service.residentCreate(site.code, draft) : _service.createPermit(site.code, draft),
+      () => site.isResident
+          ? _service.residentCreate(site.code, draft)
+          : _service.createPermit(site.code, draft),
       'Misafir plakası kaydedildi.',
     );
   }
 
   Future<void> _revokePermit(PlateSite site, PlatePermit permit) async {
-    if (!await _confirm('İzin iptal edilsin mi?', '${formatTrPlate(permit.plate)} plakasının misafir izni hemen sona erer.', 'İptal et')) return;
+    if (!await _confirm(
+      'İzin iptal edilsin mi?',
+      '${formatTrPlate(permit.plate)} plakasının misafir izni hemen sona erer.',
+      'İptal et',
+    )) {
+      return;
+    }
     await _run(
-      () => site.isResident ? _service.residentRevoke(site.code, permit.id) : _service.revokePermit(site.code, permit.id),
+      () => site.isResident
+          ? _service.residentRevoke(site.code, permit.id)
+          : _service.revokePermit(site.code, permit.id),
       'İzin iptal edildi.',
     );
   }
@@ -247,7 +299,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   /// Aracım giriş / çıkış yaptığında bildirim (kişi bazında, varsayılan kapalı).
   Future<void> _setMovementNotify(PlateSite site, bool enabled) => _run(
     () => _service.setMovementNotify(site.code, enabled: enabled),
-    enabled ? 'Araç giriş / çıkış bildirimi açıldı.' : 'Araç giriş / çıkış bildirimi kapatıldı.',
+    enabled
+        ? 'Araç giriş / çıkış bildirimi açıldı.'
+        : 'Araç giriş / çıkış bildirimi kapatıldı.',
   );
 
   // --- Kara liste ------------------------------------------------------------------------------------------------------
@@ -268,19 +322,39 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
               children: <Widget>[
                 TextField(
                   controller: plate,
-                  inputFormatters: const <TextInputFormatter>[PlateInputFormatter()],
+                  inputFormatters: const <TextInputFormatter>[
+                    PlateInputFormatter(),
+                  ],
                   textCapitalization: TextCapitalization.characters,
                   autocorrect: false,
                   enableSuggestions: false,
-                  decoration: const InputDecoration(labelText: 'Plaka', hintText: '34 ABC 123'),
+                  decoration: const InputDecoration(
+                    labelText: 'Plaka',
+                    hintText: '34 ABC 123',
+                  ),
                 ),
-                TextField(controller: reason, maxLength: 200, maxLines: 2, decoration: const InputDecoration(labelText: 'Gerekçe (isteğe bağlı)', counterText: '')),
-                if (formError != null) Text(formError!, style: TextStyle(color: context.palette.statusCrit)),
+                TextField(
+                  controller: reason,
+                  maxLength: 200,
+                  maxLines: 2,
+                  decoration: const InputDecoration(
+                    labelText: 'Gerekçe (isteğe bağlı)',
+                    counterText: '',
+                  ),
+                ),
+                if (formError != null)
+                  Text(
+                    formError!,
+                    style: TextStyle(color: context.palette.statusCrit),
+                  ),
               ],
             ),
           ),
           actions: <Widget>[
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
             FilledButton(
               onPressed: () {
                 if (normalizeTrPlate(plate.text) == null) {
@@ -299,27 +373,45 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     plate.dispose();
     reason.dispose();
     if (ok != true || values.$1 == null) return;
-    await _run(() => _service.addBlacklist(site.code, values.$1!, values.$2), 'Plaka kara listeye eklendi.');
+    await _run(
+      () => _service.addBlacklist(site.code, values.$1!, values.$2),
+      'Plaka kara listeye eklendi.',
+    );
   }
 
   Future<void> _removeBlacklist(PlateSite site, PlateBlacklistItem item) async {
-    if (!await _confirm('Kara listeden çıkarılsın mı?', '${item.plate} plakası kara listeden çıkarılır.', 'Çıkar')) return;
-    await _run(() => _service.removeBlacklist(site.code, item.id), 'Plaka kara listeden çıkarıldı.');
+    if (!await _confirm(
+      'Kara listeden çıkarılsın mı?',
+      '${item.plate} plakası kara listeden çıkarılır.',
+      'Çıkar',
+    )) {
+      return;
+    }
+    await _run(
+      () => _service.removeBlacklist(site.code, item.id),
+      'Plaka kara listeden çıkarıldı.',
+    );
   }
 
   // --- Ayarlar ---------------------------------------------------------------------------------------------------------
 
-  Future<void> _saveGate(PlateSite site, PlateGateSetting door, _GateDraft draft) async {
+  Future<void> _saveGate(
+    PlateSite site,
+    PlateGateSetting door,
+    _GateDraft draft,
+  ) async {
     await _run(
-      () => _service.saveGate(
-        site.code,
-        door.doorId,
-        deviceId: draft.deviceId,
-        autoOpen: draft.autoOpen,
-        minConfidence: draft.minConfidence,
-        cooldownSeconds: draft.cooldownSeconds,
-        confirmRisk: draft.confirmedRisk || door.autoOpen,
-      ).then((_) {}),
+      () => _service
+          .saveGate(
+            site.code,
+            door.doorId,
+            deviceId: draft.deviceId,
+            autoOpen: draft.autoOpen,
+            minConfidence: draft.minConfidence,
+            cooldownSeconds: draft.cooldownSeconds,
+            confirmRisk: draft.confirmedRisk || door.autoOpen,
+          )
+          .then((_) {}),
       'Kapı ayarı kaydedildi.',
     );
   }
@@ -335,7 +427,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              const Text('Plakayla otomatik açma, sahte/kopya plakayla aldatılabilir. Yüksek güvenlik gerekiyorsa kapalı tutun.'),
+              const Text(
+                'Plakayla otomatik açma, sahte/kopya plakayla aldatılabilir. Yüksek güvenlik gerekiyorsa kapalı tutun.',
+              ),
               const SizedBox(height: AppSpace.sm),
               CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
@@ -347,8 +441,14 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             ],
           ),
           actions: <Widget>[
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Vazgeç')),
-            FilledButton(onPressed: understood ? () => Navigator.pop(context, true) : null, child: const Text('Aç')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Vazgeç'),
+            ),
+            FilledButton(
+              onPressed: understood ? () => Navigator.pop(context, true) : null,
+              child: const Text('Aç'),
+            ),
           ],
         ),
       ),
@@ -363,15 +463,28 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
 
   Widget _note(String text) => Padding(
     padding: const EdgeInsets.only(bottom: AppSpace.sm),
-    child: Text(text, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary)),
+    child: Text(
+      text,
+      style: Theme.of(
+        context,
+      ).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary),
+    ),
   );
 
   Widget _addButton(String label, VoidCallback onPressed) => Align(
     alignment: Alignment.centerRight,
-    child: PrimaryActionButton(label: label, icon: Icons.add_rounded, expand: false, onPressed: onPressed),
+    child: PrimaryActionButton(
+      label: label,
+      icon: Icons.add_rounded,
+      expand: false,
+      onPressed: onPressed,
+    ),
   );
 
-  Widget _empty(String text) => Padding(padding: const EdgeInsets.symmetric(vertical: AppSpace.lg), child: Center(child: Text(text, textAlign: TextAlign.center)));
+  Widget _empty(String text) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpace.lg),
+    child: Center(child: Text(text, textAlign: TextAlign.center)),
+  );
 
   Widget _eventTile(PlateDecisionRow e) {
     final (label, tone) = switch (e.decision) {
@@ -395,8 +508,15 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           children: <Widget>[
             Row(
               children: <Widget>[
-                Expanded(child: Align(alignment: Alignment.centerLeft, child: LicensePlateBadge(plate: e.plate))),
-                Flexible(child: StatusDot(label: label, tone: tone)),
+                Expanded(
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: LicensePlateBadge(plate: e.plate),
+                  ),
+                ),
+                Flexible(
+                  child: StatusDot(label: label, tone: tone),
+                ),
               ],
             ),
             const SizedBox(height: AppSpace.xs),
@@ -404,7 +524,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             if (e.wouldOpen)
               Padding(
                 padding: const EdgeInsets.only(top: AppSpace.xs),
-                child: Text('Otomatik açma kaydı: bu bağlantı türü kapı komutu göndermez (kapı açma doğrudan masaüstü / SmartKeyPass motorundadır)', style: Theme.of(context).textTheme.bodySmall),
+                child: Text(
+                  'Otomatik açma kaydı: bu bağlantı türü kapı komutu göndermez (kapı açma doğrudan masaüstü / SmartKeyPass motorundadır)',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
               ),
           ],
         ),
@@ -412,17 +535,23 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     );
   }
 
-  Widget _permitTile(PlateSite site, PlatePermit p, {required bool showApartment}) {
+  Widget _permitTile(
+    PlateSite site,
+    PlatePermit p, {
+    required bool showApartment,
+  }) {
     final (label, tone) = switch (p.status) {
       'active' => ('Geçerli', AppTone.success),
       'revoked' => ('İptal edildi', AppTone.danger),
       _ => ('Süresi doldu', AppTone.neutral),
     };
     final lines = <String>[
-      if (showApartment && (p.apartmentLabel ?? '').isNotEmpty) p.apartmentLabel!,
+      if (showApartment && (p.apartmentLabel ?? '').isNotEmpty)
+        p.apartmentLabel!,
       if (p.validUntil != null) '${_fmt(p.validUntil!)} tarihine kadar',
       if ((p.note ?? '').isNotEmpty) p.note!,
-      if (!site.isResident && (p.createdByName ?? '').isNotEmpty) 'Veren: ${p.createdByName}',
+      if (!site.isResident && (p.createdByName ?? '').isNotEmpty)
+        'Veren: ${p.createdByName}',
     ].join('  •  ');
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.sm),
@@ -437,12 +566,21 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   LicensePlateBadge(plate: p.plate),
                   const SizedBox(height: AppSpace.xs),
                   StatusDot(label: label, tone: tone),
-                  if (lines.isNotEmpty) Padding(padding: const EdgeInsets.only(top: AppSpace.xs), child: Text(lines)),
+                  if (lines.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AppSpace.xs),
+                      child: Text(lines),
+                    ),
                 ],
               ),
             ),
             if (p.isActive && (site.canWrite || site.isResident))
-              IconButton(tooltip: 'İzni iptal et', constraints: const BoxConstraints(minWidth: 48, minHeight: 48), icon: const Icon(Icons.block_rounded), onPressed: () => _revokePermit(site, p)),
+              IconButton(
+                tooltip: 'İzni iptal et',
+                constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+                icon: const Icon(Icons.block_rounded),
+                onPressed: () => _revokePermit(site, p),
+              ),
           ],
         ),
       ),
@@ -452,26 +590,40 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   List<Widget> _eventsTab() => <Widget>[
     _buildTabHeader(
       title: 'Plaka Geçiş Olayları & Denetim İzi',
-      subtitle: 'Kameralardan tespit edilen araç plakaları, izin kararları ve geçiş zamanları.',
+      subtitle:
+          'Kameralardan tespit edilen araç plakaları, izin kararları ve geçiş zamanları.',
       icon: Icons.receipt_long_rounded,
       watermarkIcon: Icons.directions_car_filled_outlined,
       accentColor: const Color(0xFF3B82F6),
     ),
     const SizedBox(height: AppSpace.md),
-    _note('Yetkili araçlar Araçlar ekranından yönetilir. Burada kameradan gelen plakalar ve verilen karar listelenir.'),
+    _note(
+      'Yetkili araçlar Araçlar ekranından yönetilir. Burada kameradan gelen plakalar ve verilen karar listelenir.',
+    ),
     _note(_kvkkNote),
-    if (_events.isEmpty) _empty('Henüz plaka kaydı yok.') else for (final e in _events) _eventTile(e),
+    if (_events.isEmpty)
+      _empty('Henüz plaka kaydı yok.')
+    else
+      for (final e in _events) _eventTile(e),
   ];
 
   List<Widget> _permitsTab(PlateSite site) => <Widget>[
-    _note('Misafir plakaları en çok 30 gün geçerlidir. Kalıcı araçlar Araçlar ekranından yönetilir.'),
-    if (site.canWrite) _addButton('Misafir plakası ekle', () => _addPermit(site)),
+    _note(
+      'Misafir plakaları en çok 30 gün geçerlidir. Kalıcı araçlar Araçlar ekranından yönetilir.',
+    ),
+    if (site.canWrite)
+      _addButton('Misafir plakası ekle', () => _addPermit(site)),
     const SizedBox(height: AppSpace.sm),
-    if (_permits.isEmpty) _empty('Geçerli misafir izni yok.') else for (final p in _permits) _permitTile(site, p, showApartment: true),
+    if (_permits.isEmpty)
+      _empty('Geçerli misafir izni yok.')
+    else
+      for (final p in _permits) _permitTile(site, p, showApartment: true),
   ];
 
   List<Widget> _blacklistTab(PlateSite site) => <Widget>[
-    _note('Kara listedeki plaka, araç listesinde ya da misafir izninde olsa bile ASLA izinli sayılmaz.'),
+    _note(
+      'Kara listedeki plaka, araç listesinde ya da misafir izninde olsa bile ASLA izinli sayılmaz.',
+    ),
     if (site.canWrite) _addButton('Plaka ekle', () => _addBlacklist(site)),
     const SizedBox(height: AppSpace.sm),
     if (_blacklist.isEmpty)
@@ -491,12 +643,24 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                       LicensePlateBadge(plate: b.plate),
                       const SizedBox(height: AppSpace.xs),
                       if ((b.reason ?? '').isNotEmpty) Text(b.reason!),
-                      if ((b.createdByName ?? '').isNotEmpty) Text('Ekleyen: ${b.createdByName}', style: Theme.of(context).textTheme.bodySmall),
+                      if ((b.createdByName ?? '').isNotEmpty)
+                        Text(
+                          'Ekleyen: ${b.createdByName}',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
                     ],
                   ),
                 ),
                 if (site.canWrite)
-                  IconButton(tooltip: 'Kara listeden çıkar', constraints: const BoxConstraints(minWidth: 48, minHeight: 48), icon: const Icon(Icons.delete_outline_rounded), onPressed: () => _removeBlacklist(site, b)),
+                  IconButton(
+                    tooltip: 'Kara listeden çıkar',
+                    constraints: const BoxConstraints(
+                      minWidth: 48,
+                      minHeight: 48,
+                    ),
+                    icon: const Icon(Icons.delete_outline_rounded),
+                    onPressed: () => _removeBlacklist(site, b),
+                  ),
               ],
             ),
           ),
@@ -510,7 +674,8 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     return <Widget>[
       _buildTabHeader(
         title: 'Geçiş Noktaları & Kapı Kameraları',
-        subtitle: 'SmartKeyPass kapılarına bağlı IP kameralar, yön atamaları ve otomatik plaka tanıma durumu.',
+        subtitle:
+            'SmartKeyPass kapılarına bağlı IP kameralar, yön atamaları ve otomatik plaka tanıma durumu.',
         icon: Icons.door_sliding_rounded,
         watermarkIcon: Icons.camera_alt_outlined,
         accentColor: const Color(0xFF10B981),
@@ -538,12 +703,14 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             ),
             const SizedBox(width: AppSpace.xs),
             FilledButton.icon(
-              onPressed: () => _addCameraForGate(site, gates.gates.isNotEmpty ? gates.gates.first : null),
+              onPressed: () => _addCameraForGate(
+                site,
+                gates.gates.isNotEmpty ? gates.gates.first : null,
+              ),
               icon: const Icon(Icons.add_a_photo_outlined, size: 16),
               label: const Text('Kamera Ekle'),
               style: FilledButton.styleFrom(
                 visualDensity: VisualDensity.compact,
-                backgroundColor: const Color(0xFF10B981),
               ),
             ),
           ],
@@ -561,7 +728,8 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           onChanged: () => unawaited(reload()),
           onAddCamera: (gate) => unawaited(_addCameraForGate(site, gate)),
           onDiscoverCameras: () => unawaited(_showDiscoveryDialog(site)),
-          onOpenLiveWall: (gate) => unawaited(_openLiveCommandCenter(site, initialGateId: gate.id)),
+          onOpenLiveWall: (gate) =>
+              unawaited(_openLiveCommandCenter(site, initialGateId: gate.id)),
         ),
     ];
   }
@@ -582,7 +750,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         },
       );
       if (saved != true || !mounted) return;
-      AppSnack.show(context, plateCameraSavedMessage(probeId, overview), kind: AppSnackKind.success);
+      AppSnack.show(
+        context,
+        plateCameraSavedMessage(probeId, overview),
+        kind: AppSnackKind.success,
+      );
       await reload();
     } on ApiException catch (e) {
       if (mounted) AppSnack.show(context, e.message, kind: AppSnackKind.error);
@@ -611,7 +783,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           },
         );
         if (saved == true && mounted) {
-          AppSnack.show(context, plateCameraSavedMessage(probeId, overview), kind: AppSnackKind.success);
+          AppSnack.show(
+            context,
+            plateCameraSavedMessage(probeId, overview),
+            kind: AppSnackKind.success,
+          );
           await reload();
         }
       }
@@ -620,7 +796,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     }
   }
 
-  Future<void> _openLiveCommandCenter(PlateSite site, {int? initialGateId}) async {
+  Future<void> _openLiveCommandCenter(
+    PlateSite site, {
+    int? initialGateId,
+  }) async {
     if (_commandCenterOpen) return;
     setState(() => _commandCenterOpen = true);
     try {
@@ -631,7 +810,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         sites: widget.sites,
         service: _service,
         camerasService: _cameras,
-        initialGateId: initialGateId ?? (_gates?.gates.isNotEmpty == true ? _gates!.gates.first.id : null),
+        initialGateId:
+            initialGateId ??
+            (_gates?.gates.isNotEmpty == true ? _gates!.gates.first.id : null),
       );
     } finally {
       if (mounted) {
@@ -644,7 +825,8 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   List<Widget> _liveFeedTab(PlateSite site) => <Widget>[
     _buildTabHeader(
       title: 'Canlı Kamera Akışları',
-      subtitle: 'Tüm kapılara bağlı IP kameraların gerçek zamanlı 4 kameralı (2 Giriş + 2 Çıkış) RTSP izleme merkezi.',
+      subtitle:
+          'Tüm kapılara bağlı IP kameraların gerçek zamanlı 4 kameralı (2 Giriş + 2 Çıkış) RTSP izleme merkezi.',
       icon: Icons.videocam_rounded,
       watermarkIcon: Icons.smart_display_outlined,
       accentColor: const Color(0xFF8B5CF6),
@@ -669,7 +851,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         camerasService: _cameras,
         siteCode: site.code,
       ),
-      PlateLiveFeedPanel(key: ValueKey<int>(site.code), service: _service, siteCode: site.code),
+      PlateLiveFeedPanel(
+        key: ValueKey<int>(site.code),
+        service: _service,
+        siteCode: site.code,
+      ),
     ],
   ];
 
@@ -677,7 +863,8 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     return <Widget>[
       _buildTabHeader(
         title: 'Plaka & Güvenlik Ayarları',
-        subtitle: 'Kara liste yönetimi, misafir geçiş izinleri, otomatik kapı açma kuralları ve eşikler.',
+        subtitle:
+            'Kara liste yönetimi, misafir geçiş izinleri, otomatik kapı açma kuralları ve eşikler.',
         icon: Icons.tune_rounded,
         watermarkIcon: Icons.security_rounded,
         accentColor: const Color(0xFF6366F1),
@@ -705,6 +892,12 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             selected: _settingsSubTab == 2,
             onSelected: (_) => setState(() => _settingsSubTab = 2),
           ),
+          ChoiceChip(
+            avatar: const Icon(Icons.local_parking, size: 16),
+            label: const Text('Daire onayları / Otopark'),
+            selected: _settingsSubTab == 3,
+            onSelected: (_) => setState(() => _settingsSubTab = 3),
+          ),
         ],
       ),
       const SizedBox(height: AppSpace.md),
@@ -712,14 +905,25 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         ..._blacklistTab(site)
       else if (_settingsSubTab == 1)
         ..._permitsTab(site)
+      else if (_settingsSubTab == 3)
+        ParkingAccessPanel(
+          key: ValueKey('parking_${site.code}'),
+          service: _service,
+          siteCode: site.code,
+          canWrite: site.canWrite,
+        )
       else ...<Widget>[
-        _note('SmartKeyPass kapılarının otomatik plaka açma ve güven eşiklerini yapılandırın.'),
+        _note(
+          'SmartKeyPass kapılarının otomatik plaka açma ve güven eşiklerini yapılandırın.',
+        ),
         if ((_settings?.doors ?? const <PlateGateSetting>[]).isEmpty)
           _empty('Bu sitede tanımlı kapı yok.')
         else
           for (final door in _settings!.doors)
             _GateCard(
-              key: ValueKey<String>('gate_${door.doorId}_${door.deviceId}_${door.autoOpen}_${door.minConfidence}_${door.cooldownSeconds}'),
+              key: ValueKey<String>(
+                'gate_${door.doorId}_${door.deviceId}_${door.autoOpen}_${door.minConfidence}_${door.cooldownSeconds}',
+              ),
               door: door,
               cameras: _settings!.cameras,
               canWrite: site.canWrite,
@@ -802,7 +1006,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
         parkingSlotsByLabel: slotsByLabel,
         insideCountsByLabel: insideByLabel,
       );
-      if (mounted && !kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      if (mounted &&
+          !kIsWeb &&
+          defaultTargetPlatform == TargetPlatform.windows) {
         setState(() {});
       }
     } catch (_) {}
@@ -818,7 +1024,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Icon(Icons.info_outline_rounded, color: context.palette.action, size: 24),
+              Icon(
+                Icons.info_outline_rounded,
+                color: context.palette.action,
+                size: 24,
+              ),
               const SizedBox(width: AppSpace.md),
               Expanded(
                 child: Column(
@@ -829,7 +1039,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                         Expanded(
                           child: Text(
                             'İzleme Modu (Web / Mobil)',
-                            style: TextStyle(fontWeight: FontWeight.bold, color: context.palette.text),
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: context.palette.text,
+                            ),
                           ),
                         ),
                         if (site.canWrite)
@@ -839,7 +1052,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                             label: const Text('Plaka Test Et'),
                             style: OutlinedButton.styleFrom(
                               visualDensity: VisualDensity.compact,
-                              padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpace.sm,
+                                vertical: AppSpace.xs,
+                              ),
                             ),
                           ),
                       ],
@@ -847,7 +1063,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                     const SizedBox(height: 2),
                     Text(
                       'Kamera ile otomatik plaka tespiti ve SmartKeyPass kapı tetikleme işlemi kameralarla aynı yerel ağda (LAN) çalışan Windows masaüstü güvenlik / yönetim bilgisayarında yürütülür. Web ve mobil cihazlardan canlı akış ve olay kayıtları izlenebilir.',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(color: context.palette.textSecondary),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.palette.textSecondary,
+                      ),
                     ),
                     if (kIsWeb) ...<Widget>[
                       const SizedBox(height: AppSpace.sm),
@@ -857,10 +1075,15 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                           mode: LaunchMode.externalApplication,
                         ),
                         icon: const Icon(Icons.download_rounded, size: 18),
-                        label: const Text('Windows Saha Uygulamasını İndir (.ZIP)'),
+                        label: const Text(
+                          'Windows Saha Uygulamasını İndir (.ZIP)',
+                        ),
                         style: FilledButton.styleFrom(
                           visualDensity: VisualDensity.compact,
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.xs),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AppSpace.md,
+                            vertical: AppSpace.xs,
+                          ),
                         ),
                       ),
                     ],
@@ -894,7 +1117,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   height: 12,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    color: isRunning ? context.palette.statusOk : context.palette.statusCrit,
+                    color: isRunning
+                        ? context.palette.statusOk
+                        : context.palette.statusCrit,
                   ),
                 ),
                 const SizedBox(width: AppSpace.sm),
@@ -903,7 +1128,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                     isRunning
                         ? 'Windows Saha Plaka Tanıma & Kapı Motoru: Aktif'
                         : 'Windows Plaka Tanıma Motoru: Durduruldu',
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                    ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
@@ -913,7 +1141,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   runSpacing: AppSpace.xs,
                   children: <Widget>[
                     FilledButton.icon(
-                      key: const ValueKey<String>('windows_banner_live_wall_btn'),
+                      key: const ValueKey<String>(
+                        'windows_banner_live_wall_btn',
+                      ),
                       onPressed: () => unawaited(_openLiveCommandCenter(site)),
                       icon: const Icon(Icons.videocam_rounded, size: 17),
                       label: const Text('Canlı Akış'),
@@ -921,7 +1151,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                         visualDensity: VisualDensity.compact,
                         backgroundColor: const Color(0xFF8B5CF6),
                         foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.sm,
+                          vertical: AppSpace.xs,
+                        ),
                       ),
                     ),
                     OutlinedButton.icon(
@@ -930,7 +1163,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                       label: const Text('Plaka Test Et'),
                       style: OutlinedButton.styleFrom(
                         visualDensity: VisualDensity.compact,
-                        padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: AppSpace.xs),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AppSpace.sm,
+                          vertical: AppSpace.xs,
+                        ),
                       ),
                     ),
                   ],
@@ -974,7 +1210,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                 const SizedBox(height: AppSpace.md),
                 TextField(
                   controller: plateController,
-                  inputFormatters: const <TextInputFormatter>[PlateInputFormatter()],
+                  inputFormatters: const <TextInputFormatter>[
+                    PlateInputFormatter(),
+                  ],
                   textCapitalization: TextCapitalization.characters,
                   decoration: const InputDecoration(
                     labelText: 'Plaka',
@@ -985,7 +1223,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                 const SizedBox(height: AppSpace.sm),
                 Row(
                   children: <Widget>[
-                    const Text('Yön: ', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Text(
+                      'Yön: ',
+                      style: TextStyle(fontWeight: FontWeight.w600),
+                    ),
                     const SizedBox(width: AppSpace.sm),
                     ChoiceChip(
                       label: const Text('Giriş'),
@@ -1001,7 +1242,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   ],
                 ),
                 const SizedBox(height: AppSpace.sm),
-                const Text('Hızlı Örnekler:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                const Text(
+                  'Hızlı Örnekler:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                ),
                 const SizedBox(height: AppSpace.xs),
                 Wrap(
                   spacing: AppSpace.xs,
@@ -1009,34 +1253,47 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   children: <Widget>[
                     ActionChip(
                       label: const Text('Sakin Aracı (34 SKN 01)'),
-                      onPressed: () => setLocal(() => plateController.text = '34 SKN 01'),
+                      onPressed: () =>
+                          setLocal(() => plateController.text = '34 SKN 01'),
                     ),
                     ActionChip(
                       label: const Text('Misafir Aracı (34 MSF 02)'),
-                      onPressed: () => setLocal(() => plateController.text = '34 MSF 02'),
+                      onPressed: () =>
+                          setLocal(() => plateController.text = '34 MSF 02'),
                     ),
                     ActionChip(
                       label: const Text('Kara Liste (34 KRA 99)'),
-                      onPressed: () => setLocal(() => plateController.text = '34 KRA 99'),
+                      onPressed: () =>
+                          setLocal(() => plateController.text = '34 KRA 99'),
                     ),
                     ActionChip(
                       label: const Text('Tanımsız (06 TNM 10)'),
-                      onPressed: () => setLocal(() => plateController.text = '06 TNM 10'),
+                      onPressed: () =>
+                          setLocal(() => plateController.text = '06 TNM 10'),
                     ),
                   ],
                 ),
                 if (simulationResult != null) ...<Widget>[
                   const Divider(height: AppSpace.lg),
-                  Text('Test Sonucu:', style: TextStyle(fontWeight: FontWeight.bold, color: context.palette.textSecondary)),
+                  Text(
+                    'Test Sonucu:',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: context.palette.textSecondary,
+                    ),
+                  ),
                   const SizedBox(height: AppSpace.xs),
                   Container(
                     decoration: BoxDecoration(
-                      color: simulationResult!.decision == PlateDecisionType.acildi
+                      color:
+                          simulationResult!.decision == PlateDecisionType.acildi
                           ? Colors.green.shade50
                           : Colors.red.shade50,
                       borderRadius: BorderRadius.circular(AppRadius.md),
                       border: Border.all(
-                        color: simulationResult!.decision == PlateDecisionType.acildi
+                        color:
+                            simulationResult!.decision ==
+                                PlateDecisionType.acildi
                             ? Colors.green.shade200
                             : Colors.red.shade200,
                       ),
@@ -1048,22 +1305,30 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                         Row(
                           children: <Widget>[
                             Icon(
-                              simulationResult!.decision == PlateDecisionType.acildi
+                              simulationResult!.decision ==
+                                      PlateDecisionType.acildi
                                   ? Icons.check_circle_rounded
                                   : Icons.cancel_rounded,
-                              color: simulationResult!.decision == PlateDecisionType.acildi
+                              color:
+                                  simulationResult!.decision ==
+                                      PlateDecisionType.acildi
                                   ? Colors.green.shade700
                                   : Colors.red.shade700,
                             ),
                             const SizedBox(width: AppSpace.xs),
                             Expanded(
                               child: Text(
-                                simulationResult!.decision == PlateDecisionType.acildi
-                                    ? 'KAPI AÇILDI ✓'
-                                    : 'KAPI AÇILMADI (Giriş Engellendi)',
+                                simulationResult!.decision ==
+                                        PlateDecisionType.acildi
+                                    ? (simulationResult!.isGateTriggered
+                                          ? 'AÇMA KOMUTU GÖNDERİLDİ ✓'
+                                          : 'GEÇİŞ İZNİ VAR (KOMUT SONUCU TEYİT EDİLMEDİ)')
+                                    : 'KOMUT GÖNDERİLMEDİ (Giriş Engellendi)',
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: simulationResult!.decision == PlateDecisionType.acildi
+                                  color:
+                                      simulationResult!.decision ==
+                                          PlateDecisionType.acildi
                                       ? Colors.green.shade900
                                       : Colors.red.shade900,
                                 ),
@@ -1071,8 +1336,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                             ),
                           ],
                         ),
-                         const SizedBox(height: AppSpace.xs),
-                        if ((simulationResult!.apartmentLabel ?? '').trim().isNotEmpty)
+                        const SizedBox(height: AppSpace.xs),
+                        if ((simulationResult!.apartmentLabel ?? '')
+                            .trim()
+                            .isNotEmpty)
                           Padding(
                             padding: const EdgeInsets.only(bottom: 4),
                             child: Text(
@@ -1080,7 +1347,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w700,
-                                color: simulationResult!.decision == PlateDecisionType.acildi
+                                color:
+                                    simulationResult!.decision ==
+                                        PlateDecisionType.acildi
                                     ? Colors.green.shade900
                                     : Colors.red.shade900,
                               ),
@@ -1090,7 +1359,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                           'Neden: ${simulationResult!.reason}',
                           style: TextStyle(
                             fontSize: 13,
-                            color: simulationResult!.decision == PlateDecisionType.acildi
+                            color:
+                                simulationResult!.decision ==
+                                    PlateDecisionType.acildi
                                 ? Colors.green.shade900
                                 : Colors.red.shade900,
                           ),
@@ -1099,7 +1370,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                           const SizedBox(height: AppSpace.xs),
                           Text(
                             'Sinyal: SmartKeyPass UDP 8765 yayınlandı.',
-                            style: TextStyle(fontSize: 12, color: Colors.green.shade800, fontWeight: FontWeight.w500),
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.green.shade800,
+                              fontWeight: FontWeight.w500,
+                            ),
                           ),
                         ],
                       ],
@@ -1119,10 +1394,11 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                   ? null
                   : () async {
                       setLocal(() => processing = true);
-                      final res = await PlateRecognitionEngine.instance.testProcessPlate(
-                        plateController.text,
-                        direction: direction,
-                      );
+                      final res = await PlateRecognitionEngine.instance
+                          .testProcessPlate(
+                            plateController.text,
+                            direction: direction,
+                          );
                       setLocal(() {
                         simulationResult = res;
                         processing = false;
@@ -1158,7 +1434,10 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
           ],
         ),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: accentColor.withValues(alpha: 0.35), width: 1.2),
+        border: Border.all(
+          color: accentColor.withValues(alpha: 0.35),
+          width: 1.2,
+        ),
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AppRadius.lg),
@@ -1186,7 +1465,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                         decoration: BoxDecoration(
                           color: accentColor.withValues(alpha: 0.2),
                           shape: BoxShape.circle,
-                          border: Border.all(color: accentColor.withValues(alpha: 0.5)),
+                          border: Border.all(
+                            color: accentColor.withValues(alpha: 0.5),
+                          ),
                         ),
                         child: Icon(icon, color: accentColor, size: 24),
                       ),
@@ -1197,17 +1478,17 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                           children: <Widget>[
                             Text(
                               title,
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: p.text,
-                              ),
+                              style: Theme.of(context).textTheme.titleMedium
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                    color: p.text,
+                                  ),
                             ),
                             const SizedBox(height: 2),
                             Text(
                               subtitle,
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: p.textSecondary,
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: p.textSecondary),
                             ),
                           ],
                         ),
@@ -1283,9 +1564,14 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
             borderRadius: BorderRadius.circular(AppRadius.md),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 180),
-              padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: 8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppSpace.md,
+                vertical: 8,
+              ),
               decoration: BoxDecoration(
-                color: _tab == i ? tabConfigs[i].color.withValues(alpha: 0.18) : p.surface,
+                color: _tab == i
+                    ? tabConfigs[i].color.withValues(alpha: 0.18)
+                    : p.surface,
                 borderRadius: BorderRadius.circular(AppRadius.md),
                 border: Border.all(
                   color: _tab == i ? tabConfigs[i].color : p.border,
@@ -1305,7 +1591,9 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
                     tabConfigs[i].label,
                     style: TextStyle(
                       fontSize: 13,
-                      fontWeight: _tab == i ? FontWeight.bold : FontWeight.normal,
+                      fontWeight: _tab == i
+                          ? FontWeight.bold
+                          : FontWeight.normal,
                       color: _tab == i ? tabConfigs[i].color : p.text,
                     ),
                   ),
@@ -1324,9 +1612,26 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     else
       _buildNonWindowsInfoBanner(site),
     _buildColoredTabs(site),
+    Align(
+      alignment: Alignment.centerRight,
+      child: TextButton.icon(
+        icon: const Icon(Icons.bar_chart_rounded),
+        label: const Text('Raporlar'),
+        onPressed: () => showPlateStatisticsDialog(
+          context,
+          service: _service,
+          siteCode: site.code,
+        ),
+      ),
+    ),
     const SizedBox(height: AppSpace.md),
     if (_loading)
-      const Center(child: Padding(padding: EdgeInsets.all(AppSpace.lg), child: CircularProgressIndicator()))
+      const Center(
+        child: Padding(
+          padding: EdgeInsets.all(AppSpace.lg),
+          child: CircularProgressIndicator(),
+        ),
+      )
     else if (_error != null)
       AppCard(child: Text(_error!))
     else
@@ -1341,26 +1646,53 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
   List<Widget> _residentBody(PlateSite site) {
     final data = _resident;
     return <Widget>[
-      _note('Misafirinizin aracı için geçici izin verin; plaka kameraya yaklaşınca izinli sayılır. İzin en çok ${data?.maxDays ?? 30} gün sürer, istediğiniz an iptal edebilirsiniz.'),
-      _note(_kvkkNote),
+      _note(
+        'Kendi aracınızı Dairem → Araçlarım bölümünden kaydedebilirsiniz. Araç giriş yetkisi, yönetimin daireniz için verdiği onaya bağlıdır.',
+      ),
+      if (widget.onOpenVehicles != null)
+        Align(
+          alignment: Alignment.centerLeft,
+          child: FilledButton.icon(
+            key: const ValueKey('resident_open_own_vehicles'),
+            onPressed: widget.onOpenVehicles,
+            icon: const Icon(Icons.directions_car_outlined),
+            label: const Text('Araçlarıma git'),
+          ),
+        ),
       if (_loading)
-        const Center(child: Padding(padding: EdgeInsets.all(AppSpace.lg), child: CircularProgressIndicator()))
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(AppSpace.lg),
+            child: CircularProgressIndicator(),
+          ),
+        )
       else if (_error != null)
         AppCard(child: Text(_error!))
       else if (data != null) ...<Widget>[
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: const Text('Aracım giriş / çıkış yapınca bildir'),
-          subtitle: const Text('Kayıtlı aracınız siteye girdiğinde ya da çıktığında saatiyle birlikte bildirim alırsınız. Varsayılan kapalıdır.'),
-          value: data.movementNotify,
-          onChanged: (value) => unawaited(_setMovementNotify(site, value)),
-        ),
-        _addButton('Misafir plakası ekle', () => _addPermit(site)),
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
-          child: Text('Bugün kalan hakkınız: ${data.dailyRemaining} / ${data.dailyLimit}', style: Theme.of(context).textTheme.bodySmall),
-        ),
-        if (data.permits.isEmpty) _empty('Henüz misafir plakası tanımlamadınız.') else for (final p in data.permits) _permitTile(site, p, showApartment: data.apartments.length > 1),
+        if (data.movementNotifyAvailable)
+          SwitchListTile(
+            key: const ValueKey('resident_movement_notifications'),
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Aracım giriş / çıkış yapınca bildir'),
+            subtitle: const Text(
+              'Kayıtlı aracınız siteye girdiğinde ya da çıktığında saatiyle birlikte bildirim alırsınız. Varsayılan kapalıdır.',
+            ),
+            value: data.movementNotify,
+            onChanged: (value) => unawaited(_setMovementNotify(site, value)),
+          ),
+        if (data.permits.isNotEmpty)
+          ExpansionTile(
+            key: const ValueKey('resident_previous_guest_permits'),
+            tilePadding: EdgeInsets.zero,
+            title: const Text('Önceki geçici izinler'),
+            subtitle: const Text(
+              'Önceden verilen izinleri görüntüleyebilir ve iptal edebilirsiniz.',
+            ),
+            children: [
+              for (final p in data.permits)
+                _permitTile(site, p, showApartment: data.apartments.length > 1),
+            ],
+          ),
       ],
     ];
   }
@@ -1374,14 +1706,23 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        Text(resident ? 'Misafir plakası' : 'Plaka Tanıma', style: Theme.of(context).textTheme.headlineSmall),
+        Text(
+          resident ? 'Araçlarım ve bildirimler' : 'Plaka Tanıma',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
         const SizedBox(height: AppSpace.md),
         if (widget.sites.length > 1) ...<Widget>[
           DropdownButtonFormField<PlateSite>(
             initialValue: site,
             isExpanded: true,
             decoration: const InputDecoration(labelText: 'Site'),
-            items: <DropdownMenuItem<PlateSite>>[for (final s in widget.sites) DropdownMenuItem<PlateSite>(value: s, child: Text(s.label, overflow: TextOverflow.ellipsis))],
+            items: <DropdownMenuItem<PlateSite>>[
+              for (final s in widget.sites)
+                DropdownMenuItem<PlateSite>(
+                  value: s,
+                  child: Text(s.label, overflow: TextOverflow.ellipsis),
+                ),
+            ],
             onChanged: (v) {
               setState(() {
                 _site = v;
@@ -1405,7 +1746,12 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
 
 /// Bir kapının düzenlenen ayarı.
 class _GateDraft {
-  _GateDraft({required this.deviceId, required this.autoOpen, required this.minConfidence, required this.cooldownSeconds});
+  _GateDraft({
+    required this.deviceId,
+    required this.autoOpen,
+    required this.minConfidence,
+    required this.cooldownSeconds,
+  });
 
   int? deviceId;
   bool autoOpen;
@@ -1417,7 +1763,14 @@ class _GateDraft {
 }
 
 class _GateCard extends StatefulWidget {
-  const _GateCard({super.key, required this.door, required this.cameras, required this.canWrite, required this.onConfirmAutoOpen, required this.onSave});
+  const _GateCard({
+    super.key,
+    required this.door,
+    required this.cameras,
+    required this.canWrite,
+    required this.onConfirmAutoOpen,
+    required this.onSave,
+  });
 
   final PlateGateSetting door;
   final List<PlateCamera> cameras;
@@ -1459,8 +1812,10 @@ class _GateCardState extends State<_GateCard> {
   @override
   Widget build(BuildContext context) {
     final cameraIds = widget.cameras.map((c) => c.id).toSet();
-    final confidences = <double>{..._confidences, _draft.minConfidence}.toList()..sort();
-    final cooldowns = <int>{..._cooldowns, _draft.cooldownSeconds}.toList()..sort();
+    final confidences = <double>{..._confidences, _draft.minConfidence}.toList()
+      ..sort();
+    final cooldowns = <int>{..._cooldowns, _draft.cooldownSeconds}.toList()
+      ..sort();
     final camera = widget.cameras.where((c) => c.id == widget.door.deviceId);
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.sm),
@@ -1469,21 +1824,44 @@ class _GateCardState extends State<_GateCard> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            Text(widget.door.doorName, style: Theme.of(context).textTheme.titleMedium),
+            Text(
+              widget.door.doorName,
+              style: Theme.of(context).textTheme.titleMedium,
+            ),
             const SizedBox(height: AppSpace.sm),
             if (!widget.canWrite) ...<Widget>[
-              Text('Kamera: ${camera.isEmpty ? 'eşleşmedi' : camera.first.name}'),
-              Text('Otomatik açma: ${widget.door.autoOpen ? 'Açık (SmartKeyPass UDP)' : 'Kapalı'}'),
-              Text('Güven eşiği ${_pct(widget.door.minConfidence)}  •  aynı plaka ${widget.door.cooldownSeconds} sn içinde tekrar açmaz'),
+              Text(
+                'Kamera: ${camera.isEmpty ? 'eşleşmedi' : camera.first.name}',
+              ),
+              Text(
+                'Otomatik açma: ${widget.door.autoOpen ? 'Açık (SmartKeyPass UDP)' : 'Kapalı'}',
+              ),
+              Text(
+                'Güven eşiği ${_pct(widget.door.minConfidence)}  •  aynı plaka ${widget.door.cooldownSeconds} sn içinde tekrar açmaz',
+              ),
             ] else ...<Widget>[
               DropdownButtonFormField<int?>(
-                initialValue: _draft.deviceId != null && cameraIds.contains(_draft.deviceId) ? _draft.deviceId : null,
+                initialValue:
+                    _draft.deviceId != null &&
+                        cameraIds.contains(_draft.deviceId)
+                    ? _draft.deviceId
+                    : null,
                 isExpanded: true,
-                decoration: const InputDecoration(labelText: 'Bu kapıya bakan kamera'),
+                decoration: const InputDecoration(
+                  labelText: 'Bu kapıya bakan kamera',
+                ),
                 items: <DropdownMenuItem<int?>>[
-                  const DropdownMenuItem<int?>(value: null, child: Text('Eşleşmedi')),
-                  for (final c in widget.cameras.where((c) => c.isActive || c.id == _draft.deviceId))
-                    DropdownMenuItem<int?>(value: c.id, child: Text(c.name, overflow: TextOverflow.ellipsis)),
+                  const DropdownMenuItem<int?>(
+                    value: null,
+                    child: Text('Eşleşmedi'),
+                  ),
+                  for (final c in widget.cameras.where(
+                    (c) => c.isActive || c.id == _draft.deviceId,
+                  ))
+                    DropdownMenuItem<int?>(
+                      value: c.id,
+                      child: Text(c.name, overflow: TextOverflow.ellipsis),
+                    ),
                 ],
                 onChanged: (v) => setState(() {
                   _draft.deviceId = v;
@@ -1495,7 +1873,9 @@ class _GateCardState extends State<_GateCard> {
                 value: _draft.autoOpen,
                 onChanged: _draft.deviceId == null ? null : _toggleAuto,
                 title: const Text('Plakayla otomatik açma'),
-                subtitle: const Text('İzinli plaka okunduğunda yerel SmartKeyPass (UDP 8765) açıl komutu gönderir; sunucu doğrudan kapı komutu göndermez.'),
+                subtitle: const Text(
+                  'İzinli plaka okunduğunda yerel SmartKeyPass (UDP 8765) açıl komutu gönderir; sunucu doğrudan kapı komutu göndermez.',
+                ),
               ),
               Row(
                 children: <Widget>[
@@ -1503,9 +1883,19 @@ class _GateCardState extends State<_GateCard> {
                     child: DropdownButtonFormField<double>(
                       initialValue: _draft.minConfidence,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Güven eşiği'),
-                      items: <DropdownMenuItem<double>>[for (final v in confidences) DropdownMenuItem<double>(value: v, child: Text(_pct(v)))],
-                      onChanged: (v) => setState(() => _draft.minConfidence = v ?? _draft.minConfidence),
+                      decoration: const InputDecoration(
+                        labelText: 'Güven eşiği',
+                      ),
+                      items: <DropdownMenuItem<double>>[
+                        for (final v in confidences)
+                          DropdownMenuItem<double>(
+                            value: v,
+                            child: Text(_pct(v)),
+                          ),
+                      ],
+                      onChanged: (v) => setState(
+                        () => _draft.minConfidence = v ?? _draft.minConfidence,
+                      ),
                     ),
                   ),
                   const SizedBox(width: AppSpace.sm),
@@ -1513,9 +1903,17 @@ class _GateCardState extends State<_GateCard> {
                     child: DropdownButtonFormField<int>(
                       initialValue: _draft.cooldownSeconds,
                       isExpanded: true,
-                      decoration: const InputDecoration(labelText: 'Bekleme (sn)'),
-                      items: <DropdownMenuItem<int>>[for (final v in cooldowns) DropdownMenuItem<int>(value: v, child: Text('$v'))],
-                      onChanged: (v) => setState(() => _draft.cooldownSeconds = v ?? _draft.cooldownSeconds),
+                      decoration: const InputDecoration(
+                        labelText: 'Bekleme (sn)',
+                      ),
+                      items: <DropdownMenuItem<int>>[
+                        for (final v in cooldowns)
+                          DropdownMenuItem<int>(value: v, child: Text('$v')),
+                      ],
+                      onChanged: (v) => setState(
+                        () => _draft.cooldownSeconds =
+                            v ?? _draft.cooldownSeconds,
+                      ),
                     ),
                   ),
                 ],
@@ -1549,7 +1947,11 @@ class _GateCardState extends State<_GateCard> {
 
 /// Misafir plakası formu. Yönetici: daire ARAMA ([search]); sakin: kendi daireleri ([residentApartments]; tek ise seçim yok).
 class _PermitDialog extends StatefulWidget {
-  const _PermitDialog({required this.residentApartments, required this.search, required this.maxDays});
+  const _PermitDialog({
+    required this.residentApartments,
+    required this.search,
+    required this.maxDays,
+  });
 
   final List<PlateApartment>? residentApartments;
   final Future<List<PlateApartment>> Function(String query)? search;
@@ -1601,7 +2003,16 @@ class _PermitDialogState extends State<_PermitDialog> {
         return;
       }
     }
-    Navigator.pop(context, PermitDraft(apartmentId: _apartment!.id, plate: plate, duration: _duration, days: days, note: _note.text));
+    Navigator.pop(
+      context,
+      PermitDraft(
+        apartmentId: _apartment!.id,
+        plate: plate,
+        duration: _duration,
+        days: days,
+        note: _note.text,
+      ),
+    );
   }
 
   Widget _apartmentField() {
@@ -1614,7 +2025,13 @@ class _PermitDialogState extends State<_PermitDialog> {
           initialValue: _apartment,
           isExpanded: true,
           decoration: const InputDecoration(labelText: 'Daire'),
-          items: <DropdownMenuItem<PlateApartment>>[for (final a in own) DropdownMenuItem<PlateApartment>(value: a, child: Text(a.label, overflow: TextOverflow.ellipsis))],
+          items: <DropdownMenuItem<PlateApartment>>[
+            for (final a in own)
+              DropdownMenuItem<PlateApartment>(
+                value: a,
+                child: Text(a.label, overflow: TextOverflow.ellipsis),
+              ),
+          ],
           onChanged: (v) => setState(() => _apartment = v),
         ),
       );
@@ -1634,17 +2051,20 @@ class _PermitDialogState extends State<_PermitDialog> {
           }
         },
         onSelected: (a) => setState(() => _apartment = a),
-        fieldViewBuilder: (context, controller, focusNode, onSubmitted) => TextField(
-          controller: controller,
-          focusNode: focusNode,
-          onChanged: (_) {
-            if (_apartment != null) setState(() => _apartment = null);
-          },
-          decoration: InputDecoration(
-            labelText: 'Daire (blok adı ya da daire no yazın)',
-            suffixIcon: _apartment == null ? null : const Icon(Icons.check_circle_rounded),
-          ),
-        ),
+        fieldViewBuilder: (context, controller, focusNode, onSubmitted) =>
+            TextField(
+              controller: controller,
+              focusNode: focusNode,
+              onChanged: (_) {
+                if (_apartment != null) setState(() => _apartment = null);
+              },
+              decoration: InputDecoration(
+                labelText: 'Daire (blok adı ya da daire no yazın)',
+                suffixIcon: _apartment == null
+                    ? null
+                    : const Icon(Icons.check_circle_rounded),
+              ),
+            ),
       ),
     );
   }
@@ -1663,36 +2083,70 @@ class _PermitDialogState extends State<_PermitDialog> {
               _apartmentField(),
               TextField(
                 controller: _plate,
-                inputFormatters: const <TextInputFormatter>[PlateInputFormatter()],
+                inputFormatters: const <TextInputFormatter>[
+                  PlateInputFormatter(),
+                ],
                 textCapitalization: TextCapitalization.characters,
                 autocorrect: false,
                 enableSuggestions: false,
-                decoration: const InputDecoration(labelText: 'Plaka', hintText: '34 ABC 123'),
+                decoration: const InputDecoration(
+                  labelText: 'Plaka',
+                  hintText: '34 ABC 123',
+                ),
               ),
               const SizedBox(height: AppSpace.sm),
               Text('Süre', style: Theme.of(context).textTheme.labelLarge),
               Wrap(
                 spacing: AppSpace.sm,
                 children: <Widget>[
-                  for (final (code, label) in const <(String, String)>[('day', '1 gün'), ('week', '1 hafta'), ('custom', 'Özel')])
-                    ChoiceChip(label: Text(label), selected: _duration == code, onSelected: (_) => setState(() => _duration = code),),
+                  for (final (code, label) in const <(String, String)>[
+                    ('day', '1 gün'),
+                    ('week', '1 hafta'),
+                    ('custom', 'Özel'),
+                  ])
+                    ChoiceChip(
+                      label: Text(label),
+                      selected: _duration == code,
+                      onSelected: (_) => setState(() => _duration = code),
+                    ),
                 ],
               ),
               if (_duration == 'custom')
                 TextField(
                   controller: _days,
                   keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[FilteringTextInputFormatter.digitsOnly],
-                  decoration: InputDecoration(labelText: 'Gün sayısı (1-${widget.maxDays})'),
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: 'Gün sayısı (1-${widget.maxDays})',
+                  ),
                 ),
-              TextField(controller: _note, maxLength: 120, decoration: const InputDecoration(labelText: 'Not (isteğe bağlı)', counterText: '')),
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.xs), child: Text(_error!, style: TextStyle(color: context.palette.statusCrit))),
+              TextField(
+                controller: _note,
+                maxLength: 120,
+                decoration: const InputDecoration(
+                  labelText: 'Not (isteğe bağlı)',
+                  counterText: '',
+                ),
+              ),
+              if (_error != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.xs),
+                  child: Text(
+                    _error!,
+                    style: TextStyle(color: context.palette.statusCrit),
+                  ),
+                ),
             ],
           ),
         ),
       ),
       actions: <Widget>[
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Vazgeç'),
+        ),
         FilledButton(onPressed: _submit, child: const Text('Kaydet')),
       ],
     );

@@ -384,6 +384,13 @@ void _expectTiles(WidgetTester t, _Cfg c) {
   }
 }
 
+String _localizedRoleLabel(UserRole role) => switch (role) {
+  UserRole.superUser => 'Süper Kullanıcı',
+  UserRole.siteManager => 'Site Yöneticisi',
+  UserRole.apartmentOwner => 'Daire Sakini',
+  UserRole.individual => 'Bireysel Kullanıcı',
+};
+
 String _cellName(double w, double h, double s, bool dark) =>
     '${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}';
 
@@ -399,7 +406,7 @@ void main() {
               _expectTiles(t, c);
               expect(find.text(c.fullName), findsOneWidget);
               expect(find.text(c.email), findsOneWidget);
-              expect(find.text(c.role.label), findsOneWidget);
+              expect(find.text(_localizedRoleLabel(c.role)), findsOneWidget);
               expect(find.text(AppConfig.versionDisplay), findsOneWidget);
               // Liste kayar: en alttaki ("Çıkış Yap") en büyük yazıda da erişilir.
               await t.ensureVisible(find.text('Çıkış Yap'));
@@ -508,13 +515,13 @@ void main() {
             // Rol rozeti: metin beyaz, zemin gradyanın EN AÇIK ucunda bile >= 4,5:1.
             final badge = find
                 .ancestor(
-                  of: find.text(role.label),
+                  of: find.text(_localizedRoleLabel(role)),
                   matching: find.byType(Container),
                 )
                 .first;
             final badgeDecoration =
                 t.widget<Container>(badge).decoration! as BoxDecoration;
-            final badgeStyle = t.widget<Text>(find.text(role.label)).style!;
+            final badgeStyle = t.widget<Text>(find.text(_localizedRoleLabel(role))).style!;
             expect(badgeStyle.color, Colors.white);
             for (final stop in <Color>[
               tone.a,

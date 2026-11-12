@@ -60,17 +60,17 @@ describe('platform katalog: sozlesme tablosu', () => {
       people: [true, 'available'], // Faz 2a: Kişi ve Daire Kayıtları çekirdek + kullanılabilir (hep açık)
       announcements: [true, 'available'], // Faz 3a: Duyuru ve Bildirim çekirdek + kullanılabilir (hep açık)
       finance: [true, 'available'], // Kural 25 (2026-10-26): Aidat ve Finans TEMEL modül (hep açık; talep edilmez, kapatılamaz)
-      reservation: [false, 'available'], // Rezervasyon ve Konsiyerj: kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
-      work_tracking: [false, 'available'], // Is Takibi: kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
+      reservation: [true, 'available'], // Kural 25: her sitede açık temel modül.
+      work_tracking: [true, 'available'], // Kural 25: her sitede açık temel modül.
       metering: [false, 'available'],
       online_payment: [false, 'coming_soon'],
       survey: [true, 'available'], // Kural 25 (2026-10-28): Anket ve Oylama TEMEL modul (hep acik; talep edilmez, kapatilamaz)
-      visitor_log: [false, 'available'], // Ziyaretci ve Kargo (F11.03): kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
+      visitor_log: [true, 'available'], // Kural 25: her sitede açık temel modül.
       card_access: [false, 'available'], // F10: Kartli Gecis kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
-      contracts: [false, 'available'], // Firma ve Sozlesme Takibi: kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
-      decision_book: [false, 'available'], // Karar Defteri: kullanilabilir (varsayilan KAPALI; super acar, yonetici modul talep eder)
-      directory: [false, 'available'], // Rehber: kullanilabilir (varsayilan KAPALI; yonetim kadrosu ve faydali telefonlar)
-      budget: [false, 'available'], // Isletme Projesi (F7): kullanilabilir (varsayilan KAPALI)
+      contracts: [true, 'available'], // Kural 25: her sitede açık temel modül.
+      decision_book: [true, 'available'], // Kural 25: her sitede açık temel modül.
+      directory: [true, 'available'], // Kural 25: her sitede açık temel modül.
+      budget: [true, 'available'], // Kural 25: her sitede açık temel modül.
       drive_storage: [true, 'available'], // Kural 25 (2026-10-28): Dosya Deposu TEMEL modul (Belgeler, Faz 3b-A + Google Drive, D1 tek modul)
       neighbor_board: [true, 'available'], // Kural 25 (2026-10-28): Komsu Panosu TEMEL modul
       annual_report: [true, 'available'], // Kural 25 (2026-10-28): Faaliyet Raporu (R2) TEMEL modul
@@ -107,11 +107,11 @@ describe('platform katalog: sozlesme tablosu', () => {
     }
   });
 
-  it('TEMEL (core) moduller (Kural 25): people, announcements, finance, survey, drive_storage, neighbor_board, annual_report, equipment; hepsi available + varsayilan ACIK', () => {
+  it('Kural 25: on beş temel modül kullanılabilir, varsayılan açık ve kapatılamaz', () => {
     const core = MODULE_CATALOG.filter((m) => m.core);
     assert.deepEqual(
       core.map((m) => m.code),
-      ['people', 'announcements', 'finance', 'survey', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment'],
+      ['people', 'announcements', 'finance', 'reservation', 'work_tracking', 'survey', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment'],
     );
     for (const m of core) {
       assert.equal(m.status, 'available', m.code);
@@ -131,19 +131,7 @@ describe('platform katalog: sozlesme tablosu', () => {
     for (const code of ['finance', 'survey', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment']) {
       assert.equal(expected.includes(code), false, `${code} temel modul: toggleable olamaz`);
     }
-    assert.deepEqual(expected, [
-      'door_control',
-      'reservation',
-      'work_tracking',
-      'metering',
-      'visitor_log',
-      'card_access',
-      'contracts',
-      'decision_book',
-      'directory',
-      'budget',
-      'plate_recognition',
-    ]);
+    assert.deepEqual(expected, ['door_control', 'metering', 'card_access', 'plate_recognition']);
     assert.equal(isToggleable(null), false);
   });
 
@@ -296,9 +284,9 @@ describe('platform katalog: enabled hesabi', () => {
     assert.equal(finance.status, 'available');
     assert.equal(finance.enabled, true, 'satır olmasa da her sitede açık');
     const reservation = list.find((m) => m.code === 'reservation');
-    assert.equal(reservation.toggleable, true, 'Rezervasyon ve Konsiyerj kullanilabilir ve acilip kapatilabilir');
+    assert.equal(reservation.toggleable, false, 'Rezervasyon temel modüldür ve kapatılamaz');
     assert.equal(reservation.status, 'available');
-    assert.equal(reservation.enabled, false, 'varsayilan KAPALI');
+    assert.equal(reservation.enabled, true, 'temel modül her sitede açıktır');
     const metering = list.find((m) => m.code === 'metering');
     assert.equal(metering.toggleable, true);
     assert.equal(metering.status, 'available');

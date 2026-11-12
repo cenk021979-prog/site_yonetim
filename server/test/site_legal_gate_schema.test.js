@@ -1,7 +1,7 @@
 // Site başına hukuk onayı bayrağı (114) şeması + okuma (DB'siz): migration <-> site_legal_gate_schema.js aynı DDL (aynı sıra), mevcut siteler AÇIK kalır (DEFAULT TRUE ile eklenir),
 // yeni siteler KAPALI başlar (varsayılan FALSE), self-healing, db.js bağlantısı, her şey yerindeyse ifade yok, readLegalOk kapalı-güvenli,
 // hukuk kapısı çağrı noktaları site bazında (sistem geneli platform_settings okunmaz).
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -141,3 +141,8 @@ describe('site bazli hukuk kapisi (kod)', () => {
     }
   });
 });
+
+// The production retry timer is unref'ed. Keep the test process alive while awaiting its bounded retries.
+let retryKeepAlive;
+before(() => { retryKeepAlive = setInterval(() => {}, 1000); });
+after(() => clearInterval(retryKeepAlive));

@@ -193,7 +193,7 @@ describe('sır sızıntısı (B6)', () => {
     });
     let caught = null;
     try {
-      await registerPushDevice({ user_code: 20004 }, { install_id: '3f2b8c1e-9a7d-4e21-b1aa-0c9d8e7f6a5b', platform: 'android', token: REG_TOKEN });
+      await registerPushDevice({ user_code: 20004, role: 'apartment_owner' }, { install_id: '3f2b8c1e-9a7d-4e21-b1aa-0c9d8e7f6a5b', platform: 'android', token: REG_TOKEN });
     } catch (error) {
       caught = error;
     }

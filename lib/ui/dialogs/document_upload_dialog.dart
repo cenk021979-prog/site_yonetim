@@ -732,6 +732,9 @@ class _DocumentUploadDialogState extends State<DocumentUploadDialog> {
                 errorText: _audienceError,
                 onChanged: (audience) => setState(() {
                   _audience = audience;
+                  if (audience == DocumentAudience.all) {
+                    _target = const DocumentTargetSelection();
+                  }
                   _audienceError = null;
                   _targetError = null;
                 }),

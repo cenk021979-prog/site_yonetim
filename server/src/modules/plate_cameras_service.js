@@ -153,7 +153,7 @@ export async function getCamerasOverview({ siteCode, canWrite }) {
     server_time: new Date(now).toISOString(),
     cameras: rows,
     gates: gates.rows.map((g) => ({ id: Number(g.id), name: g.name, direction_mode: g.direction_mode, is_active: g.is_active !== false })),
-    edge: { clients: edges, online: true, count: edges.length },
+    edge: { clients: edges, online: edges.some((edge) => edge.online === true), count: edges.length },
     auto_open: computeAutoOpen({ edges, boundActiveCameras: boundActive }),
     snapshot: {
       interval_seconds: settings.snapshot_interval_seconds,

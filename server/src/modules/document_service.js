@@ -9,6 +9,7 @@
 //  - Her sorguda site_code vardır (IDOR yok). Audit `details` yalnız kimlik/sayı/alan adı taşır: başlık, açıklama, dosya adı, not ASLA yazılmaz.
 
 import { pool } from '../db.js';
+import { assertSupportedDocumentAudienceChange, isPublicDocumentAudience } from './document_visibility.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { escapeLike, foldSql, foldText, apartmentLabel } from './people_common.js';
 import { assertTargetBelongsToSite } from './announcement_recipients.js';
@@ -200,7 +201,7 @@ export async function loadSummary(db, siteCode, id, limits, { canSeeUploader = t
 }
 
 /** Kurul üyesi yalnız yayındaki ve kurula/sakinlere açık belgeleri görür. */
-const boardVisible = (row) => row.status === 'active' && (row.audience === 'board' || row.audience === 'residents');
+const boardVisible = (row) => row.status === 'active' && (row.audience === 'board' || isPublicDocumentAudience(row.audience));
 
 function listWhere(siteCode, filters, { board }) {
   const params = [siteCode];
@@ -211,7 +212,7 @@ function listWhere(siteCode, filters, { board }) {
     clauses.push(`d.status = $${params.length}`);
   }
   if (board) {
-    clauses.push(`d.audience IN ('board', 'residents')`);
+    clauses.push(`d.audience IN ('board', 'residents', 'all')`);
   }
   if (filters.category) {
     params.push(filters.category);
@@ -760,6 +761,7 @@ export async function updateDocument({ siteCode, rawId, actor, body, limits }) {
     if (row.status !== 'active') {
       throw invalidState('Yalnızca yayındaki belge düzenlenebilir.');
     }
+    assertSupportedDocumentAudienceChange(row.audience, patch.audience);
     const sets = [];
     const values = [id, siteCode];
     const fields = [];
@@ -798,7 +800,7 @@ export async function updateDocument({ siteCode, rawId, actor, body, limits }) {
     if (audienceChanged) {
       setField('audience', nextAudience);
       fields.push('audience');
-      if (row.audience === 'residents') {
+      if (isPublicDocumentAudience(row.audience) && !isPublicDocumentAudience(nextAudience)) {
         // Sakinlere açık olmaktan çıkan belge duyuru eki olarak kalamaz: yayındaki bir duyuruya ekliyse onay gerekir; taslak/zamanlanmışlardan çıkarılır.
         // Yayındaki duyurudaki bağ kalır (geçmiş) AMA ek yolu (resolveAnnouncementAttachmentDownload / loadAttachments) `audience = 'residents'` ister:
         // kitle değiştiği an ek indirilemez ve `available:false` olur (yeni sürümü de sızmaz).

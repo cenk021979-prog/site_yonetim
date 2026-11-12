@@ -2,9 +2,11 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:site_kapi_kontrol/models/account_data_export.dart' show formatByteSize;
+import 'package:site_kapi_kontrol/models/account_data_export.dart'
+    show formatByteSize;
 import 'package:site_kapi_kontrol/models/bulk_import.dart';
-import 'package:site_kapi_kontrol/services/account_export_share.dart' show ExportShareOutcome;
+import 'package:site_kapi_kontrol/services/account_export_share.dart'
+    show ExportShareOutcome;
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/bulk_export_renderer.dart';
 import 'package:site_kapi_kontrol/services/bulk_file_delivery.dart';
@@ -28,6 +30,7 @@ class ExportSource {
     this.notesLabel,
     this.fetchWithNotes,
     this.sheetName,
+    this.isCurrent,
   });
 
   /// Kullanıcıya görünen ad ("Kişiler").
@@ -39,16 +42,24 @@ class ExportSource {
   final String? filterSummary;
 
   final String? notesLabel;
-  final Future<ExportEnvelope> Function(ExportFormat format, bool includeNotes)? fetchWithNotes;
+  final Future<ExportEnvelope> Function(ExportFormat format, bool includeNotes)?
+  fetchWithNotes;
 
   /// XLSX sayfa adı (varsayılan: zarf türü).
   final String? sheetName;
+
+  /// Prevent a prepared personal-data file from crossing an account/token change.
+  final bool Function()? isCurrent;
 
   bool get hasNotesToggle => notesLabel != null && fetchWithNotes != null;
 }
 
 typedef ExportRenderer =
-    Future<RenderedFile> Function(ExportEnvelope envelope, ExportFormat format, {String? sheetName});
+    Future<RenderedFile> Function(
+      ExportEnvelope envelope,
+      ExportFormat format, {
+      String? sheetName,
+    });
 
 class ExportSheet extends StatefulWidget {
   /// Test düzeneği: teslim [delivery] verilmediğinde gerçek paylaşım / kaydetme yerine sahtesi kullanılır.
@@ -62,6 +73,7 @@ class ExportSheet extends StatefulWidget {
     this.delivery,
     this.renderer = renderExportAsync,
     this.title = 'Dışa Aktar',
+    this.combineSources = false,
   }) : assert(sources.length > 0, 'En az bir kaynak gerekir');
 
   final List<ExportSource> sources;
@@ -69,6 +81,9 @@ class ExportSheet extends StatefulWidget {
   final BulkFileDelivery? delivery;
   final ExportRenderer renderer;
   final String title;
+
+  /// CRM: one workbook containing every source, no per-kind/format choices.
+  final bool combineSources;
 
   /// Alt sayfayı açar. Kapatılana dek sonuç dönmez.
   static Future<void> show(
@@ -78,6 +93,7 @@ class ExportSheet extends StatefulWidget {
     BulkFileDelivery? delivery,
     ExportRenderer renderer = renderExportAsync,
     String title = 'Dışa Aktar',
+    bool combineSources = false,
   }) {
     return showModalBottomSheet<void>(
       context: context,
@@ -90,6 +106,7 @@ class ExportSheet extends StatefulWidget {
         delivery: delivery,
         renderer: renderer,
         title: title,
+        combineSources: combineSources,
       ),
     );
   }
@@ -108,18 +125,32 @@ class _ExportSheetState extends State<ExportSheet> {
   String? _success;
   final RetryLock _retry = RetryLock();
   late final BulkFileDelivery _delivery =
-      widget.delivery ?? ExportSheet.debugDeliveryFactory?.call() ?? BulkFileSharer();
+      widget.delivery ??
+      ExportSheet.debugDeliveryFactory?.call() ??
+      BulkFileSharer();
   final GlobalKey _buttonKey = GlobalKey();
   int _token = 0;
 
   ExportSource get _source => widget.sources[_index];
+  bool get _hasNotes => widget.combineSources
+      ? widget.sources.any((source) => source.hasNotesToggle)
+      : _source.hasNotesToggle;
+
+  void _checkScope() {
+    final sources = widget.combineSources ? widget.sources : [_source];
+    if (sources.any((source) => source.isCurrent?.call() == false)) {
+      throw ApiException('Oturum değişti. Dışa aktarmayı yeniden açın.');
+    }
+  }
 
   @override
   void initState() {
     super.initState();
     // Önceki oturumlardan (sistem süreci öldürüldüyse) kalan kişisel veri dosyaları süpürülür.
     if (widget.delivery == null && ExportSheet.debugDeliveryFactory == null) {
-      unawaited(BulkFileSharer.sweepAll(staleAfter: const Duration(minutes: 10)));
+      unawaited(
+        BulkFileSharer.sweepAll(staleAfter: const Duration(minutes: 10)),
+      );
     }
   }
 
@@ -150,8 +181,8 @@ class _ExportSheetState extends State<ExportSheet> {
   Future<void> _save() async {
     if (_busy || _retry.locked) return;
     final source = _source;
-    final format = _format;
-    final notes = source.hasNotesToggle && _includeNotes;
+    final format = widget.combineSources ? ExportFormat.xlsx : _format;
+    final notes = _hasNotes && _includeNotes;
     final token = ++_token;
     setState(() {
       _busy = true;
@@ -160,18 +191,55 @@ class _ExportSheetState extends State<ExportSheet> {
       _success = null;
     });
     try {
-      final envelope = notes
-          ? await source.fetchWithNotes!(format, true)
-          : (source.hasNotesToggle ? await source.fetchWithNotes!(format, false) : await source.fetch(format));
+      _checkScope();
+      final envelopes = <ExportEnvelope>[];
+      for (final item in widget.combineSources ? widget.sources : [source]) {
+        final envelope = item.hasNotesToggle
+            ? await item.fetchWithNotes!(format, notes)
+            : await item.fetch(format);
+        if (!mounted || token != _token) return;
+        _checkScope();
+        envelopes.add(envelope);
+        if (widget.combineSources) validateExportWorkbookSize(envelopes);
+      }
       if (!mounted || token != _token) return;
-      if (envelope.rowCount == 0) {
-        setState(() => _info = 'Bu süzgeçle dışa aktarılacak kayıt yok. Süzgeci değiştirip tekrar deneyin.');
+      final rowCount = envelopes.fold<int>(
+        0,
+        (total, item) => total + item.rowCount,
+      );
+      if (rowCount == 0) {
+        setState(
+          () => _info = widget.combineSources
+              ? 'Tüm bölümlerde dışa aktarılacak kayıt yok.'
+              : 'Bu süzgeçle dışa aktarılacak kayıt yok. Süzgeci değiştirip tekrar deneyin.',
+        );
         return;
       }
-      final file = await widget.renderer(envelope, format, sheetName: source.sheetName);
+      final file = widget.combineSources
+          ? await renderExportWorkbookAsync(
+              envelopes,
+              sheetNames: [
+                for (final item in widget.sources) item.sheetName ?? item.label,
+              ],
+              filenameBase: envelopes.first.filenameBase.replaceFirst(
+                RegExp(r'^[^_]+'),
+                'site_kayitlari',
+              ),
+            )
+          : await widget.renderer(
+              envelopes.single,
+              format,
+              sheetName: source.sheetName,
+            );
       if (!mounted || token != _token) return;
-      final outcome = await _delivery.deliver(file, sharePositionOrigin: _origin(), subject: source.label);
+      _checkScope();
+      final outcome = await _delivery.deliver(
+        file,
+        sharePositionOrigin: _origin(),
+        subject: widget.combineSources ? 'Site kayıtları' : source.label,
+      );
       if (!mounted || token != _token) return;
+      _checkScope();
       setState(() {
         switch (outcome) {
           case ExportShareOutcome.dismissed:
@@ -182,7 +250,7 @@ class _ExportSheetState extends State<ExportSheet> {
           case ExportShareOutcome.unknown:
             _success =
                 '${BulkFileSharer.platformUsesSaveDialog ? 'Dosya kaydedildi' : 'Dosya hazır'}: ${file.fileName} '
-                '(${envelope.rowCount} satır, ${formatByteSize(file.bytes.length)}).';
+                '($rowCount satır, ${formatByteSize(file.bytes.length)}).';
         }
       });
     } catch (e) {
@@ -193,7 +261,9 @@ class _ExportSheetState extends State<ExportSheet> {
       setState(() {
         _error = limited
             ? RetryLock.messageFor(e)
-            : (e is ApiException && !e.genericFallback && e.message.trim().isNotEmpty
+            : (e is ApiException &&
+                      !e.genericFallback &&
+                      e.message.trim().isNotEmpty
                   ? e.message
                   : 'Dışa aktarma yapılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
       });
@@ -208,9 +278,16 @@ class _ExportSheetState extends State<ExportSheet> {
     final p = context.palette;
     final source = _source;
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-    final saveLabel = BulkFileSharer.platformUsesSaveDialog ? 'Kaydet' : 'Paylaş';
+    final saveLabel = BulkFileSharer.platformUsesSaveDialog
+        ? 'Kaydet'
+        : 'Paylaş';
     return SingleChildScrollView(
-      padding: EdgeInsets.fromLTRB(AppSpace.lg, 0, AppSpace.lg, AppSpace.lg + bottomInset),
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        0,
+        AppSpace.lg,
+        AppSpace.lg + bottomInset,
+      ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -221,12 +298,17 @@ class _ExportSheetState extends State<ExportSheet> {
           ),
           const SizedBox(height: AppSpace.sm),
           Text(
-            'Kayıtlar sunucudan alınır, dosya cihazınızda hazırlanır. Tüm sayfalardaki kayıtlar dahil edilir.',
+            widget.combineSources
+                ? 'Kişiler, daireler, araçlar ve kadro aynı Excel sayfasına kaydedilir. Bölümlerin sütunları ayrı, her kayıt kendi satırındadır.'
+                : 'Kayıtlar sunucudan alınır, dosya cihazınızda hazırlanır. Tüm sayfalardaki kayıtlar dahil edilir.',
             style: th.bodyMedium?.copyWith(color: p.textSecondary),
           ),
-          if (widget.sources.length > 1) ...[
+          if (!widget.combineSources && widget.sources.length > 1) ...[
             const SizedBox(height: AppSpace.lg),
-            Semantics(header: true, child: Text('Ne aktarılsın?', style: th.titleSmall)),
+            Semantics(
+              header: true,
+              child: Text('Ne aktarılsın?', style: th.titleSmall),
+            ),
             const SizedBox(height: AppSpace.sm),
             Wrap(
               spacing: AppSpace.sm,
@@ -243,23 +325,40 @@ class _ExportSheetState extends State<ExportSheet> {
               ],
             ),
           ],
-          const SizedBox(height: AppSpace.lg),
-          Semantics(header: true, child: Text('Dosya biçimi', style: th.titleSmall)),
-          const SizedBox(height: AppSpace.sm),
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.sm,
-            children: [
-              for (final format in ExportFormat.values)
-                ChoiceChip(
-                  key: ValueKey<String>('export_format_${format.apiValue}'),
-                  label: Text(format == ExportFormat.xlsx ? 'Excel (.xlsx) · önerilen' : format.label),
-                  selected: _format == format,
-                  onSelected: _busy ? null : (_) => setState(() => _format = format),
-                ),
-            ],
-          ),
-          if (source.filterSummary != null) ...[
+          if (!widget.combineSources) ...[
+            const SizedBox(height: AppSpace.lg),
+            Semantics(
+              header: true,
+              child: Text('Dosya biçimi', style: th.titleSmall),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final format in ExportFormat.values)
+                  ChoiceChip(
+                    key: ValueKey<String>('export_format_${format.apiValue}'),
+                    label: Text(
+                      format == ExportFormat.xlsx
+                          ? 'Excel (.xlsx) · önerilen'
+                          : format.label,
+                    ),
+                    selected: _format == format,
+                    onSelected: _busy
+                        ? null
+                        : (_) => setState(() => _format = format),
+                  ),
+              ],
+            ),
+          ],
+          if (widget.combineSources) ...[
+            const SizedBox(height: AppSpace.md),
+            const Text(
+              'Tüm kayıtlar dahil edilir; ekrandaki arama ve süzgeçler dosyayı daraltmaz.',
+            ),
+          ],
+          if (!widget.combineSources && source.filterSummary != null) ...[
             const SizedBox(height: AppSpace.lg),
             AppCard(
               key: const ValueKey<String>('export_filter_summary'),
@@ -267,24 +366,36 @@ class _ExportSheetState extends State<ExportSheet> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Uygulanan süzgeç', style: th.bodySmall?.copyWith(color: p.textSecondary)),
+                  Text(
+                    'Uygulanan süzgeç',
+                    style: th.bodySmall?.copyWith(color: p.textSecondary),
+                  ),
                   const SizedBox(height: AppSpace.xs),
-                  Text(source.filterSummary!, style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(
+                    source.filterSummary!,
+                    style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
                 ],
               ),
             ),
           ],
-          if (source.hasNotesToggle) ...[
+          if (_hasNotes) ...[
             const SizedBox(height: AppSpace.sm),
             Material(
               type: MaterialType.transparency,
               child: SwitchListTile(
                 key: const ValueKey<String>('export_include_notes'),
                 contentPadding: EdgeInsets.zero,
-                title: Text(source.notesLabel!),
+                title: Text(
+                  widget.combineSources
+                      ? 'Notları da ekle'
+                      : source.notesLabel!,
+                ),
                 subtitle: const Text('Varsayılan olarak kapalıdır.'),
                 value: _includeNotes,
-                onChanged: _busy ? null : (value) => setState(() => _includeNotes = value),
+                onChanged: _busy
+                    ? null
+                    : (value) => setState(() => _includeNotes = value),
               ),
             ),
           ],
@@ -292,19 +403,31 @@ class _ExportSheetState extends State<ExportSheet> {
           const InlineNotice(
             key: ValueKey<String>('export_privacy_notice'),
             tone: AppTone.warning,
-            message: 'Bu dosya kişisel veri içerir; güvenli saklayın ve yetkisiz kişilerle paylaşmayın.',
+            message:
+                'Bu dosya kişisel veri içerir; güvenli saklayın ve yetkisiz kişilerle paylaşmayın.',
           ),
           if (_error != null) ...[
             const SizedBox(height: AppSpace.md),
-            BulkErrorNotice(key: const ValueKey<String>('export_error'), message: _error!),
+            BulkErrorNotice(
+              key: const ValueKey<String>('export_error'),
+              message: _error!,
+            ),
           ],
           if (_info != null) ...[
             const SizedBox(height: AppSpace.md),
-            InlineNotice(key: const ValueKey<String>('export_info'), tone: AppTone.info, message: _info!),
+            InlineNotice(
+              key: const ValueKey<String>('export_info'),
+              tone: AppTone.info,
+              message: _info!,
+            ),
           ],
           if (_success != null) ...[
             const SizedBox(height: AppSpace.md),
-            InlineNotice(key: const ValueKey<String>('export_success'), tone: AppTone.success, message: _success!),
+            InlineNotice(
+              key: const ValueKey<String>('export_success'),
+              tone: AppTone.success,
+              message: _success!,
+            ),
           ],
           const SizedBox(height: AppSpace.lg),
           KeyedSubtree(
@@ -312,7 +435,9 @@ class _ExportSheetState extends State<ExportSheet> {
             child: PrimaryActionButton(
               key: const ValueKey<String>('export_save'),
               label: _busy ? 'Hazırlanıyor…' : saveLabel,
-              icon: BulkFileSharer.platformUsesSaveDialog ? Icons.save_alt_rounded : Icons.ios_share_rounded,
+              icon: BulkFileSharer.platformUsesSaveDialog
+                  ? Icons.save_alt_rounded
+                  : Icons.ios_share_rounded,
               loading: _busy,
               onPressed: _busy || _retry.locked ? null : _save,
             ),

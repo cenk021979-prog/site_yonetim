@@ -310,7 +310,7 @@ export function redistributesOnSkip(distribution) {
 export function planHash(plan) {
   const lines = [...plan.lines]
     .sort((a, b) => a.apartmentId - b.apartmentId)
-    .map((line) => `${line.apartmentId}:${line.amount}:${line.payerParty}${line.accountParty === undefined ? '' : `:${line.accountParty}`}`);
+    .map((line) => `${line.apartmentId}:${line.amount}:${line.payerParty}${line.accountParty === undefined ? '' : `:${line.accountParty}`}${line.proration ? `:daily:${line.proration.schedule_hash}` : ''}`);
   const missing = [...plan.missing].sort((a, b) => a.apartmentId - b.apartmentId).map((entry) => `m:${entry.apartmentId}:${entry.reasonCode}`);
   return createHash('sha256').update(['v1', ...lines, ...missing].join('\n')).digest('hex');
 }

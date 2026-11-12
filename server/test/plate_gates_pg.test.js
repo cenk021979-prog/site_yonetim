@@ -342,6 +342,9 @@ describe('plaka geçiş noktaları + kenar istemci: gerçek PostgreSQL', { skip 
     assert.equal((await app('PUT', '/app/plate-permits/notify', { site_code: ids.site, movement_enabled: 'evet' })).status, 400);
     const vehicle = (await q(`SELECT id, apartment_id, person_id FROM vehicles WHERE site_code = $1 AND plate = '34ABC123'`, [ids.site])).rows[0];
     const movement = { siteCode: ids.site, vehicle, direction: 'giris', seenAt: new Date() };
+    assert.deepEqual(await notifyResidentMovement(movement), { skipped: 'site_disabled' });
+    assert.equal((await app('PUT', '/app/plate-permits/notify', { site_code: ids.site, movement_enabled: true })).status, 403);
+    assert.equal((await mgr('PUT', '/gate-settings', { resident_movement_notifications_enabled: true })).status, 200);
     assert.deepEqual(await notifyResidentMovement(movement), { skipped: 'no_opt_in' });
     assert.equal((await app('PUT', '/app/plate-permits/notify', { site_code: ids.site, movement_enabled: true })).status, 200);
     assert.equal((await app('GET', `/app/plate-permits?site_code=${ids.site}`)).json.movement_notify, true);

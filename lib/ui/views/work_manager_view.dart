@@ -396,10 +396,10 @@ class WorkManagerViewState extends State<WorkManagerView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Talepler', icon: Icons.assignment_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          switch (site.access) {
+        PageHeaderCard(
+          title: 'Talepler',
+          icon: Icons.assignment_rounded,
+          help: switch (site.access) {
             WorkSiteAccess.staff =>
               'Size atanan ve henüz kimseye atanmamış talepleri görür, durumunu güncellersiniz.',
             WorkSiteAccess.board =>
@@ -407,9 +407,8 @@ class WorkManagerViewState extends State<WorkManagerView> {
             WorkSiteAccess.manager =>
               'Sakinlerin açtığı arıza, bakım ve talepleri izleyin; durum, öncelik ve atama yapın.',
           },
-          style: th.bodyMedium,
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (_sitesError != null) ...[
           InlineNotice(message: _sitesError!, onRetry: reload),
           const SizedBox(height: AppSpace.md),

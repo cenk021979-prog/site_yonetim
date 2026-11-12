@@ -35,6 +35,7 @@ import { fcmClientFor } from './push_fcm.js';
 import { buildTestMessage } from './push_message.js';
 import { parsePositiveId, toIso } from './people_common.js';
 import { deleteWebPushDataForUser } from './web_push.js';
+import { assertPushRegistrationAllowed } from './push_capabilities.js';
 
 const INT32_MAX = 2147483647;
 
@@ -121,9 +122,10 @@ export async function lockLiveUser(client, userCode) {
   }
 }
 
-async function registerOnce(db, userCode, input) {
+async function registerOnce(db, userCode, input, authUser) {
   return inTransaction(db, async (client) => {
     await lockLiveUser(client, userCode);
+    await assertPushRegistrationAllowed(authUser, client);
     // Kullanıcı başına kayıt kilidi (iki-int sınıf "PUSH"; push_common.js): 9 cihaz + 2 eşzamanlı yeni kurulum 11 satır bırakmasın.
     await client.query('SELECT pg_advisory_xact_lock($1::int, $2::int)', [PUSH_DEVICE_LOCK_CLASS, userCode]);
     // Cihaz devri: aynı jeton başka kullanıcı / kurulumdaysa o satır silinir (A çıkış yapamadan B girerse A'ya B'nin bildirimi gitmez).
@@ -179,7 +181,7 @@ export async function registerPushDevice(authUser, body, db = pool) {
   let deviceId;
   for (let attempt = 1; ; attempt += 1) {
     try {
-      deviceId = await registerOnce(db, userCode, input);
+      deviceId = await registerOnce(db, userCode, input, authUser);
       break;
     } catch (error) {
       if ((error?.code === '23505' || error?.code === '40P01') && attempt === 1) {

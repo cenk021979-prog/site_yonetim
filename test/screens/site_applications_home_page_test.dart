@@ -44,6 +44,18 @@ import 'site_application_fixtures.dart';
 import '../legal_fixtures.dart';
 import '../support/menu_nav.dart';
 
+Future<void> _refreshHeader(WidgetTester t) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.tap(find.byWidgetPredicate((w) => w is PopupMenuItem<String> && w.value == 'refresh'));
+  } else {
+    await t.tap(find.descendant(of: find.byType(AppBar), matching: find.byTooltip('Yenile')));
+  }
+}
+
 SiteRecord _site(int id, String name) => SiteRecord.fromJson(<String, dynamic>{
   'id': id,
   'name': name,
@@ -313,7 +325,7 @@ void main() {
       await _pumpHome(t, auth);
       await _tapMenu(t, 'Site Başvuruları');
       final calls = auth.adminListCalls.length;
-      await t.tap(find.byTooltip('Yenile').first);
+      await _refreshHeader(t);
       await t.pump();
       await t.pump(const Duration(milliseconds: 300));
       expect(auth.adminListCalls.length, greaterThan(calls));
@@ -931,7 +943,7 @@ void main() {
       final auth = _HomeApp(role: UserRole.individual);
       await _pumpHome(t, auth, height: 1400);
       final before = auth.mineCalls;
-      await t.tap(find.byTooltip('Yenile').first);
+      await _refreshHeader(t);
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       // Taze bilgi varken (az önce okundu) mine'ın art arda tekrar okunmaması beklenir; en çok 1 ek çağrı kabul.

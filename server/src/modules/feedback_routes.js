@@ -17,7 +17,7 @@ import { HOUR_MS, ipKey, resolveManagedSite, respondError, userKey } from './rou
 import { isClientAborted } from './document_upload.js';
 import { bodyTooLarge } from './work_tracking_common.js';
 import { FEEDBACK_ATTACHMENT_MAX_BYTES, FEEDBACK_MAX_BODY_BYTES } from './feedback_common.js';
-import { createFeedback, listFeedback } from './feedback_service.js';
+import { createFeedback, listFeedback, listOwnFeedback } from './feedback_service.js';
 import { receiveFeedbackContent, sendFeedbackContent } from './feedback_upload.js';
 
 export const feedbackRouter = express.Router();
@@ -80,6 +80,30 @@ function guardUnreadBody(req, res) {
 }
 
 // --- Gönderen ---------------------------------------------------------------------------------------------------------
+
+feedbackRouter.get('/app/feedback/mine', authRequired, feedbackReadLimiter, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    return res.status(200).json(await listOwnFeedback({ actor: req.authUser, query: req.query }));
+  } catch (error) {
+    return respondError(res, 'feedback_own_list', error, 'Geri bildirimleriniz yüklenemedi.');
+  }
+});
+
+feedbackRouter.get('/app/feedback/:id/attachments/:attId/content', authRequired, feedbackReadLimiter, async (req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    await sendFeedbackContent(req, res, { ownerOnly: true, actor: req.authUser, rawId: req.params.id, rawAttId: req.params.attId });
+    return undefined;
+  } catch (error) {
+    setRetryAfter(res, error);
+    if (res.headersSent) {
+      res.destroy();
+      return undefined;
+    }
+    return respondError(res, 'feedback_own_download', error, 'Dosya indirilemedi.');
+  }
+});
 
 feedbackRouter.post('/app/feedback', authRequired, feedbackWriteLimiter, async (req, res) => {
   try {

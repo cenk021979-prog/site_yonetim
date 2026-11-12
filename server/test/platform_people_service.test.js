@@ -58,6 +58,8 @@ function install() {
   const run = async (text, params, inTx) => {
     const sql = norm(text);
     log.push({ sql, params: params ?? [], inTx });
+    if (/FROM ledger_entries l INNER JOIN fee_runs fr ON fr.id = l.run_id/.test(sql)) return ok();
+    if (/^SELECT COALESCE\(SUM\(l.amount_minor\), 0\)::TEXT AS balance_minor FROM ledger_entries l/.test(sql)) return ok([{ balance_minor: '0' }]);
     // PostgreSQL gibi: SAVEPOINT'e donus (ROLLBACK TO SAVEPOINT) hata durumunu temizler.
     if (/^ROLLBACK TO SAVEPOINT /.test(sql)) {
       txAborted = false;

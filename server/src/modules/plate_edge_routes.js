@@ -17,6 +17,7 @@ import { HOUR_MS, ipKey, respondError } from './route_helpers.js';
 import { MAX_EDGE_BODY_BYTES, MAX_SNAPSHOT_BYTES, edgeKeyFromHeaders } from './plate_gates_common.js';
 import { bodyTooLarge } from './plate_recognition_common.js';
 import { PlatformError } from './errors.js';
+import { requestParkingAdmission } from './parking_access_service.js';
 import { authenticateEdge, claimEdge, commandResultEdge, commandsEdge, heartbeatEdge, recordEdgeEvent, snapshotEdge, syncEdge } from './plate_edge_service.js';
 
 export const plateEdgeRouter = express.Router();
@@ -54,6 +55,8 @@ function edgeHandler({ context, fallback }, run) {
 }
 
 const BASE = '/edge/plate/v1';
+
+plateEdgeRouter.post(`${BASE}/admissions`, ...edgeHandler({ context: 'parking_admission', fallback: 'Araç giriş hakkı doğrulanamadı.' }, ({ req, client }) => requestParkingAdmission({ siteCode: client.siteCode, edgeClientId: client.id, body: bodyOf(req) })));
 
 // Görüntü karoları: kamera başına birkaç saniyede bir istek; kaba kötüye kullanım freni IP başına (çok kameralı kulübe NAT'ı arkasında).
 const snapshotLimiter = createRuleLimiter({

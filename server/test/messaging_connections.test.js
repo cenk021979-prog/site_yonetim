@@ -149,7 +149,7 @@ test('uclar: kurul okur, yazamaz (403); yonetici yazar; kaldirma onay ister', as
 
 test('migration 118 ile db.js sema ifadesi ayni; .env.example yalniz AD', () => {
   const normalize = (sql) => sql.replace(/--.*$/gm, '').replace(/\s+/g, ' ').replace(/ ?([(),]) ?/g, '$1').trim().replace(/;$/, '').toLowerCase();
-  const migration = readFileSync(new URL('../migrations/117_site_messaging.sql', import.meta.url), 'utf8');
+  const migration = readFileSync(new URL('../migrations/118_site_messaging.sql', import.meta.url), 'utf8');
   assert.equal(normalize(migration), normalize(MESSAGING_DDL[0]));
   const env = readFileSync(new URL('../.env.example', import.meta.url), 'utf8');
   const line = env.split('\n').find((l) => l.includes('MESSAGING_SECRET_KEY'));

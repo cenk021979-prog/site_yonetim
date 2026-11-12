@@ -826,6 +826,40 @@ describe('GET .../download (yönetici / kurul)', () => {
     assert.ok(!log.some((entry) => /UPDATE documents SET download_count/.test(entry.sql)), 'yönetici / kurul indirmeleri sayılmaz');
   });
 
+  it('Herkes görevli okuması GET ve HEAD aynı güncel yetki sorgusundan geçer; daralma sonrasında ikisi de 404', async () => {
+    // Gerçek SQL rol/hedef matrisi document_audience_pg.test.js içindedir.
+    // Burada gerçek HTTP zinciri ve her istekte yeniden yetki çözülmesi sınanır.
+    let visible = true;
+    const appDownloadQuery = /^WITH my_apts AS MATERIALIZED .*SELECT d\.id, d\.site_code, cv\.id AS version_id/;
+    handlers.push(
+      [appDownloadQuery, (sql, params) => {
+        assert.deepEqual(params, [users.staff.user_code, 77]);
+        assert.match(sql, /d\.audience = 'all'/);
+        assert.match(sql, /document_user\.is_active = TRUE/);
+        assert.match(sql, /'STAFF'/);
+        return ok(visible ? [{ ...versionRow({ audience: 'all' }), site_code: SITE_1 }] : []);
+      }],
+      [/^UPDATE documents SET download_count = download_count \+ 1 WHERE id = \$1$/, ok()],
+    );
+    const url = '/app/documents/77/download';
+    const get = await call('GET', url, { user: users.staff });
+    assert.equal(get.status, 200);
+    assert.deepEqual(get.raw, PDF);
+    const head = await call('HEAD', url, { user: users.staff });
+    assert.equal(head.status, 200);
+    assert.equal(head.raw.length, 0);
+    assert.equal(head.headers.get('content-length'), String(PDF.length));
+    visible = false;
+    for (const method of ['GET', 'HEAD']) {
+      const denied = await call(method, url, { user: users.staff });
+      assert.equal(denied.status, 404, method);
+      assert.equal(denied.headers.get('content-disposition'), null, method);
+    }
+    assert.equal(log.filter((entry) => appDownloadQuery.test(entry.sql)).length, 4);
+    const manager = await call('GET', docUrl(), { user: users.staff });
+    assert.equal(manager.status, 403, 'Herkes yalnız okuma yolunu açar');
+  });
+
   it('kurul: yalnız yayındaki kurul / sakin belgesinin GÜNCEL sürümü; yöneticilere özel belge ve eski sürüm 404 (varlık sızmaz)', async () => {
     handlers.push([downloadQuery, ok([versionRow({ audience: 'managers' })])]);
     let res = await call('GET', docUrl('/77/download'), { user: users.board });

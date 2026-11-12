@@ -44,17 +44,25 @@ class XlsxListValidation {
   }) : choices = List<String>.unmodifiable(choices) {
     if (choices.isEmpty) throw ArgumentError('Seçim listesi boş olamaz.');
     for (final choice in choices) {
-      if (choice.trim().isEmpty || choice.contains(',') || choice.contains('"')) {
-        throw ArgumentError('Seçim listesi öğesi boş olamaz ve virgül / çift tırnak içeremez: «$choice».');
+      if (choice.trim().isEmpty ||
+          choice.contains(',') ||
+          choice.contains('"')) {
+        throw ArgumentError(
+          'Seçim listesi öğesi boş olamaz ve virgül / çift tırnak içeremez: «$choice».',
+        );
       }
     }
     if (choices.join(',').length > kXlsxListLiteralMax) {
-      throw ArgumentError('Seçim listesi Excel sınırını (255 karakter) aşıyor.');
+      throw ArgumentError(
+        'Seçim listesi Excel sınırını (255 karakter) aşıyor.',
+      );
     }
-    if ((promptTitle?.length ?? 0) > kXlsxValidationTitleMax || (errorTitle?.length ?? 0) > kXlsxValidationTitleMax) {
+    if ((promptTitle?.length ?? 0) > kXlsxValidationTitleMax ||
+        (errorTitle?.length ?? 0) > kXlsxValidationTitleMax) {
       throw ArgumentError('Doğrulama başlığı en çok 32 karakter olabilir.');
     }
-    if ((prompt?.length ?? 0) > kXlsxValidationMessageMax || (error?.length ?? 0) > kXlsxValidationMessageMax) {
+    if ((prompt?.length ?? 0) > kXlsxValidationMessageMax ||
+        (error?.length ?? 0) > kXlsxValidationMessageMax) {
       throw ArgumentError('Doğrulama iletisi en çok 255 karakter olabilir.');
     }
   }
@@ -70,8 +78,12 @@ class XlsxListValidation {
 /// (ör. plaka sütunu: çok plakalı, ayraçlı hücreler Excel formülüyle güvenilir doğrulanamaz).
 class XlsxInputPrompt {
   XlsxInputPrompt({required this.title, required this.message}) {
-    if (title.length > kXlsxValidationTitleMax) throw ArgumentError('İpucu başlığı en çok 32 karakter olabilir.');
-    if (message.length > kXlsxValidationMessageMax) throw ArgumentError('İpucu iletisi en çok 255 karakter olabilir.');
+    if (title.length > kXlsxValidationTitleMax) {
+      throw ArgumentError('İpucu başlığı en çok 32 karakter olabilir.');
+    }
+    if (message.length > kXlsxValidationMessageMax) {
+      throw ArgumentError('İpucu iletisi en çok 255 karakter olabilir.');
+    }
   }
 
   final String title;
@@ -79,7 +91,14 @@ class XlsxInputPrompt {
 }
 
 class XlsxColumn {
-  const XlsxColumn(this.header, {this.format = XlsxFormat.general, this.scale = 2, this.width, this.listValidation, this.inputPrompt});
+  const XlsxColumn(
+    this.header, {
+    this.format = XlsxFormat.general,
+    this.scale = 2,
+    this.width,
+    this.listValidation,
+    this.inputPrompt,
+  });
 
   final String header;
   final XlsxFormat format;
@@ -103,6 +122,7 @@ class XlsxSheet {
     required this.columns,
     required this.rows,
     this.freezeHeader = true,
+    this.autoFilter = false,
     this.validationLastRow = kXlsxValidationLastRow,
   });
 
@@ -112,6 +132,9 @@ class XlsxSheet {
   /// Hücre değerleri: `String` | `int` | `double` | `DateTime` | ISO tarih metni (tarih sütununda) | [XlsxMoney] | null.
   final List<List<Object?>> rows;
   final bool freezeHeader;
+
+  /// Optional filter arrows. Off by default for existing templates/finance files.
+  final bool autoFilter;
 
   /// Liste doğrulamasının uzandığı son satır (1 tabanlı). Boş satırlar da kapsanır: yönetici dosyaya satır ekleyince açılır liste hazır olsun.
   final int validationLastRow;
@@ -169,7 +192,9 @@ class _Styles {
     // 164: gg.aa.yyyy; 165+: 0.0, 0.000...
     custom.write('<numFmt numFmtId="164" formatCode="dd\\.mm\\.yyyy"/>');
     for (var i = 0; i < _extraScales.length; i++) {
-      custom.write('<numFmt numFmtId="${165 + i}" formatCode="0.${'0' * _extraScales[i]}"/>');
+      custom.write(
+        '<numFmt numFmtId="${165 + i}" formatCode="0.${'0' * _extraScales[i]}"/>',
+      );
     }
     final xfs = StringBuffer()
       ..write('<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>')
@@ -177,17 +202,29 @@ class _Styles {
         '<xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" '
         'applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>',
       )
-      ..write('<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>')
-      ..write('<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>')
-      ..write('<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>')
-      ..write('<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>')
+      ..write(
+        '<xf numFmtId="49" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      )
+      ..write(
+        '<xf numFmtId="164" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      )
+      ..write(
+        '<xf numFmtId="1" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      )
+      ..write(
+        '<xf numFmtId="4" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      )
       ..write(
         '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1">'
         '<alignment vertical="top" wrapText="1"/></xf>',
       )
-      ..write('<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>');
+      ..write(
+        '<xf numFmtId="2" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      );
     for (var i = 0; i < _extraScales.length; i++) {
-      xfs.write('<xf numFmtId="${165 + i}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>');
+      xfs.write(
+        '<xf numFmtId="${165 + i}" fontId="0" fillId="0" borderId="0" xfId="0" applyNumberFormat="1"/>',
+      );
     }
     final count = 8 + _extraScales.length;
     return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
@@ -228,14 +265,17 @@ Uint8List buildXlsx(List<XlsxSheet> sheets) {
     var suffix = 2;
     while (!usedNames.add(name.toLowerCase())) {
       final tail = ' ($suffix)';
-      final base = name.length + tail.length > 31 ? name.substring(0, 31 - tail.length) : name;
+      final base = name.length + tail.length > 31
+          ? name.substring(0, 31 - tail.length)
+          : name;
       name = '$base$tail';
       suffix++;
     }
     sheetNames.add(name);
   }
   final sheetXml = <String>[
-    for (var i = 0; i < sheets.length; i++) _sheetXml(sheets[i], styles, selected: i == 0),
+    for (var i = 0; i < sheets.length; i++)
+      _sheetXml(sheets[i], styles, selected: i == 0),
   ];
 
   final archive = Archive();
@@ -273,7 +313,9 @@ Uint8List buildXlsx(List<XlsxSheet> sheets) {
   final sheetTags = StringBuffer();
   final rels = StringBuffer();
   for (var i = 0; i < sheets.length; i++) {
-    sheetTags.write('<sheet name="${escapeXml(sheetNames[i])}" sheetId="${i + 1}" r:id="rId${i + 1}"/>');
+    sheetTags.write(
+      '<sheet name="${escapeXml(sheetNames[i])}" sheetId="${i + 1}" r:id="rId${i + 1}"/>',
+    );
     rels.write(
       '<Relationship Id="rId${i + 1}" '
       'Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" '
@@ -309,11 +351,15 @@ String _sheetXml(XlsxSheet sheet, _Styles styles, {required bool selected}) {
   final columns = sheet.columns;
   final out = StringBuffer()
     ..write('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n')
-    ..write('<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">');
+    ..write(
+      '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">',
+    );
   final lastCol = columns.isEmpty ? 0 : columns.length - 1;
   final lastRow = sheet.rows.length + 1;
   out.write('<dimension ref="A1:${_columnLetters(lastCol)}$lastRow"/>');
-  out.write('<sheetViews><sheetView workbookViewId="0"${selected ? ' tabSelected="1"' : ''}>');
+  out.write(
+    '<sheetViews><sheetView workbookViewId="0"${selected ? ' tabSelected="1"' : ''}>',
+  );
   if (sheet.freezeHeader) {
     out.write(
       '<pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/>'
@@ -338,7 +384,9 @@ String _sheetXml(XlsxSheet sheet, _Styles styles, {required bool selected}) {
   // Başlık.
   out.write('<row r="1" ht="22" customHeight="1">');
   for (var c = 0; c < columns.length; c++) {
-    out.write(_inlineCell('${_columnLetters(c)}1', columns[c].header, _Styles.header));
+    out.write(
+      _inlineCell('${_columnLetters(c)}1', columns[c].header, _Styles.header),
+    );
   }
   out.write('</row>');
 
@@ -347,21 +395,33 @@ String _sheetXml(XlsxSheet sheet, _Styles styles, {required bool selected}) {
     final row = sheet.rows[r];
     out.write('<row r="$rowNo">');
     for (var c = 0; c < columns.length && c < row.length; c++) {
-      final cell = _cellXml('${_columnLetters(c)}$rowNo', row[c], columns[c], styles);
+      final cell = _cellXml(
+        '${_columnLetters(c)}$rowNo',
+        row[c],
+        columns[c],
+        styles,
+      );
       if (cell != null) out.write(cell);
     }
     out.write('</row>');
   }
   out.write('</sheetData>');
+  if (sheet.autoFilter && columns.isNotEmpty) {
+    out.write('<autoFilter ref="A1:${_columnLetters(lastCol)}$lastRow"/>');
+  }
   out.write(_dataValidationsXml(sheet));
-  out.write('<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>');
+  out.write(
+    '<pageMargins left="0.7" right="0.7" top="0.75" bottom="0.75" header="0.3" footer="0.3"/>',
+  );
   out.write('</worksheet>');
   return out.toString();
 }
 
 /// `<dataValidations>` öğesi (liste doğrulaması olan sütun yoksa boş). Şema sırasında `sheetData`'dan sonra, `pageMargins`'ten önce yazılır.
 String _dataValidationsXml(XlsxSheet sheet) {
-  final lastRow = sheet.validationLastRow > sheet.rows.length + 1 ? sheet.validationLastRow : sheet.rows.length + 1;
+  final lastRow = sheet.validationLastRow > sheet.rows.length + 1
+      ? sheet.validationLastRow
+      : sheet.rows.length + 1;
   final items = StringBuffer();
   var count = 0;
   for (var c = 0; c < sheet.columns.length; c++) {
@@ -378,9 +438,13 @@ String _dataValidationsXml(XlsxSheet sheet) {
       count++;
       continue;
     }
-    final attrs = StringBuffer('type="list" errorStyle="stop" allowBlank="1" showInputMessage="1" showErrorMessage="1"');
+    final attrs = StringBuffer(
+      'type="list" errorStyle="stop" allowBlank="1" showInputMessage="1" showErrorMessage="1"',
+    );
     void attr(String name, String? value) {
-      if (value != null && value.isNotEmpty) attrs.write(' $name="${escapeXml(value)}"');
+      if (value != null && value.isNotEmpty) {
+        attrs.write(' $name="${escapeXml(value)}"');
+      }
     }
 
     attr('errorTitle', validation.errorTitle);
@@ -393,7 +457,9 @@ String _dataValidationsXml(XlsxSheet sheet) {
     );
     count++;
   }
-  return count == 0 ? '' : '<dataValidations count="$count">$items</dataValidations>';
+  return count == 0
+      ? ''
+      : '<dataValidations count="$count">$items</dataValidations>';
 }
 
 double _estimateWidth(XlsxColumn column, List<List<Object?>> rows, int index) {
@@ -423,9 +489,13 @@ String? _cellXml(String ref, Object? value, XlsxColumn column, _Styles styles) {
     return '<c r="$ref" s="${_Styles.money}"><v>$text</v></c>';
   }
   if (value is DateTime ||
-      (value is String && column.format == XlsxFormat.date && parseIsoDate(value) != null)) {
+      (value is String &&
+          column.format == XlsxFormat.date &&
+          parseIsoDate(value) != null)) {
     final serial = excelSerialOf(value);
-    if (serial != null) return '<c r="$ref" s="${_Styles.date}"><v>$serial</v></c>';
+    if (serial != null) {
+      return '<c r="$ref" s="${_Styles.date}"><v>$serial</v></c>';
+    }
     // Excel 1900-03-01 öncesi tarihi gösteremez: okunur metin olarak yazılır.
     final text = formatTurkishDate(value);
     return text == null ? null : _inlineCell(ref, text, _Styles.text);
@@ -433,14 +503,18 @@ String? _cellXml(String ref, Object? value, XlsxColumn column, _Styles styles) {
   if (value is num) {
     if (value is double && !value.isFinite) return null;
     final style = switch (column.format) {
-      XlsxFormat.integer || XlsxFormat.decimal || XlsxFormat.money => columnStyle,
+      XlsxFormat.integer ||
+      XlsxFormat.decimal ||
+      XlsxFormat.money => columnStyle,
       _ => _Styles.general,
     };
     final text = formatPlainNumber(value, separator: '.');
     final styleAttr = style == 0 ? '' : ' s="$style"';
     return '<c r="$ref"$styleAttr><v>$text</v></c>';
   }
-  if (value is bool) return _inlineCell(ref, value ? 'Evet' : 'Hayır', columnStyle);
+  if (value is bool) {
+    return _inlineCell(ref, value ? 'Evet' : 'Hayır', columnStyle);
+  }
   final text = '$value';
   if (text.isEmpty) return null;
   final style = switch (column.format) {

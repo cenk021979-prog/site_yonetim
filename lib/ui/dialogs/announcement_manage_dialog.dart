@@ -504,6 +504,7 @@ class _AnnouncementManageDialogState extends State<AnnouncementManageDialog> {
           const SizedBox(height: AppSpace.md),
           DocumentAttachmentsList(
             attachments: detail.attachments,
+            authService: _documents.authService,
             download: (attachment) => (onProgress, cancel) => _documents.downloadManaged(
               widget.scope.siteCode,
               attachment.documentId,

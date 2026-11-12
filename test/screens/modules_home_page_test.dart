@@ -329,6 +329,29 @@ Future<void> _openDoorPanel(WidgetTester t) async {
 Finder _inAppBar(Finder f) =>
     find.descendant(of: find.byType(AppBar), matching: f);
 
+/// Genel başlık eylemi: kompakt düzende Diğer işlemler içinden, genişte
+/// mevcut doğrudan düğmeden çalışır; gövdedeki yenile düğmesine dokunmaz.
+Future<void> _tapHeaderCommand(
+  WidgetTester t,
+  String command, {
+  String label = 'Yenile',
+}) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.tap(find.byWidgetPredicate(
+      (w) => w is PopupMenuItem<String> && w.value == command,
+    ));
+  } else {
+    final tooltip = _inAppBar(find.byTooltip(label));
+    await t.tap(tooltip.evaluate().isNotEmpty ? tooltip : _inAppBar(find.text(label)));
+  }
+  await t.pump();
+  await t.pump(const Duration(milliseconds: 300));
+}
+
 Finder _tileTitle(String title) => find.descendant(
   of: find.byType(Drawer),
   matching: find.text(title),
@@ -401,8 +424,8 @@ void main() {
       final modulesBefore = auth.getModulesCalls.length;
       final myBefore = auth.myModulesCalls;
 
-      // AppBar'daki genel "Yenile" (gövdedeki ekran içi yenile düğmesi DEĞİL).
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      // Kompakt başlıktaki genel Yenile; ekran içi yenile düğmesi değil.
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
 
@@ -419,7 +442,7 @@ void main() {
       await _tapMenu(t, 'Denetim Kaydı');
       final before = auth.auditCalls.length;
 
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(auth.auditCalls.length, greaterThan(before));
@@ -653,7 +676,7 @@ void main() {
 
       // Süper kullanıcı başka yerden kapattı: yönetici yenileyince menü güncellenir.
       auth.states[11] = mdState(11, 'Gül Sitesi', door: false, superView: false);
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 800));
       await _openSettings(t);
@@ -788,7 +811,7 @@ void main() {
       final before = auth.adminCalls.length;
 
       auth.adminRequests = <ModuleRequest>[mdRequest(1), mdRequest(2), mdRequest(3)];
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 800));
       expect(auth.adminCalls.length, greaterThan(before));
@@ -971,7 +994,7 @@ void main() {
           reason: 'sesli komut servisindeki eski kapı listesi boş listeyle temizlenir');
 
       final callsBefore = auth.listMyDoorsCalls;
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(auth.listMyDoorsCalls, greaterThan(callsBefore));
@@ -1001,7 +1024,7 @@ void main() {
             reason: 'sesli komut servisindeki eski kapı listesi boş listeyle temizlenir');
 
         final callsBefore = auth.listMyDoorsCalls;
-        await t.tap(_inAppBar(find.byTooltip('Yenile')));
+        await _tapHeaderCommand(t, 'refresh');
         await t.pump();
         await t.pump(const Duration(milliseconds: 600));
         expect(auth.listMyDoorsCalls, greaterThan(callsBefore));
@@ -1046,7 +1069,7 @@ void main() {
       expect(voice.stopCalls, 0);
 
       // Yenileme dinlemeyi ikinci kez başlatmaz (zaten dinliyor).
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(voice.startCalls, 1);
@@ -1152,7 +1175,7 @@ void main() {
       expect(find.byKey(const ValueKey<String>('panel_kart_moduller')), findsOneWidget);
 
       // Sakin modu: vitrin (sakin kitlesi) + altında bireysel ana ekran (dairelerim vb.) + kısa bilgi; Modüller kartı YOK.
-      await t.tap(_inAppBar(find.text('Sakin Modu')));
+      await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       await t.pump(const Duration(milliseconds: 600));
@@ -1167,7 +1190,7 @@ void main() {
       await _closeDrawer(t);
 
       // Yönetici paneline dönüş.
-      await t.tap(_inAppBar(find.text('Yönetici Paneli')));
+      await _tapHeaderCommand(t, 'mode', label: 'Yönetici Paneline Geç');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byKey(const ValueKey<String>('panel_kart_moduller')), findsOneWidget);
@@ -1260,7 +1283,7 @@ void main() {
       expect(auth.myModulesCalls, 0, reason: 'süper kullanıcı için my-modules çekilmez');
 
       auth.states[11] = mdState(11, 'Gül Sitesi', door: true);
-      await t.tap(_inAppBar(find.byTooltip('Yenile')));
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byType(DoorControlDisabledCard), findsNothing);

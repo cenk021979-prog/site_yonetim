@@ -61,21 +61,29 @@ class PlateLiveStreamEvent {
       'red' => PlateDecisionType.red,
       'tanimsiz' => PlateDecisionType.tanimsiz,
       _ => switch (row.decision) {
-          'ALLOWED' => PlateDecisionType.acildi,
-          'DENIED' => PlateDecisionType.red,
-          _ => PlateDecisionType.tanimsiz,
-        },
+        'ALLOWED' => PlateDecisionType.acildi,
+        'DENIED' => PlateDecisionType.red,
+        _ => PlateDecisionType.tanimsiz,
+      },
     };
-    final dir = row.direction == 'cikis' ? 'cikis' : 'giris';
+    final dir = row.direction == 'cikis'
+        ? 'cikis'
+        : row.direction == 'giris'
+        ? 'giris'
+        : 'unknown';
     final gate = (row.doorName ?? '').trim().isNotEmpty
         ? row.doorName!.trim()
-        : ((row.deviceName ?? '').trim().isNotEmpty ? row.deviceName!.trim() : 'Geçiş Kapısı');
+        : ((row.deviceName ?? '').trim().isNotEmpty
+              ? row.deviceName!.trim()
+              : 'Geçiş Kapısı');
     return PlateLiveStreamEvent(
       key: 'srv_${row.id}_$norm',
       serverId: row.id,
       plate: norm.isNotEmpty ? norm : row.plate,
       decision: decision,
-      reason: row.reasonLabel.trim().isNotEmpty ? row.reasonLabel.trim() : 'Kayıt alındı',
+      reason: row.reasonLabel.trim().isNotEmpty
+          ? row.reasonLabel.trim()
+          : 'Kayıt alındı',
       direction: dir,
       gateName: gate,
       cameraName: row.deviceName,
@@ -83,7 +91,7 @@ class PlateLiveStreamEvent {
       personLabel: row.identity?.personLabel,
       isGuest: row.identity?.isGuest ?? false,
       confidence: row.confidence,
-      isGateTriggered: row.gateState == 'triggered' || decision == PlateDecisionType.acildi,
+      isGateTriggered: row.gateState == 'triggered',
       gateState: row.gateState,
       timestamp: row.seenAt ?? DateTime.now(),
     );
@@ -122,7 +130,9 @@ class PlateLiveStreamEvent {
     final apt = (apartmentLabel ?? '').trim();
     final person = (personLabel ?? '').trim();
     if (isGuest) {
-      if (apt.isNotEmpty && person.isNotEmpty && !person.toLowerCase().startsWith('misafir')) {
+      if (apt.isNotEmpty &&
+          person.isNotEmpty &&
+          !person.toLowerCase().startsWith('misafir')) {
         return 'Misafir • $apt ($person)';
       }
       if (apt.isNotEmpty) return 'Misafir • $apt';
@@ -147,8 +157,12 @@ class PlateLiveStreamEvent {
       timestamp: timestamp,
       cameraId: cameraId ?? local.cameraId,
       cameraName: (cameraName ?? '').isNotEmpty ? cameraName : local.cameraName,
-      apartmentLabel: (apartmentLabel ?? '').isNotEmpty ? apartmentLabel : local.apartmentLabel,
-      personLabel: (personLabel ?? '').isNotEmpty ? personLabel : local.personLabel,
+      apartmentLabel: (apartmentLabel ?? '').isNotEmpty
+          ? apartmentLabel
+          : local.apartmentLabel,
+      personLabel: (personLabel ?? '').isNotEmpty
+          ? personLabel
+          : local.personLabel,
       isGuest: isGuest || local.isGuest,
       confidence: confidence ?? local.confidence,
       isGateTriggered: isGateTriggered || local.isGateTriggered,
@@ -220,7 +234,8 @@ class GateCameraWallSlots {
     required PlateGate? gate,
     required List<PlateCameraRow> cameras,
   }) {
-    final sorted = List<PlateCameraRow>.from(cameras)..sort((a, b) => a.id.compareTo(b.id));
+    final sorted = List<PlateCameraRow>.from(cameras)
+      ..sort((a, b) => a.id.compareTo(b.id));
     final unassigned = sorted.where((c) => c.gate == null).toList();
 
     final List<PlateCameraRow> pool;
@@ -271,13 +286,19 @@ class GateCameraWallSlots {
   final PlateCameraRow? exit2;
   final List<PlateCameraRow> unassignedCameras;
 
-  int get activeCount => <PlateCameraRow?>[entry1, entry2, exit1, exit2]
-      .where((c) => c != null && c.isActive)
-      .length;
+  int get activeCount => <PlateCameraRow?>[
+    entry1,
+    entry2,
+    exit1,
+    exit2,
+  ].where((c) => c != null && c.isActive).length;
 
-  int get configuredCount => <PlateCameraRow?>[entry1, entry2, exit1, exit2]
-      .where((c) => c != null)
-      .length;
+  int get configuredCount => <PlateCameraRow?>[
+    entry1,
+    entry2,
+    exit1,
+    exit2,
+  ].where((c) => c != null).length;
 
   int get entryCount => (entry1 != null ? 1 : 0) + (entry2 != null ? 1 : 0);
   int get exitCount => (exit1 != null ? 1 : 0) + (exit2 != null ? 1 : 0);

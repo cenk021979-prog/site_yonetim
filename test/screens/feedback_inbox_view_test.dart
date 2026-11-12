@@ -62,6 +62,15 @@ class _FakeApi extends FeedbackApi {
   Future<FeedbackPage> listAll({required String token, int? siteCode, int? cursor, int limit = 30}) async => _next('all', cursor);
 
   @override
+  Future<FeedbackPage> listMine({required String token, int? cursor, int limit = 30}) async => _next('mine', cursor);
+
+  @override
+  Future<Uint8List> downloadMineAttachment({required String token, required int feedbackId, required int attachmentId}) async {
+    calls.add('mine-image=$feedbackId/$attachmentId');
+    return kWkPng;
+  }
+
+  @override
   Future<Uint8List> downloadAttachment({required String token, int? siteCode, required int feedbackId, required int attachmentId}) async {
     downloads++;
     return kWkPng;
@@ -80,6 +89,7 @@ Future<void> _pump(
   double height = 1200,
   double scale = 1.0,
   bool dark = false,
+  bool mine = false,
 }) async {
   // Sayfa kendi Scaffold'unu taşır: `pumpAt`in kaydırma sarmalı yerine doğrudan MaterialApp.home.
   t.view.physicalSize = Size(width, height);
@@ -95,7 +105,7 @@ Future<void> _pump(
         data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale)),
         child: child!,
       ),
-      home: FeedbackInboxPage(service: service, siteCode: siteCode),
+      home: FeedbackInboxPage(service: service, siteCode: siteCode, mine: mine),
     ),
   );
   await settleFor(t, 100);
@@ -103,6 +113,23 @@ Future<void> _pump(
 }
 
 void main() {
+  testWidgets('own history uses mine even when a site is supplied, expands original note and owner-only image', (t) async {
+    final api = _FakeApi()..pages = [FeedbackPage(items: [_record(7, attachments: [
+      const FeedbackAttachment(id: 31, feedbackId: 7, fileName: 'test.png', mimeType: 'image/png', sizeBytes: 10, ready: true),
+    ])], nextCursor: null)];
+    await _pump(t, _service(api), mine: true, siteCode: 11);
+    expect(api.calls, ['mine cursor=-']);
+    expect(find.text('Gönderdiğim geri bildirimler'), findsOneWidget);
+    expect(find.byKey(const ValueKey('feedback_item_7_file_0')), findsNothing);
+    await t.tap(find.byKey(const ValueKey('my_feedback_expand_7')));
+    await settleFor(t, 400);
+    await t.ensureVisible(find.byKey(const ValueKey('feedback_item_7_file_0')));
+    await t.tap(find.byKey(const ValueKey('feedback_item_7_file_0')));
+    await settleFor(t, 400);
+    expect(api.calls.last, 'mine-image=7/31');
+    expect(api.downloads, 0);
+    expect(t.takeException(), isNull);
+  });
   testWidgets('yönetici ucu: kendi sitesi istenir; kayıt gönderen, rol, EKRAN (ad + rota), metin ve sürümü gösterir', (t) async {
     final api = _FakeApi()
       ..pages = <FeedbackPage>[

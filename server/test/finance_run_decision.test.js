@@ -198,6 +198,7 @@ function install({ decisionModuleEnabled = true, existingRun = null, definition 
   const query = async (text, params = []) => {
     const sql = norm(text);
     db.log.push({ sql, params });
+    if (sql.includes('FROM apartment_residencies r INNER JOIN site_people sp')) return ok();
     for (const [pattern, fn] of handlers) {
       if (pattern.test(sql)) return fn(sql, params);
     }
@@ -252,19 +253,20 @@ describe('ek borç: Fon hesabı tahakkukunun dayanağı', () => {
     assert.deepEqual(wrote(), []);
   });
 
-  it('Karar Defteri KAPALI + gerekçesiz Fon tahakkuku -> 400 DECISION_REASON_REQUIRED; boşluk-yalnız gerekçe de gerekçesizdir', async () => {
+  it('temel Karar Defteri eski kapalı satırıyla kapatılamaz: gerekçesiz Fon kararı zorunlu kalır', async () => {
     db.decisionModuleEnabled = false;
     const body = await confirmBody();
-    await assert.rejects(() => postCharge({ siteCode: SITE, body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REASON_REQUIRED'));
-    await assert.rejects(() => postCharge({ siteCode: SITE, body: { ...body, decision_reason: '    ' }, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REASON_REQUIRED'));
+    await assert.rejects(() => postCharge({ siteCode: SITE, body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REQUIRED'));
+    await assert.rejects(() => postCharge({ siteCode: SITE, body: { ...body, decision_reason: '    ' }, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REQUIRED'));
     assert.deepEqual(wrote(), []);
   });
 
-  it('Karar Defteri KAPALI + karar kimliği gönderilirse 400 DECISION_MODULE_OFF (karar sessizce yok sayılmaz)', async () => {
+  it('temel Karar Defteri eski kapalı satırı olsa da kesin karar kimliğiyle Fon borçlandırılır', async () => {
     db.decisionModuleEnabled = false;
     const body = await confirmBody({ decision_id: 77 });
-    await assert.rejects(() => postCharge({ siteCode: SITE, body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_MODULE_OFF'));
-    assert.deepEqual(wrote(), []);
+    const result = await postCharge({ siteCode: SITE, body, actor: MANAGER, now: NOW });
+    assert.equal(result.run.decision.number_label, '2026/4');
+    assert.equal(db.runInsert[10], '77');
   });
 
   it('başka sitenin / olmayan karar 404 DECISION_NOT_FOUND (aynı yanıt: IDOR yok); taslak karar 409 DECISION_NOT_FINAL', async () => {
@@ -288,7 +290,7 @@ describe('ek borç: Fon hesabı tahakkukunun dayanağı', () => {
     assert.equal(db.runInsert[10], '77');
     assert.equal(db.runInsert[11], 'Genel kurulun 12 Ekim kararı');
     assert.deepEqual(result.run.decision, { id: 77, number_label: '2026/4', title: 'Asansör yenileme', visibility: 'sakinler', reason: 'Genel kurulun 12 Ekim kararı' });
-    assert.equal(db.ledgerInsert.at(-1), 'capital', 'Fon hesabı borcu kasası capital');
+    assert.equal(db.ledgerInsert[12], 'capital', 'Fon hesabı borcu kasası capital');
     const audit = db.auditDetails.find((details) => details.definition_id !== undefined && details.distribution !== undefined);
     assert.equal(audit.decision_id, 77);
     assert.equal(audit.decision_reason_given, true);
@@ -300,14 +302,14 @@ describe('ek borç: Fon hesabı tahakkukunun dayanağı', () => {
     assert.ok(lookupAt > 0 && lookupAt < planAt);
   });
 
-  it('Karar Defteri KAPALI + gerekçe: gerekçe saklanır, karar kimliği null; yanıtta yalnız gerekçe', async () => {
+  it('temel Karar Defteri kapalı satırı + kesin karar + gerekçe: ikisi de korunur', async () => {
     db.decisionModuleEnabled = false;
-    const body = await confirmBody({ decision_reason: 'Kâğıt defterde 14 Ekim tarihli karar, no 6' });
+    const body = await confirmBody({ decision_id: 77, decision_reason: 'Kâğıt defterde 14 Ekim tarihli karar, no 6' });
     const result = await postCharge({ siteCode: SITE, body, actor: MANAGER, now: NOW });
-    assert.equal(db.runInsert[10], null);
+    assert.equal(db.runInsert[10], '77');
     assert.equal(db.runInsert[11], 'Kâğıt defterde 14 Ekim tarihli karar, no 6');
-    assert.deepEqual(result.run.decision, { id: null, number_label: null, title: null, visibility: null, reason: 'Kâğıt defterde 14 Ekim tarihli karar, no 6' });
-    assert.equal(db.log.some((entry) => /FROM board_decisions/.test(entry.sql)), false, 'modül kapalıyken karar tablosu okunmaz');
+    assert.deepEqual(result.run.decision, { id: 77, number_label: '2026/4', title: 'Asansör yenileme', visibility: 'sakinler', reason: 'Kâğıt defterde 14 Ekim tarihli karar, no 6' });
+    assert.equal(db.log.some((entry) => /FROM board_decisions/.test(entry.sql)), true, 'temel modül eski kapalı satırına rağmen kesin karar doğrulanır');
   });
 
   it('işletme (Aidat) hesabı ek borcu dayanaksız yazılır; Karar Defteri sorgusu bile yapılmaz', async () => {
@@ -316,7 +318,7 @@ describe('ek borç: Fon hesabı tahakkukunun dayanağı', () => {
     assert.equal(db.runInsert[10], null);
     assert.equal(db.runInsert[11], null);
     assert.equal('decision' in result.run, false);
-    assert.equal(db.ledgerInsert.at(-1), 'operating');
+    assert.equal(db.ledgerInsert[12], 'operating');
     assert.equal(db.log.some((entry) => /FROM board_decisions/.test(entry.sql)), false);
     assert.equal(db.log.filter((entry) => entry.params[1] === 'decision_book').length >= 1, true, 'yalnız önizleme modül durumunu okur');
     const audit = db.auditDetails.find((details) => details.distribution !== undefined);
@@ -347,14 +349,14 @@ describe('ek borç: Fon hesabı tahakkukunun dayanağı', () => {
     await assert.rejects(() => postCharge({ siteCode: SITE, body: bare, actor: MANAGER, now: NOW }), codeOf(409, 'IDEMPOTENCY_CONFLICT'));
   });
 
-  it('önizleme yanıtı decision_requirement taşır: Fon + modül açık -> decision, kapalı -> reason, işletme -> none', async () => {
+  it('önizleme: Fon temel Karar Defteri her zaman decision, işletme none', async () => {
     const open = await previewCharge({ siteCode: SITE, body: chargeBody(), now: NOW }, pool);
     assert.deepEqual(open.decision_requirement, { required: true, mode: 'decision', module_enabled: true, reason_min: 3, reason_max: 300 });
     const operating = await previewCharge({ siteCode: SITE, body: chargeBody({ fund: 'operating' }), now: NOW }, pool);
     assert.deepEqual(operating.decision_requirement, { required: false, mode: 'none', module_enabled: true, reason_min: 3, reason_max: 300 });
     db.decisionModuleEnabled = false;
     const closed = await previewCharge({ siteCode: SITE, body: chargeBody(), now: NOW }, pool);
-    assert.deepEqual(closed.decision_requirement, { required: true, mode: 'reason', module_enabled: false, reason_min: 3, reason_max: 300 });
+    assert.deepEqual(closed.decision_requirement, { required: true, mode: 'decision', module_enabled: true, reason_min: 3, reason_max: 300 });
     assert.deepEqual(wrote(), [], 'önizleme hiçbir şey yazmaz');
   });
 });
@@ -379,12 +381,12 @@ describe('aylık borçlandırma: Fon hesabı tahakkukunun dayanağı', () => {
     pool.connect = originalConnect;
   });
 
-  it('Fon (malik öder) tanımı + modül AÇIK + kararsız -> 400 DECISION_REQUIRED; kapalı + gerekçesiz -> 400 DECISION_REASON_REQUIRED; hiçbir şey yazılmaz', async () => {
+  it('Fon tanımı kararsızsa eski açık/kapalı satırından bağımsız DECISION_REQUIRED; hiçbir şey yazılmaz', async () => {
     install({ definition: definitionRow('owner') });
     const body = await postBody();
     await assert.rejects(() => postDefinition({ siteCode: SITE, rawId: '5', body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REQUIRED'));
     db.decisionModuleEnabled = false;
-    await assert.rejects(() => postDefinition({ siteCode: SITE, rawId: '5', body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REASON_REQUIRED'));
+    await assert.rejects(() => postDefinition({ siteCode: SITE, rawId: '5', body, actor: MANAGER, now: NOW }), codeOf(400, 'DECISION_REQUIRED'));
     assert.deepEqual(wrote(), []);
   });
 
@@ -395,15 +397,15 @@ describe('aylık borçlandırma: Fon hesabı tahakkukunun dayanağı', () => {
     assert.equal(db.runInsert[10], '77');
     assert.equal(db.runInsert[11], null);
     assert.equal(result.run.decision.number_label, '2026/4');
-    assert.equal(db.ledgerInsert.at(-1), 'capital');
+    assert.equal(db.ledgerInsert[12], 'capital');
     assert.equal(db.auditDetails.at(-1).decision_id, 77);
   });
 
-  it('Fon tanımı + modül KAPALI + gerekçe: gerekçe yazılır', async () => {
+  it('Fon tanımı + temel modül eski kapalı satırı + karar/gerekçe: dayanaklar yazılır', async () => {
     install({ definition: definitionRow('owner'), decisionModuleEnabled: false });
-    const body = await postBody({ decision_reason: 'Yönetim kurulu 3 Ekim toplantısı' });
+    const body = await postBody({ decision_id: 77, decision_reason: 'Yönetim kurulu 3 Ekim toplantısı' });
     const result = await postDefinition({ siteCode: SITE, rawId: '5', body, actor: MANAGER, now: NOW });
-    assert.equal(db.runInsert[10], null);
+    assert.equal(db.runInsert[10], '77');
     assert.equal(db.runInsert[11], 'Yönetim kurulu 3 Ekim toplantısı');
     assert.equal(result.run.decision.reason, 'Yönetim kurulu 3 Ekim toplantısı');
   });
@@ -415,7 +417,7 @@ describe('aylık borçlandırma: Fon hesabı tahakkukunun dayanağı', () => {
     assert.equal(db.runInsert[10], null);
     assert.equal(db.runInsert[11], null);
     assert.equal('decision' in result.run, false);
-    assert.equal(db.ledgerInsert.at(-1), 'operating');
+    assert.equal(db.ledgerInsert[12], 'operating');
     const preview = await previewDefinition({ siteCode: SITE, rawId: '5', body: { period: '2026-10' }, now: NOW }, pool);
     assert.equal(preview.decision_requirement.mode, 'none');
   });
@@ -452,10 +454,10 @@ describe('resolveRunDecision / describeDecisionRequirement', () => {
     }
   });
 
-  it('describeDecisionRequirement: modül durumuna göre mod', async () => {
+  it('describeDecisionRequirement: temel modülde eski kapalı satırı Fon karar zorunluluğunu düşürmez', async () => {
     assert.equal((await describeDecisionRequirement(pool, SITE, 'capital')).mode, 'decision');
     db.decisionModuleEnabled = false;
-    assert.equal((await describeDecisionRequirement(pool, SITE, 'capital')).mode, 'reason');
+    assert.equal((await describeDecisionRequirement(pool, SITE, 'capital')).mode, 'decision');
     assert.equal((await describeDecisionRequirement(pool, SITE, 'operating')).mode, 'none');
   });
 });

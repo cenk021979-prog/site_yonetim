@@ -140,6 +140,30 @@ void main() {
       expect(all.single.current, SiteSetupStep.modules);
     });
 
+    test('saat eşitken son kaydedilen kurulum öne gelir ve yeniden açılışta sırası korunur', () async {
+      final fixed = DateTime.utc(2026, 11, 8, 12);
+      final frozenClockStore = SiteSetupProgressStore(now: () => fixed);
+      await frozenClockStore.save(5, const SiteSetupProgress(siteCode: 1));
+      await frozenClockStore.save(5, const SiteSetupProgress(siteCode: 2));
+      expect((await frozenClockStore.loadAll(5)).map((item) => item.siteCode), [2, 1]);
+      final reopened = SiteSetupProgressStore(now: () => fixed);
+      expect((await reopened.nextUnfinished(5))?.siteCode, 2);
+      await reopened.save(5, const SiteSetupProgress(siteCode: 1));
+      expect((await reopened.nextUnfinished(5))?.siteCode, 1);
+      await reopened.ensure(5, 3);
+      expect((await reopened.loadAll(5)).map((item) => item.siteCode), [3, 1, 2]);
+    });
+
+    test('aynı milisaniyedeki farklı mikro-saniyeler korunur; açık zaman damgası üzerine yazılmaz', () async {
+      final base = DateTime.utc(2026, 11, 8, 12);
+      final newer = base.add(const Duration(microseconds: 100));
+      final older = base.add(const Duration(microseconds: 50));
+      await store.save(5, SiteSetupProgress(siteCode: 1, updatedAt: newer));
+      await store.save(5, SiteSetupProgress(siteCode: 2, updatedAt: older));
+      expect((await store.loadAll(5)).map((item) => item.siteCode), [1, 2]);
+      expect((await store.load(5, 1))?.updatedAt?.microsecondsSinceEpoch, newer.microsecondsSinceEpoch);
+    });
+
     test('ensure: kayıt yoksa açar (true), varsa dokunmaz (false)', () async {
       expect(await store.ensure(5, 11, siteName: 'Gül'), isTrue);
       await store.save(5, (await store.load(5, 11))!.copyWith(current: SiteSetupStep.people, started: true));

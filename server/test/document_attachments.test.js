@@ -135,7 +135,7 @@ describe('okuma yardımcıları', () => {
     const map = await loadAttachments(db, [41, 'x', -2, 41]);
     assert.deepEqual(captured.params, [[41, 41]]);
     assert.match(captured.sql, /INNER JOIN announcements a ON a\.id = aa\.announcement_id INNER JOIN documents d ON d\.id = aa\.document_id AND d\.site_code = a\.site_code/);
-    assert.match(captured.sql, /d\.status = 'active' AND d\.audience = 'residents' AND cv\.version_no IS NOT NULL AND COALESCE\(\(SELECT smod\.enabled FROM site_modules smod/);
+    assert.match(captured.sql, /d\.status = 'active' AND d\.audience IN \('residents', 'all'\) AND cv\.version_no IS NOT NULL AND COALESCE\(\(SELECT smod\.enabled FROM site_modules smod/);
     assert.match(captured.sql, /ORDER BY aa\.announcement_id, aa\.position, aa\.document_id$/);
     assert.deepEqual(map.get(41), [
       { document_id: 9, title: 'Yönetmelik', file_name: 'y.pdf', mime_type: 'application/pdf', size_bytes: 2048, available: true },
@@ -247,7 +247,9 @@ describe('ek `available` ifadesi çağıranın site ilişkisini ister (R16 P2-5)
     await loadAttachments(db, [41], { userCode: 20004 });
     assert.deepEqual(seen[0].params, [[41], 20004]);
     assert.match(seen[0].sql, /^WITH my_apts AS MATERIALIZED \( SELECT ap\.id, ap\.block_id, ap\.site_code FROM site_people sp .* WHERE sp\.user_code = \$2 AND sp\.is_active = TRUE \) SELECT aa\.announcement_id/);
-    assert.match(seen[0].sql, /AND \( EXISTS \(SELECT 1 FROM my_apts m WHERE m\.site_code = d\.site_code\) OR EXISTS \(SELECT 1 FROM site_memberships sm WHERE sm\.site_code = d\.site_code AND sm\.user_code = \$2 AND sm\.role = 'BOARD_MEMBER' AND sm\.is_active = TRUE\) \)\) AS available/);
+    assert.ok(seen[0].sql.includes("d.audience = 'all' AND"));
+    assert.ok(seen[0].sql.includes("d.audience = 'residents' AND ( EXISTS (SELECT 1 FROM my_apts m WHERE m.site_code = d.site_code) OR EXISTS (SELECT 1 FROM site_memberships sm WHERE sm.site_code = d.site_code AND sm.user_code = $2 AND sm.role = 'BOARD_MEMBER' AND sm.is_active = TRUE) )"));
+    assert.ok(seen[0].sql.includes("sm.role IN ('SITE_OWNER', 'SITE_ADMIN', 'BOARD_MEMBER', 'STAFF')"));
     assert.ok(!/target_type|target_block_ids|target_apartment_ids/.test(seen[0].sql), 'hedef (blok / daire) koşulu YOK (A12)');
   });
 

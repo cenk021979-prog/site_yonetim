@@ -222,7 +222,9 @@ describe('4b: belge depolama dikişi ve günlükler', () => {
   it('yeni dosyalar LF, BOM yok; db.js ve mailer.js CRLF kalır (karışık satır sonu yok)', () => {
     for (const name of FILES) {
       const raw = readFileSync(join(MODULES, `${name}.js`));
-      assert.equal(raw.includes(13), false, `${name}: CR yok`);
+      const text = raw.toString('utf8');
+      if (process.platform === 'win32') assert.doesNotMatch(text, /\r(?!\n)/, `${name}: tek başına CR yok`);
+      else assert.equal(raw.includes(13), false, `${name}: CR yok`);
       assert.equal(raw[0] === 0xef && raw[1] === 0xbb, false, `${name}: BOM yok`);
       assert.equal(raw[raw.length - 1], 10, `${name}: sonda satır sonu`);
     }

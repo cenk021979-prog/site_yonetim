@@ -169,6 +169,17 @@ function handle(sql, params, tx) {
     return ok(state.sites.has(Number(params[0])) ? [{ site_code: String(params[0]) }] : []);
   }
 
+  // Disabling SmartKeyPass also disables the dependent LPR module in the same transaction.
+  if (/^UPDATE site_modules SET enabled = FALSE, updated_by = \$2, updated_at = NOW\(\) WHERE site_code = \$1 AND module_code = 'plate_recognition'$/.test(sql)) {
+    const row = state.siteModules.get(`${params[0]}:plate_recognition`);
+    if (row) write(() => Object.assign(row, { enabled: false, updated_by: params[1] }));
+    return ok();
+  }
+  if (/^SELECT enabled FROM site_modules WHERE site_code = \$1 AND module_code = 'door_control' LIMIT 1$/.test(sql)) {
+    const row = state.siteModules.get(`${params[0]}:door_control`);
+    return ok(row ? [{ enabled: row.enabled }] : []);
+  }
+
   // --- site modulleri ---
   if (/^SELECT sm\.module_code, sm\.enabled, sm\.updated_at, u\.full_name AS updated_by_name FROM site_modules sm/.test(sql)) {
     const rows = [];
@@ -492,7 +503,7 @@ describe('GET /app/modules/catalog', () => {
   it('kimligi dogrulanmis herkese 23 modullu katalog doner', async () => {
     const res = await call('GET', '/app/modules/catalog', { user: users.resident });
     assert.equal(res.status, 200);
-    assert.equal(res.body.modules.length, 23);
+    assert.equal(res.body.modules.length, 21);
     assert.deepEqual(Object.keys(res.body.modules[0]), ['code', 'name', 'description', 'core', 'status']);
     assert.equal(res.body.modules[0].code, 'door_control');
     assert.equal(res.body.modules[1].core, true);
@@ -511,7 +522,7 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
     assert.equal(res.body.site_name, 'Gül Sitesi');
     assert.equal(res.body.management_type, 'apartment_site');
     assert.equal(res.body.management_type_label, 'Apartman ve Site');
-    assert.equal(res.body.modules.length, 23);
+    assert.equal(res.body.modules.length, 21);
     assert.deepEqual(doorOf(res.body), {
       code: 'door_control',
       name: 'Geçiş Kontrol (SmartKeyPass)',
@@ -537,8 +548,8 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
     assert.equal(finance.request_status, null);
     const reservation = res.body.modules.find((m) => m.code === 'reservation');
     assert.equal(reservation.status, 'available', 'Rezervasyon ve Konsiyerj kullanilabilir');
-    assert.equal(reservation.enabled, false, 'varsayilan KAPALI');
-    assert.equal(reservation.toggleable, true);
+    assert.equal(reservation.enabled, true, 'temel modül her sitede açıktır');
+    assert.equal(reservation.toggleable, false);
     assert.equal(reservation.can_toggle, false, 'yonetici modul acip kapatamaz (modul talep eder)');
     const metering = res.body.modules.find((m) => m.code === 'metering');
     assert.equal(metering.status, 'available');
@@ -557,24 +568,22 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
         ['people', false, false],
         ['announcements', false, false],
         ['finance', false, false], // Kural 25: temel modül, süper kullanıcı bile açıp kapatamaz
-        ['reservation', true, true],
-        ['work_tracking', true, true],
+        ['reservation', false, false],
+        ['work_tracking', false, false],
         ['metering', true, true],
         ['online_payment', false, false],
         ['survey', false, false], // Kural 25: temel modül
-        ['visitor_log', true, true],
+        ['visitor_log', false, false],
         ['card_access', true, true],
-        ['plate_cameras', true, true],
-        ['contracts', true, true],
-        ['decision_book', true, true],
-        ['directory', true, true],
-        ['budget', true, true],
+        ['contracts', false, false],
+        ['decision_book', false, false],
+        ['directory', false, false],
+        ['budget', false, false],
         ['drive_storage', false, false], // Kural 25: temel modül
         ['neighbor_board', false, false], // Kural 25: temel modül
         ['annual_report', false, false], // Kural 25: temel modül
         ['plate_recognition', true, true],
         ['hgs_access', false, false],
-        ['cctv_link', true, true],
         ['equipment', false, false], // Kural 25: temel modül
       ],
     );
@@ -721,6 +730,20 @@ describe('PUT modul: onay zorunlulugu ve denetim kaydi', () => {
     assert.equal(doorOf(res.body).enabled, true);
     assert.deepEqual(state.audit.map((a) => a.action), ['module.disabled', 'module.enabled']);
     assert.deepEqual(state.audit[1].details, { enabled: true });
+  });
+
+  it('SmartKeyPass kapatılırsa bağlı plaka modülü de kapanır; kapalı SmartKeyPass ile yeniden açılamaz', async () => {
+    for (const moduleCode of ['door_control', 'plate_recognition']) {
+      state.siteModules.set(`${SITE_1}:${moduleCode}`, { site_code: SITE_1, module_code: moduleCode, enabled: true });
+    }
+    const closed = await call('PUT', moduleUrl(), { user: users.superUser, body: { enabled: false, confirm: true } });
+    assert.equal(closed.status, 200);
+    assert.equal(state.siteModules.get(`${SITE_1}:plate_recognition`).enabled, false);
+    const denied = await call('PUT', moduleUrl(SITE_1, 'plate_recognition'), { user: users.superUser, body: { enabled: true } });
+    assert.equal(denied.status, 400);
+    assert.equal(denied.body.code, 'SMARTKEYPASS_REQUIRED');
+    assert.equal(state.siteModules.get(`${SITE_1}:plate_recognition`).enabled, false);
+    assert.equal(state.audit.filter((entry) => entry.action === 'module.enabled').length, 0);
   });
 
   it('degisiklik yoksa audit YAZILMAZ ve site_modules satiri olusmaz (zaten acik modulu acmak)', async () => {
@@ -1650,7 +1673,6 @@ describe('GET /app/my-modules', () => {
         'survey',
         'visitor_log',
         'card_access',
-        'plate_cameras',
         'contracts',
         'decision_book',
         'directory',
@@ -1660,13 +1682,12 @@ describe('GET /app/my-modules', () => {
         'annual_report',
         'plate_recognition',
         'hgs_access',
-        'cctv_link',
         'equipment',
       ]);
     }
     assert.equal(res.body.sites[0].modules.door_control, true);
     assert.equal(res.body.sites[0].modules.online_payment, false, 'yakinda modul satiri olsa bile false');
-    assert.equal(res.body.sites[0].modules.reservation, false, 'rezervasyon satiri yoksa varsayilan KAPALI');
+    assert.equal(res.body.sites[0].modules.reservation, true, 'temel modül satırı olmasa da açıktır');
     assert.equal(res.body.sites[0].modules.finance, true, 'finance temel modul: satiri enabled=false olsa da acik');
     assert.equal(res.body.sites[1].modules.finance, true, 'finance temel modul: satir yoksa da acik');
     assert.equal(res.body.sites[1].modules.door_control, false);
@@ -1775,15 +1796,16 @@ describe('GET /app/my-modules', () => {
     it('isteyerek acilan (temel olmayan) modul varsayilan kumeye girer; kapali oneri girmez', async () => {
       state.myLinks = [link(SITE_1, 'Is Merkezi', 'business_center')];
       enable(SITE_1, 'work_tracking'); // onerilen + acik
-      enable(SITE_1, 'contracts'); // onerilmeyen ama isteyerek acilmis
-      // visitor_log onerilir ama KAPALI: kumede olmaz
+      enable(SITE_1, 'metering'); // Seçmeli modül, önerilmese de elle açılınca görünür.
+      // visitor_log temel modüldür; iş merkezi önerisinde her zaman görünür.
       const res = await call('GET', '/app/my-modules', { user: users.resident });
       assert.deepEqual(res.body.sites[0].menu_layout.compact_modules, [
         'people',
         'announcements',
         'finance',
         'work_tracking',
-        'contracts',
+        'metering',
+        'visitor_log',
         'drive_storage',
       ]);
     });
@@ -1894,7 +1916,7 @@ describe('F9: yonetim turu terimleri', () => {
     // mevcut alanlar degismez
     assert.equal(res.body.management_type, 'apartment_site');
     assert.equal(res.body.management_type_label, 'Apartman ve Site');
-    assert.equal(res.body.modules.length, 23);
+    assert.equal(res.body.modules.length, 21);
     assert.equal(typeof doorOf(res.body).can_toggle, 'boolean');
   });
 
@@ -1907,7 +1929,7 @@ describe('F9: yonetim turu terimleri', () => {
     assert.equal(res.body.management_terms.unit, 'Ofis');
     assert.equal(res.body.management_terms.resident_plural, 'Firmalar');
     assert.equal(res.body.management_terms.fee, 'Ortak gider');
-    assert.equal(res.body.modules.length, 23);
+    assert.equal(res.body.modules.length, 21);
     assert.deepEqual(
       res.body.modules.filter((m) => m.recommended).map((m) => m.code).sort(),
       ['drive_storage', 'finance', 'visitor_log', 'work_tracking'],

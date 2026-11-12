@@ -161,9 +161,7 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
   }
 
   Future<void> _trySetProperty(NativePlayer native, String key, String value) async {
-    try {
-      await native.setProperty(key, value);
-    } catch (_) {}
+    await rtsp_probe.trySetNativeProperty(native, key, value);
   }
 
   Future<void> _configureLowLatency(Player player) async {

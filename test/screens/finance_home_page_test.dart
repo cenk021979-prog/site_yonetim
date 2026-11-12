@@ -45,22 +45,28 @@ class _HomeFinanceAuth extends FinanceFakeAuth {
   List<DoorRecord> doors = <DoorRecord>[];
 
   @override
-  Future<(List<DoorRecord>?, String?)> listMyDoors() async => (List<DoorRecord>.of(doors), null);
+  Future<(List<DoorRecord>?, String?)> listMyDoors() async =>
+      (List<DoorRecord>.of(doors), null);
 
   @override
   Future<SiteManagersData?> getSiteManagers(int siteCode) async => null;
 
   @override
-  Future<(List<JoinRequestRecord>?, String?)> getMyJoinRequests() async => (<JoinRequestRecord>[], null);
+  Future<(List<JoinRequestRecord>?, String?)> getMyJoinRequests() async =>
+      (<JoinRequestRecord>[], null);
 
   @override
-  Future<List<Map<String, dynamic>>> getMyClaimedDevices() async => <Map<String, dynamic>>[];
+  Future<List<Map<String, dynamic>>> getMyClaimedDevices() async =>
+      <Map<String, dynamic>>[];
 
   @override
-  Future<(List<MyApartmentRecord>?, String?)> getMyApartments() async => (<MyApartmentRecord>[], null);
+  Future<(List<MyApartmentRecord>?, String?)> getMyApartments() async =>
+      (<MyApartmentRecord>[], null);
 
   @override
-  Future<(DoorRuntimeStatus?, String?)> getDoorRuntimeStatus({required int doorId}) async => (null, null);
+  Future<(DoorRuntimeStatus?, String?)> getDoorRuntimeStatus({
+    required int doorId,
+  }) async => (null, null);
 
   @override
   Future<bool> isPhoneConnectedToLocalWifi() async => false;
@@ -101,12 +107,13 @@ Future<ModuleAccess> _access(
 }
 
 /// Hiç bildirim yoklaması yapmayan duyuru izleyicisi (bu testler duyuruları sınamaz).
-AnnouncementNotifier _quietNotifier(FinanceFakeAuth auth) => AnnouncementNotifier(
-  fetchSummary: () async => throw StateError('yok'),
-  fetchInbox: () async => throw StateError('yok'),
-  fetchAnnouncement: (id) async => throw StateError('yok'),
-  isEligible: () => false,
-);
+AnnouncementNotifier _quietNotifier(FinanceFakeAuth auth) =>
+    AnnouncementNotifier(
+      fetchSummary: () async => throw StateError('yok'),
+      fetchInbox: () async => throw StateError('yok'),
+      fetchAnnouncement: (id) async => throw StateError('yok'),
+      isEligible: () => false,
+    );
 
 Future<void> _pumpHome(
   WidgetTester t,
@@ -131,7 +138,11 @@ Future<void> _pumpHome(
         data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale)),
         child: child!,
       ),
-      home: HomePage(authService: auth, moduleAccess: access, announcementNotifier: notifier),
+      home: HomePage(
+        authService: auth,
+        moduleAccess: access,
+        announcementNotifier: notifier,
+      ),
     ),
   );
   await t.pump();
@@ -157,7 +168,10 @@ Future<void> _closeDrawer(WidgetTester t) async {
 
 Future<void> _tapMenu(WidgetTester t, String label) async {
   await _openDrawer(t);
-  final tile = find.descendant(of: find.byType(Drawer), matching: find.text(label));
+  final tile = find.descendant(
+    of: find.byType(Drawer),
+    matching: find.text(label),
+  );
   await t.ensureVisible(tile.first);
   await t.pump();
   await t.tap(tile.first);
@@ -166,49 +180,61 @@ Future<void> _tapMenu(WidgetTester t, String label) async {
   await settleFor(t);
 }
 
-Finder _tileTitle(String title) => find.descendant(of: find.byType(Drawer), matching: find.text(title));
+Finder _tileTitle(String title) =>
+    find.descendant(of: find.byType(Drawer), matching: find.text(title));
 
 /// İP-1D (G2): menü LİSTESİNİN sırası (vitrin sırası; `YanMenu.visibleItems`: çekmece + Ayarlar paneli). Çekmece öğeleri
 /// başlıklar altında gruplar ([expectUnderDrawerHeader]); ayar öğeleri sağ üstteki dişlidedir.
 List<String> _drawerTitles(WidgetTester t) => menuListTitles(t);
 
-Finder _inAppBar(Finder f) => find.descendant(of: find.byType(AppBar), matching: f);
+Finder _inAppBar(Finder f) =>
+    find.descendant(of: find.byType(AppBar), matching: f);
 
 void main() {
   group('Finans menü öğesi (yönetici / kurul / süper)', () {
-    testWidgets('site yöneticisi + modül AÇIK: "Duyurular"ın altında; seçilince Finans ekranı, yazma yetkisi, başlık', (t) async {
-      final auth = _HomeFinanceAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
-      await _pumpHome(t, auth, access: access);
-      await _openDrawer(t);
-      final titles = _drawerTitles(t);
-      expect(titles, contains('Finans'));
-      expect(titles.indexOf('Finans'), titles.indexOf('Duyurular') + 1);
-      expectUnderDrawerHeader(t, 'Finans', 'Borçlar');
-      expect(titles, isNot(contains('Borcum')), reason: 'yönetici modunda Borcum yok');
-      await t.tap(_tileTitle('Finans'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      await settleFor(t);
+    testWidgets(
+      'site yöneticisi + modül AÇIK: "Duyurular"ın altında; seçilince Finans ekranı, yazma yetkisi, başlık',
+      (t) async {
+        final auth = _HomeFinanceAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await _openDrawer(t);
+        final titles = _drawerTitles(t);
+        expect(titles, contains('Finans'));
+        expect(titles.indexOf('Finans'), titles.indexOf('Duyurular') + 1);
+        expectUnderDrawerHeader(t, 'Finans', 'Borçlar');
+        expect(
+          titles,
+          isNot(contains('Borcum')),
+          reason: 'yönetici modunda Borcum yok',
+        );
+        await t.tap(_tileTitle('Finans'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        await settleFor(t);
 
-      expect(find.byType(FinanceView), findsOneWidget);
-      expect(_inAppBar(find.text('Finans')), findsOneWidget);
-      expect(auth.summaryCalls, greaterThan(0));
-      expect(find.byType(FinanceSummaryCard), findsOneWidget);
-      expect(find.byType(BalanceRowCard), findsNWidgets(3));
-      expect(find.text('Tahsilat Ekle'), findsOneWidget);
-      expect(find.text('Ek Borç Ekle'), findsOneWidget);
-      expect(
-        auth.listSitesArgs.any((a) => a.approval == 'approved'),
-        isFalse,
-        reason: 'Finans site listesini my-modules\'tan alır (tüm onaylı siteleri çekmez)',
-      );
-      await _disposeHome(t);
-    });
+        expect(find.byType(FinanceView), findsOneWidget);
+        expect(_inAppBar(find.text('Finans')), findsOneWidget);
+        expect(auth.summaryCalls, greaterThan(0));
+        expect(find.byType(FinanceSummaryCard), findsOneWidget);
+        expect(find.byType(BalanceRowCard), findsNWidgets(3));
+        expect(find.text('Tahsilat Ekle'), findsOneWidget);
+        expect(find.text('Ek Borç Ekle'), findsOneWidget);
+        expect(
+          auth.listSitesArgs.any((a) => a.approval == 'approved'),
+          isFalse,
+          reason:
+              'Finans site listesini my-modules\'tan alır (tüm onaylı siteleri çekmez)',
+        );
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('modül KAPALI: menü öğesi YOK', (t) async {
       final auth = _HomeFinanceAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager', finance: false)]);
+      final access = await _access(
+        () => <MySiteModules>[_my('manager', finance: false)],
+      );
       await _pumpHome(t, auth, access: access);
       await _openDrawer(t);
       expect(_tileTitle('Finans'), findsNothing);
@@ -217,196 +243,294 @@ void main() {
       await _disposeHome(t);
     });
 
-    testWidgets('FAIL-OPEN YOK: modül verisi hiç gelmezse Finans / Borcum AÇILMAZ (yönetici ve sakin)', (t) async {
-      for (final role in <UserRole>[UserRole.siteManager, UserRole.apartmentOwner]) {
-        final auth = _HomeFinanceAuth(role: role)..doors = fxDoors();
-        await _pumpHome(t, auth, access: ModuleAccess(fetch: () async => throw StateError('ağ yok')));
+    testWidgets(
+      'FAIL-OPEN YOK: modül verisi hiç gelmezse Finans / Borcum AÇILMAZ (yönetici ve sakin)',
+      (t) async {
+        for (final role in <UserRole>[
+          UserRole.siteManager,
+          UserRole.apartmentOwner,
+        ]) {
+          final auth = _HomeFinanceAuth(role: role)..doors = fxDoors();
+          await _pumpHome(
+            t,
+            auth,
+            access: ModuleAccess(fetch: () async => throw StateError('ağ yok')),
+          );
+          await _openDrawer(t);
+          expect(_tileTitle('Finans'), findsNothing, reason: '$role');
+          expect(_tileTitle('Borcum'), findsNothing, reason: '$role');
+          await _disposeHome(t);
+        }
+      },
+    );
+
+    testWidgets(
+      'modül verisi yüklenirken menü yok; yüklenince AÇIK sitede görünür',
+      (t) async {
+        final gate = Completer<MyModulesResult>();
+        final auth = _HomeFinanceAuth();
+        final access = ModuleAccess(
+          fetch: () => gate.future,
+          isSuperUser: () => false,
+        );
+        addTearDown(access.dispose);
+        await _pumpHome(t, auth, access: access);
         await _openDrawer(t);
-        expect(_tileTitle('Finans'), findsNothing, reason: '$role');
-        expect(_tileTitle('Borcum'), findsNothing, reason: '$role');
+        expect(_tileTitle('Finans'), findsNothing);
+        await _closeDrawer(t);
+        gate.complete(MyModulesResult(sites: <MySiteModules>[_my('manager')]));
+        await access.refresh();
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 400));
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsOneWidget);
         await _disposeHome(t);
-      }
-    });
+      },
+    );
 
-    testWidgets('modül verisi yüklenirken menü yok; yüklenince AÇIK sitede görünür', (t) async {
-      final gate = Completer<MyModulesResult>();
-      final auth = _HomeFinanceAuth();
-      final access = ModuleAccess(fetch: () => gate.future, isSuperUser: () => false);
-      addTearDown(access.dispose);
-      await _pumpHome(t, auth, access: access);
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing);
-      await _closeDrawer(t);
-      gate.complete(MyModulesResult(sites: <MySiteModules>[_my('manager')]));
-      await access.refresh();
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 400));
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsOneWidget);
-      await _disposeHome(t);
-    });
-
-    testWidgets('kurul üyesi: Finans SALT OKUNUR (not var, yazma düğmesi yok; ekstrede de yok)', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
-      final access = await _access(() => <MySiteModules>[_my('board_member')]);
-      await _pumpHome(t, auth, access: access);
-      await _tapMenu(t, 'Finans');
-      expect(find.byType(FinanceView), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('finance_read_only_note')), findsOneWidget);
-      expect(find.text('Tahsilat Ekle'), findsNothing);
-      expect(find.text('Ek Borç Ekle'), findsNothing);
-      expect(find.byType(BalanceRowCard), findsNWidgets(3));
-      expect(auth.listSitesCalls, 0);
-      await tapFinder(t, find.widgetWithText(BalanceRowCard, 'A Blok - 5'));
-      await settleFor(t);
-      expect(find.text('Hesap Ekstresi'), findsOneWidget);
-      expect(find.byKey(const ValueKey<String>('finance_account_add_payment')), findsNothing);
-      expect(find.byKey(const ValueKey<String>('ledger_reverse_1')), findsNothing);
-      await _disposeHome(t);
-    });
+    testWidgets(
+      'kurul üyesi: Finans SALT OKUNUR (not var, yazma düğmesi yok; ekstrede de yok)',
+      (t) async {
+        final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
+        final access = await _access(
+          () => <MySiteModules>[_my('board_member')],
+        );
+        await _pumpHome(t, auth, access: access);
+        await _tapMenu(t, 'Finans');
+        expect(find.byType(FinanceView), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey<String>('finance_read_only_note')),
+          findsOneWidget,
+        );
+        expect(find.text('Tahsilat Ekle'), findsNothing);
+        expect(find.text('Ek Borç Ekle'), findsNothing);
+        expect(find.byType(BalanceRowCard), findsNWidgets(3));
+        expect(auth.listSitesCalls, 0);
+        await tapFinder(t, find.widgetWithText(BalanceRowCard, 'A Blok - 5'));
+        await settleFor(t);
+        expect(find.text('Hesap Ekstresi'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey<String>('finance_account_add_payment')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('ledger_reverse_1')),
+          findsNothing,
+        );
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('kurul üyesi ama modül KAPALI: Finans yok', (t) async {
       final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
-      final access = await _access(() => <MySiteModules>[_my('board_member', finance: false)]);
-      await _pumpHome(t, auth, access: access);
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing);
-      await _disposeHome(t);
-    });
-
-    testWidgets('yalnız-görevli (staff) ve bireysel kullanıcı: ne Finans ne Borcum', (t) async {
-      final staff = _HomeFinanceAuth(role: UserRole.apartmentOwner);
-      await _pumpHome(t, staff, access: await _access(() => <MySiteModules>[_my('staff')]));
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing);
-      expect(_tileTitle('Borcum'), findsNothing);
-      await _disposeHome(t);
-
-      final individual = _HomeFinanceAuth(role: UserRole.individual);
-      await _pumpHome(t, individual, access: await _access(() => const <MySiteModules>[]));
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing);
-      expect(_tileTitle('Borcum'), findsNothing);
-      await _disposeHome(t);
-    });
-
-    testWidgets('süper kullanıcı: Finans var (tüm siteler, yazma yetkisi); Borcum YOK', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.superUser);
-      final access = await _access(() => const <MySiteModules>[], superUser: true);
-      await _pumpHome(t, auth, access: access);
-      await _openDrawer(t);
-      expect(_tileTitle('Borcum'), findsNothing);
-      await t.tap(_tileTitle('Finans'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      await settleFor(t);
-      expect(find.byType(FinanceView), findsOneWidget);
-      expect(auth.listSitesArgs.any((a) => a.approval == 'approved'), isTrue, reason: 'tüm onaylı siteler');
-      expect(find.text('Tahsilat Ekle'), findsOneWidget);
-      await _disposeHome(t);
-    });
-
-    testWidgets('süper kullanıcı: modülü KAPALI sitede açıklayıcı bilgi + "Modüller" düğmesi Modüller ekranına gider', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.superUser)..moduleEnabled = false;
-      final access = await _access(() => const <MySiteModules>[], superUser: true);
-      await _pumpHome(t, auth, access: access);
-      await _tapMenu(t, 'Finans');
-      expect(find.byKey(const ValueKey<String>('finance_module_off')), findsOneWidget);
-      await tapFinder(t, find.byKey(const ValueKey<String>('finance_open_modules')));
-      await settleFor(t);
-      expect(find.byType(ModulesView), findsOneWidget);
-      await _disposeHome(t);
-    });
-
-    testWidgets('açıkken modül kapatılırsa (poll) seçili Finans ekranı Panel\'e düşer, menü kalkar', (t) async {
-      final auth = _HomeFinanceAuth();
-      var financeOn = true;
-      final access = await _access(() => <MySiteModules>[_my('manager', finance: financeOn)]);
-      await _pumpHome(t, auth, access: access);
-      await _tapMenu(t, 'Finans');
-      expect(find.byType(FinanceView), findsOneWidget);
-      financeOn = false;
-      await access.refresh();
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      expect(find.byType(FinanceView), findsNothing);
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing);
-      await _disposeHome(t);
-    });
-  });
-
-  group('Borcum menü öğesi (sakin)', () {
-    testWidgets('daire sakini + modül AÇIK: Borcum var, Finans YOK; seçilince Borcum ekranı, başlık, yalnız görüntüleme', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner)
-        ..myFinanceItems = <Map<String, dynamic>>[finMyItem()];
-      final access = await _access(() => <MySiteModules>[_my('resident')]);
-      await _pumpHome(t, auth, access: access);
-      // Panel = modül vitrini: Borcum açıkken hero kart borç özetini bir kez okur ("Güncel borcunuz").
-      expect(auth.myFinanceCalls, 1, reason: 'vitrin hero kartı borç özetini okur');
-      expect(find.text('Güncel borcunuz'), findsOneWidget);
-      await _openDrawer(t);
-      final titles = _drawerTitles(t);
-      expect(titles, contains('Borcum'));
-      expect(titles, isNot(contains('Finans')));
-      await t.tap(_tileTitle('Borcum'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      await settleFor(t);
-
-      expect(find.byType(MyFinanceView), findsOneWidget);
-      expect(_inAppBar(find.text('Borcum')), findsOneWidget);
-      expect(auth.myFinanceCalls, 2, reason: 'vitrin özeti (1) + Borcum ekranı (1)');
-      expect(find.byType(MyFinanceCard), findsOneWidget);
-      expect(find.text('Tahsilat Ekle'), findsNothing);
-      expect(auth.summaryCalls, 0, reason: 'sakin yönetici uçlarını çağırmaz');
-      await _disposeHome(t);
-    });
-
-    testWidgets('modül KAPALI sitede sakin: Borcum YOK', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
-      final access = await _access(() => <MySiteModules>[_my('resident', finance: false)]);
-      await _pumpHome(t, auth, access: access);
-      await _openDrawer(t);
-      expect(_tileTitle('Borcum'), findsNothing);
-      await _disposeHome(t);
-    });
-
-    testWidgets('iki siteli sakin: yalnız modülü AÇIK site yeterli; kapalı sitenin daireleri sunucudan gelmez', (t) async {
-      final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
       final access = await _access(
-        () => <MySiteModules>[
-          _my('resident', finance: false),
-          _my('resident', code: 12, name: 'Mavi Park'),
-        ],
+        () => <MySiteModules>[_my('board_member', finance: false)],
       );
       await _pumpHome(t, auth, access: access);
       await _openDrawer(t);
-      expect(_tileTitle('Borcum'), findsOneWidget);
+      expect(_tileTitle('Finans'), findsNothing);
       await _disposeHome(t);
     });
 
-    testWidgets('sakin modundaki yönetici: Borcum var, Finans YOK; yönetici moduna dönünce tersi', (t) async {
-      final auth = _HomeFinanceAuth();
-      final access = await _access(() => <MySiteModules>[_my('manager')]);
+    testWidgets(
+      'yalnız-görevli (staff) ve bireysel kullanıcı: ne Finans ne Borcum',
+      (t) async {
+        final staff = _HomeFinanceAuth(role: UserRole.apartmentOwner);
+        await _pumpHome(
+          t,
+          staff,
+          access: await _access(() => <MySiteModules>[_my('staff')]),
+        );
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsNothing);
+        expect(_tileTitle('Borcum'), findsNothing);
+        await _disposeHome(t);
+
+        final individual = _HomeFinanceAuth(role: UserRole.individual);
+        await _pumpHome(
+          t,
+          individual,
+          access: await _access(() => const <MySiteModules>[]),
+        );
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsNothing);
+        expect(_tileTitle('Borcum'), findsNothing);
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets(
+      'süper kullanıcı: Finans var (tüm siteler, yazma yetkisi); Borcum YOK',
+      (t) async {
+        final auth = _HomeFinanceAuth(role: UserRole.superUser);
+        final access = await _access(
+          () => const <MySiteModules>[],
+          superUser: true,
+        );
+        await _pumpHome(t, auth, access: access);
+        await _openDrawer(t);
+        expect(_tileTitle('Borcum'), findsNothing);
+        await t.tap(_tileTitle('Finans'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        await settleFor(t);
+        expect(find.byType(FinanceView), findsOneWidget);
+        expect(
+          auth.listSitesArgs.any((a) => a.approval == 'approved'),
+          isTrue,
+          reason: 'tüm onaylı siteler',
+        );
+        expect(find.text('Tahsilat Ekle'), findsOneWidget);
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets(
+      'süper kullanıcı: modülü KAPALI sitede açıklayıcı bilgi + "Modüller" düğmesi Modüller ekranına gider',
+      (t) async {
+        final auth = _HomeFinanceAuth(role: UserRole.superUser)
+          ..moduleEnabled = false;
+        final access = await _access(
+          () => const <MySiteModules>[],
+          superUser: true,
+        );
+        await _pumpHome(t, auth, access: access);
+        await _tapMenu(t, 'Finans');
+        expect(
+          find.byKey(const ValueKey<String>('finance_module_off')),
+          findsOneWidget,
+        );
+        await tapFinder(
+          t,
+          find.byKey(const ValueKey<String>('finance_open_modules')),
+        );
+        await settleFor(t);
+        expect(find.byType(ModulesView), findsOneWidget);
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets(
+      'açıkken modül kapatılırsa (poll) seçili Finans ekranı Panel\'e düşer, menü kalkar',
+      (t) async {
+        final auth = _HomeFinanceAuth();
+        var financeOn = true;
+        final access = await _access(
+          () => <MySiteModules>[_my('manager', finance: financeOn)],
+        );
+        await _pumpHome(t, auth, access: access);
+        await _tapMenu(t, 'Finans');
+        expect(find.byType(FinanceView), findsOneWidget);
+        financeOn = false;
+        await access.refresh();
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        expect(find.byType(FinanceView), findsNothing);
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsNothing);
+        await _disposeHome(t);
+      },
+    );
+  });
+
+  group('Borcum menü öğesi (sakin)', () {
+    testWidgets(
+      'daire sakini + modül AÇIK: Borcum var, Finans YOK; seçilince Borcum ekranı, başlık, yalnız görüntüleme',
+      (t) async {
+        final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner)
+          ..myFinanceItems = <Map<String, dynamic>>[finMyItem()];
+        final access = await _access(() => <MySiteModules>[_my('resident')]);
+        await _pumpHome(t, auth, access: access);
+        // Panel = modül vitrini: Borcum açıkken hero kart borç özetini bir kez okur ("Güncel borcunuz").
+        expect(
+          auth.myFinanceCalls,
+          1,
+          reason: 'vitrin hero kartı borç özetini okur',
+        );
+        expect(find.text('Güncel borcunuz'), findsOneWidget);
+        await _openDrawer(t);
+        final titles = _drawerTitles(t);
+        expect(titles, contains('Borcum'));
+        expect(titles, isNot(contains('Finans')));
+        await t.tap(_tileTitle('Borcum'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        await settleFor(t);
+
+        expect(find.byType(MyFinanceView), findsOneWidget);
+        expect(_inAppBar(find.text('Borcum')), findsOneWidget);
+        expect(
+          auth.myFinanceCalls,
+          2,
+          reason: 'vitrin özeti (1) + Borcum ekranı (1)',
+        );
+        expect(find.byType(MyFinanceCard), findsOneWidget);
+        expect(find.text('Tahsilat Ekle'), findsNothing);
+        expect(
+          auth.summaryCalls,
+          0,
+          reason: 'sakin yönetici uçlarını çağırmaz',
+        );
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets('modül KAPALI sitede sakin: Borcum YOK', (t) async {
+      final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
+      final access = await _access(
+        () => <MySiteModules>[_my('resident', finance: false)],
+      );
       await _pumpHome(t, auth, access: access);
       await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsOneWidget);
-      expect(_tileTitle('Borcum'), findsNothing);
-      await t.tap(find.text('Sakin Moduna Geç'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsNothing, reason: 'sakin modunda yönetim yazma yetkisi yok');
-      expect(_tileTitle('Borcum'), findsOneWidget);
-      await t.tap(find.text('Yönetici Paneline Geç'));
-      await t.pump();
-      await t.pump(const Duration(milliseconds: 600));
-      await _openDrawer(t);
-      expect(_tileTitle('Finans'), findsOneWidget);
       expect(_tileTitle('Borcum'), findsNothing);
       await _disposeHome(t);
     });
+
+    testWidgets(
+      'iki siteli sakin: yalnız modülü AÇIK site yeterli; kapalı sitenin daireleri sunucudan gelmez',
+      (t) async {
+        final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner);
+        final access = await _access(
+          () => <MySiteModules>[
+            _my('resident', finance: false),
+            _my('resident', code: 12, name: 'Mavi Park'),
+          ],
+        );
+        await _pumpHome(t, auth, access: access);
+        await _openDrawer(t);
+        expect(_tileTitle('Borcum'), findsOneWidget);
+        await _disposeHome(t);
+      },
+    );
+
+    testWidgets(
+      'sakin modundaki yönetici: Borcum var, Finans YOK; yönetici moduna dönünce tersi',
+      (t) async {
+        final auth = _HomeFinanceAuth();
+        final access = await _access(() => <MySiteModules>[_my('manager')]);
+        await _pumpHome(t, auth, access: access);
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsOneWidget);
+        expect(_tileTitle('Borcum'), findsNothing);
+        await t.tap(find.byKey(const ValueKey<String>('yan_menu_gecis')));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        await _openDrawer(t);
+        expect(
+          _tileTitle('Finans'),
+          findsNothing,
+          reason: 'sakin modunda yönetim yazma yetkisi yok',
+        );
+        expect(_tileTitle('Borcum'), findsOneWidget);
+        await t.tap(find.byKey(const ValueKey<String>('yan_menu_gecis')));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 600));
+        await _openDrawer(t);
+        expect(_tileTitle('Finans'), findsOneWidget);
+        expect(_tileTitle('Borcum'), findsNothing);
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('çekip yenileme Borcum verisini yeniden çeker', (t) async {
       final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner)
@@ -423,32 +547,59 @@ void main() {
   });
 
   group('taşma: ana kabuk içinde', () {
-    for (final (w, h, s) in const <(double, double, double)>[(320, 640, 2.0), (360, 640, 1.5)]) {
+    for (final (w, h, s) in const <(double, double, double)>[
+      (320, 640, 2.0),
+      (360, 640, 1.5),
+    ]) {
       for (final dark in const <bool>[false, true]) {
-        testWidgets('Finans (yönetici) ve çekmece: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}', (t) async {
-          final auth = _HomeFinanceAuth();
-          final access = await _access(() => <MySiteModules>[_my('manager')]);
-          await _pumpHome(t, auth, access: access, width: w, height: h, scale: s, dark: dark);
-          await _tapMenu(t, 'Finans');
-          expect(find.byType(FinanceView), findsOneWidget);
-          await _openDrawer(t);
-          expect(_tileTitle('Finans'), findsOneWidget);
-          expect(t.takeException(), isNull);
-          await _disposeHome(t);
-        });
+        testWidgets(
+          'Finans (yönetici) ve çekmece: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}',
+          (t) async {
+            final auth = _HomeFinanceAuth();
+            final access = await _access(() => <MySiteModules>[_my('manager')]);
+            await _pumpHome(
+              t,
+              auth,
+              access: access,
+              width: w,
+              height: h,
+              scale: s,
+              dark: dark,
+            );
+            await _tapMenu(t, 'Finans');
+            expect(find.byType(FinanceView), findsOneWidget);
+            await _openDrawer(t);
+            expect(_tileTitle('Finans'), findsOneWidget);
+            expect(t.takeException(), isNull);
+            await _disposeHome(t);
+          },
+        );
 
-        testWidgets('Borcum (sakin) ve çekmece: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}', (t) async {
-          final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner)
-            ..myFinanceItems = <Map<String, dynamic>>[finMyItem()];
-          final access = await _access(() => <MySiteModules>[_my('resident')]);
-          await _pumpHome(t, auth, access: access, width: w, height: h, scale: s, dark: dark);
-          await _tapMenu(t, 'Borcum');
-          expect(find.byType(MyFinanceView), findsOneWidget);
-          await _openDrawer(t);
-          expect(_tileTitle('Borcum'), findsOneWidget);
-          expect(t.takeException(), isNull);
-          await _disposeHome(t);
-        });
+        testWidgets(
+          'Borcum (sakin) ve çekmece: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}',
+          (t) async {
+            final auth = _HomeFinanceAuth(role: UserRole.apartmentOwner)
+              ..myFinanceItems = <Map<String, dynamic>>[finMyItem()];
+            final access = await _access(
+              () => <MySiteModules>[_my('resident')],
+            );
+            await _pumpHome(
+              t,
+              auth,
+              access: access,
+              width: w,
+              height: h,
+              scale: s,
+              dark: dark,
+            );
+            await _tapMenu(t, 'Borcum');
+            expect(find.byType(MyFinanceView), findsOneWidget);
+            await _openDrawer(t);
+            expect(_tileTitle('Borcum'), findsOneWidget);
+            expect(t.takeException(), isNull);
+            await _disposeHome(t);
+          },
+        );
       }
     }
   });

@@ -112,6 +112,7 @@ class AppDialog extends StatelessWidget {
     this.icon,
     this.tone = AppTone.primary,
     this.actions = const <Widget>[],
+    this.draggable = false,
   });
 
   final String title;
@@ -125,36 +126,121 @@ class AppDialog extends StatelessWidget {
   /// Eylem düğmeleri (sıra: iptal, birincil).
   final List<Widget> actions;
 
+  /// Başlıktan taşınabilen pencere; konum ekran ve klavye sınırlarında kalır.
+  final bool draggable;
+
   @override
   Widget build(BuildContext context) {
     final hasActions = actions.isNotEmpty;
-    return AlertDialog(
-      scrollable: true,
-      titlePadding: EdgeInsets.zero,
-      title: AppDialogHeader(
-        title: title,
-        subtitle: subtitle,
-        icon: icon,
-        tone: tone,
-      ),
-      contentPadding: EdgeInsets.fromLTRB(
-        AppSpace.xl,
-        0,
-        AppSpace.xl,
-        hasActions ? AppSpace.md : AppSpace.xl,
-      ),
-      content: SizedBox(width: dialogWidthForScreen(context), child: child),
-      actionsPadding: const EdgeInsets.fromLTRB(
-        AppSpace.lg,
-        0,
-        AppSpace.lg,
-        AppSpace.lg,
-      ),
-      actions: hasActions ? actions : null,
-      insetPadding: const EdgeInsets.symmetric(
-        horizontal: AppSpace.lg,
-        vertical: AppSpace.xl,
-      ),
-    );
+    Widget surface(Alignment? alignment, Widget Function(Widget) wrapHeader) =>
+        AlertDialog(
+          alignment: alignment,
+          scrollable: true,
+          titlePadding: EdgeInsets.zero,
+          title: wrapHeader(
+            AppDialogHeader(
+              title: title,
+              subtitle: subtitle,
+              icon: icon,
+              tone: tone,
+            ),
+          ),
+          contentPadding: EdgeInsets.fromLTRB(
+            AppSpace.xl,
+            0,
+            AppSpace.xl,
+            hasActions ? AppSpace.md : AppSpace.xl,
+          ),
+          content: SizedBox(width: dialogWidthForScreen(context), child: child),
+          actionsPadding: const EdgeInsets.fromLTRB(
+            AppSpace.lg,
+            0,
+            AppSpace.lg,
+            AppSpace.lg,
+          ),
+          actions: hasActions ? actions : null,
+          insetPadding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.lg,
+            vertical: AppSpace.xl,
+          ),
+        );
+    return draggable
+        ? _MovableDialog(enabled: true, builder: surface)
+        : surface(null, (header) => header);
   }
+}
+
+typedef _DialogBuilder =
+    Widget Function(Alignment? alignment, Widget Function(Widget) wrapHeader);
+
+class _MovableDialog extends StatefulWidget {
+  const _MovableDialog({required this.enabled, required this.builder});
+  final bool enabled;
+  final _DialogBuilder builder;
+
+  @override
+  State<_MovableDialog> createState() => _MovableDialogState();
+}
+
+class _MovableDialogState extends State<_MovableDialog> {
+  Alignment _alignment = Alignment.center;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) => widget.builder(
+      widget.enabled ? _alignment : null,
+      (header) => !widget.enabled
+          ? header
+          : Builder(
+              builder: (headerContext) => MouseRegion(
+                cursor: SystemMouseCursors.move,
+                child: GestureDetector(
+                  key: const ValueKey<String>('dialog_drag_handle'),
+                  behavior: HitTestBehavior.opaque,
+                  onPanUpdate: (details) {
+                    // Material, AlertDialog içindeki gerçek pencere yüzeyidir. Dış
+                    // Dialog render kutusu tüm ekranı kapsadığı için onu ölçmeyiz.
+                    Size? surface;
+                    headerContext.visitAncestorElements((element) {
+                      if (element.widget is Material) {
+                        final render = element.findRenderObject();
+                        if (render is RenderBox && render.hasSize) {
+                          surface = render.size;
+                        }
+                        return false;
+                      }
+                      return true;
+                    });
+                    final size = surface;
+                    if (size == null) return;
+                    final insets = MediaQuery.viewInsetsOf(context);
+                    final freeWidth =
+                        constraints.maxWidth -
+                        insets.horizontal -
+                        AppSpace.lg * 2 -
+                        size.width;
+                    final freeHeight =
+                        constraints.maxHeight -
+                        insets.vertical -
+                        AppSpace.xl * 2 -
+                        size.height;
+                    setState(() {
+                      _alignment = Alignment(
+                        freeWidth > 1
+                            ? (_alignment.x + details.delta.dx * 2 / freeWidth)
+                                  .clamp(-1.0, 1.0)
+                            : 0,
+                        freeHeight > 1
+                            ? (_alignment.y + details.delta.dy * 2 / freeHeight)
+                                  .clamp(-1.0, 1.0)
+                            : 0,
+                      );
+                    });
+                  },
+                  child: header,
+                ),
+              ),
+            ),
+    ),
+  );
 }

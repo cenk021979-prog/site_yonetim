@@ -291,7 +291,7 @@ describe('plate_gates_common: sürüm 3 sözleşme alanları', () => {
 describe('plate_cameras_common: otomatik açma durumu, kimlik ve kapı durumu metinleri', () => {
   const edge = (over = {}) => ({ online: true, recognition_ready: true, ...over });
 
-  it('Etkin yalniz: kenar cevrimici + model onayli + kapiya bagli etkin kamera; degilse nedenli satir', () => {
+  it('Etkin yalnız güncel izleme, hazır model ve bağlı kamerayla doğrulanır; eksik kanıt nedenli gösterilir', () => {
     assert.equal(computeAutoOpen({ edges: [edge()], boundActiveCameras: 2 }).state, 'active');
     const cases = [
       [{ edges: [], boundActiveCameras: 3 }, 'no_edge_client'],
@@ -306,6 +306,9 @@ describe('plate_cameras_common: otomatik açma durumu, kimlik ve kapı durumu me
     }
     assert.equal(computeAutoOpen({ edges: [edge({ online: false }), edge()], boundActiveCameras: 1 }).state, 'active', 'biri cevrimici ve onayli yeter');
     for (const text of Object.values(AUTO_OPEN_MESSAGES)) assert.ok(!/açıldı/i.test(text), 'kapi dili: acildi denmez');
+    assert.equal(computeAutoOpen().reason, 'no_camera');
+    assert.equal(computeAutoOpen({ edges: null, boundActiveCameras: 1 }).reason, 'no_edge_client');
+    assert.equal(computeAutoOpen({ edges: [edge({ online: false, recognition_ready: true }), edge({ recognition_ready: null })], boundActiveCameras: 1 }).reason, 'model_unknown', 'çevrimdışı hazır model canlı ama bilinmeyen modeli hazır yapmaz');
   });
 
   it('canli akis kimligi: sakin "Ali Y." + daire, misafir yalniz daire, tanimsiz/yetkisiz null; kapi durumu komut dili', () => {
@@ -549,7 +552,8 @@ describe('plate_cameras_service: ekle / değiştir / sına / keşif / görünüm
     ]);
     const out = await getCamerasOverview({ siteCode: SITE, canWrite: true });
     assert.deepEqual(out.cameras.map((c) => [c.id, c.status.color]), [[11, 'yesil'], [12, 'gri'], [13, 'kirmizi']]);
-    assert.deepEqual(out.cameras[0].gate, { id: 3, name: 'Ana Kapı', direction_mode: 'cift' });
+    assert.deepEqual(out.cameras[0].gate, { id: 3, name: 'Ana Kapı', direction_mode: 'cift', door_id: null,
+      consecutive_vehicle_delay_seconds: 10, entry_rear_suppress_seconds: 60, exit_rear_suppress_seconds: 60 });
     assert.equal(out.cameras[0].direction, 'giris');
     assert.equal(out.cameras[1].gate, null);
     assert.equal(out.cameras[1].managed, false);
@@ -564,6 +568,16 @@ describe('plate_cameras_service: ekle / değiştir / sına / keşif / görünüm
     fake.log.length = 0;
     await getCamerasOverview({ siteCode: SITE, canWrite: false });
     assert.equal(fake.find(/INSERT INTO plate_snapshot_watch/).length, 0, 'kurul / gorevli izleyen sayilmaz');
+  });
+
+  it('overview, yerel istasyonun çalıştığına dair kanıt yokken online veya otomatik açma etkin demez', async () => {
+    installFakePool([siteSettingsRow(null), edgeClients([]), cameraSelect([cameraRow()]),
+      [/FROM plate_gates WHERE site_code = \$1 ORDER BY sort_order/, () => ok([])]]);
+    const out = await getCamerasOverview({ siteCode: SITE, canWrite: false });
+    assert.deepEqual(out.edge, { clients: [], online: false, count: 0 });
+    assert.equal(out.auto_open.state, 'inactive');
+    assert.equal(out.auto_open.reason, 'no_edge_client');
+    assert.match(out.auto_open.message, /doğrulayamadı/);
   });
 
   it('bakım: eski / pasif kare silinir, komutlar kapanir, eski komut kayitlari silinir', async () => {
@@ -624,7 +638,7 @@ describe('plate-recognition kamera uçları: yetki, görüntü 403 / 304, parola
   const SITE_1 = 1000000001;
   const SITE_2 = 1000000002;
   const mk = (id, role) => ({ id, user_code: id, userCode: id, role, full_name: `U${id}`, email: `u${id}@example.com` });
-  const users = { mgrA: mk(20001, 'site_manager'), mgrB: mk(20002, 'site_manager'), resident: mk(20004, 'apartment_owner'), board: mk(20006, 'individual') };
+  const users = { mgrA: mk(20001, 'site_manager'), mgrB: mk(20002, 'site_manager'), resident: mk(20004, 'apartment_owner'), board: mk(20006, 'individual'), staff: mk(20007, 'individual') };
   let server;
   let baseUrl;
   let fake;
@@ -641,7 +655,7 @@ describe('plate-recognition kamera uçları: yetki, görüntü 403 / 304, parola
         const [site, user] = params.map(Number);
         return ok([{ is_board_here: site === SITE_1 && user === 20006, is_member_here: (site === SITE_1 && user === 20006) || user === 20004, has_other_role: user === 20002 || user === 20006 }]);
       }],
-      [/FROM site_memberships WHERE site_code = \$1 AND user_code = \$2 AND role = 'STAFF'/, () => ok([])],
+      [/FROM site_memberships WHERE site_code = \$1 AND user_code = \$2 AND role = 'STAFF'/, (_s, params) => ok(Number(params[0]) === SITE_1 && Number(params[1]) === 20007 ? [{ x: 1 }] : [])],
       [/^SELECT site_code FROM sites WHERE site_code = \$1 LIMIT 1$/, (_s, params) => ok([SITE_1, SITE_2].includes(Number(params[0])) ? [{ site_code: String(params[0]) }] : [])],
       [/^SELECT enabled FROM site_modules/, () => ok([{ enabled: true }])],
     ];
@@ -690,13 +704,13 @@ describe('plate-recognition kamera uçları: yetki, görüntü 403 / 304, parola
     const res = await get(users.mgrA, '/plate-recognition/cameras/11/snapshot');
     assert.equal(res.status, 200);
     assert.equal(res.headers.get('content-type'), 'image/jpeg');
-    assert.equal(res.headers.get('cache-control'), 'no-store');
+    assert.equal(res.headers.get('cache-control'), 'no-store, no-cache, must-revalidate');
     assert.equal(res.headers.get('x-captured-at'), captured.toISOString());
     const etag = res.headers.get('etag');
     assert.equal(etag, `"${captured.getTime()}"`);
     assert.deepEqual(Buffer.from(await res.arrayBuffer()), JPEG);
     assert.equal((await get(users.mgrA, '/plate-recognition/cameras/11/snapshot', { 'if-none-match': etag })).status, 304);
-    for (const [who, user] of [['kurul uyesi', users.board], ['sakin', users.resident], ['baska sitenin yoneticisi', users.mgrB]]) {
+    for (const [who, user] of [['kurul uyesi', users.board], ['görevli', users.staff], ['sakin', users.resident], ['baska sitenin yoneticisi', users.mgrB]]) {
       const denied = await get(user, '/plate-recognition/cameras/11/snapshot');
       assert.equal(denied.status, 403, `${who}: goruntu YOK`);
       assert.ok(!(denied.headers.get('content-type') ?? '').includes('image'));
@@ -737,14 +751,23 @@ describe('kenar uçları (/edge/plate/v1): komut + görüntü yolları kayıtlı
 
 describe('recordEdgeEvent (sürüm 3): kimlik bağlama, kapı komutu, SmartKeyPass kapı günlüğü', () => {
   after(uninstallFakePool);
-  beforeEach(() => mock.method(console, 'error', () => {}));
+  beforeEach((t) => {
+    t.mock.method(console, 'error', () => {});
+    t.mock.method(Date, 'now', () => eventClock);
+  });
   const NOW = Date.now();
+  let eventClock = NOW;
   const body = (over = {}) => ({ schema_version: 3, event_id: 'evt-v3-000001', camera_id: 7, plate: '34 ABC 123', decision: 'acildi', seen_at: new Date(NOW - 5000).toISOString(), direction: 'giris', gate_command: 'accepted', ...over });
 
   function eventPool({ vehicle = { id: 1, apartment_id: 5, person_id: 9 }, permit = null, duplicate = false, hintApartment = null } = {}) {
+    // Independent fixtures start beyond the actual gate cooldown; dedicated
+    // cooldown tests retain their assertions about suppression within a window.
+    eventClock += 700_000;
     return installFakePool([
+      [/^SELECT enabled, capacity, registration_photo_enabled FROM parking_policies/, () => ok([{ enabled: false }])],
+      [/^SELECT .* AS approved FROM vehicles v/, () => ok(vehicle ? [{ approved: true }] : [])],
       [/FROM camera_devices c LEFT JOIN plate_gate_cameras gc/, () => ok([{ id: 7, gate_id: 3, camera_direction: 'giris' }])],
-      [/^SELECT id, name, direction_mode, door_id FROM plate_gates/, () => ok([{ id: 3, name: 'Ana Kapı', direction_mode: 'cift', door_id: 40 }])],
+      [/^SELECT id, name, direction_mode, door_id, consecutive_vehicle_delay_seconds, entry_rear_suppress_seconds, exit_rear_suppress_seconds FROM plate_gates/, () => ok([{ id: 3, name: 'Ana Kapı', direction_mode: 'cift', door_id: 40 }])],
       [/FROM plate_presence WHERE site_code = \$1 AND plate = \$2 FOR UPDATE/, () => ok([])],
       [/^SELECT id, apartment_id, person_id FROM vehicles/, () => ok(vehicle ? [vehicle] : [])],
       [/FROM plate_guest_permits WHERE site_code/, () => ok(permit ? [permit] : [])],

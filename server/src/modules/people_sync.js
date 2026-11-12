@@ -99,7 +99,15 @@ export async function syncSitePeople(siteCode, { wait = true } = {}) {
   if (!Number.isSafeInteger(site) || site <= 0) {
     return null;
   }
-  return withSyncTransaction(peopleLockKey(site), (client) => runSyncSteps(client, { siteCode: site, userCode: null }), { wait });
+  return withSyncTransaction(peopleLockKey(site), async (client) => {
+    const key = `finance_post:${site}`;
+    if (wait) await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+    else {
+      const lock = await client.query('SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked', [key]);
+      if (lock.rows?.[0]?.locked !== true) return SKIPPED_BUSY;
+    }
+    return runSyncSteps(client, { siteCode: site, userCode: null, dailyAidat: true });
+  }, { wait });
 }
 
 /** Bir kullanıcının TÜM sitelerdeki kayıtlarını eşitler (sakinin "Kayıtlarım" ekranı için). */
@@ -137,7 +145,15 @@ export async function syncUserPeople(userCode, { wait = true } = {}) {
           }
         }
       }
-      return runSyncSteps(client, { siteCode: null, userCode: user });
+      for (const row of sites.rows ?? []) {
+        const key = `finance_post:${Number(row.site_code)}`;
+        if (wait) await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+        else {
+          const lock = await client.query('SELECT pg_try_advisory_xact_lock(hashtext($1)) AS locked', [key]);
+          if (lock.rows?.[0]?.locked !== true) return SKIPPED_BUSY;
+        }
+      }
+      return runSyncSteps(client, { siteCode: null, userCode: user, dailyAidat: true });
     },
     { wait },
   );

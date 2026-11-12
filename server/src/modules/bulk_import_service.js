@@ -38,7 +38,7 @@ export const bulkImportLockKey = (siteCode) => `bulk_import:${Number(siteCode)}`
 const LOCK_TIMEOUT = '8s';
 /** Kişi eşitlemesi (CRM) gereken türler; finans kilidi gereken türler; daire satırı yazan türler. */
 const SYNC_KINDS = new Set(['people', 'vehicles', 'all_in_one']);
-const FINANCE_LOCK_KINDS = new Set(['apartments', 'all_in_one', 'opening_balances']);
+const FINANCE_LOCK_KINDS = new Set(['apartments', 'people', 'vehicles', 'all_in_one', 'opening_balances']);
 const APARTMENT_WRITE_KINDS = new Set(['apartments', 'all_in_one']);
 const totalError = (plan, expected, expectedCredit = 0) =>
   new PlatformError(409, 'TOTAL_MISMATCH', 'Toplam tutar onaylanan tutarla uyuşmuyor. Önizleme yenilendi, tekrar inceleyin.', {
@@ -121,7 +121,8 @@ async function syncBeforePreview(siteCode) {
       began = true;
       await client.query(`SET LOCAL lock_timeout = '${LOCK_TIMEOUT}'`);
       await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [peopleLockKey(siteCode)]);
-      await runSyncSteps(client, { siteCode, userCode: null });
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [financeLockKey(siteCode)]);
+      await runSyncSteps(client, { siteCode, userCode: null, dailyAidat: true });
       await client.query('COMMIT');
     } catch (error) {
       if (began) await rollbackQuietly(client);
@@ -344,7 +345,7 @@ async function commitOnce({ siteCode, kind, parsed, fingerprint, actor, hashes =
 
     // eşleşmeden ÖNCE üyelikleri CRM'e yansıt (aksi halde sonradan LINK edilecek hesaplı kişi için ikinci, hayalet kayıt doğardı)
     if (SYNC_KINDS.has(kind)) {
-      await runSyncSteps(client, { siteCode, userCode: null });
+      await runSyncSteps(client, { siteCode, userCode: null, dailyAidat: true });
     }
     if (kind === 'opening_balances') {
       await assertWritableDate(client, siteCode, parsed.options.cutover_date, 'Devir tarihi');

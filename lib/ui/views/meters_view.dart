@@ -11,6 +11,8 @@ import 'package:site_kapi_kontrol/services/meter_file_reader.dart';
 import 'package:site_kapi_kontrol/ui/views/meter_field_view.dart';
 import 'package:site_kapi_kontrol/ui/design/action_bar.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
+import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 
 String _iso(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -138,6 +140,7 @@ class _MetersTabState extends State<_MetersTab> {
   List<Meter>? _meters;
   String? _error;
   MeterKind? _kind;
+  int _loadToken = 0;
 
   @override
   void initState() {
@@ -146,12 +149,20 @@ class _MetersTabState extends State<_MetersTab> {
   }
 
   Future<void> _load() async {
+    final token = ++_loadToken;
+    final scope = widget.service.authService.session?.token;
     setState(() => _error = null);
     try {
       final list = await widget.service.listMeters(widget.site.code);
-      if (mounted) setState(() => _meters = list);
+      if (mounted && token == _loadToken && scope == widget.service.authService.session?.token) {
+        setState(() {
+        _meters = list;
+        final kinds = [for (final kind in MeterKind.values) if (list.any((m) => m.kind == kind)) kind];
+        if (!kinds.contains(_kind)) _kind = kinds.firstOrNull;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = _errorText(e, 'Sayaçlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.'));
+      if (mounted && token == _loadToken && scope == widget.service.authService.session?.token) setState(() => _error = _errorText(e, 'Sayaçlar yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.'));
     }
   }
 
@@ -164,7 +175,7 @@ class _MetersTabState extends State<_MetersTab> {
 
   Future<void> _openField() async {
     await Navigator.of(context).push<void>(MaterialPageRoute<void>(
-      builder: (_) => MeterFieldView(authService: widget.service.authService, siteCode: widget.site.code, siteName: widget.site.label, service: widget.service),
+      builder: (_) => MeterFieldView(authService: widget.service.authService, siteCode: widget.site.code, siteName: widget.site.label, service: widget.service, initialKind: _kind),
     ));
     if (mounted) await _load();
   }
@@ -193,12 +204,14 @@ class _MetersTabState extends State<_MetersTab> {
     final meters = _meters;
     if (meters == null) return const Center(child: CircularProgressIndicator());
     final shown = <Meter>[for (final m in meters) if (_kind == null || m.kind == _kind) m];
+    // A type remains reachable while it has inactive/history records as well.
+    // Creating a meter still offers all four types; no independent toggle exists.
+    final kinds = [for (final kind in MeterKind.values) if (meters.any((m) => m.kind == kind)) kind];
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
         Wrap(spacing: AppSpace.sm, children: <Widget>[
-          ChoiceChip(label: const Text('Tümü'), selected: _kind == null, onSelected: (_) => setState(() => _kind = null)),
-          for (final k in MeterKind.values) ChoiceChip(label: Text(k.label), selected: _kind == k, onSelected: (_) => setState(() => _kind = k)),
+          for (final k in kinds) ChoiceChip(label: Text(k.label), selected: _kind == k, onSelected: (_) => setState(() => _kind = k)),
         ]),
         const SizedBox(height: AppSpace.md),
         if (widget.site.canWrite)
@@ -213,7 +226,7 @@ class _MetersTabState extends State<_MetersTab> {
             child: ListTile(
               title: Text('${m.apartmentLabel} · ${m.kind.label}'),
               subtitle: Text('Seri no: ${m.serialNo}\n${m.lastValue == null ? 'Okuma yok' : 'Son okuma: ${m.lastValue} (${m.lastDate})'}${m.isActive ? '' : '\nPasif'}'),
-              isThreeLine: true,
+              isThreeLine: !m.isActive,
               onTap: () => showDialog<void>(context: context, builder: (_) => _ReadingsDialog(service: widget.service, site: widget.site, meter: m)).then((_) => _load()),
               trailing: widget.site.canWrite ? Switch(value: m.isActive, onChanged: (_) => _toggle(m)) : null,
             ),
@@ -499,8 +512,14 @@ class _ImportTabState extends State<_ImportTab> {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        const Text('Uzaktan okuyan sayaçların dosyasını (CSV ya da Excel) yükleyin. İlk sütun daire kodu (ör. "A Blok - 5") ya da sayaç seri numarası, ikinci sütun okuma değeri olmalıdır.'),
-        const SizedBox(height: AppSpace.md),
+        const SectionHeader(
+          title: 'Okuma aktar',
+          trailing: ContextHelp(
+            title: 'Dosya biçimi',
+            message: 'Uzaktan okuyan sayaçların dosyasını (CSV ya da Excel) yükleyin. İlk sütun daire kodu (ör. "A Blok - 5") ya da sayaç seri numarası, ikinci sütun okuma değeri olmalıdır.',
+          ),
+        ),
+        const SizedBox(height: AppSpace.sm),
         DropdownButtonFormField<MeterKind>(
           initialValue: _kind,
           decoration: const InputDecoration(labelText: 'Sayaç türü'),

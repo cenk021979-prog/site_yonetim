@@ -31,6 +31,7 @@ import 'package:site_kapi_kontrol/ui/helpers/date_input.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/helpers/phone_input.dart';
 
+import '../license_plate_finder.dart';
 import 'dialog_layout_harness.dart';
 import 'list_fixtures.dart' show tapFinder, tapText;
 import 'people_fixtures.dart';
@@ -257,7 +258,7 @@ void main() {
       expect(find.text('A Blok - 5'), findsOneWidget);
       expect(find.text('Malik'), findsWidgets);
       expect(find.text('Giriş: 05.03.2024'), findsOneWidget);
-      expect(find.text('34 ABC 123'), findsOneWidget);
+      expect(findLicensePlate('34 ABC 123'), findsOneWidget);
       for (final label in const <String>[
         'Düzenle',
         'İlişki Ekle',
@@ -500,7 +501,7 @@ void main() {
       expect(auth.createVehicleCalls.last.plate, '06 DEF 456');
       expect(auth.createVehicleCalls.last.note, 'Mavi araç');
       expect(changed, 1);
-      expect(find.text('06 DEF 456'), findsOneWidget, reason: 'kart yeniden çekildi');
+      expect(findLicensePlate('06 DEF 456'), findsOneWidget, reason: 'kart yeniden çekildi');
       expect(_removeButtons, findsNWidgets(2));
     });
 
@@ -532,7 +533,7 @@ void main() {
       await tapText(t, 'Kaldır');
       await settleFor(t);
       expect(find.text('Bu işlem için yetkiniz yok.'), findsOneWidget);
-      expect(find.text('34 ABC 123'), findsOneWidget);
+      expect(findLicensePlate('34 ABC 123'), findsOneWidget);
     });
 
     testWidgets('Düzenle: kişi formu açılır; kaydedince kart yeni telefonu gösterir', (t) async {

@@ -4,12 +4,17 @@ import 'package:flutter/foundation.dart';
 import 'package:site_kapi_kontrol/models/vehicle_record.dart';
 
 /// Ekranda gösterilen etki uyarısı (sunucudaki cümleyle aynı): kayıtlı araç plaka tanımada yetkili sayılır.
-const String kPlateRecognitionNotice = 'Eklediğiniz plaka, sitede plaka tanıma açıksa yetkili araç sayılır.';
+const String kPlateRecognitionNotice =
+    'Araçlarınız dairenize kaydedilir. Plakayla giriş için dairenizin yönetim onayı gerekir. Kapasite denetimi açıksa eşzamanlı araç giriş hakkınız da uygulanır. Otomatik giriş için izleme uygulamasının sunucu bağlantısı gerekir.';
 
 /// Aracın sahibi olarak seçilebilen dairenin aktif sakini.
 @immutable
 class AptVehicleOwner {
-  const AptVehicleOwner({required this.personId, required this.name, this.isDefault = false});
+  const AptVehicleOwner({
+    required this.personId,
+    required this.name,
+    this.isDefault = false,
+  });
 
   factory AptVehicleOwner.fromJson(Map<String, dynamic> j) => AptVehicleOwner(
     personId: crmInt(j['person_id']),
@@ -30,6 +35,10 @@ class ApartmentVehicles {
     this.limit = 4,
     this.owners = const <AptVehicleOwner>[],
     this.notice = kPlateRecognitionNotice,
+    this.parkingEnabled = false,
+    this.apartmentApproved = false,
+    this.registrationPhotoEnabled = false,
+    this.ownOnly = false,
   });
 
   factory ApartmentVehicles.fromJson(Map<String, dynamic> j) {
@@ -39,9 +48,16 @@ class ApartmentVehicles {
       canManage: j['can_manage'] == true,
       limit: crmInt(j['limit'], 4),
       owners: <AptVehicleOwner>[
-        if (owners is List) for (final e in owners) if (e is Map) AptVehicleOwner.fromJson(Map<String, dynamic>.from(e)),
+        if (owners is List)
+          for (final e in owners)
+            if (e is Map)
+              AptVehicleOwner.fromJson(Map<String, dynamic>.from(e)),
       ],
       notice: crmText(j['notice']) ?? kPlateRecognitionNotice,
+      parkingEnabled: j['parking_enabled'] == true,
+      apartmentApproved: j['apartment_approved'] == true,
+      registrationPhotoEnabled: j['registration_photo_enabled'] == true,
+      ownOnly: j['own_only'] == true,
     );
   }
 
@@ -54,6 +70,10 @@ class ApartmentVehicles {
   final int limit;
   final List<AptVehicleOwner> owners;
   final String notice;
+  final bool parkingEnabled;
+  final bool apartmentApproved;
+  final bool registrationPhotoEnabled;
+  final bool ownOnly;
 
   bool get isFull => items.length >= limit;
 }

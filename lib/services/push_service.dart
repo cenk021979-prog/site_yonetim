@@ -9,7 +9,7 @@
 // - İzin BAĞLAM İÇİNDE, açma işleminde istenir; açılışta SORULMAZ.
 // - Kayıt tazeleme (rıza varsa): giriş sonrası, jeton yenilenince ve açılışta / ön plana dönüşte; izin durumu ya
 //   da jeton değişmedikçe günde en çok bir kez. `notifications_enabled` işletim sistemi izninin GÜNCEL hâlidir.
-//   Duyuru alamayan roller (süper kullanıcı, bireysel kullanıcı) için kayıt tutulmaz.
+//   Bireysel hesap yalnız sunucunun doğruladığı gerçek alarm alıcısıysa kayıt olabilir; genel duyuru rolü kazanmaz.
 // - Çıkış ([AuthService.logout]): oturum belirteci yerelde silinmeden ÖNCE `DELETE /app/push/devices/{id}` aynı
 //   belirteçle yola çıkar ve FCM jetonunun silinmesi ONA BAĞLI OLMADAN paralel başlar. Jeton silinemezse (ör.
 //   çevrimdışı) "bekleyen temizlik" işareti kalır; açılışta, ön plana dönüşte, kayıttan önce ve kısa aralıklarla
@@ -42,7 +42,8 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/push_api.dart';
 import 'package:site_kapi_kontrol/services/push_gateway.dart';
 import 'package:site_kapi_kontrol/services/push_store.dart';
-import 'package:site_kapi_kontrol/ui/views/legal_consent_gate.dart' show LegalConsentBlock;
+import 'package:site_kapi_kontrol/ui/views/legal_consent_gate.dart'
+    show LegalConsentBlock;
 
 /// Bu cihazda push altyapısının durumu.
 enum PushSupport {
@@ -199,10 +200,12 @@ class PushService {
   final DateTime Function() _now;
   final List<ValueListenable<bool>> _routeBlockers;
 
-  static Future<String?> _installedVersion() async => (await loadInstalledAppInfo()).version;
+  static Future<String?> _installedVersion() async =>
+      (await loadInstalledAppInfo()).version;
 
   PushMessagingGateway? _gateway;
-  final List<StreamSubscription<Object?>> _subscriptions = <StreamSubscription<Object?>>[];
+  final List<StreamSubscription<Object?>> _subscriptions =
+      <StreamSubscription<Object?>>[];
   AppLifecycleListener? _lifecycle;
   bool _disposed = false;
 
@@ -215,10 +218,17 @@ class PushService {
 
   _PendingRoute? _pendingRoute;
   void Function(int announcementId)? _opener;
+  ({EmergencyPushReference reference, DateTime at, String? scope})?
+  _pendingEmergency;
+  void Function(EmergencyPushReference reference)? _emergencyOpener;
+  final StreamController<EmergencyPushReference> _foregroundEmergencies =
+      StreamController<EmergencyPushReference>.broadcast();
 
   final StreamController<int> _foreground = StreamController<int>.broadcast();
-  final StreamController<void> _foregroundTests = StreamController<void>.broadcast();
-  final ValueNotifier<PushStartState> _startState = ValueNotifier<PushStartState>(PushStartState.idle);
+  final StreamController<void> _foregroundTests =
+      StreamController<void>.broadcast();
+  final ValueNotifier<PushStartState> _startState =
+      ValueNotifier<PushStartState>(PushStartState.idle);
   final ValueNotifier<bool> _active = ValueNotifier<bool>(false);
   final ValueNotifier<bool> _busy = ValueNotifier<bool>(false);
   final ValueNotifier<int> _changes = ValueNotifier<int>(0);
@@ -251,6 +261,16 @@ class PushService {
 
   /// Uygulama ön plandayken gelen TEST bildirimi (ana sayfa "Test bildirimi bu cihaza ulaştı." der).
   Stream<void> get foregroundTests => _foregroundTests.stream;
+
+  Stream<EmergencyPushReference> get foregroundEmergencies =>
+      _foregroundEmergencies.stream;
+
+  String? get _sessionScope => _scopeOf(_session);
+  String? _scopeOf(UserSession? session) => session == null
+      ? null
+      : '${session.id}:${session.role.name}:${session.token}';
+  bool _sameScope(AuthService auth, UserSession session) =>
+      _scopeOf(auth.session) == _scopeOf(session);
 
   void _bump() {
     if (!_disposed) _changes.value++;
@@ -288,10 +308,22 @@ class PushService {
     }
     if (_disposed) return;
     _subscriptions
-      ..add(gateway.onMessage.listen(_onForegroundMessage, onError: (Object _) {}))
-      ..add(gateway.onMessageOpenedApp.listen(_onOpenedMessage, onError: (Object _) {}))
+      ..add(
+        gateway.onMessage.listen(_onForegroundMessage, onError: (Object _) {}),
+      )
+      ..add(
+        gateway.onMessageOpenedApp.listen(
+          _onOpenedMessage,
+          onError: (Object _) {},
+        ),
+      )
       // Yenilenen jeton damgadaki özetle karşılaştırılır; değiştiyse kayıt hemen, değilse "günde bir" kuralı.
-      ..add(gateway.onTokenRefresh.listen((_) => _requestSync(), onError: (Object _) {}));
+      ..add(
+        gateway.onTokenRefresh.listen(
+          (_) => _requestSync(),
+          onError: (Object _) {},
+        ),
+      );
     for (final blocker in _routeBlockers) {
       blocker.addListener(_deliverPendingRoute);
     }
@@ -341,6 +373,7 @@ class PushService {
     _auth = null;
     _attachments = 0;
     _session = null;
+    _pendingEmergency = null;
     try {
       auth.removeListener(_onAuthChanged);
     } catch (_) {
@@ -371,16 +404,53 @@ class PushService {
       // Hesap değişimi: önceki hesabın çıkış akışı (kendi belirteciyle), ardından yeni hesabın kaydı.
       _endSession(auth, previous);
       _requestSync();
-    } else if (previous.role != current.role) {
+    } else if (previous.role != current.role ||
+        previous.token != current.token) {
       // Rol değişti (örn. site başvurusu onaylandı): duyuru alabilir hâle gelmiş olabilir.
+      _pendingEmergency = null;
+      _availability = null;
       _requestSync();
     }
   }
 
-  /// Duyuru alabilecek roller (sakin ve site yöneticisi). Süper kullanıcı ve bireysel kullanıcı alıcı olamaz:
-  /// onlar için cihaz kaydı tutulmaz (kişisel veri en aza).
+  /// Eski genel bildirim rolleri. Bireysel alarm alıcıları ayrıca sunucunun
+  /// güncel dar kapsam denetiminden geçer; süper kullanıcı alıcı değildir.
   static bool _mayReceive(UserRole role) =>
       role == UserRole.apartmentOwner || role == UserRole.siteManager;
+
+  /// Individual accounts need a current server-confirmed alarm assignment. No
+  /// token or OS permission is requested while checking this application API.
+  Future<bool?> _registrationAllowed(
+    AuthService auth,
+    UserSession session,
+  ) async {
+    if (_mayReceive(session.role)) return true;
+    if (session.role != UserRole.individual) return false;
+    try {
+      final capabilities = await _guardToken(
+        auth,
+        session.token,
+        (token) => _apiFor(auth.api.baseUrl).capabilities(token: token),
+      );
+      if (!_sameScope(auth, session)) return null;
+      _noteAvailability(
+        session.id,
+        capabilities.available && capabilities.canRegister,
+      );
+      return capabilities.canRegister;
+    } catch (_) {
+      return null; // Unreachable is not an authorization revocation.
+    }
+  }
+
+  Future<void> _removeRevokedRegistration(
+    AuthService auth,
+    UserSession session,
+  ) async {
+    final stamp = await _store.readStamp();
+    if (!_sameScope(auth, session) || stamp?.userId != session.id) return;
+    await _teardown(_apiFor(auth.api.baseUrl), session);
+  }
 
   /// [AuthService.logout] oturumu silmeden HEMEN önce çağırır (belirteç hâlâ elde).
   void _onSessionEnding(UserSession ending) {
@@ -393,6 +463,7 @@ class PushService {
   void _endSession(AuthService auth, UserSession ending) {
     // Önceki oturumda bekleyen yönlendirme başka hesaba taşınmaz.
     _pendingRoute = null;
+    _pendingEmergency = null;
     _availability = null;
     _setActive(false);
     // Yeni çıkış: temizlik yeniden deneme takvimi baştan başlar.
@@ -416,7 +487,11 @@ class PushService {
     final installId = _store.cachedInstallId ?? await _store.readInstallId();
     if (installId == null) return; // Bu cihazda hiç kayıt / jeton olmadı.
     final server = api
-        .deleteDevice(token: ending.token, installId: installId, timeout: teardownTimeout)
+        .deleteDevice(
+          token: ending.token,
+          installId: installId,
+          timeout: teardownTimeout,
+        )
         .then<bool>((_) => true, onError: (Object _) => false);
     await _store.setPendingCleanup(true);
     await server;
@@ -430,7 +505,11 @@ class PushService {
     final installId = _store.cachedInstallId ?? await _store.readInstallId();
     if (installId == null) return; // Bu cihazda hiç kayıt / jeton olmadı.
     final server = api
-        .deleteDevice(token: ending.token, installId: installId, timeout: teardownTimeout)
+        .deleteDevice(
+          token: ending.token,
+          installId: installId,
+          timeout: teardownTimeout,
+        )
         .then<bool>((_) => true, onError: (Object _) => false);
     // FCM jetonu sunucu yanıtını BEKLEMEDEN silinir (sunucuya ulaşılamasa da eski jeton geçersiz olur ve sonraki
     // gönderimde UNREGISTERED ile temizlenir).
@@ -469,8 +548,14 @@ class PushService {
   }
 
   void _scheduleCleanupRetry() {
-    if (_disposed || cleanupRetryDelays.isEmpty || (_cleanupTimer?.isActive ?? false)) return;
-    if (_cleanupAttempt >= cleanupRetryDelays.length) return; // Sonrası: açılışta / ön plana dönüşte.
+    if (_disposed ||
+        cleanupRetryDelays.isEmpty ||
+        (_cleanupTimer?.isActive ?? false)) {
+      return;
+    }
+    if (_cleanupAttempt >= cleanupRetryDelays.length) {
+      return; // Sonrası: açılışta / ön plana dönüşte.
+    }
     final delay = cleanupRetryDelays[_cleanupAttempt++];
     _cleanupTimer = Timer(delay, () {
       _cleanupTimer = null;
@@ -510,7 +595,9 @@ class PushService {
   /// Bildirim Tercihleri: ayarlardan dönüşte kaydın bitmesini bekleyip durumu öyle göstermek için.
   Future<void> syncNow(AuthService auth) {
     final session = auth.session;
-    if (_gateway == null || _disposed || session == null) return Future<void>.value();
+    if (_gateway == null || _disposed || session == null) {
+      return Future<void>.value();
+    }
     return _serial(() async {
       try {
         await _sync(auth, session);
@@ -524,7 +611,12 @@ class PushService {
     bool force = false,
     bool? knownAvailable,
   }) async {
-    final result = await _syncInner(auth, session, force: force, knownAvailable: knownAvailable);
+    final result = await _syncInner(
+      auth,
+      session,
+      force: force,
+      knownAvailable: knownAvailable,
+    );
     switch (result) {
       case _SyncResult.registered:
       case _SyncResult.upToDate:
@@ -551,9 +643,18 @@ class PushService {
   }) async {
     final gateway = _gateway;
     if (gateway == null) return _SyncResult.unsupported;
-    if (!_mayReceive(session.role)) return _SyncResult.notEligible;
     // AÇIK RIZA: kullanıcı bu cihazda açmadıysa jeton bile istenmez.
-    if (!await _store.isEnabledHere(session.id)) return _SyncResult.notConsented;
+    if (!await _store.isEnabledHere(session.id)) {
+      return _SyncResult.notConsented;
+    }
+    final allowed = await _registrationAllowed(auth, session);
+    if (!_sameScope(auth, session) || allowed == null) {
+      return _SyncResult.skipped;
+    }
+    if (!allowed) {
+      await _removeRevokedRegistration(auth, session);
+      return _SyncResult.notEligible;
+    }
     // Önceki hesabın silinemeyen jetonu önce silinir; silinemezse yeni kayıt yapılmaz (aynı jeton taşınmasın). Ancak
     // [cleanupBlockLimit] denemeden sonra engel kalkar: sunucu aynı jetonu devralırken eski hesabın satırını siler.
     if (await _store.hasPendingCleanup() &&
@@ -570,7 +671,9 @@ class PushService {
     final stamp = await _store.readStamp();
     final registeredHere = stamp != null && stamp.userId == session.id;
     // İzin yok ve bu hesap bu cihazda kayıtlı değil: sunucuya gidilmez.
-    if (!permission.isGranted && !registeredHere) return _SyncResult.noPermission;
+    if (!permission.isGranted && !registeredHere) {
+      return _SyncResult.noPermission;
+    }
     // İlk kayıttan önce sunucu push'unun açık olduğu doğrulanır (kapalıyken jeton üretilmez).
     if (!registeredHere) {
       final available = knownAvailable ?? await _pushAvailable(auth, session);
@@ -584,7 +687,9 @@ class PushService {
     } catch (_) {
       fcmToken = null;
     }
-    if (fcmToken == null || fcmToken.isEmpty) return _SyncResult.tokenUnavailable;
+    if (fcmToken == null || fcmToken.isEmpty) {
+      return _SyncResult.tokenUnavailable;
+    }
     final enabled = permission.isGranted;
     final tokenHash = sha256.convert(utf8.encode(fcmToken)).toString();
     final now = _now();
@@ -613,7 +718,9 @@ class PushService {
     // Belirteç bu hesabın GÜNCEL oturumundan, çağrıdan hemen önce alınır (arada bekleme yok): oturum kapandıysa
     // ya da başka hesaba geçildiyse kayıt yapılmaz, başka hesabın belirteci asla gitmez.
     final current = auth.session;
-    if (current == null || current.id != session.id) return _SyncResult.skipped;
+    if (current == null || !_sameScope(auth, session)) {
+      return _SyncResult.skipped;
+    }
     await _guardToken(
       auth,
       current.token,
@@ -626,7 +733,7 @@ class PushService {
         notificationsEnabled: enabled,
       ),
     );
-    if (auth.session?.id != session.id) return _SyncResult.skipped;
+    if (!_sameScope(auth, session)) return _SyncResult.skipped;
     await _store.writeStamp(
       PushRegistrationStamp(
         userId: session.id,
@@ -647,11 +754,23 @@ class PushService {
       if (!age.isNegative && age < availabilityTtl) return cached.value;
     }
     try {
+      if (session.role == UserRole.individual) {
+        final capabilities = await _guardToken(
+          auth,
+          session.token,
+          (token) => _apiFor(auth.api.baseUrl).capabilities(token: token),
+        );
+        if (!_sameScope(auth, session)) return null;
+        final value = capabilities.available && capabilities.canRegister;
+        _noteAvailability(session.id, value);
+        return value;
+      }
       final prefs = await _guardToken(
         auth,
         session.token,
         (token) => _apiFor(auth.api.baseUrl).getPreferences(token: token),
       );
+      if (!_sameScope(auth, session)) return null;
       _noteAvailability(session.id, prefs.available);
       return prefs.available;
     } catch (_) {
@@ -670,7 +789,9 @@ class PushService {
     final previous = _queue;
     _queued++;
     if (!_disposed && !_busy.value) _busy.value = true;
-    final Future<T> run = previous == null ? Future<T>.sync(task) : previous.then((_) => task());
+    final Future<T> run = previous == null
+        ? Future<T>.sync(task)
+        : previous.then((_) => task());
     final Future<void> tail = run.then<void>((_) {}, onError: (Object _) {});
     _queue = tail;
     unawaited(
@@ -683,7 +804,8 @@ class PushService {
     return run;
   }
 
-  PushApi _apiFor(String baseUrl) => _apis.putIfAbsent(baseUrl, () => _apiFactory(baseUrl));
+  PushApi _apiFor(String baseUrl) =>
+      _apis.putIfAbsent(baseUrl, () => _apiFactory(baseUrl));
 
   /// Verilen oturum belirteciyle çağırır; 401'de (belirteç hâlâ güncelse) oturum sunucudan doğrulanır.
   Future<T> _guardToken<T>(
@@ -714,14 +836,18 @@ class PushService {
   PushSupport _support() {
     if (_gateway != null && !_disposed) return PushSupport.ready;
     if (!pushPlatformSupported()) return PushSupport.unsupportedPlatform;
-    return _startState.value == PushStartState.failed ? PushSupport.notConfigured : PushSupport.preparing;
+    return _startState.value == PushStartState.failed
+        ? PushSupport.notConfigured
+        : PushSupport.preparing;
   }
 
   /// Bu cihazın durumu (destek, izin, rıza, kurulum kimliği).
   Future<PushDeviceState> deviceState(AuthService auth) async {
     final support = _support();
     final gateway = _gateway;
-    if (support != PushSupport.ready || gateway == null) return PushDeviceState(support: support);
+    if (support != PushSupport.ready || gateway == null) {
+      return PushDeviceState(support: support);
+    }
     PushPermission? permission;
     try {
       permission = await gateway.permissionStatus();
@@ -745,7 +871,16 @@ class PushService {
       if (gateway == null || _disposed) return PushEnableOutcome.unsupported;
       final session = auth.session;
       if (session == null) throw ApiException('Oturum açmanız gerekmektedir.');
-      if (!_mayReceive(session.role)) return PushEnableOutcome.unsupported;
+      final allowed = await _registrationAllowed(auth, session);
+      if (!_sameScope(auth, session) || allowed != true) {
+        if (allowed == false) await _removeRevokedRegistration(auth, session);
+        return PushEnableOutcome.unsupported;
+      }
+      // No permission dialog for a currently unconfigured backend.
+      if (session.role == UserRole.individual &&
+          await _pushAvailable(auth, session) != true) {
+        return PushEnableOutcome.pushUnavailable;
+      }
       await _store.setEnabledHere(session.id, true);
       _bump();
       var permission = await gateway.permissionStatus();
@@ -761,9 +896,11 @@ class PushService {
       }
       final result = await _sync(auth, session, force: true);
       return switch (result) {
-        _SyncResult.registered || _SyncResult.upToDate => PushEnableOutcome.registered,
+        _SyncResult.registered ||
+        _SyncResult.upToDate => PushEnableOutcome.registered,
         _SyncResult.notAvailable => PushEnableOutcome.pushUnavailable,
-        _SyncResult.notEligible || _SyncResult.unsupported => PushEnableOutcome.unsupported,
+        _SyncResult.notEligible ||
+        _SyncResult.unsupported => PushEnableOutcome.unsupported,
         _SyncResult.cleanupPending => PushEnableOutcome.cleanupPending,
         _ => PushEnableOutcome.tokenUnavailable,
       };
@@ -774,11 +911,16 @@ class PushService {
   /// izin ayarlardan verilince kayıt ön plana dönüşte yapılır.
   Future<bool> openSettingsToEnable(AuthService auth) async {
     final session = auth.session;
-    if (session != null && _gateway != null && _mayReceive(session.role)) {
+    if (session != null &&
+        _gateway != null &&
+        await _registrationAllowed(auth, session) == true &&
+        _sameScope(auth, session)) {
       await _store.setEnabledHere(session.id, true);
+      if (!_sameScope(auth, session)) return false;
       _bump();
+      return openSystemSettings();
     }
-    return openSystemSettings();
+    return false;
   }
 
   /// Cihazı listeden kaldırır. BU cihazsa rıza işareti silinir ve jeton geçersiz kılınır: kullanıcı yeniden açana
@@ -790,7 +932,9 @@ class PushService {
       final mine = _store.cachedInstallId ?? await _store.readInstallId();
       await _guard(
         auth,
-        (token) => _apiFor(auth.api.baseUrl).deleteDevice(token: token, installId: installId),
+        (token) => _apiFor(
+          auth.api.baseUrl,
+        ).deleteDevice(token: token, installId: installId),
       );
       if (installId != mine) {
         _bump();
@@ -810,11 +954,19 @@ class PushService {
   Future<bool> shouldShowSoftPrompt(AuthService auth) async {
     final gateway = _gateway;
     final session = auth.session;
-    if (gateway == null || _disposed || session == null || !_mayReceive(session.role)) return false;
+    if (gateway == null ||
+        _disposed ||
+        session == null ||
+        !_mayReceive(session.role)) {
+      return false;
+    }
     if (await _store.isEnabledHere(session.id)) return false;
     if (await _store.isPromptDismissed(session.id)) return false;
     try {
-      if (await gateway.permissionStatus() == PushPermission.permanentlyDenied) return false;
+      if (await gateway.permissionStatus() ==
+          PushPermission.permanentlyDenied) {
+        return false;
+      }
     } catch (_) {
       return false;
     }
@@ -828,7 +980,10 @@ class PushService {
   }
 
   Future<PushPreferences> getPreferences(AuthService auth) async {
-    final prefs = await _guard(auth, (token) => _apiFor(auth.api.baseUrl).getPreferences(token: token));
+    final prefs = await _guard(
+      auth,
+      (token) => _apiFor(auth.api.baseUrl).getPreferences(token: token),
+    );
     final session = auth.session;
     if (session != null) _noteAvailability(session.id, prefs.available);
     return prefs;
@@ -840,11 +995,15 @@ class PushService {
     PushPreferences current,
   ) => _guard(
     auth,
-    (token) => _apiFor(auth.api.baseUrl).updatePreferences(token: token, patch: patch, current: current),
+    (token) => _apiFor(
+      auth.api.baseUrl,
+    ).updatePreferences(token: token, patch: patch, current: current),
   );
 
-  Future<List<PushDevice>> listDevices(AuthService auth) =>
-      _guard(auth, (token) => _apiFor(auth.api.baseUrl).listDevices(token: token));
+  Future<List<PushDevice>> listDevices(AuthService auth) => _guard(
+    auth,
+    (token) => _apiFor(auth.api.baseUrl).listDevices(token: token),
+  );
 
   Future<PushTestResult> sendTest(AuthService auth) =>
       _guard(auth, (token) => _apiFor(auth.api.baseUrl).sendTest(token: token));
@@ -868,12 +1027,27 @@ class PushService {
       _foregroundTests.add(null);
       return;
     }
+    final emergency = message.emergency;
+    if (emergency != null) {
+      _foregroundEmergencies.add(emergency);
+      return;
+    }
     final id = message.announcementId;
     if (id == null) return;
     _foreground.add(id);
   }
 
   void _onOpenedMessage(PushMessage message) {
+    final emergency = message.emergency;
+    if (emergency != null && !_disposed) {
+      _pendingEmergency = (
+        reference: emergency,
+        at: _now(),
+        scope: _sessionScope,
+      );
+      _deliverPendingRoute();
+      return;
+    }
     final id = message.announcementId;
     // Beyaz liste dışı yük (tür / numara geçersiz; test bildirimi dahil) yok sayılır.
     if (id == null || _disposed) return;
@@ -892,7 +1066,34 @@ class PushService {
     if (_opener == opener) _opener = null;
   }
 
+  void bindEmergencyOpener(
+    void Function(EmergencyPushReference reference) opener,
+  ) {
+    if (_disposed) return;
+    _emergencyOpener = opener;
+    _deliverPendingRoute();
+  }
+
+  void unbindEmergencyOpener(
+    void Function(EmergencyPushReference reference) opener,
+  ) {
+    if (_emergencyOpener == opener) _emergencyOpener = null;
+  }
+
   void _deliverPendingRoute() {
+    if (_disposed || _auth?.session == null) return;
+    if (_routeBlockers.any((blocker) => blocker.value)) return;
+    final pending = _pendingEmergency;
+    final emergencyOpener = _emergencyOpener;
+    if (pending != null && emergencyOpener != null) {
+      _pendingEmergency = null;
+      final age = _now().difference(pending.at);
+      if ((pending.scope == null || pending.scope == _sessionScope) &&
+          !age.isNegative &&
+          age <= const Duration(minutes: 5)) {
+        emergencyOpener(pending.reference);
+      }
+    }
     final route = _pendingRoute;
     final opener = _opener;
     if (route == null || opener == null || _disposed) return;
@@ -914,6 +1115,8 @@ class PushService {
     _disposed = true;
     _release();
     _opener = null;
+    _emergencyOpener = null;
+    _pendingEmergency = null;
     _pendingRoute = null;
     _cleanupTimer?.cancel();
     _cleanupTimer = null;
@@ -928,5 +1131,6 @@ class PushService {
     _subscriptions.clear();
     await _foreground.close();
     await _foregroundTests.close();
+    await _foregroundEmergencies.close();
   }
 }

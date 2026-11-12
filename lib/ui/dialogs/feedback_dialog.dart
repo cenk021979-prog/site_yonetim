@@ -10,11 +10,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show MaxLengthEnforcement;
-import 'package:site_kapi_kontrol/models/document_models.dart' show formatDocumentSize;
+import 'package:flutter/services.dart'
+    show Clipboard, MaxLengthEnforcement, PlatformException;
+import 'package:site_kapi_kontrol/models/document_models.dart'
+    show formatDocumentSize;
 import 'package:site_kapi_kontrol/models/feedback_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/feedback_api.dart';
+import 'package:site_kapi_kontrol/services/feedback_clipboard.dart';
 import 'package:site_kapi_kontrol/services/work_attachment_picker.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_dialog.dart';
@@ -22,11 +25,14 @@ import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dialog_guard.dart';
 import 'package:site_kapi_kontrol/ui/helpers/form_validation.dart';
-import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
+    show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/helpers/retry_lock.dart';
 import 'package:site_kapi_kontrol/ui/widgets/crm_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/work_attachment_parts.dart';
-import 'package:site_kapi_kontrol/ui/widgets/work_tracking_parts.dart' show workCounter;
+import 'package:site_kapi_kontrol/ui/widgets/work_tracking_parts.dart'
+    show workCounter;
+import 'package:site_kapi_kontrol/ui/views/feedback_inbox_view.dart';
 
 /// Bir ekin yükleme durumu.
 enum _PhotoPhase { queued, uploading, done, failed }
@@ -87,6 +93,7 @@ class FeedbackDialog extends StatefulWidget {
 class _FeedbackDialogState extends State<FeedbackDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   final FocusNode _sendFocus = FocusNode(debugLabel: 'feedback_send');
+  final FocusNode _messageFocus = FocusNode(debugLabel: 'feedback_message');
   final RetryLock _retry = RetryLock();
   final TextEditingController _message = TextEditingController();
 
@@ -103,16 +110,34 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
 
   /// Kayıt AÇILDI: form bir daha gönderilmez; dosyalar bu kayda yüklenir.
   FeedbackRecord? _record;
-  final Map<WorkPhotoPick, _PhotoState> _states = Map<WorkPhotoPick, _PhotoState>.identity();
+  final Map<WorkPhotoPick, _PhotoState> _states =
+      Map<WorkPhotoPick, _PhotoState>.identity();
   bool _uploading = false;
   bool _cancelUpload = false;
+  late final FeedbackClipboard _clipboard;
+
+  bool get _canPaste => mounted && !_submitting && !_picking && _record == null;
+
+  @override
+  void initState() {
+    super.initState();
+    _clipboard = FeedbackClipboard(
+      enabled: () =>
+          _canPaste &&
+          _messageFocus.hasFocus &&
+          ModalRoute.of(context)?.isCurrent == true,
+      onPaste: (images) => unawaited(_pasteImages(images)),
+    );
+  }
 
   @override
   void dispose() {
+    _clipboard.dispose();
     if (_pickedAny) unawaited(widget.picker.release());
     _previewImages.dispose();
     _retry.dispose();
     _sendFocus.dispose();
+    _messageFocus.dispose();
     _message.dispose();
     super.dispose();
   }
@@ -122,6 +147,102 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
   int get _totalBytes => FeedbackRules.totalBytes(_photos.map((p) => p.size));
 
   // --- Dosyalar ---
+
+  Future<void> _paste() async {
+    if (!_canPaste) return;
+    try {
+      final images = await _clipboard.readImages();
+      if (!_canPaste) return;
+      if (images.isNotEmpty) {
+        await _pasteImages(Future.value(images));
+        return;
+      }
+      // A normal text paste still replaces the current selection and keeps the
+      // cursor after the pasted text. Images never insert binary text here.
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!_canPaste || data?.text == null) return;
+      final value = _message.value;
+      final selection = value.selection.isValid
+          ? value.selection
+          : TextSelection.collapsed(offset: value.text.length);
+      final text = data!.text!;
+      setState(
+        () => _message.value = TextEditingValue(
+          text: value.text.replaceRange(selection.start, selection.end, text),
+          selection: TextSelection.collapsed(
+            offset: selection.start + text.length,
+          ),
+        ),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _photoError = _pasteError(error));
+    }
+  }
+
+  String _pasteError(Object error) =>
+      (error is PlatformException &&
+              error.code == 'CLIPBOARD_IMAGE_TOO_LARGE') ||
+          error.toString().contains('CLIPBOARD_IMAGE_TOO_LARGE')
+      ? 'Panodaki görsel çok büyük. Daha küçük bir ekran görüntüsü alın.'
+      : 'Panodaki görsel okunamadı. Yeniden kopyalayın veya Dosya Ekle ile seçin.';
+
+  Future<void> _pasteImages(Future<List<FeedbackClipboardImage>> source) async {
+    if (!_canPaste) return;
+    setState(() {
+      _picking = true;
+      _preparing = true;
+      _photoError = null;
+    });
+    try {
+      final images = await source;
+      final remaining = kFeedbackAttachmentMax - _photos.length;
+      final picks = <WorkPhotoPick>[];
+      for (final image in images.take(remaining)) {
+        if (!mounted) return;
+        picks.add(
+          image.bytes.length > 50 * 1024 * 1024
+              ? WorkPhotoPick.oversized(
+                  name: image.name,
+                  size: image.bytes.length,
+                )
+              : await prepareWorkPhotoPick(image.name, image.bytes),
+        );
+      }
+      if (!mounted) return;
+      _acceptSelection(
+        WorkPhotoSelection(
+          picks: picks,
+          droppedCount: images.length > remaining
+              ? images.length - remaining
+              : 0,
+        ),
+        remaining,
+      );
+    } catch (error) {
+      if (mounted) setState(() => _photoError = _pasteError(error));
+    } finally {
+      if (mounted) {
+        setState(() {
+          _picking = false;
+          _preparing = false;
+        });
+      }
+    }
+  }
+
+  Widget _pasteTarget(Widget child) => _clipboard.usesBrowserPaste
+      ? child
+      : Actions(
+          actions: <Type, Action<Intent>>{
+            PasteTextIntent: CallbackAction<PasteTextIntent>(
+              onInvoke: (_) {
+                unawaited(_paste());
+                return null;
+              },
+            ),
+          },
+          child: child,
+        );
 
   Future<void> _pickPhotos() async {
     if (_submitting || _picking || _record != null) return;
@@ -158,13 +279,20 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       unawaited(picker.release());
       return;
     }
-    // Geçersiz seçimler yer doldurmaz; her biri nedeniyle ayrı satırda bildirilir. Toplam 20 MB sınırı seçimde de uygulanır.
+    _acceptSelection(selection, remaining);
+  }
+
+  void _acceptSelection(WorkPhotoSelection selection, int remaining) {
+    // Pano ve dosya seçimi aynı tür, boyut, adet ve toplam sınırlarından geçer.
     final split = workSplitSelection(selection, remaining: remaining);
     final notes = <String>[...split.notes];
     final accepted = <WorkPhotoPick>[];
     final sizes = _photos.map((p) => p.size).toList();
     for (final pick in split.valid) {
-      final problem = FeedbackRules.checkAddition(existingSizes: sizes, candidate: pick.size);
+      final problem = FeedbackRules.checkAddition(
+        existingSizes: sizes,
+        candidate: pick.size,
+      );
       if (problem != null) {
         notes.add('${pick.name}: $problem');
         continue;
@@ -181,7 +309,12 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
   }
 
   void _removePhoto(int index) {
-    if (_submitting || _record != null || index < 0 || index >= _photos.length) return;
+    if (_submitting ||
+        _record != null ||
+        index < 0 ||
+        index >= _photos.length) {
+      return;
+    }
     final removed = _photos[index];
     setState(() {
       _photos.removeAt(index);
@@ -241,7 +374,10 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     if (!mounted) return;
     if (_photos.isEmpty) {
       _closing = true;
-      popIfCurrent<FeedbackSendOutcome>(context, FeedbackSendOutcome(record: record));
+      popIfCurrent<FeedbackSendOutcome>(
+        context,
+        FeedbackSendOutcome(record: record),
+      );
       return;
     }
     // Kayıt açıldı: form artık gönderilmez; dosyalar sırayla yüklenir.
@@ -269,7 +405,12 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       if (_states[photo]?.phase == _PhotoPhase.done) continue;
       if (!mounted) return;
       if (_cancelUpload) {
-        setState(() => _states[photo] = _PhotoState(_PhotoPhase.failed, 'Yükleme iptal edildi.'));
+        setState(
+          () => _states[photo] = _PhotoState(
+            _PhotoPhase.failed,
+            'Yükleme iptal edildi.',
+          ),
+        );
         continue;
       }
       if (fatal != null) {
@@ -277,7 +418,12 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
         continue;
       }
       if (i >= record.attachments.length) {
-        setState(() => _states[photo] = _PhotoState(_PhotoPhase.failed, 'Dosya kaydı açılamadı.'));
+        setState(
+          () => _states[photo] = _PhotoState(
+            _PhotoPhase.failed,
+            'Dosya kaydı açılamadı.',
+          ),
+        );
         continue;
       }
       setState(() => _states[photo] = _PhotoState(_PhotoPhase.uploading));
@@ -296,12 +442,21 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
           setState(() => _states[photo] = _PhotoState(_PhotoPhase.done));
           continue;
         }
-        final message = crmMessageOf(e, 'Dosya yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+        final message = crmMessageOf(
+          e,
+          'Dosya yüklenemedi. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+        );
         _retry.lockIfRateLimited(e, () {
           if (mounted) setState(() {});
         });
-        setState(() => _states[photo] = _PhotoState(_PhotoPhase.failed, message));
-        if (e is ApiException && (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 429 || e.code == 'ACCOUNT_DELETED')) {
+        setState(
+          () => _states[photo] = _PhotoState(_PhotoPhase.failed, message),
+        );
+        if (e is ApiException &&
+            (e.statusCode == 401 ||
+                e.statusCode == 403 ||
+                e.statusCode == 429 ||
+                e.code == 'ACCOUNT_DELETED')) {
           fatal = message;
         }
       }
@@ -311,7 +466,8 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     if (_failedCount == 0) _finish();
   }
 
-  int get _failedCount => _photos.where((p) => _states[p]?.phase != _PhotoPhase.done).length;
+  int get _failedCount =>
+      _photos.where((p) => _states[p]?.phase != _PhotoPhase.done).length;
 
   /// Dosya aşaması bitti (hepsi yüklendi ya da kullanıcı sonucu görüp kapattı): kayıt + sonuç sayılarıyla kapanır.
   void _finish() {
@@ -320,7 +476,11 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
     _closing = true;
     popIfCurrent<FeedbackSendOutcome>(
       context,
-      FeedbackSendOutcome(record: record, uploaded: _photos.length - _failedCount, failed: _failedCount),
+      FeedbackSendOutcome(
+        record: record,
+        uploaded: _photos.length - _failedCount,
+        failed: _failedCount,
+      ),
     );
   }
 
@@ -380,26 +540,40 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       },
       child: record == null
           ? AppDialog(
+              draggable: true,
               title: 'Geri Bildirim',
               subtitle: 'Görüş, öneri ya da sorununuzu iletin',
               icon: Icons.rate_review_outlined,
               actions: [
+                TextButton.icon(
+                  key: const ValueKey<String>('feedback_my_history'),
+                  onPressed: (_submitting || _picking) ? null : () => FeedbackInboxPage.open(context, service: widget.service, mine: true),
+                  icon: const Icon(Icons.history_rounded, size: 18),
+                  label: const Text('Gönderdiklerim'),
+                ),
                 TextButton(
                   key: const ValueKey<String>('feedback_close'),
-                  onPressed: (_submitting || _picking) ? null : () => unawaited(_requestClose()),
+                  onPressed: (_submitting || _picking)
+                      ? null
+                      : () => unawaited(_requestClose()),
                   child: const Text('Vazgeç'),
                 ),
                 ElevatedButton(
                   key: const ValueKey<String>('feedback_send'),
                   focusNode: _sendFocus,
-                  onPressed: (_submitting || _retry.locked || _picking) ? null : _submit,
+                  onPressed: (_submitting || _retry.locked || _picking)
+                      ? null
+                      : _submit,
                   child: Text(_submitting ? 'Gönderiliyor...' : 'Gönder'),
                 ),
               ],
               child: _buildForm(context),
             )
           : AppDialog(
-              title: _uploading ? 'Dosyalar Yükleniyor' : 'Dosya Yükleme Sonucu',
+              draggable: true,
+              title: _uploading
+                  ? 'Dosyalar Yükleniyor'
+                  : 'Dosya Yükleme Sonucu',
               subtitle: 'Geri bildiriminiz alındı',
               icon: Icons.photo_library_outlined,
               actions: _uploading
@@ -419,7 +593,9 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
                       if (_failedCount > 0)
                         ElevatedButton(
                           key: const ValueKey<String>('feedback_upload_retry'),
-                          onPressed: _retry.locked ? null : () => unawaited(_retryUpload()),
+                          onPressed: _retry.locked
+                              ? null
+                              : () => unawaited(_retryUpload()),
                           child: const Text('Tekrar Dene'),
                         ),
                     ],
@@ -449,7 +625,8 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
       notice = InlineNotice(
         key: const ValueKey<String>('feedback_upload_notice'),
         tone: AppTone.warning,
-        message: 'Geri bildiriminiz alındı; $failed dosya yüklenemedi. Tekrar deneyebilir ya da dosyasız kapatabilirsiniz.',
+        message:
+            'Geri bildiriminiz alındı; $failed dosya yüklenemedi. Tekrar deneyebilir ya da dosyasız kapatabilirsiniz.',
       );
     }
     return Column(
@@ -486,26 +663,45 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
             message: kFeedbackAudienceNote,
           ),
           const SizedBox(height: AppSpace.lg),
-          TextFormField(
-            key: const ValueKey<String>('feedback_message'),
-            controller: _message,
-            enabled: !_submitting,
-            minLines: 4,
-            maxLines: 10,
-            maxLength: kFeedbackMessageMax,
-            maxLengthEnforcement: MaxLengthEnforcement.none,
-            buildCounter: (context, {required currentLength, required isFocused, maxLength}) =>
-                workCounter(context, _message.text.runes.length, kFeedbackMessageMax),
-            autovalidateMode: AutovalidateMode.onUserInteraction,
-            keyboardType: TextInputType.multiline,
-            textCapitalization: TextCapitalization.sentences,
-            onChanged: (_) => setState(() {}),
-            decoration: const InputDecoration(
-              labelText: 'Geri bildiriminiz',
-              hintText: 'Ne gördünüz, neyi beğendiniz ya da neyi değiştirmek istersiniz?',
-              alignLabelWithHint: true,
+          _pasteTarget(
+            TextFormField(
+              key: const ValueKey<String>('feedback_message'),
+              controller: _message,
+              focusNode: _messageFocus,
+              enabled: !_submitting,
+              minLines: 4,
+              maxLines: 10,
+              maxLength: kFeedbackMessageMax,
+              maxLengthEnforcement: MaxLengthEnforcement.none,
+              buildCounter:
+                  (
+                    context, {
+                    required currentLength,
+                    required isFocused,
+                    maxLength,
+                  }) => workCounter(
+                    context,
+                    _message.text.runes.length,
+                    kFeedbackMessageMax,
+                  ),
+              autovalidateMode: AutovalidateMode.onUserInteraction,
+              keyboardType: TextInputType.multiline,
+              textCapitalization: TextCapitalization.sentences,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                labelText: 'Geri bildiriminiz',
+                hintText:
+                    'Ne gördünüz, neyi beğendiniz ya da neyi değiştirmek istersiniz?',
+                alignLabelWithHint: true,
+              ),
+              validator: FeedbackRules.checkMessage,
             ),
-            validator: FeedbackRules.checkMessage,
+          ),
+          const SizedBox(height: AppSpace.xs),
+          Text(
+            'Ekran görüntüsünü kopyalayıp bu alanda Ctrl+V ile yapıştırabilirsiniz (Windows / web). Görsel aşağıda ek olarak görünür.',
+            key: const ValueKey<String>('feedback_paste_hint'),
+            style: th.bodySmall,
           ),
           const SizedBox(height: AppSpace.md),
           Wrap(
@@ -513,7 +709,10 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
             runSpacing: AppSpace.xs,
             crossAxisAlignment: WrapCrossAlignment.center,
             children: [
-              Text('Ekran görüntüsü / fotoğraf (isteğe bağlı)', style: th.titleSmall),
+              Text(
+                'Ekran görüntüsü / fotoğraf (isteğe bağlı)',
+                style: th.titleSmall,
+              ),
               Text(
                 '${_photos.length}/$kFeedbackAttachmentMax',
                 key: const ValueKey<String>('feedback_photo_count'),
@@ -561,7 +760,9 @@ class _FeedbackDialogState extends State<FeedbackDialog> {
             label: photoFull ? 'Dosya sınırına ulaşıldı' : 'Dosya Ekle',
             icon: Icons.add_a_photo_outlined,
             variant: AppButtonVariant.tonal,
-            onPressed: (_submitting || _picking || photoFull) ? null : () => unawaited(_pickPhotos()),
+            onPressed: (_submitting || _picking || photoFull)
+                ? null
+                : () => unawaited(_pickPhotos()),
           ),
         ],
       ),
@@ -599,13 +800,20 @@ class _ScreenContextCard extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(Icons.screenshot_monitor_rounded, size: 20, color: p.textSecondary),
+                Icon(
+                  Icons.screenshot_monitor_rounded,
+                  size: 20,
+                  color: p.textSecondary,
+                ),
                 const SizedBox(width: AppSpace.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Gönderildiği ekran (otomatik eklenir)', style: th.bodySmall),
+                      Text(
+                        'Gönderildiği ekran (otomatik eklenir)',
+                        style: th.bodySmall,
+                      ),
                       const SizedBox(height: 2),
                       Text(
                         screen.screenName,
@@ -637,7 +845,11 @@ class _ScreenContextCard extends StatelessWidget {
 
 /// Yükleme aşamasında dosya başına durum satırı: yüklendi / yüklenemedi (neden) / sırada / yükleniyor.
 class _PhotoStatusRow extends StatelessWidget {
-  const _PhotoStatusRow({required this.photo, required this.state, required this.last});
+  const _PhotoStatusRow({
+    required this.photo,
+    required this.state,
+    required this.last,
+  });
 
   final WorkPhotoPick photo;
   final _PhotoState state;
@@ -689,7 +901,10 @@ class _PhotoStatusRow extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                       style: th.bodyMedium?.copyWith(color: p.text),
                     ),
-                    Text(status, style: th.bodySmall?.copyWith(color: tone.ink(p))),
+                    Text(
+                      status,
+                      style: th.bodySmall?.copyWith(color: tone.ink(p)),
+                    ),
                   ],
                 ),
               ),

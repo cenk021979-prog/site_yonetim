@@ -1,6 +1,6 @@
 // Drive sağlık/kota/doğrulama sütunları (112) şeması (DB'siz): migration <-> drive_health_schema.js aynı DDL (aynı sıra), ekleyici / idempotent,
 // db.js bağlantısı (060'tan sonra), her şey varsa ifade yok, eksikse yalnız eksikler, kilit/kilitlenme yeniden denenir.
-import { describe, it } from 'node:test';
+import { describe, it, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
@@ -98,3 +98,8 @@ describe('drive_health_schema (112)', () => {
     assert.equal(resets.length, 1);
   });
 });
+
+// The production retry timer is unref'ed. Keep the test process alive while awaiting its bounded retries.
+let retryKeepAlive;
+before(() => { retryKeepAlive = setInterval(() => {}, 1000); });
+after(() => clearInterval(retryKeepAlive));

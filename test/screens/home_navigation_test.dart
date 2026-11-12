@@ -262,9 +262,25 @@ Future<void> _openDrawer(WidgetTester t) async {
 }
 
 Future<void> _openSettings(WidgetTester t) async {
-  await t.tap(_gear);
+  if (_gear.evaluate().isNotEmpty) {
+    await t.tap(_gear);
+  } else {
+    await _headerMenuAction(t, 'Ayarlar');
+  }
   await t.pump();
   await t.pump(const Duration(milliseconds: 450));
+}
+
+Future<void> _headerMenuAction(WidgetTester t, String label) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 450));
+    await t.tap(find.text(label).last);
+  } else {
+    await t.tap(_inAppBar(find.text(label)));
+  }
 }
 
 /// Android geri tuşu; dönüş: olay karşılandı mı (false = uygulamadan çıkılır).
@@ -303,14 +319,22 @@ void main() {
       final access = await _access(() => <MySiteModules>[_my('manager', modules: {'finance': true})]);
       await _pumpHome(t, auth, access: access);
 
-      expect(_gear, findsOneWidget);
-      final gear = t.getRect(_gear);
+      final more = find.byKey(const ValueKey('compact_header_more'));
+      expect(more, findsOneWidget);
+      final gear = t.getRect(more);
       expect(gear.width, greaterThanOrEqualTo(44));
       expect(gear.height, greaterThanOrEqualTo(44));
-      for (final tooltip in <String>['Yenile']) {
-        expect(t.getRect(_inAppBar(find.byTooltip(tooltip))).right, lessThanOrEqualTo(gear.left + 0.01),
-            reason: 'dişli sağ üstte (en sağda)');
-      }
+      expect(gear.right, lessThanOrEqualTo(400));
+      expect(t.getRect(find.byKey(const ValueKey('temporary_feedback_open'))).right,
+          lessThanOrEqualTo(gear.left + .01), reason: 'Diğer işlemler sağ üstte');
+      await t.tap(more);
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 450));
+      expect(find.text('Yenile'), findsOneWidget);
+      expect(find.text('Ayarlar'), findsOneWidget);
+      Navigator.of(t.element(find.text('Yenile'))).pop();
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 450));
       expect(_inAppBar(find.byTooltip('Çıkış Yap')), findsNothing, reason: 'P2-26: çıkış AppBar\'da değil');
 
       await _openDrawer(t);
@@ -556,12 +580,12 @@ void main() {
       final access = await _access(() => <MySiteModules>[_my('manager', modules: {'drive_storage': true})]);
       await _pumpHome(t, auth, access: access, width: 820, height: 1180);
       expect(_bar, findsNothing);
-      await t.tap(_inAppBar(find.text('Sakin Modu')));
+      await _headerMenuAction(t, 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(_bar, findsOneWidget);
       expect(_tabsOnScreen(), containsAll(<ResidentTab>[ResidentTab.ozet, ResidentTab.duyuru]));
-      await t.tap(_inAppBar(find.text('Yönetici Paneli')));
+      await _headerMenuAction(t, 'Yönetici Paneline Geç');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(_bar, findsNothing);
@@ -732,7 +756,7 @@ void main() {
       final auth = _NavAuth(UserRole.siteManager, doors: <DoorRecord>[_door(1)]);
       await _pumpHome(t, auth, access: access, requests: requests, width: 820, height: 1180);
       expect(requests.isPending, isTrue);
-      await t.tap(_inAppBar(find.text('Sakin Modu')));
+      await _headerMenuAction(t, 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(requests.isPending, isFalse, reason: 'mod geçişi bekleyen kapı isteğini düşürür');

@@ -307,9 +307,11 @@ function makeState() {
 
 function listRows(sql, params) {
   const siteMatch = sql.match(/r\.site_code = \$(\d+)/);
+  const ownerMatch = sql.match(/r\.user_code = \$(\d+)/);
   const cursorMatch = sql.match(/r\.id < \$(\d+)/);
   const limit = Number(params[params.length - 1]);
   let rows = [...state.reports];
+  if (ownerMatch) rows = rows.filter((r) => Number(r.user_code) === Number(params[Number(ownerMatch[1]) - 1]));
   if (siteMatch) rows = rows.filter((r) => Number(r.site_code) === Number(params[Number(siteMatch[1]) - 1]));
   if (cursorMatch) rows = rows.filter((r) => r.id < Number(params[Number(cursorMatch[1]) - 1]));
   rows.sort((a, b) => b.id - a.id);
@@ -410,6 +412,8 @@ function fakeQuery(text, params = []) {
     if (!a) return ok();
     const r = state.reports.find((x) => x.id === a.feedback_id);
     if (/r\.site_code = \$3/.test(sql) && Number(r.site_code) !== Number(params[2])) return ok();
+    const ownerMatch = sql.match(/r\.user_code = \$(\d+)/);
+    if (ownerMatch && Number(r.user_code) !== Number(params[Number(ownerMatch[1]) - 1])) return ok();
     return ok([{ ...a, site_code: r.site_code }]);
   }
   if (/^SELECT 1 FROM feedback_attachments WHERE id = \$1 AND status = 'ready' LIMIT 1$/.test(sql)) {
@@ -640,6 +644,45 @@ describe('listeleme: yönetici / sahip; yetkisiz 403', () => {
     await post(users.individual, validBody({ message: 'Sitesiz' }));
   }
 
+  it('kişisel geçmiş yalnız oturum sahibini döndürür; kullanıcı/site query spoof kapsamı değiştiremez', async () => {
+    await seed();
+    await post(users.resident, validBody({ message: 'Kendi sitesiz kaydım' }));
+    state.attachments[0].status = 'ready';
+    const res = await call('GET', `/app/feedback/mine?user_code=${users.manager.user_code}&site_code=${OTHER_SITE}`, { user: users.resident });
+    assert.equal(res.status, 200);
+    assert.equal(res.headers['cache-control'], 'no-store');
+    assert.deepEqual(res.body.items.map((i) => i.message), ['Kendi sitesiz kaydım', 'Birinci']);
+    assert.deepEqual(res.body.items[1].attachments.map((a) => a.id), [1]);
+    assert.equal(res.body.items[1].site_name, 'Güneş Sitesi');
+    assert.ok(log.some((sql) => /WHERE r\.user_code = \$1/.test(sql)));
+    assert.equal((await call('GET', '/app/feedback/mine')).status, 401);
+  });
+
+  it('kişisel geçmiş tüm rollerde salt kendi kayıtlarıdır; süper kullanıcı için de bypass yok', async () => {
+    await seed();
+    for (const user of Object.values(users)) {
+      const res = await call('GET', '/app/feedback/mine', { user });
+      assert.equal(res.status, 200);
+      assert.ok(res.body.items.every((r) => r.user_code === user.user_code));
+    }
+    const invalid = await call('GET', '/app/feedback/mine', { user: { role: 'super_user' } });
+    assert.equal(invalid.status, 401);
+  });
+
+  it('kişisel geçmiş sayfalaması kendi kayıtlarında sürer; limit/cursor doğrulaması korunur', async () => {
+    await seed();
+    await post(users.resident, validBody({ message: 'Kendi ikinci kaydım' }));
+    const first = await call('GET', '/app/feedback/mine?limit=1', { user: users.resident });
+    assert.deepEqual(first.body.items.map((r) => r.message), ['Kendi ikinci kaydım']);
+    assert.equal(first.body.next_cursor, 5);
+    const next = await call('GET', `/app/feedback/mine?limit=1&cursor=${first.body.next_cursor}`, { user: users.resident });
+    assert.deepEqual(next.body.items.map((r) => r.message), ['Birinci']);
+    assert.equal(next.body.next_cursor, null);
+    for (const query of ['limit=0', 'limit=101', 'cursor=invalid']) {
+      assert.equal((await call('GET', `/app/feedback/mine?${query}`, { user: users.resident })).status, 400);
+    }
+  });
+
   it('yetkisiz listeleme 403: sakin, kurul, görevli, ilgisiz, başka sitenin yöneticisi (FORBIDDEN_SITE); kimliksiz 401; /admin için yönetici ve sakin 403', async () => {
     await seed();
     for (const user of [users.resident, users.board, users.staff, users.outsider, users.otherManager]) {
@@ -747,6 +790,17 @@ describe('ek yükleme (PUT) ve indirme (GET): gerçek geçici dosya sistemi', ()
     assert.deepEqual([wrongSite.status, wrongSite.body.code], [404, 'FEEDBACK_ATTACHMENT_NOT_FOUND'], 'ek başka sitenin kaydı: varlık sızmaz');
     const residentDownload = await raw({ method: 'GET', urlPath: `/admin/feedback/${feedbackId}/attachments/${attId}/content`, user: users.resident });
     assert.equal(residentDownload.status, 403);
+    const ownDownload = await raw({ method: 'GET', urlPath: url, user: users.resident });
+    assert.equal(ownDownload.status, 200);
+    assert.ok(ownDownload.body.equals(file));
+    assert.equal(ownDownload.headers['cache-control'], 'private, no-store');
+    for (const user of [users.manager, users.superUser, users.outsider, users.otherManager]) {
+      const denied = await raw({ method: 'GET', urlPath: `${url}?user_code=${users.resident.user_code}&site_code=${SITE}`, user });
+      assert.deepEqual([denied.status, denied.body.code], [404, 'FEEDBACK_ATTACHMENT_NOT_FOUND']);
+    }
+    assert.equal((await raw({ method: 'GET', urlPath: url })).status, 401);
+    const mismatch = await raw({ method: 'GET', urlPath: `/app/feedback/999/attachments/${attId}/content`, user: users.resident });
+    assert.deepEqual([mismatch.status, mismatch.body.code], [404, 'FEEDBACK_ATTACHMENT_NOT_FOUND']);
   });
 
   it('hazır olmayan ek indirilemez (404); başkası PUT atarsa 404 (varlık sızmaz); yanlış Content-Type 415; Content-Length yok 411; 0 bayt ve 5 MB + 1 → 400', async () => {

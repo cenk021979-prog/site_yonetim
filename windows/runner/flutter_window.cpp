@@ -1,4 +1,5 @@
 #include "flutter_window.h"
+#include "clipboard_image.h"
 
 #include <optional>
 
@@ -36,7 +37,16 @@ bool FlutterWindow::OnCreate() {
       [this](const flutter::MethodCall<flutter::EncodableValue>& call,
              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>>
                  result) {
-        if (call.method_name() == "setFullscreen") {
+        if (call.method_name() == "readClipboardImage") {
+          auto image = ReadClipboardImage(GetHandle());
+          if (!image.error.empty()) {
+            result->Error(image.error, "Clipboard image could not be read.");
+          } else if (image.bytes.empty()) {
+            result->Success();
+          } else {
+            result->Success(flutter::EncodableValue(std::move(image.bytes)));
+          }
+        } else if (call.method_name() == "setFullscreen") {
           bool target = true;
           if (const auto* b = std::get_if<bool>(call.arguments())) {
             target = *b;

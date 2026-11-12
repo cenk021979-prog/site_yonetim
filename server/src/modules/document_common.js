@@ -11,7 +11,7 @@ import { parsePositiveId, toIso } from './people_common.js';
 export const DOCUMENTS_MODULE = 'drive_storage';
 
 export const CATEGORIES = Object.freeze(['regulation', 'minutes', 'contract', 'notice', 'other']);
-export const AUDIENCES = Object.freeze(['residents', 'board', 'managers']);
+export const AUDIENCES = Object.freeze(['residents', 'board', 'managers', 'all']);
 export const DOCUMENT_STATUSES = Object.freeze(['pending', 'active', 'deleted']);
 export const LIST_STATUS_FILTERS = Object.freeze(['active', 'deleted', 'all']);
 

@@ -96,7 +96,11 @@ describe('GET /app/documents', () => {
     const query = listQuery();
     assert.equal(query.params[0], 20004);
     for (const fragment of [
-      "d.status = 'active' AND d.audience = 'residents'",
+      "d.status = 'active'",
+      "d.audience = 'all' AND",
+      "d.audience = 'residents' AND",
+      "sm.role IN ('SITE_OWNER', 'SITE_ADMIN', 'BOARD_MEMBER', 'STAFF')",
+      "document_user.is_active = TRUE",
       "INNER JOIN sites s ON s.site_code = d.site_code AND s.approval_status = 'approved'",
       "INNER JOIN document_versions cv ON cv.document_id = d.id AND cv.version_no = d.current_version_no AND cv.status = 'ready'",
       "smod.module_code = 'drive_storage'), TRUE)",
@@ -162,7 +166,9 @@ describe('ayrıntı ve indirme çözümleme', () => {
     const target = await resolveResidentDownload(USER, '55');
     assert.deepEqual(target, { siteCode: 1000000001, serverCopy: true, driveFileId: null, driveStatus: null, documentId: 55, versionId: 700, versionNo: 2, storageKey: '1000000001/123e4567-e89b-42d3-a456-426614174000', sizeBytes: 99, displayName: 'a.pdf', mimeType: 'application/pdf' });
     const query = log.find((entry) => /^WITH my_apts/.test(entry.sql));
-    assert.match(query.sql, /d\.status = 'active' AND d\.audience = 'residents'/);
+    assert.match(query.sql, /d\.status = 'active'/);
+    assert.ok(query.sql.includes("d.audience = 'all' AND"));
+    assert.ok(query.sql.includes("d.audience = 'residents' AND"));
     handlers = [[/^WITH my_apts AS MATERIALIZED/, ok()]];
     await assert.rejects(resolveResidentDownload(USER, '56'), { code: 'DOCUMENT_NOT_FOUND' });
   });
@@ -178,7 +184,9 @@ describe('ayrıntı ve indirme çözümleme', () => {
       "INNER JOIN sites s ON s.site_code = a.site_code AND s.approval_status = 'approved'",
       'INNER JOIN announcement_recipients r ON r.announcement_id = a.id',
       'INNER JOIN site_people sp ON sp.id = r.person_id AND sp.user_code = $1',
-      "INNER JOIN documents d ON d.id = aa.document_id AND d.site_code = a.site_code AND d.status = 'active' AND d.audience = 'residents'",
+      "INNER JOIN documents d ON d.id = aa.document_id AND d.site_code = a.site_code AND d.status = 'active'",
+      "d.audience = 'all' AND",
+      "d.audience = 'residents' AND",
       "smod.module_code = 'drive_storage'), TRUE)",
       // R16 P2-5: taşınan / pasifleştirilen sakin eski duyurunun eki üzerinden belgeyi indiremez (doğrudan indirmedeki my_apts / aktif ilişki koşuluyla AYNI parça, hedef koşulu YOK)
       'WITH my_apts AS MATERIALIZED (',

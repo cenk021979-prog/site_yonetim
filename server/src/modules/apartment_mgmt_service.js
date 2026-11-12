@@ -1034,8 +1034,8 @@ export async function exitTenancy({ authUser, apartmentId }) {
       throw forbidden('Çıkış yalnızca dairenin kiracısı içindir.');
     }
     // Çıkıştan sonraki genel bildirim metni borçlu / borçsuz ayrılır (K1 / P1-1): kiracı hesabındaki ödenmemiş borç çıkıştan önce okunur (çıkış bakiyeyi değiştirmez).
-    const debtMinor = await tenantDebtMinorSafe(client, site, state.apartment.id);
     closed = await endTenancy(client, authUser, state, 'tenant_exit');
+    const debtMinor = await tenantDebtMinorSafe(client, site, state.apartment.id);
     await audit(client, authUser, 'apartment_mgmt.tenant_exit', state, { tenant_person_id: state.roles.tenant.person_id });
     await notify(client, state, [state.roles.owner?.user_code], 'tenant_exit', await exitDoneText(aptLabel(state.apartment), debtMinor));
   });

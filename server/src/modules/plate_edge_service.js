@@ -19,6 +19,7 @@ import { notifyResidentMovement } from './plate_notify.js';
 import { apartmentText, doorLogEntry, shortPersonName } from './plate_cameras_common.js';
 import { claimCommands, completeCommand } from './plate_edge_commands.js';
 import { loadEdgeCameras, storeSnapshot } from './plate_cameras_service.js';
+import { loadParkingPolicy, parkingLock, registeredPlateApproval } from './parking_access_common.js';
 import {
   DECISION_TO_LEGACY,
   PLATE_GATES_SCHEMA_VERSION,
@@ -85,7 +86,11 @@ const VEHICLES_SQL = `
   LEFT JOIN users u ON u.user_code = sp.user_code
   LEFT JOIN apartments a ON a.id = v.apartment_id
   LEFT JOIN site_blocks b ON b.id = a.block_id
-  WHERE v.site_code = $1 AND v.is_active AND (v.person_id IS NULL OR sp.is_active) AND (v.apartment_id IS NULL OR a.is_active)
+  WHERE v.site_code = $1 AND v.is_active AND (v.person_id IS NULL OR (sp.is_active AND sp.site_code=v.site_code)) AND (v.apartment_id IS NULL OR a.is_active)
+    AND (EXISTS(SELECT 1 FROM parking_apartment_approvals pa WHERE pa.apartment_id=COALESCE(v.apartment_id,
+      (SELECT r.apartment_id FROM apartment_residencies r WHERE r.person_id=v.person_id AND r.is_current ORDER BY r.id LIMIT 1)) AND pa.approved)
+      OR (a.id IS NULL AND NOT EXISTS(SELECT 1 FROM apartment_residencies r JOIN apartments ra ON ra.id=r.apartment_id AND ra.site_code=v.site_code AND ra.is_active WHERE r.person_id=v.person_id AND r.is_current)
+        AND EXISTS(SELECT 1 FROM parking_legacy_vehicle_exemptions ex WHERE ex.vehicle_id=v.id)))
   ORDER BY v.plate, v.id`;
 
 const PERMITS_SQL = `
@@ -255,12 +260,26 @@ async function writePlateDoorLog({ writeDoorLog, siteCode, gate, plate, identity
 }
 
 /** Tekil, idempotent olay kaydı. Aynı event_id ikinci kez gelirse hiçbir şey yazılmaz ({ duplicate: true }). 4xx yanıtlar KALICI hatadır: istemci yeniden denememeli. */
-export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorAccessLog } = {}) {
+export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorAccessLog, admissionId = null } = {}) {
   const event = parseEdgeEvent(body);
   const siteCode = client.siteCode;
   const db = await pool.connect();
   try {
     await db.query('BEGIN');
+    await parkingLock(db, siteCode);
+    const parkingPolicy = await loadParkingPolicy(db, siteCode);
+    if (!parkingPolicy.enabled && event.decision === 'acildi' && event.direction !== 'cikis'
+      && await registeredPlateApproval(db, siteCode, event.plate) === false) {
+      event.decision = 'red'; event.reason = 'apartment_not_approved'; event.gateCommand = 'failed';
+    }
+    if (parkingPolicy.enabled && event.decision === 'acildi') {
+      const authorized = admissionId === null ? null : (await db.query(
+        `SELECT id FROM parking_admissions WHERE id=$1 AND site_code=$2 AND plate=$3 AND camera_id=$4
+         AND status='accepted' AND edge_client_id IS NOT DISTINCT FROM $5::BIGINT`,
+        [admissionId, siteCode, event.plate, event.cameraId, client.id],
+      )).rows[0];
+      if (!authorized) { event.decision = 'red'; event.reason = 'admission_required'; event.gateCommand = 'failed'; }
+    }
     await db.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [`plate_presence:${siteCode}:${event.plate}`]);
     const camera = (
       await db.query(
@@ -288,7 +307,7 @@ export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorA
     // 1. Arka plaka engelleme kontrolü (Giren aracın çıkış kamerası, çıkan aracın giriş kamerası tarafından okunmasını engelleme)
     const suppKey = `${siteCode}:${event.plate}`;
     const suppression = plateSuppressions.get(suppKey);
-    if (suppression && nowMs < suppression.until) {
+    if (admissionId === null && suppression && nowMs < suppression.until) {
       if (suppression.suppressDirection === direction || suppression.suppressDirection === 'both') {
         const remSec = Math.ceil((suppression.until - nowMs) / 1000);
         await db.query('ROLLBACK').catch(() => {});
@@ -304,7 +323,7 @@ export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorA
     }
 
     // 2. Bir sonraki araç bekleme süresi kontrolü
-    if (gateId !== null) {
+    if (admissionId === null && gateId !== null) {
       const lockKey = `${siteCode}:${gateId}`;
       const lockUntil = gateNextVehicleLocks.get(lockKey);
       if (lockUntil && nowMs < lockUntil) {
@@ -409,6 +428,10 @@ export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorA
         changed = wasInside;
       }
     }
+    if (transition === 'leave') {
+      await db.query(`UPDATE parking_admissions SET status='released',updated_at=NOW()
+        WHERE site_code=$1 AND plate=$2 AND direction='giris' AND status IN ('pending','accepted','uncertain')`, [siteCode, event.plate]);
+    }
     await db.query(`UPDATE camera_devices SET last_event_at = NOW() WHERE id = $1`, [event.cameraId]);
     await db.query('COMMIT');
     // SmartKeyPass kapı günlüğü (sürüm 3): kenarın kapı komutu KABUL EDİLEN açılışları "Plaka ile" olarak düşer (komut reddedildiyse kapı açılmadı: yazılmaz).
@@ -440,7 +463,7 @@ export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorA
     }
     // Sakin bildirimi (A3): yalnız KAYITLI aracın içeride durumu gerçekten değiştiyse; en iyi çaba, yanıtı geciktirmez, hata olayı bozmaz.
     if (changed && vehicle && event.decision === 'acildi') void notifyResidentMovement({ siteCode, vehicle, direction, seenAt: event.seenAt });
-    return { ...envelope(), ok: true, duplicate: false, event_id: eventId, direction, inside };
+    return { ...envelope(), ok: true, duplicate: false, event_id: eventId, direction, inside, decision: event.decision };
   } catch (error) {
     await db.query('ROLLBACK').catch(() => {});
     if (error?.code === '23505') throw new PlatformError(409, 'DUPLICATE_EVENT', 'Olay zaten kayıtlı.');
@@ -470,7 +493,7 @@ export async function recordManagerPlateEvent({ siteCode, body }) {
       )
       .catch(() => {});
   }
-  if (body?.decision === 'acildi') {
+  if (res.decision === 'acildi' && !res.duplicate) {
     try {
       const gateRow = (
         await pool.query(

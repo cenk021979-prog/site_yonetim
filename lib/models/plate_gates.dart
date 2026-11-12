@@ -3,12 +3,21 @@
 // Hiçbir kapı / kamera sayısı ya da eşik burada sabit değildir; hepsi sunucu kaydıdır. Rozet = durum (metin) + renk; renk tek başına anlam taşımaz.
 import 'package:flutter/foundation.dart';
 
-int _int(Object? v, [int fallback = 0]) => v is num ? v.toInt() : int.tryParse('$v') ?? fallback;
-int? _intOrNull(Object? v) => v == null ? null : (v is num ? v.toInt() : int.tryParse('$v'));
+int _int(Object? v, [int fallback = 0]) =>
+    v is num ? v.toInt() : int.tryParse('$v') ?? fallback;
+int? _intOrNull(Object? v) =>
+    v == null ? null : (v is num ? v.toInt() : int.tryParse('$v'));
 String? _str(Object? v) => v is String && v.trim().isNotEmpty ? v : null;
-DateTime? _date(Object? v) => v is String ? DateTime.tryParse(v)?.toLocal() : null;
-Map<String, dynamic> _map(Object? v) => v is Map ? Map<String, dynamic>.from(v) : const <String, dynamic>{};
-List<Map<String, dynamic>> _maps(Object? v) => v is List ? <Map<String, dynamic>>[for (final x in v) if (x is Map) Map<String, dynamic>.from(x)] : const <Map<String, dynamic>>[];
+DateTime? _date(Object? v) =>
+    v is String ? DateTime.tryParse(v)?.toLocal() : null;
+Map<String, dynamic> _map(Object? v) =>
+    v is Map ? Map<String, dynamic>.from(v) : const <String, dynamic>{};
+List<Map<String, dynamic>> _maps(Object? v) => v is List
+    ? <Map<String, dynamic>>[
+        for (final x in v)
+          if (x is Map) Map<String, dynamic>.from(x),
+      ]
+    : const <Map<String, dynamic>>[];
 
 /// Rozet rengi (sunucudan): yesil, sari, kirmizi, gri.
 enum GateColor { yesil, sari, kirmizi, gri }
@@ -22,7 +31,10 @@ class GateBadge {
     final m = _map(json);
     return GateBadge(
       state: _str(m['state']) ?? 'hic_baglanmadi',
-      color: GateColor.values.firstWhere((c) => c.name == m['color'], orElse: () => GateColor.gri),
+      color: GateColor.values.firstWhere(
+        (c) => c.name == m['color'],
+        orElse: () => GateColor.gri,
+      ),
     );
   }
 
@@ -77,7 +89,11 @@ class GateCamera {
 }
 
 /// Kamera yönü etiketleri (kamera -> kapı bağı).
-const Map<String, String> gateCameraDirectionLabels = <String, String>{'auto': 'Otomatik', 'giris': 'Giriş', 'cikis': 'Çıkış'};
+const Map<String, String> gateCameraDirectionLabels = <String, String>{
+  'auto': 'Otomatik',
+  'giris': 'Giriş',
+  'cikis': 'Çıkış',
+};
 
 @immutable
 class PlateGate {
@@ -106,13 +122,20 @@ class PlateGate {
       directionLabel: _str(m['direction_label']) ?? 'Çift yön',
       isActive: m['is_active'] != false,
       status: GateBadge.fromJson(m['status']),
-      consecutiveVehicleDelaySeconds: _int(m['consecutive_vehicle_delay_seconds'], 10),
+      consecutiveVehicleDelaySeconds: _int(
+        m['consecutive_vehicle_delay_seconds'],
+        10,
+      ),
       entryRearSuppressSeconds: _int(m['entry_rear_suppress_seconds'], 60),
       exitRearSuppressSeconds: _int(m['exit_rear_suppress_seconds'], 60),
       doorId: _intOrNull(m['door_id']),
       deviceUid: _str(m['device_uid']),
-      deviceStatus: device.isEmpty ? null : GateBadge.fromJson(device['status']),
-      cameras: <GateCamera>[for (final c in _maps(m['cameras'])) GateCamera.fromJson(c)],
+      deviceStatus: device.isEmpty
+          ? null
+          : GateBadge.fromJson(device['status']),
+      cameras: <GateCamera>[
+        for (final c in _maps(m['cameras'])) GateCamera.fromJson(c),
+      ],
     );
   }
 
@@ -141,18 +164,31 @@ class GateOption {
 
 @immutable
 class GateDevice {
-  const GateDevice({required this.deviceUid, required this.gateName, required this.status});
+  const GateDevice({
+    required this.deviceUid,
+    required this.gateName,
+    required this.status,
+  });
 
   final String deviceUid;
   final String? gateName;
   final GateBadge status;
 
-  String get label => (gateName ?? '').isEmpty ? deviceUid : '$deviceUid ($gateName)';
+  String get label =>
+      (gateName ?? '').isEmpty ? deviceUid : '$deviceUid ($gateName)';
 }
 
 @immutable
 class EdgeClientRow {
-  const EdgeClientRow({required this.id, required this.name, required this.status, this.appVersion, this.lastSeenAt, this.queueDepth, this.claimedAt});
+  const EdgeClientRow({
+    required this.id,
+    required this.name,
+    required this.status,
+    this.appVersion,
+    this.lastSeenAt,
+    this.queueDepth,
+    this.claimedAt,
+  });
 
   factory EdgeClientRow.fromJson(Map<String, dynamic> m) => EdgeClientRow(
     id: _int(m['id']),
@@ -187,6 +223,7 @@ class GateSettings {
     this.insideTimeoutHours = 24,
     this.alertIntervalMinutes = 60,
     this.notifyMaxAgeMinutes = 15,
+    this.movementNotificationsEnabled = false,
   });
 
   factory GateSettings.fromJson(Map<String, dynamic> m) => GateSettings(
@@ -199,6 +236,8 @@ class GateSettings {
     insideTimeoutHours: _int(m['inside_timeout_hours'], 24),
     alertIntervalMinutes: _int(m['alert_interval_minutes'], 60),
     notifyMaxAgeMinutes: _int(m['resident_notify_max_age_minutes'], 15),
+    movementNotificationsEnabled:
+        m['resident_movement_notifications_enabled'] == true,
   );
 
   final String guestRule;
@@ -210,6 +249,7 @@ class GateSettings {
   final int insideTimeoutHours;
   final int alertIntervalMinutes;
   final int notifyMaxAgeMinutes;
+  final bool movementNotificationsEnabled;
 }
 
 @immutable
@@ -225,16 +265,37 @@ class PlateGatesOverview {
     required this.insideTotal,
   });
 
-  factory PlateGatesOverview.fromJson(Map<String, dynamic> m) => PlateGatesOverview(
-    gates: <PlateGate>[for (final g in _maps(m['gates'])) PlateGate.fromJson(g)],
-    unassignedCameras: <GateOption>[for (final c in _maps(m['unassigned_cameras'])) GateOption(id: _int(c['id']), label: _str(c['name']) ?? 'Kamera')],
-    devices: <GateDevice>[for (final d in _maps(m['devices'])) GateDevice(deviceUid: _str(d['device_uid']) ?? '', gateName: _str(d['gate_name']), status: GateBadge.fromJson(d['status']))],
-    edgeClients: <EdgeClientRow>[for (final c in _maps(m['edge_clients'])) EdgeClientRow.fromJson(c)],
-    settings: GateSettings.fromJson(_map(m['settings'])),
-    guestRules: <String, String>{for (final r in _maps(m['guest_rules'])) '${r['code']}': _str(r['label']) ?? '${r['code']}'},
-    directionModes: <String, String>{for (final r in _maps(m['direction_modes'])) '${r['code']}': _str(r['label']) ?? '${r['code']}'},
-    insideTotal: _int(m['inside_total']),
-  );
+  factory PlateGatesOverview.fromJson(Map<String, dynamic> m) =>
+      PlateGatesOverview(
+        gates: <PlateGate>[
+          for (final g in _maps(m['gates'])) PlateGate.fromJson(g),
+        ],
+        unassignedCameras: <GateOption>[
+          for (final c in _maps(m['unassigned_cameras']))
+            GateOption(id: _int(c['id']), label: _str(c['name']) ?? 'Kamera'),
+        ],
+        devices: <GateDevice>[
+          for (final d in _maps(m['devices']))
+            GateDevice(
+              deviceUid: _str(d['device_uid']) ?? '',
+              gateName: _str(d['gate_name']),
+              status: GateBadge.fromJson(d['status']),
+            ),
+        ],
+        edgeClients: <EdgeClientRow>[
+          for (final c in _maps(m['edge_clients'])) EdgeClientRow.fromJson(c),
+        ],
+        settings: GateSettings.fromJson(_map(m['settings'])),
+        guestRules: <String, String>{
+          for (final r in _maps(m['guest_rules']))
+            '${r['code']}': _str(r['label']) ?? '${r['code']}',
+        },
+        directionModes: <String, String>{
+          for (final r in _maps(m['direction_modes']))
+            '${r['code']}': _str(r['label']) ?? '${r['code']}',
+        },
+        insideTotal: _int(m['inside_total']),
+      );
 
   final List<PlateGate> gates;
   final List<GateOption> unassignedCameras;
@@ -276,7 +337,10 @@ class GateDraft {
     'consecutive_vehicle_delay_seconds': consecutiveVehicleDelaySeconds,
     'entry_rear_suppress_seconds': entryRearSuppressSeconds,
     'exit_rear_suppress_seconds': exitRearSuppressSeconds,
-    'cameras': <Map<String, Object?>>[for (final c in cameras) <String, Object?>{'camera_id': c.cameraId, 'direction': c.direction}],
+    'cameras': <Map<String, Object?>>[
+      for (final c in cameras)
+        <String, Object?>{'camera_id': c.cameraId, 'direction': c.direction},
+    ],
   };
 }
 
@@ -289,11 +353,20 @@ class GateCameraDraft {
 }
 
 /// Kamera yönü, kapının yön moduyla uyumlu mu (sunucuyla aynı kural): giriş kapısı yalnız giriş / otomatik, çıkış kapısı yalnız çıkış / otomatik, çift yönde hepsi.
-bool gateCameraDirectionFits(String mode, String direction) => mode == 'cift' || direction == 'auto' || direction == mode;
+bool gateCameraDirectionFits(String mode, String direction) =>
+    mode == 'cift' || direction == 'auto' || direction == mode;
 
 @immutable
 class InsideItem {
-  const InsideItem({required this.id, required this.plate, required this.kind, this.apartmentLabel, this.sinceAt, this.gateName, this.insideHours});
+  const InsideItem({
+    required this.id,
+    required this.plate,
+    required this.kind,
+    this.apartmentLabel,
+    this.sinceAt,
+    this.gateName,
+    this.insideHours,
+  });
 
   factory InsideItem.fromJson(Map<String, dynamic> m) => InsideItem(
     id: _int(m['id']),
@@ -355,20 +428,35 @@ class InsideApartment {
   /// Misafir kabul durumunun kısa Türkçe açıklaması.
   String get guestLabel => guestAllowed
       ? 'Misafir kabul edilir'
-      : (guestReason == 'no_parking' ? 'Park yeri tanımlı değil' : 'Park yerleri dolu');
+      : (guestReason == 'no_parking'
+            ? 'Park yeri tanımlı değil'
+            : 'Park yerleri dolu');
 }
 
 @immutable
 class PlateInside {
-  const PlateInside({required this.total, required this.items, required this.apartments, this.overdue = const <InsideItem>[], this.overdueAfterHours = 12, this.timeoutHours = 24});
+  const PlateInside({
+    required this.total,
+    required this.items,
+    required this.apartments,
+    this.overdue = const <InsideItem>[],
+    this.overdueAfterHours = 12,
+    this.timeoutHours = 24,
+  });
 
   factory PlateInside.fromJson(Map<String, dynamic> m) {
     final overdue = _map(m['overdue']);
     return PlateInside(
       total: _int(m['total']),
-      items: <InsideItem>[for (final i in _maps(m['items'])) InsideItem.fromJson(i)],
-      apartments: <InsideApartment>[for (final a in _maps(m['apartments'])) InsideApartment.fromJson(a)],
-      overdue: <InsideItem>[for (final i in _maps(overdue['items'])) InsideItem.fromJson(i)],
+      items: <InsideItem>[
+        for (final i in _maps(m['items'])) InsideItem.fromJson(i),
+      ],
+      apartments: <InsideApartment>[
+        for (final a in _maps(m['apartments'])) InsideApartment.fromJson(a),
+      ],
+      overdue: <InsideItem>[
+        for (final i in _maps(overdue['items'])) InsideItem.fromJson(i),
+      ],
       overdueAfterHours: _int(overdue['after_hours'], 12),
       timeoutHours: _int(overdue['timeout_hours'], 24),
     );

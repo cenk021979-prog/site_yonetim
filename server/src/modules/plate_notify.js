@@ -5,6 +5,7 @@
 // eski olaylar bildirim yağdırmasın) gönderilir. Metinde plaka YOK (kilit ekranı).
 
 import { pool } from '../db.js';
+import { PlatformError } from './errors.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { CARGO_RECIPIENTS_SQL } from './cargo_notify.js';
 import { pushDeviceHooks } from './push_devices.js';
@@ -87,6 +88,7 @@ async function movementRecipients(db, siteCode, vehicle) {
 export async function notifyResidentMovement({ siteCode, vehicle, direction, seenAt }, db = pool) {
   try {
     const settings = await loadSiteSettings(db, siteCode);
+    if (settings.resident_movement_notifications_enabled !== true) return { skipped: 'site_disabled' };
     if (Date.now() - seenAt.getTime() > settings.resident_notify_max_age_minutes * 60_000) return { skipped: 'stale' };
     const recipients = await movementRecipients(db, siteCode, vehicle);
     if (!recipients.length) return { skipped: 'no_opt_in' };
@@ -108,6 +110,12 @@ export async function setMovementPref(authUser, body) {
   const ctx = await residentContext(authUser, body.site_code);
   if (typeof body.movement_enabled !== 'boolean') {
     throw invalidField('Bildirim tercihi doğru/yanlış olmalı.', 'movement_enabled');
+  }
+  if (body.movement_enabled === true) {
+    const settings = await loadSiteSettings(pool, ctx.siteCode);
+    if (settings.resident_movement_notifications_enabled !== true) {
+      throw new PlatformError(403, 'MOVEMENT_NOTIFICATIONS_DISABLED', 'Yönetim araç giriş/çıkış bildirimini açmamış.');
+    }
   }
   await pool.query(
     `INSERT INTO plate_notify_prefs (site_code, user_code, movement_enabled, updated_at) VALUES ($1, $2, $3, NOW())

@@ -110,5 +110,11 @@ fcm-*.json
 tools/demo_seed/out/
 
 *.apk
+/android/.kotlin/
 
 .claude/worktrees/
+# Widget Preview related
+.widget_preview/
+
+# Tek merkezi onceki-is kopyasi; kaynak veya kimlik bilgisi olarak yayinlanmaz.
+/work/geri-donus/

@@ -9,6 +9,7 @@ import 'package:site_kapi_kontrol/models/report_models.dart';
 import 'package:site_kapi_kontrol/models/vehicle_record.dart' show crmDateParam;
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/crm_pickers.dart' show CrmPickerField, showApartmentPicker;
 import 'package:site_kapi_kontrol/ui/dialogs/large_dialog_parts.dart';
@@ -86,21 +87,27 @@ class FinanceReportsTabState extends State<FinanceReportsTab> {
 
   @override
   Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         SectionHeader(
           title: 'Raporlar',
-          trailing: IconButton(
-            key: const ValueKey<String>('finance_reports_refresh'),
-            onPressed: reload,
-            tooltip: 'Raporu yenile',
-            icon: const Icon(Icons.refresh_rounded),
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const ContextHelp(
+                title: 'Raporlar',
+                message: 'Rapor türünü seçin; rakamlar sunucudan alınır, PDF cihazınızda hazırlanır.',
+              ),
+              IconButton(
+                key: const ValueKey<String>('finance_reports_refresh'),
+                onPressed: reload,
+                tooltip: 'Raporu yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ],
           ),
         ),
-        const SizedBox(height: AppSpace.sm),
-        Text('Rapor türünü seçin; rakamlar sunucudan alınır, PDF cihazınızda hazırlanır.', style: th.bodyMedium),
         const SizedBox(height: AppSpace.md),
         Wrap(
           spacing: AppSpace.sm,

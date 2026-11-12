@@ -434,7 +434,7 @@ describe('GET people: sorgu, sayfalama, sabit sorgu sayisi', () => {
     const dataQueries = state.log.filter((q) => /site_people|apartment_residencies|vehicles/.test(q.sql));
     assert.equal(dataQueries.length, 4, dataQueries.map((q) => q.sql.slice(0, 50)).join(' | '));
     // esitleme: BEGIN + kilit (BEKLEMEZ: try-lock) + 6 adim + COMMIT (site basina sabit)
-    assert.equal(state.clientLog.length, 2 + SYNC_STEPS.length + 1);
+    assert.equal(state.clientLog.length, 3 + SYNC_STEPS.length + 1);
     assert.equal(state.clientLog.filter((q) => /^WITH desired AS/.test(q.sql)).length, 3, 'WITH desired ile baslayan adimlar (link artik ortak siteTiePredicate kullanir)');
     assert.deepEqual(state.clientLog[0].sql, 'BEGIN');
     assert.match(state.clientLog[1].sql, /^SELECT pg_try_advisory_xact_lock/);

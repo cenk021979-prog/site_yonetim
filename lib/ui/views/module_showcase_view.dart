@@ -18,6 +18,8 @@ import 'package:site_kapi_kontrol/ui/helpers/date_input.dart';
 import 'package:site_kapi_kontrol/ui/helpers/dial_call.dart';
 import 'package:site_kapi_kontrol/ui/helpers/finance_errors.dart';
 import 'package:site_kapi_kontrol/ui/helpers/module_showcase.dart';
+import 'package:site_kapi_kontrol/ui/helpers/simple_navigation.dart';
+import 'package:site_kapi_kontrol/ui/widgets/simple_navigation.dart';
 import 'package:site_kapi_kontrol/ui/helpers/money.dart';
 import 'package:site_kapi_kontrol/ui/helpers/site_application_flow.dart';
 import 'package:site_kapi_kontrol/ui/widgets/manager_call_tile.dart';
@@ -77,9 +79,21 @@ class ModuleShowcaseView extends StatefulWidget {
     this.fetchManagerContacts,
     this.dialLauncher,
     this.managerPhoneMissing = false,
+    this.simple = false,
+    this.simpleTopic = SimpleTopic.today,
+    this.simpleTodayOverview,
+    this.simpleFinanceAttention,
+    this.simpleManagementAttention,
+    this.onSimpleTopicSelected,
   }) : assert(applications == null || onReapply != null, 'başvuru kartı için onReapply gerekir');
 
   final UserSession session;
+  final bool simple;
+  final SimpleTopic simpleTopic;
+  final Widget? simpleTodayOverview;
+  final Widget? simpleFinanceAttention;
+  final Widget? simpleManagementAttention;
+  final ValueChanged<SimpleTopic>? onSimpleTopicSelected;
   final ShowcaseAudience audience;
 
   /// Yan menünün hesapladığı öğe listesi (`YanMenu.visibleItems`).
@@ -191,7 +205,7 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
       w.menuItems.contains(SirketMenuItem.borcum);
 
   bool _wantsManagers(ModuleShowcaseView w) =>
-      w.audience == ShowcaseAudience.resident && w.fetchManagerContacts != null;
+      !w.simple && w.audience == ShowcaseAudience.resident && w.fetchManagerContacts != null;
 
   @override
   void initState() {
@@ -433,7 +447,7 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
     final modulesMode = ViewModeScope.modeOf(context, ViewScreen.modules);
 
     final children = <Widget>[
-      if (widget.applications != null)
+      if (widget.applications != null && (!widget.simple || widget.simpleTopic == (audience == ShowcaseAudience.admin ? SimpleTopic.management : SimpleTopic.home)))
         SiteApplicationStatusCard(
           tracker: widget.applications!,
           onReapply: widget.onReapply!,
@@ -441,17 +455,20 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
           showApproved: widget.applicantRole && showsApprovedApplicationCard(role),
           showLoadFailure: widget.applicantRole,
         ),
-      if (focus.isNotEmpty) ...[
+      if (!widget.simple && focus.isNotEmpty) ...[
         _FocusBar(entries: focus, onOpen: _open),
         const SizedBox(height: AppSpace.lg),
       ],
-      if (audience == ShowcaseAudience.admin && widget.attentionBar != null) widget.attentionBar!,
+      if (!widget.simple && audience == ShowcaseAudience.admin && widget.attentionBar != null) widget.attentionBar!,
+      if (widget.simple && widget.simpleTopic == SimpleTopic.finance) ?widget.simpleFinanceAttention,
+      if (widget.simple && widget.simpleTopic == SimpleTopic.management) ?widget.simpleManagementAttention,
       // Site yöneticisinin profilinde telefon yoksa sakinler onu arayamaz: ipucu (Profilim menüde yoksa düğmesiz).
-      if (audience == ShowcaseAudience.admin && widget.managerPhoneMissing)
+      if (!widget.simple && audience == ShowcaseAudience.admin && widget.managerPhoneMissing)
         ManagerPhoneHint(
+          compact: widget.simple,
           onOpenProfile: widget.menuItems.contains(SirketMenuItem.profilim) ? () => _open(SirketMenuItem.profilim) : null,
         ),
-      if (audience == ShowcaseAudience.resident) ...[
+      if (audience == ShowcaseAudience.resident && !widget.simple) ...[
         if (widget.aboveHero != null) widget.aboveHero!,
         _buildHero(context),
         const SizedBox(height: AppSpace.lg),
@@ -459,7 +476,23 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
         // Kolay görünümde hızlı işlemler yoktur: aynı sayfalara büyük düğmelerle (aşağıda) gidilir.
         if (!easy) _buildQuickActions(context),
       ],
-      if (easy)
+      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.payments) ...[
+        _buildHero(context),
+        const SizedBox(height: AppSpace.lg),
+      ],
+      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.home && widget.belowHero != null) widget.belowHero!,
+      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.site && widget.aboveHero != null) widget.aboveHero!,
+      if (widget.simple)
+        SimpleModuleList(
+          items: widget.menuItems, audience: audience, topic: widget.simpleTopic,
+          role: role, badges: widget.badgeCounts, onOpen: _open,
+          badgeNouns: widget.badgeNouns, featuredItems: widget.featuredItems,
+          onHelp: widget.onOpenHelp, onGuestPass: widget.onCreateGuestPass,
+          onAllActions: widget.onOpenAllActions,
+          todayOverview: widget.simpleTodayOverview, focusEntries: focus,
+          onTopicSelected: widget.onSimpleTopicSelected,
+        )
+      else if (easy)
         ..._buildEasyModules(
           context,
           model,
@@ -515,7 +548,7 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
             ],
           ),
       ],
-      if (!easy && (model.secondary.isNotEmpty || widget.onOpenHelp != null)) ...[
+      if (!widget.simple && !easy && (model.secondary.isNotEmpty || widget.onOpenHelp != null)) ...[
         const SizedBox(height: AppSpace.xl),
         const _SectionTitle(text: 'Hesap ve ayarlar'),
         const SizedBox(height: AppSpace.sm),

@@ -2,7 +2,7 @@
 //
 // Kapı kuralları (güvenlik): menü YALNIZ `documents` modülü AÇIK siteye bağlı kullanıcıya görünür; modül kapalıyken
 // ya da modül verisi hiç gelmemişken (fail-open durumu) AÇILMAZ. Yazma = yönetici / süper (yönetici modunda);
-// kurul üyesi salt okunur; sakin yalnız kendi kitlesindeki belgeleri görür; görevli ve bireysel kullanıcı göremez.
+// kurul üyesi salt okunur; görevli yalnız Herkes belgelerini, sakin kendi kitlesini görür; ilişkisiz bireysel kullanıcı göremez.
 import 'dart:async';
 import 'dart:convert';
 
@@ -388,29 +388,35 @@ void main() {
       await _disposeHome(t);
     });
 
-    testWidgets('yalnız-görevli (staff) ve bireysel kullanıcı: Belgeler yok', (
-      t,
-    ) async {
-      final staff = _HomeAuth(role: UserRole.apartmentOwner);
-      await _pumpHome(
-        t,
-        staff,
-        access: await _access(() => <MySiteModules>[_my('staff')]),
-      );
-      await _openDrawer(t);
-      expect(_tileTitle('Dosya Deposu'), findsNothing);
-      await _disposeHome(t);
+    testWidgets(
+      'görevli salt okur; site ilişkisi olmayan bireysel kullanıcı göremez',
+      (t) async {
+        for (final role in [UserRole.apartmentOwner, UserRole.individual]) {
+          final staff = _HomeAuth(role: role);
+          await _pumpHome(
+            t,
+            staff,
+            access: await _access(() => <MySiteModules>[_my('staff')]),
+          );
+          await _tapMenu(t, 'Dosya Deposu');
+          expect(find.byType(DocumentResidentView), findsOneWidget);
+          expect(find.byType(DocumentAdminView), findsNothing);
+          expect(find.text('Belge Yükle'), findsNothing);
+          expect(_server.paths.any((p) => p.startsWith('/manager/')), isFalse);
+          await _disposeHome(t);
+        }
 
-      final individual = _HomeAuth(role: UserRole.individual);
-      await _pumpHome(
-        t,
-        individual,
-        access: await _access(() => const <MySiteModules>[]),
-      );
-      await _openDrawer(t);
-      expect(_tileTitle('Dosya Deposu'), findsNothing);
-      await _disposeHome(t);
-    });
+        final individual = _HomeAuth(role: UserRole.individual);
+        await _pumpHome(
+          t,
+          individual,
+          access: await _access(() => const <MySiteModules>[]),
+        );
+        await _openDrawer(t);
+        expect(_tileTitle('Dosya Deposu'), findsNothing);
+        await _disposeHome(t);
+      },
+    );
 
     testWidgets('süper kullanıcı: Belgeler var (tüm siteler, yazma yetkisi)', (
       t,

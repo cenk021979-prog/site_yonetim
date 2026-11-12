@@ -9,6 +9,7 @@ import { PlatformError } from './errors.js';
 import { recordAudit, actorFromAuthUser } from './audit_service.js';
 import { apartmentLabel } from './people_common.js';
 import { formatPlate, iso, maskPlate, notFound } from './plate_recognition_common.js';
+import { parkingLock } from './parking_access_common.js';
 import {
   DEFAULT_SITE_SETTINGS,
   DIRECTION_MODES,
@@ -43,7 +44,7 @@ const parsePositive = (raw, what, code) => {
 export async function loadSiteSettings(db, siteCode) {
   const result = await db.query(
     `SELECT guest_rule, heartbeat_warn_seconds, heartbeat_crit_seconds, heartbeat_interval_seconds, sync_interval_seconds,
-            inside_report_hours, inside_timeout_hours, alert_interval_minutes, resident_notify_max_age_minutes,
+            inside_report_hours, inside_timeout_hours, alert_interval_minutes, resident_notify_max_age_minutes, resident_movement_notifications_enabled,
             command_ttl_seconds, snapshot_interval_seconds, snapshot_idle_interval_seconds, snapshot_keep_minutes
        FROM plate_site_settings WHERE site_code = $1`,
     [siteCode],
@@ -68,12 +69,13 @@ export async function saveSiteSettings({ siteCode, body, authUser }) {
   await pool.query(
     `INSERT INTO plate_site_settings (site_code, guest_rule, heartbeat_warn_seconds, heartbeat_crit_seconds, heartbeat_interval_seconds, sync_interval_seconds,
                                      inside_report_hours, inside_timeout_hours, alert_interval_minutes, resident_notify_max_age_minutes,
-                                     command_ttl_seconds, snapshot_interval_seconds, snapshot_idle_interval_seconds, snapshot_keep_minutes, updated_by, updated_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, NOW())
+                                     command_ttl_seconds, snapshot_interval_seconds, snapshot_idle_interval_seconds, snapshot_keep_minutes, updated_by, resident_movement_notifications_enabled, updated_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())
      ON CONFLICT (site_code) DO UPDATE SET guest_rule = EXCLUDED.guest_rule, heartbeat_warn_seconds = EXCLUDED.heartbeat_warn_seconds,
        heartbeat_crit_seconds = EXCLUDED.heartbeat_crit_seconds, heartbeat_interval_seconds = EXCLUDED.heartbeat_interval_seconds,
        sync_interval_seconds = EXCLUDED.sync_interval_seconds, inside_report_hours = EXCLUDED.inside_report_hours, inside_timeout_hours = EXCLUDED.inside_timeout_hours,
        alert_interval_minutes = EXCLUDED.alert_interval_minutes, resident_notify_max_age_minutes = EXCLUDED.resident_notify_max_age_minutes,
+       resident_movement_notifications_enabled = EXCLUDED.resident_movement_notifications_enabled,
        command_ttl_seconds = EXCLUDED.command_ttl_seconds, snapshot_interval_seconds = EXCLUDED.snapshot_interval_seconds,
        snapshot_idle_interval_seconds = EXCLUDED.snapshot_idle_interval_seconds, snapshot_keep_minutes = EXCLUDED.snapshot_keep_minutes,
        updated_by = EXCLUDED.updated_by, updated_at = NOW()`,
@@ -93,6 +95,7 @@ export async function saveSiteSettings({ siteCode, body, authUser }) {
       merged.snapshot_idle_interval_seconds,
       merged.snapshot_keep_minutes,
       actor.userCode,
+      merged.resident_movement_notifications_enabled,
     ],
   );
   await audit(pool, authUser, 'plate.site_settings_changed', siteCode, 'site', siteCode, { changed: Object.keys(patch) });
@@ -472,11 +475,19 @@ export async function listInside(siteCode) {
 /** Elle düzeltme (çıkış kaçırıldıysa): aracı "içeride" listesinden düşürür. */
 export async function clearInside({ siteCode, rawId, authUser }) {
   const id = parsePositive(rawId, 'Kayıt', 'PRESENCE_NOT_FOUND');
-  const result = await pool.query(
-    `UPDATE plate_presence SET inside = FALSE, updated_at = NOW() WHERE id = $1 AND site_code = $2 AND inside RETURNING plate`,
-    [id, siteCode],
-  );
-  if (!result.rows[0]) throw notFound('Kayıt', 'PRESENCE_NOT_FOUND');
-  await audit(pool, authUser, 'plate.inside_cleared', siteCode, 'plate_presence', id, { plate: maskPlate(result.rows[0].plate) });
-  return { ok: true };
+  const db = await pool.connect();
+  try {
+    await db.query('BEGIN');
+    await parkingLock(db, siteCode);
+    const row = (await db.query('SELECT plate FROM plate_presence WHERE id=$1 AND site_code=$2 AND inside FOR UPDATE', [id,siteCode])).rows[0];
+    if (!row) throw notFound('Kayıt', 'PRESENCE_NOT_FOUND');
+    const busy = (await db.query(`SELECT 1 FROM parking_admissions WHERE site_code=$1 AND plate=$2 AND status IN ('pending','uncertain') AND created_at>NOW()-INTERVAL '30 seconds' LIMIT 1`, [siteCode,row.plate])).rows[0];
+    if (busy) throw new PlatformError(409, 'PARKING_COMMAND_IN_FLIGHT', 'Kapı komutu işleniyor. En az 30 saniye bekleyip fiziksel durumu kontrol edin.');
+    await db.query('UPDATE plate_presence SET inside=FALSE,updated_at=NOW() WHERE id=$1 AND site_code=$2', [id,siteCode]);
+    await db.query(`UPDATE parking_admissions SET status='released',updated_at=NOW() WHERE site_code=$1 AND plate=$2 AND direction='giris' AND status IN ('pending','accepted','uncertain')`, [siteCode,row.plate]);
+    await audit(db, authUser, 'plate.inside_cleared', siteCode, 'plate_presence', id, { plate: maskPlate(row.plate) });
+    await db.query('COMMIT');
+    return { ok: true };
+  } catch (error) { await db.query('ROLLBACK').catch(() => {}); throw error; }
+  finally { db.release(); }
 }

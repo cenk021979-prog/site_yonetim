@@ -144,11 +144,16 @@ class DocumentResidentViewState extends State<DocumentResidentView> {
     BuildContext buttonContext,
   ) async {
     if (_busyId != null) return;
+    final session = widget.authService.session;
+    final selectedSite = _siteFilter;
     setState(() => _busyId = document.id);
     try {
-      await downloadAndShareDocument(
+      await downloadAndDeliverDocument(
         context,
         title: document.title,
+        canDeliver: () => mounted && session != null && _siteFilter == selectedSite &&
+            widget.authService.session?.id == session.id &&
+            widget.authService.session?.token == session.token,
         originContext: buttonContext,
         sharer: widget.sharer,
         download: (onProgress, cancel) async {

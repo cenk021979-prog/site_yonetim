@@ -12,12 +12,12 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' show Rect;
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:site_kapi_kontrol/services/account_export_share.dart' show ExportShareOutcome;
 import 'package:site_kapi_kontrol/services/bulk_export_renderer.dart';
 import 'package:site_kapi_kontrol/services/local_cache_purge.dart';
+import 'package:site_kapi_kontrol/services/file_save.dart';
 
 /// Ekranların kullandığı arayüz (testlerde sahte uygulanır).
 abstract class BulkFileDelivery {
@@ -57,24 +57,14 @@ class BulkFileSharer implements BulkFileDelivery {
 
   /// Bu platformda «Kaydet» iletişim kutusu mu kullanılır (web / masaüstü), yoksa paylaşım sayfası mı (mobil)?
   static bool get platformUsesSaveDialog {
-    if (kIsWeb) return true;
-    switch (defaultTargetPlatform) {
-      case TargetPlatform.windows:
-      case TargetPlatform.macOS:
-      case TargetPlatform.linux:
-        return true;
-      case TargetPlatform.android:
-      case TargetPlatform.iOS:
-      case TargetPlatform.fuchsia:
-        return false;
-    }
+    return platformUsesFileSave;
   }
 
   static Future<Uri?> _defaultSave({
     required String fileName,
     required Uint8List bytes,
     required String mimeType,
-  }) => FilePicker.saveFile(fileName: fileName, bytes: bytes, mimeType: mimeType);
+  }) => saveFileBytes(fileName: fileName, bytes: bytes, mimeType: mimeType);
 
   /// Önceki paylaşımlardan kalan `toplu_dosya_*` geçici klasörlerini siler (Android sistem süreci zamanlayıcı
   /// çalışmadan öldürürse dosya diskte kalır). Hesap silinince ([includeLive] true) bu süreçte bilinenler de

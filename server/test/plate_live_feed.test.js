@@ -37,6 +37,7 @@ function handle(sql, params) {
   if (/FROM site_memberships WHERE site_code = \$1 AND user_code = \$2 AND role = 'STAFF'/.test(sql)) return ok([]);
   if (/^SELECT site_code FROM sites WHERE site_code = \$1 LIMIT 1$/.test(sql)) return ok([SITE_1, SITE_2].includes(Number(params[0])) ? [{ site_code: String(params[0]) }] : []);
   if (/^SELECT enabled FROM site_modules/.test(sql)) return ok([{ enabled: true }]);
+  if (/WITH periods AS/.test(sql)) return ok(['day', 'week', 'month'].map(period => ({ period, starts_at: '2026-11-07T21:00:00Z', ends_at: '2026-11-08T21:00:00Z', entries: 137, exits: 4, unknown: 0 })));
   if (/FROM plate_decisions d/.test(sql)) return ok(eventRows);
   if (/FROM plate_presence WHERE site_code = \$1 AND inside/.test(sql)) return ok([{ n: 7 }]);
   if (/^(INSERT|UPDATE|DELETE)\b/.test(sql)) throw new Error(`BEKLENMEYEN yazma SQL: ${sql.slice(0, 160)}`);
@@ -47,8 +48,7 @@ let server;
 let baseUrl;
 
 before(async () => {
-  const layer = plateRecognitionRouter.stack.find((l) => l.route && l.route.path.endsWith('/plate-recognition/events'));
-  layer.route.stack[0].handle = (req, _res, next) => {
+  for (const layer of plateRecognitionRouter.stack.filter((l) => l.route && /\/plate-recognition\/(events|statistics)$/.test(l.route.path))) layer.route.stack[0].handle = (req, _res, next) => {
     req.authUser = JSON.parse(decodeURIComponent(req.headers['x-test-user']));
     next();
   };
@@ -88,6 +88,18 @@ const get = async (site, user, qs = '') => {
 };
 
 describe('plaka canli akis ucu', () => {
+  it('istatistik okuması aynı rol/site/modül kapısından geçer; geçersiz kapı400', async () => {
+    const stats = async (user, tail = '') => {
+      const r = await fetch(`${baseUrl}/manager/sites/${SITE_1}/plate-recognition/statistics${tail}`, { headers: { 'x-test-user': encodeURIComponent(JSON.stringify(user)) } });
+      return { status: r.status, body: await r.json() };
+    };
+    for (const user of [users.mgrA, users.board]) {
+      const r = await stats(user, '?gate_id=10'); assert.equal(r.status, 200);
+      assert.equal(r.body.periods.day.entries, 137); assert.equal(r.body.gate_id, 10);
+    }
+    for (const user of [users.resident, users.outsider, users.mgrB]) assert.equal((await stats(user)).status, 403);
+    assert.equal((await stats(users.mgrA, '?gate_id=no')).status, 400);
+  });
   it('yonetici ve kurul okur; yanit yon, karar turu, kapi, iceride sayisi ve yenileme ayarini tasir', async () => {
     for (const user of [users.mgrA, users.board]) {
       const { status, body } = await get(SITE_1, user, '?live=1');

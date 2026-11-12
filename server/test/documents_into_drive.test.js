@@ -41,7 +41,7 @@ describe('Belgeler + Dosya Deposu tek modül (084)', () => {
   });
 
   it('eski kod çevirisi: documents -> drive_storage; diğer değerler değişmez', () => {
-    assert.deepEqual({ ...LEGACY_MODULE_ALIASES }, { documents: 'drive_storage' });
+    assert.deepEqual({ ...LEGACY_MODULE_ALIASES }, { documents: 'drive_storage', plate_cameras: 'plate_recognition' });
     assert.equal(canonicalModuleCode('documents'), 'drive_storage');
     assert.equal(canonicalModuleCode('drive_storage'), 'drive_storage');
     assert.equal(canonicalModuleCode('finance'), 'finance');

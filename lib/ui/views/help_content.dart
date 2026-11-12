@@ -260,6 +260,7 @@ abstract final class HelpContent {
     // Acil durum (P2-24): hızlı düğmeler ve kopyalama / bakım firması düğmeleri.
     'Yangın',
     'Asansör arızası',
+    'Asansör',
     'Numarayı kopyala',
     'Bakım firmasını ekle',
   };
@@ -315,12 +316,12 @@ abstract final class HelpContent {
     title: 'Acil durumda ne yapmalıyım?',
     icon: Icons.emergency_rounded,
     steps: <String>[
-      'Çekmecede “Ana sayfa” başlığı altındaki “Acil durum” ekranını açın. Tehlikedeyseniz büyük 112 düğmesine dokunun; telefon uygulaması numara hazır olarak açılır.',
-      'Yangın için “Yangın”a, asansör arızası için “Asansör arızası”na dokunun: aranacak numara, çağrı merkezinin soracakları ve aramada söyleyeceğiniz site adresi görünür.',
-      'Asansörde mahsur kalan varsa önce sitenin asansör bakım firmasını arayın; kişi tehlikedeyse ya da sağlık sorunu varsa 112’yi arayın.',
-      'Bu cihazdan arama başlatılamıyorsa ekran bunu söyler; numarayı ve adresi “Numarayı kopyala” ile alıp başka bir telefondan arayabilirsiniz.',
+      'Sakin görünümünde “Acil durum” ekranını açın. Bu bölüm site ekibine alarm oluşturur.',
+      '“Asansör” düğmesine dokunun ve kayıtlı asansörün adını seçin. Seçim anında alarm kaydedilir.',
+      '“Yangın” düğmesine dokunun ve yangının bulunduğu blok veya ortak alanı seçin. Seçim anında yangın alarmı kaydedilir.',
+      'Güvenlik ve atanmış asansör servisi açık uygulamada sesli alarm alır; yöneticiye yalnız uygulama içi bildirim gider. Ekrandaki kayıt sonucu, alarmın duyulduğunu kanıtlamaz.',
     ],
-    note: 'Telefon uygulaması açılınca aramayı sizin başlatmanız gerekir; uygulama aramanın yapıldığını göstermez. Site yöneticisi, asansör bakım firmasını “Asansör arızası” bölümünde “Bakım firmasını ekle” ile kaydeder; kayıtlı değilse yönetimden isteyin.',
+    note: 'Yönetim Ekipman ve Bakım bölümündeki Alarm alıcıları ayarından güvenliği ve anlaşmalı servisin mevcut hesabını atar. Ses için cihaz sesi, uygulamanın açık olması ve tarayıcıda sesi etkinleştirme önemlidir. Bildirim otomatik resmî yardım çağrısı başlatmaz.',
   );
 
   /// Site yöneticisi: eski sakin / adli kayıt (sakin yardımına EKLENMEZ; kayıt sakinlere gösterilmez).

@@ -7,6 +7,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart' show InlineNotice;
@@ -16,6 +18,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/document_admin_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/document_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/drive_storage_card.dart';
 
 import 'dialog_layout_harness.dart' show settleFor;
 import 'document_fixtures.dart';
@@ -79,40 +82,56 @@ Future<void> _debounce(WidgetTester t) async {
 
 void main() {
   // Belgeler ve Google Drive TEK modül (Dosya Deposu, drive_storage): yönetim ekranında Drive bölümü ÜSTTE, sunucu
-  // depolama kotası (200 MB çubuğu) ve belge listesi ALTTA görünür.
+  // belge listesi ALTTA görünür. D1: sunucu kotası yok, dosyalar sitenin Drive hesabındadır.
   group('Dosya Deposu: Google Drive bölümü', () {
-    testWidgets('görünüş sırası: Drive kartı üstte, 200 MB kota çubuğu ve belge listesi altta', (t) async {
-      final auth = DocumentFakeAuth();
-      final service = seededDocuments(auth);
-      await _pump(t, auth, service);
-      final drive = find.byKey(const ValueKey<String>('drive_storage_card'));
-      final quota = find.byKey(const ValueKey<String>('document_usage_bar'));
-      expect(drive, findsOneWidget);
-      expect(quota, findsOneWidget);
-      expect(find.byType(DocumentAdminCard), findsNWidgets(3));
-      final driveBottom = t.getBottomLeft(drive).dy;
-      expect(driveBottom, lessThanOrEqualTo(t.getTopLeft(quota).dy));
-      expect(driveBottom, lessThanOrEqualTo(t.getTopLeft(find.byType(DocumentAdminCard).first).dy));
-      expect(t.takeException(), isNull);
-    });
+    testWidgets(
+      'Drive kartı üstte, belge listesi altta; eski sunucu kota çubuğu yok',
+      (t) async {
+        final auth = DocumentFakeAuth();
+        final service = seededDocuments(auth);
+        await _pump(t, auth, service);
+        final drive = find.byKey(const ValueKey<String>('drive_storage_card'));
+        final quota = find.byKey(const ValueKey<String>('document_usage_bar'));
+        expect(drive, findsOneWidget);
+        expect(quota, findsNothing);
+        expect(find.byType(DocumentAdminCard), findsNWidgets(3));
+        final driveBottom = t.getBottomLeft(drive).dy;
+        expect(
+          driveBottom,
+          lessThanOrEqualTo(
+            t.getTopLeft(find.byType(DocumentAdminCard).first).dy,
+          ),
+        );
+        expect(t.takeException(), isNull);
+      },
+    );
 
-    testWidgets('yazma yetkisi olan yönetimde belge listesiyle birlikte görünür ("Yakında…" bağlı değilken)', (t) async {
-      final auth = DocumentFakeAuth();
-      final service = seededDocuments(auth);
-      await _pump(t, auth, service);
-      expect(find.byType(DocumentAdminCard), findsNWidgets(3));
-      expect(find.byKey(const ValueKey<String>('drive_storage_card')), findsOneWidget);
-      expect(find.text('Google Drive'), findsOneWidget);
-      expect(find.text('Google Drive bağlantısı Yakında…'), findsOneWidget);
-      expect(t.takeException(), isNull);
-    });
+    testWidgets(
+      'yazma yetkisi olan yönetimde belge listesiyle birlikte görünür ("Yakında…" bağlı değilken)',
+      (t) async {
+        final auth = DocumentFakeAuth();
+        final service = seededDocuments(auth);
+        await _pump(t, auth, service);
+        expect(find.byType(DocumentAdminCard), findsNWidgets(3));
+        expect(
+          find.byKey(const ValueKey<String>('drive_storage_card')),
+          findsOneWidget,
+        );
+        expect(find.text('Google Drive'), findsOneWidget);
+        expect(find.text('Google Drive bağlantısı Yakında…'), findsOneWidget);
+        expect(t.takeException(), isNull);
+      },
+    );
 
     testWidgets('kurul üyesi (salt okunur) Drive bölümünü görmez', (t) async {
       final auth = DocumentFakeAuth();
       final service = seededDocuments(auth);
       await _pump(t, auth, service, sites: _boardSite);
       expect(find.byType(DocumentAdminCard), findsWidgets);
-      expect(find.byKey(const ValueKey<String>('drive_storage_card')), findsNothing);
+      expect(
+        find.byKey(const ValueKey<String>('drive_storage_card')),
+        findsNothing,
+      );
     });
   });
 
@@ -170,8 +189,8 @@ void main() {
           findsOneWidget,
           reason: 'blok hedefi kitle özetinde',
         );
-        expect(find.text('Kitle: Yönetim kurulu'), findsOneWidget);
-        expect(find.text('Kitle: Yalnız yöneticiler'), findsOneWidget);
+        expect(find.text('Kitle: Yönetim'), findsOneWidget);
+        expect(find.text('Kitle: Özel yönetici belgesi'), findsOneWidget);
         expect(
           find.text('v2'),
           findsOneWidget,
@@ -181,12 +200,24 @@ void main() {
         expect(find.text('Belge Yükle'), findsOneWidget);
         expect(
           find.byKey(const ValueKey<String>('document_usage_label')),
-          findsOneWidget,
+          findsNothing,
         );
-        expect(find.text('42 MB / 200 MB'), findsOneWidget);
+        expect(find.text('42 MB / 200 MB'), findsNothing);
         expect(
           find.byKey(const ValueKey<String>('document_usage_bar')),
+          findsNothing,
+        );
+        expect(
+          find.byKey(const ValueKey<String>('documents_drive_required_note')),
           findsOneWidget,
+        );
+        expect(
+          t
+              .widget<PrimaryActionButton>(
+                find.byKey(const ValueKey<String>('document_create')),
+              )
+              .onPressed,
+          isNull,
         );
         for (final label in const [
           'Hepsi',
@@ -266,7 +297,13 @@ void main() {
         );
       await _pump(t, auth, service, width: w, height: h, scale: s, dark: dark);
 
-      expect(find.byType(InlineNotice), findsOneWidget);
+      final errorNotice = find.byWidgetPredicate(
+        (widget) =>
+            widget is InlineNotice &&
+            widget.message.contains('Sunucu şu anda yanıt veremiyor'),
+      );
+      expect(errorNotice, findsOneWidget);
+      expect(t.widget<InlineNotice>(errorNotice).onRetry, isNotNull);
       expect(find.textContaining('yanıt veremiyor'), findsOneWidget);
       expect(find.text('Tekrar Dene'), findsOneWidget);
       expect(find.text('Henüz belge yok.'), findsNothing);
@@ -495,6 +532,71 @@ void main() {
 
   group('site seçici', () {
     testWidgets(
+      'bağlı siteden başka siteye geçince Drive yanıtı gelene kadar yükleme kilitli kalır',
+      (t) async {
+        final auth = DocumentFakeAuth();
+        final gate = Completer<http.Response>();
+        addTearDown(() {
+          if (!gate.isCompleted) {
+            gate.complete(
+              http.Response('{"configured":false,"connected":false}', 200),
+            );
+          }
+        });
+        DriveStorageCard.debugApi = DriveStorageApi(
+          baseUrl: 'http://localhost',
+          client: MockClient((request) async {
+            if (request.url.path.contains('/12/')) return gate.future;
+            return http.Response(
+              '{"configured":true,"connected":true,"status":"connected"}',
+              200,
+              headers: {'content-type': 'application/json'},
+            );
+          }),
+        );
+        final service = seededDocuments(auth);
+        await _pump(
+          t,
+          auth,
+          service,
+          sites: const [
+            PeopleSite(code: 11, name: 'Gül Sitesi', canWrite: true),
+            PeopleSite(code: 12, name: 'Mavi Park', canWrite: true),
+          ],
+        );
+        final upload = find.byKey(const ValueKey<String>('document_create'));
+        expect(t.widget<PrimaryActionButton>(upload).onPressed, isNotNull);
+        await tapFinder(t, find.byType(DropdownButtonFormField<int>));
+        await tapFinder(t, find.text('Mavi Park').last);
+        await settleFor(t, 100);
+        expect(
+          t.widget<PrimaryActionButton>(upload).onPressed,
+          isNull,
+          reason: 'önceki sitenin bağlı Drive durumu yeni siteye taşınmamalı',
+        );
+        expect(
+          find.textContaining('Google Drive bağlantısı doğrulanıyor'),
+          findsOneWidget,
+        );
+        expect(service.listCalls.last.site, 12);
+        gate.complete(
+          http.Response(
+            '{"configured":true,"connected":false,"status":"disconnected"}',
+            200,
+            headers: {'content-type': 'application/json'},
+          ),
+        );
+        await settleFor(t, 100);
+        expect(t.widget<PrimaryActionButton>(upload).onPressed, isNull);
+        expect(
+          find.byKey(const ValueKey<String>('documents_drive_required_note')),
+          findsOneWidget,
+        );
+        expect(t.takeException(), isNull);
+      },
+    );
+
+    testWidgets(
       'birden çok sitede seçici çıkar; site değişince eski liste atılır',
       (t) async {
         final auth = DocumentFakeAuth();
@@ -561,16 +663,34 @@ void main() {
       },
     );
 
-    testWidgets('kota çubuğu yüzdeyi söyler; %90 üstü uyarı ekler', (t) async {
-      final handle = t.ensureSemantics();
-      final auth = DocumentFakeAuth();
-      final service = seededDocuments(auth)..usedBytes = 200 * 1024 * 1024;
-      await _pump(t, auth, service);
-      final bar = find.byType(DocumentUsageBar);
-      expect(t.getSemantics(bar).label, contains('yüzde 100'));
-      expect(t.getSemantics(bar).label, contains('Alan dolmak üzere'));
-      handle.dispose();
-    });
+    testWidgets(
+      'Drive gereksinimi ekran okuyucuya açıklanır; eski sunucu kotası gösterilmez',
+      (t) async {
+        final handle = t.ensureSemantics();
+        final auth = DocumentFakeAuth();
+        final service = seededDocuments(auth)..usedBytes = 200 * 1024 * 1024;
+        await _pump(t, auth, service);
+        final note = find.byKey(
+          const ValueKey<String>('documents_drive_required_note'),
+        );
+        final noteText = find.descendant(
+          of: note,
+          matching: find.text(t.widget<InlineNotice>(note).message),
+        );
+        expect(t.getSemantics(noteText).label, contains('Google Drive'));
+        expect(find.byType(DocumentUsageBar), findsNothing);
+        expect(find.textContaining('MB / 200 MB'), findsNothing);
+        expect(
+          t
+              .widget<PrimaryActionButton>(
+                find.byKey(const ValueKey<String>('document_create')),
+              )
+              .onPressed,
+          isNull,
+        );
+        handle.dispose();
+      },
+    );
 
     testWidgets('düğmeler en az 48 dp yükseklikte', (t) async {
       final auth = DocumentFakeAuth();

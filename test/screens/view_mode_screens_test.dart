@@ -7,6 +7,7 @@
 // - AGENTS.md kural 6: 320x640 x2,0 ve 360x640 x1,5, açık + koyu tema; iki kipte de taşma yok.
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/models/user_session.dart';
@@ -222,7 +223,7 @@ void main() {
     }
 
     Future<void> openTab(WidgetTester t, int index) async {
-      await tapFinder(t, find.byKey(ValueKey<String>('people_tab_$index')));
+      await selectPeopleSection(t, index);
       await settleFor(t);
     }
 

@@ -158,7 +158,7 @@ Kaynak: `docs/PLATFORM_YOL_HARITASI.md` "Karar kaydı (2026-10-21)" G12; alt pla
    `owner` ise ev sahibi; `tenant` / `both` ise BORÇ TARİHİNDE dairenin etkin kiracısı varsa kiracı, yoksa ev sahibi hesabı. Borç tarihi: aylık aidatta
    dönemin ilk günü, ek borçta kayıt günü. Etkin kiracı: `relation = tenant` ilişkisi tarihi kapsar (başlangıç `move_in_date`, boşsa ilişki kaydının
    günü, İstanbul; güncel ilişkide kişi etkin; bitmiş ilişkide `move_out_date >= tarih`, çıkış günü dahil). NULL = türe göre varsayılan: aylık aidat
-   `occupant`, tek seferlik ek borç `owner`. Değişiklik yalnız SONRAKİ borçlandırmaları etkiler (borçlandırılmış tanımda da değişebilir).
+   `occupant`, tek seferlik ek borç `owner`. **2026-11-08 istisnası:** aylık `recurring + occupant` Aidat artık tek ilk-gün hesabına yazılmaz; gerçek takvimde kiracılı/kiracısız günler arasında bölünür (aşağıdaki günlük Aidat bölümü). Tek seferlik/Fon tarih çözümü korunur. Tanımın `charge_party` değişikliği yalnız SONRAKİ borçlandırmaları etkiler; ikamet tarihi değişikliği ise günlük Aidat paylarını eklemeli düzeltmeyle uzlaştırır.
 3. **Kişinin kendi hesabı:** `owner` ⇒ ev sahibi; `tenant` ⇒ kiracı; `resident` (ilişki belirtilmemiş) ⇒ dairede güncel kiracı varsa kiracı, yoksa ev
    sahibi; `family_member` ⇒ hesap yok (borç görmez).
 4. **Kim görür:** sakin YALNIZ kendi hesabını görür. Borç sorumlusu `both` ise malik kiracı hesabını SALT OKUNUR da görür (müteselsil sorumluluk; bu
@@ -267,25 +267,22 @@ kez sayılır, öğeleri hesap adıyla); hatırlatma önizlemesinde hesap sayıs
   hesabın sahibi (G2-G5, R6/R6b), sakin kapsamı fikstürlerinde kiracı senaryolarının satırları kiracı hesabında (S2, S3b, S11), makbuz dışa aktarmasında
   son sütun "Hesap" (E8c).
 
-### Ay ortası taşınma: giriş (K18 / C-25, 2026-10-29)
+### Ay ortası taşınma: günlük Aidat paylaşımı (2026-11-08, K18 güncellemesi)
 
-Karar K18 (`docs/PLATFORM_YOL_HARITASI.md` "Karar kaydı (2026-10-28)"; karşılaştırma raporu C-25): ay ortasında GİRİŞ yapan kiracı için o ayın aidatının
-tamamı Ev sahibi hesabına yazılır. Bu mevcut davranış olarak KORUNUR; **kod değişmez**. Bu bölüm davranışı ve yöneticiye verilecek bilgi notunu kaydeder.
+Kullanıcının 2026-11-08 tarihli kararı önceki K18 tam-ay davranışının yerine geçer. Bu bir ürün hesaplama kuralıdır; yasal tebliğ veya malik/kiracının hukuki sorumluluğu yerine geçmez.
 
-1. **Borç tarihi dönemin ilk günüdür** (`finance_service.resolveTiming`: aylık aidatta `entryDate = period`). Borcun hesabı o tarihte dairenin etkin kiracısı
-   olup olmadığına bakılarak çözülür (`loadTargetApartments` `onDate: entryDate`, `finance_parties.tenantOnDateSql`: `COALESCE(move_in_date, ilişki kaydının günü) <= tarih`).
-2. **Kiracı ayın 1'inden SONRA taşındıysa** o gün etkin kiracı yoktur: borç sorumlusu `tenant` / `both` olan dairede bile `occupantAccount(responsibleParty, false)` =
-   `owner`; o ayın aidatının tamamı Ev sahibi hesabına yazılır. Taşınma günü ayın 1'i ya da daha önceyse Kiracı hesabına yazılır; sonraki aylar Kiracı hesabına gider.
-3. **Gün oranı (kıst) hesaplanmaz.** Tutar ay içinde kiracı ile malik arasında bölünmez. Aynı ilke çıkışta da geçerlidir: ay ortasında çıkan kiracı o ayın tamamı için
-   Kiracı hesabında kalır (`move_out_date >= tarih`, çıkış günü dahil).
-4. **Yazılmış satır değişmez** (defter eklemelidir): taşınma tarihi sonradan düzeltilse de yazılmış borcun hesabı değişmez. `move_in_date` boşsa ilişki kaydının günü
-   kullanılır (aşağıdaki "Bilinen sınırlar" madde 3).
-5. **Aktarma yönü.** Devir (K1) yalnız Kiracı hesabından Ev sahibi hesabına yapılır; Ev sahibi hesabından Kiracı hesabına borç aktaran bir akış yoktur. Ay ortasında giren
-   kiracının payını malik ile kiracı kendi aralarında düzenler; yazılım bu payı hesaplamaz.
+1. Aylık `recurring + occupant` Aidat, ayın 1'i ile son günü arasında **gerçek takvim günlerine** bölünür (28/29/30/31). Giriş ve çıkış günü dahildir. Kiracılı günler Kiracı hesabına, kiracısız günler Ev sahibi hesabına gider. Örneğin 30 günlük ayda 3.000 TL, 18'i dahil çıkış: **1.800 TL kiracı, 1.200 TL malik**. Eski `responsible_party=owner` göstergesi aylık Aidatta bu günlük kuralı bozmaz.
+2. Daireler arası dağıtım önce mevcut dağıtım motorunda yapılır. Sonra dairenin aylık payı günlerle bölünür. Hesaplar tamsayı kuruş/BigInt ve mevcut en büyük kalan yöntemiyle paylaşılır; toplam kuruş kesin korunur. Eşit kalanda malik hesabı önce kalan kuruşu alır.
+3. Birden fazla ikamet aralığı ve boş günler desteklenir. Çakışan kayıt bir günü iki kez borçlandırmaz; gün önce başlayan ikamete bağlanır ve çakışma sayısı snapshot'ta tutulur. Kişi adı/iletişimi snapshot'a girmez. Dairedeki kiracı hesabı **kişi bazlı ayrı cari hesap değildir**; ikamet kimliği ve gün sayıları iz amaçlıdır.
+4. Önizleme bir daire satırı/daire sayısı sözleşmesini korur; ek `proration` payları gün ve tutarla gösterilir. `preview_hash` günlük takvimi içerir. Önizlemeden sonra tarih değişirse tekrar önizleme gerekir. Deftere bir daire için en çok iki pozitif borç satırı yazılır; `entries_count` eski istemci uyumu için daire sayısını korur.
+5. Aylık borç daha önce yazıldıysa kiracı giriş/çıkış/tarih düzeltmesi aynı transaction ve finans kilidi altında otomatik yeniden paylaşır. Eski borç **UPDATE/DELETE edilmez**; canlı borçlar tam ters kayıtla kapatılır ve yeni malik/kiracı payları eklenir. Özgün run, vade, Aidat kasası korunur. Düzeltme bugünün açık dönemine yazılır; kapalı geçmiş ay yeniden açılmaz. Ayın tamamı için otomatik geçmiş taraması/backfill yapılmaz; yalnız değişen ikametin etkilediği ay ve önceden borçlandırılmış sonraki aylar değerlendirilir.
+6. Tahsilat, makbuz, banka/kasa hareketleri değiştirilmez. Örneğin kiracı 3.000 TL ödemişse çıkış sonrası 1.800 TL borcu kalır ve 1.200 TL **alacak** oluşur; mevcut alacak iadesi süreci kullanılır. Malik payını önceden ödediyse bu ödeme yeni malik borcunu mevcut `allocateFunds` ile kapatır. Paranın kendisi iki hesap arasında otomatik aktarılmaz.
+7. Tekrar işlem aynı borcu çoğaltmaz: güncel hesap tutarları zaten beklenenle aynıysa mali satır eklenmez. Aynı tutarda yalnız ikamet izi değiştiğinde özgün snapshot değişmez (borç yazıldığı andaki kanıttır); ikamet düzeltmesinin denetim/adli kaydı ayrıca kalır. Elle iptal edilmiş veya mevcut malike devir işlemiyle tüketilmiş borç otomatik diriltilmez; bu kökler denetimde atlanan iptal olarak sayılır. **Manuel inceleme sınırı:** kısmen tüketilmiş kökte yeni kiracı/giriş tarihi/rol değişimi hesap paylarını gerçekten değiştirecekse `409 PRORATION_REVIEW_REQUIRED` ile işlem tamamen geri alınır; hata ilgili ayı ve Finans'taki mevcut devir/düzeltme yolunu gösterir. Örneğin 18'inde çıkan kiracının 1.800 TL borcu malike devredildikten sonra 19'unda yeni kiracı eklenmesi sessizce 0 TL aidatla tamamlanmaz. Devir soyizinin otomatik yeniden dağıtımı bu sürümde yapılmaz. Tam iptal borcu diriltmez, normal çıkış ve bildirimi devam eder.
+8. Yeni **farklı** kiracı eklenirken ortak kiracı hesabında önceki kişiye ait borç veya alacak kalmışsa `409 TENANT_ACCOUNT_UNSETTLED` verilir. Yönetici önce eski borcu tahsil eder/mevcut malike devir akışını tamamlar veya eski alacağı iade eder. Aynı kişinin mevcut tarih/ad düzeltmesi ve son kiracının yeniden girişi engellenmez. Eski ikamet kanıtı olmayan fakat kiracı hesabı dolu olan legacy kayıt da güvenli biçimde engellenir; eski bakiye yeni kişiye gösterilmez.
+9. Kural CRM/daire giriş-çıkışları, toplu kişi yükleme/yükseltme, üyeden kalıcı çıkarma, hesap silme ve bu işlemde kapanan eşitleme kaynaklı kiracılar için tek `finance_proration_service` adaptöründen yürür. Bildirimde malike tam ayın eski tutarı değil yeniden paylaşım sonrası kalan kiracı borcu iletilir.
+10. **Yatırım ve Demirbaş (Fon) Hesabı** ve tek seferlik ek borçlar günlük bölünmez; mevcut borçlandırma ve sorumluluk kuralları korunur. Ödenmeyen kiracı payının malike hukuki/idari devri ayrı mevcut onaylı süreçtir, günlük paylaşım onun yerine geçmez.
 
-**Yöneticiye bilgi notu:** Faz Kontrol Listesi madde **F25.16** (`tools/deneme_listesi/platform.json`, `yeni: true`; "Ay ortasında taşınan kiracı: ilk ayın aidatı ev sahibi
-hesabına yazılır (bilgi notu)"). Madde bir onay sorusudur: sahip "Böyle istiyorum" derse davranış olduğu gibi kalır; gün oranına göre bölme istenirse bu ayrı bir karar ve
-kod işi olur (borç tarihi ve hesap çözümü değişir).
+Uygulama: `finance_proration.js` (saf gün/kuruş), `finance_proration_service.js` (aynı transaction'da yazım/uzlaştırma), migration `127_finance_daily_proration.sql` (nullable JSONB snapshot; veri geri doldurulmaz). Doğrulama: `finance_proration*.test.js`; gerçek PostgreSQL testi yalnız `FINANCE_PG_TEST=1` ve `DB_NAME=kapi_test_*` / `kapi_rehearsal_*` ile, sentetik fixture ve ROLLBACK altında çalışır.
 
 ### Bilinen sınırlar
 

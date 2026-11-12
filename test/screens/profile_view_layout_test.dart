@@ -38,6 +38,26 @@ const UserSession _resident = UserSession(
   phoneNumber: '+90 532 000 00 01',
 );
 
+// Kullanıcıya gösterilen Türkçe sözleşme; API'nin geriye uyumlu ASCII rol etiketleri değildir.
+String _roleLabel(UserRole role) => switch (role) {
+  UserRole.superUser => 'Süper Kullanıcı',
+  UserRole.siteManager => 'Site Yöneticisi',
+  UserRole.apartmentOwner => 'Daire Sakini',
+  UserRole.individual => 'Bireysel Kullanıcı',
+};
+
+void _expectFlatAvatar(WidgetTester t) {
+  final box = t.widget<DecoratedBox>(
+    find.descendant(
+      of: find.byType(IconOrb),
+      matching: find.byType(DecoratedBox),
+    ),
+  );
+  final decoration = box.decoration as ShapeDecoration;
+  expect(decoration.shadows, isNull);
+  expect(decoration.gradient, isNull);
+}
+
 class _Form {
   _Form({String name = 'Elif Şahin'})
     : fullName = TextEditingController(text: name),
@@ -56,18 +76,18 @@ class _Form {
 
   Widget view({bool isSaving = false, UserSession session = _session}) =>
       ProfileView(
-    session: session,
-    formKey: key,
-    fullNameController: fullName,
-    emailController: email,
-    phoneController: phone,
-    passwordController: password,
-    currentPasswordController: current,
-    isSaving: isSaving,
-    onSave: () {
-      if (key.currentState!.validate()) saves++;
-    },
-  );
+        session: session,
+        formKey: key,
+        fullNameController: fullName,
+        emailController: email,
+        phoneController: phone,
+        passwordController: password,
+        currentPasswordController: current,
+        isSaving: isSaving,
+        onSave: () {
+          if (key.currentState!.validate()) saves++;
+        },
+      );
 }
 
 Future<void> _tapVisible(WidgetTester t, Finder finder) async {
@@ -181,7 +201,7 @@ void main() {
       expect(find.text('Ali Veli'), findsOneWidget);
       expect(find.text('a1.sakin'), findsOneWidget);
       expect(find.text('+90 532 000 00 01'), findsOneWidget);
-      expect(find.text(UserRole.apartmentOwner.label), findsOneWidget);
+      expect(find.text(_roleLabel(UserRole.apartmentOwner)), findsOneWidget);
       expect(find.textContaining('site yöneticiniz'), findsOneWidget);
     });
 
@@ -216,9 +236,9 @@ void main() {
     });
   });
 
-  group('görsel dil (hero kart, cilalı avatar, rol rozeti)', () {
+  group('sade görsel dil (kimlik kartı, düz avatar, yerelleştirilmiş rol)', () {
     testWidgets(
-      'hero: seviye 2 kart, rol tonunda 64 dp glow avatar, ad, e-posta ve rol rozeti; form ayrı kardeş kart',
+      'kimlik: seviye 2 kart, 64 dp düz avatar, ad, e-posta ve rol rozeti; form ayrı kardeş kart',
       (t) async {
         final form = _Form();
         await pumpAt(t, form.view(), width: 360, scale: 1.0, height: 1800);
@@ -236,7 +256,7 @@ void main() {
 
         final orb = t.widget<IconOrb>(find.byType(IconOrb));
         expect(orb.size, 64);
-        expect(orb.glow, isTrue);
+        _expectFlatAvatar(t);
         expect(orb.shape, IconOrbShape.circle);
         expect(orb.tone, AppTone.violet); // bireysel kullanıcı
         expect(orb.icon, Icons.person_rounded);
@@ -254,7 +274,7 @@ void main() {
           findsOneWidget,
         );
         final chip = t.widget<StatusChip>(
-          find.widgetWithText(StatusChip, UserRole.individual.label),
+          find.widgetWithText(StatusChip, _roleLabel(UserRole.individual)),
         );
         expect(chip.tone, AppTone.violet);
         // Form kartı aynı kaldı: başlık + kaydet düğmesi ikinci kartta.
@@ -273,119 +293,130 @@ void main() {
       },
     );
 
-    testWidgets('avatar rengi ve simgesi rolü anlatır (süper mavi, yönetici yeşil, sakin/bireysel mor)', (
-      t,
-    ) async {
-      for (final (role, tone, icon) in const <(UserRole, AppTone, IconData)>[
-        (UserRole.superUser, AppTone.primary, Icons.admin_panel_settings_rounded),
-        (UserRole.siteManager, AppTone.success, Icons.apartment_rounded),
-        (UserRole.apartmentOwner, AppTone.violet, Icons.home_rounded),
-        (UserRole.individual, AppTone.violet, Icons.person_rounded),
-      ]) {
-        final form = _Form();
+    testWidgets(
+      'avatar rengi ve simgesi rolü anlatır (süper mavi, yönetici yeşil, sakin/bireysel mor)',
+      (t) async {
+        for (final (role, tone, icon) in const <(UserRole, AppTone, IconData)>[
+          (
+            UserRole.superUser,
+            AppTone.primary,
+            Icons.admin_panel_settings_rounded,
+          ),
+          (UserRole.siteManager, AppTone.success, Icons.apartment_rounded),
+          (UserRole.apartmentOwner, AppTone.violet, Icons.home_rounded),
+          (UserRole.individual, AppTone.violet, Icons.person_rounded),
+        ]) {
+          final form = _Form();
+          await pumpAt(
+            t,
+            form.view(
+              session: UserSession(
+                token: 'tok',
+                id: 7,
+                fullName: 'Elif Şahin',
+                email: 'elif.sahin@e2e.local',
+                loginName: 'elif',
+                role: role,
+                isActive: true,
+              ),
+            ),
+            width: 360,
+            scale: 1.0,
+            height: 1800,
+          );
+          final orb = t.widget<IconOrb>(find.byType(IconOrb));
+          expect(orb.tone, tone, reason: '$role');
+          expect(orb.icon, icon, reason: '$role');
+          expect(
+            t
+                .widget<StatusChip>(
+                  find.widgetWithText(StatusChip, _roleLabel(role)),
+                )
+                .tone,
+            tone,
+            reason: '$role rozeti',
+          );
+        }
+      },
+    );
+
+    g4LayoutMatrix(
+      'hero büyük yazıda: avatar gizli, rol rozeti kırpılmayan düz metin, ad/e-posta tam',
+      (t, width, height, scale, dark) async {
+        final form = _Form(name: 'Elif Şahin Uzun Soyadlı Bir Kullanıcı Adı');
         await pumpAt(
           t,
           form.view(
-            session: UserSession(
+            session: const UserSession(
               token: 'tok',
-              id: 7,
-              fullName: 'Elif Şahin',
-              email: 'elif.sahin@e2e.local',
+              id: 1,
+              fullName: 'Elif Şahin Uzun Soyadlı Bir Kullanıcı Adı',
+              email: 'elif.sahin.cok.uzun.bir.eposta.adresi@e2e-ornek.local',
               loginName: 'elif',
-              role: role,
+              role: UserRole.individual,
               isActive: true,
             ),
           ),
-          width: 360,
-          scale: 1.0,
-          height: 1800,
+          width: width,
+          height: height,
+          scale: scale,
+          dark: dark,
         );
-        final orb = t.widget<IconOrb>(find.byType(IconOrb));
-        expect(orb.tone, tone, reason: '$role');
-        expect(orb.icon, icon, reason: '$role');
+        // 360 x 1,5: avatar görünür, rozet düz metin (> 1,3x); 320 x 2,0: avatar da gizli.
+        expect(find.byType(StatusChip), findsNothing);
         expect(
-          t.widget<StatusChip>(find.widgetWithText(StatusChip, role.label)).tone,
-          tone,
-          reason: '$role rozeti',
+          find.byType(IconOrb),
+          scale >= 1.75 ? findsNothing : findsOneWidget,
         );
-      }
-    });
-
-    g4LayoutMatrix('hero büyük yazıda: avatar gizli, rol rozeti kırpılmayan düz metin, ad/e-posta tam', (
-      t,
-      width,
-      height,
-      scale,
-      dark,
-    ) async {
-      final form = _Form(name: 'Elif Şahin Uzun Soyadlı Bir Kullanıcı Adı');
-      await pumpAt(
-        t,
-        form.view(
-          session: const UserSession(
-            token: 'tok',
-            id: 1,
-            fullName: 'Elif Şahin Uzun Soyadlı Bir Kullanıcı Adı',
-            email: 'elif.sahin.cok.uzun.bir.eposta.adresi@e2e-ornek.local',
-            loginName: 'elif',
-            role: UserRole.individual,
-            isActive: true,
-          ),
-        ),
-        width: width,
-        height: height,
-        scale: scale,
-        dark: dark,
-      );
-      // 360 x 1,5: avatar görünür, rozet düz metin (> 1,3x); 320 x 2,0: avatar da gizli.
-      expect(find.byType(StatusChip), findsNothing);
-      expect(find.byType(IconOrb), scale >= 1.75 ? findsNothing : findsOneWidget);
-      expect(find.text(UserRole.individual.label), findsOneWidget);
-      final p = dark ? AppPalette.dark : AppPalette.light;
-      final role = t.widget<Text>(find.text(UserRole.individual.label));
-      expect(role.style!.color, AppTone.violet.ink(p));
-    });
+        expect(find.text(_roleLabel(UserRole.individual)), findsOneWidget);
+        final p = dark ? AppPalette.dark : AppPalette.light;
+        final role = t.widget<Text>(find.text(_roleLabel(UserRole.individual)));
+        expect(role.style!.color, AppTone.violet.ink(p));
+      },
+    );
   });
 
   group('ResidentProfileView görsel dil', () {
-    testWidgets('seviye 2 kart, 56 dp glow rozet ve "Hesap Türü" rol rozeti (metin tek)', (
-      t,
-    ) async {
-      await pumpAt(
-        t,
-        const ResidentProfileView(session: _resident),
-        width: 360,
-        scale: 1.0,
-        height: 900,
-      );
-      expect(t.widget<AppCard>(find.byType(AppCard)).level, 2);
-      final orb = t.widget<IconOrb>(find.byType(IconOrb));
-      expect(orb.size, 56);
-      expect(orb.glow, isTrue);
-      expect(orb.tone, AppTone.violet);
-      expect(orb.icon, Icons.home_rounded);
-      final chip = t.widget<StatusChip>(find.byType(StatusChip));
-      expect(chip.label, UserRole.apartmentOwner.label);
-      expect(chip.tone, AppTone.violet);
-      // Rozetin metni ekranda tek kez geçer (Hesap Türü satırı).
-      expect(find.text(UserRole.apartmentOwner.label), findsOneWidget);
-    });
+    testWidgets(
+      'seviye 2 kart, 56 dp düz simge ve yerelleştirilmiş "Hesap Türü" (metin tek)',
+      (t) async {
+        await pumpAt(
+          t,
+          const ResidentProfileView(session: _resident),
+          width: 360,
+          scale: 1.0,
+          height: 900,
+        );
+        expect(t.widget<AppCard>(find.byType(AppCard)).level, 2);
+        final orb = t.widget<IconOrb>(find.byType(IconOrb));
+        expect(orb.size, 56);
+        _expectFlatAvatar(t);
+        expect(orb.tone, AppTone.violet);
+        expect(orb.icon, Icons.home_rounded);
+        final chip = t.widget<StatusChip>(find.byType(StatusChip));
+        expect(chip.label, _roleLabel(UserRole.apartmentOwner));
+        expect(chip.tone, AppTone.violet);
+        // Rozetin metni ekranda tek kez geçer (Hesap Türü satırı).
+        expect(find.text(_roleLabel(UserRole.apartmentOwner)), findsOneWidget);
+      },
+    );
 
-    testWidgets('büyük yazıda (2,0x) rozet gizli, "Hesap Türü" diğer satırlar gibi düz metin', (
-      t,
-    ) async {
-      await pumpAt(
-        t,
-        const ResidentProfileView(session: _resident),
-        width: 320,
-        scale: 2.0,
-        height: 1200,
-      );
-      expect(find.byType(IconOrb), findsNothing);
-      expect(find.byType(StatusChip), findsNothing);
-      expect(find.text(UserRole.apartmentOwner.label), findsOneWidget);
-      expect(t.takeException(), isNull);
-    });
+    testWidgets(
+      'büyük yazıda (2,0x) rozet gizli, "Hesap Türü" diğer satırlar gibi düz metin',
+      (t) async {
+        await pumpAt(
+          t,
+          const ResidentProfileView(session: _resident),
+          width: 320,
+          scale: 2.0,
+          height: 1200,
+        );
+        expect(find.byType(IconOrb), findsNothing);
+        expect(find.byType(StatusChip), findsNothing);
+        expect(find.text(_roleLabel(UserRole.apartmentOwner)), findsOneWidget);
+        expect(t.takeException(), isNull);
+      },
+    );
   });
 
   group('davranış ve erişilebilirlik', () {

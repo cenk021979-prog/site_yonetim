@@ -220,10 +220,10 @@ class ReservationManagerViewState extends State<ReservationManagerView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Rezervasyonlar', icon: Icons.event_note_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          switch (site.access) {
+        PageHeaderCard(
+          title: 'Rezervasyonlar',
+          icon: Icons.event_note_rounded,
+          help: switch (site.access) {
             ReservationSiteAccess.staff =>
               'Sakinlerin rezervasyonlarını onaylar, reddeder ya da iptal eder; konsiyerj taleplerini ilerletirsiniz.',
             ReservationSiteAccess.board =>
@@ -231,9 +231,8 @@ class ReservationManagerViewState extends State<ReservationManagerView> {
             ReservationSiteAccess.manager =>
               'Ortak alanları tanımlayın, rezervasyonları onaylayın ve konsiyerj taleplerini yönetin.',
           },
-          style: th.bodyMedium,
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         if (_sitesError != null) ...[
           InlineNotice(message: _sitesError!, onRetry: _loadSites),
           const SizedBox(height: AppSpace.md),

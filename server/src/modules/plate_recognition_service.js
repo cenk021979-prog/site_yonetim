@@ -30,6 +30,7 @@ import {
 } from './plate_recognition_common.js';
 
 import { gateStateOf, liveIdentity } from './plate_cameras_common.js';
+import { statisticsGateId } from './plate_statistics_service.js';
 
 const SYSTEM_ACTOR = Object.freeze({ name: 'Plaka tanıma (sistem)', role: 'system' });
 
@@ -44,8 +45,12 @@ const VEHICLE_SQL = `
   LEFT JOIN site_people sp ON sp.id = v.person_id
   LEFT JOIN apartments a ON a.id = v.apartment_id
   WHERE v.site_code = $1 AND v.plate = $2 AND v.is_active
-    AND (v.person_id IS NULL OR sp.is_active)
+    AND (v.person_id IS NULL OR (sp.is_active AND sp.site_code=v.site_code))
     AND (v.apartment_id IS NULL OR a.is_active)
+    AND (EXISTS(SELECT 1 FROM parking_apartment_approvals pa WHERE pa.apartment_id=COALESCE(v.apartment_id,
+      (SELECT r.apartment_id FROM apartment_residencies r WHERE r.person_id=v.person_id AND r.is_current ORDER BY r.id LIMIT 1)) AND pa.approved)
+      OR (a.id IS NULL AND NOT EXISTS(SELECT 1 FROM apartment_residencies r JOIN apartments ra ON ra.id=r.apartment_id AND ra.site_code=v.site_code AND ra.is_active WHERE r.person_id=v.person_id AND r.is_current)
+        AND EXISTS(SELECT 1 FROM parking_legacy_vehicle_exemptions ex WHERE ex.vehicle_id=v.id)))
   LIMIT 1`;
 
 const PERMIT_SQL = `
@@ -146,9 +151,11 @@ export async function handlePlateEvent({ siteCode, deviceId, eventId, plate, bod
  */
 export async function listDecisions(siteCode, query = {}, { canWrite = false } = {}) {
   const { limit, beforeId, decision, live, sinceId, sinceAt } = parseListQuery(query);
+  const gateId = statisticsGateId(query.gate_id);
   const result = await pool.query(
     `SELECT d.id, d.plate, d.decision, d.reason, d.confidence, d.auto_action, d.decided_at, e.seen_at, e.direction, e.decision_kind,
             e.gate_command, e.identity_kind, ab.block_name, aa.unit_label,
+            COALESCE(e.gate_id, (SELECT gx.id FROM plate_gates gx WHERE gx.site_code=d.site_code AND gx.door_id=d.door_id ORDER BY gx.id LIMIT 1)) AS gate_id,
             COALESCE(NULLIF(BTRIM(pu.full_name), ''), NULLIF(BTRIM(ps.full_name), '')) AS person_name,
             c.name AS device_name, COALESCE(pg.name, g.door_name) AS door_name
        FROM plate_decisions d
@@ -162,8 +169,11 @@ export async function listDecisions(siteCode, query = {}, { canWrite = false } =
        LEFT JOIN site_doors g ON g.id = d.door_id
       WHERE d.site_code = $1 AND ($2::BIGINT IS NULL OR d.id < $2) AND ($4::TEXT IS NULL OR d.decision = $4)
         AND ($5::BIGINT IS NULL OR d.id > $5) AND ($6::TIMESTAMPTZ IS NULL OR COALESCE(e.seen_at, d.decided_at) > $6)
+        AND ($7::BIGINT IS NULL OR e.gate_id = $7 OR (e.gate_id IS NULL AND EXISTS (
+          SELECT 1 FROM plate_gates gx WHERE gx.id=$7 AND gx.site_code=d.site_code AND gx.door_id=d.door_id
+        )))
       ORDER BY d.id DESC LIMIT $3`,
-    [siteCode, beforeId, limit + 1, decision, sinceId, sinceAt],
+    [siteCode, beforeId, limit + 1, decision, sinceId, sinceAt, gateId],
   );
   const rows = result.rows.slice(0, limit);
   const body = {
@@ -173,6 +183,7 @@ export async function listDecisions(siteCode, query = {}, { canWrite = false } =
       decision: row.decision,
       decision_kind: row.decision_kind ?? null,
       direction: row.direction ?? null,
+      gate_id: row.gate_id == null ? null : Number(row.gate_id),
       reason: row.reason,
       reason_label: REASON_LABELS[row.reason] ?? row.reason,
       confidence: row.confidence === null ? null : Number(row.confidence),

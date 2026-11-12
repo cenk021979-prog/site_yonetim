@@ -130,9 +130,11 @@ class DecisionResidentViewState extends State<DecisionResidentView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Kararlar', icon: Icons.library_books_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text('Yönetimin sakinlerle paylaştığı kesinleşmiş kararlar.', style: th.bodyMedium),
+        const PageHeaderCard(
+          title: 'Kararlar',
+          icon: Icons.library_books_rounded,
+          help: 'Yönetimin sakinlerle paylaştığı kesinleşmiş kararlar.',
+        ),
         const SizedBox(height: AppSpace.md),
         const DecisionLegalNote(),
         const SizedBox(height: AppSpace.md),

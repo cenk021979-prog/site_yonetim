@@ -6,7 +6,6 @@
 //   kal, Değişiklikleri Sil = geç); temizken pencere yoktur.
 // - Profil ekranları (bireysel, daire sakini) "Gizlilik ve Veri" bölümünü taşır.
 import 'package:flutter/material.dart';
-import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/account_client_error.dart';
 import 'package:site_kapi_kontrol/models/apartment_member_record.dart';
@@ -161,6 +160,29 @@ Finder _modePill([String label = 'Sakin Modu']) {
   return find.descendant(of: _inAppBar(find.byTooltip(label)), matching: find.byType(InkWell));
 }
 
+Future<void> _tapHeaderCommand(WidgetTester t, String command, {String label = 'Yenile'}) async {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    await t.tap(more);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    await t.tap(find.byWidgetPredicate((w) => w is PopupMenuItem<String> && w.value == command));
+  } else {
+    await t.tap(command == 'mode' ? _modePill(label) : _inAppBar(find.byTooltip(label)));
+  }
+}
+
+void _expectModeLabel(WidgetTester t, String label) {
+  final more = find.byKey(const ValueKey('compact_header_more'));
+  if (more.evaluate().isNotEmpty) {
+    final menu = t.widget<PopupMenuButton<String>>(more);
+    final mode = menu.itemBuilder(t.element(more)).whereType<PopupMenuItem<String>>().singleWhere((item) => item.value == 'mode');
+    expect(((mode.child as ListTile).title as Text).data, label);
+  } else {
+    expect(_modePill(label), findsOneWidget);
+  }
+}
+
 Finder _tile(String title) => find.descendant(of: find.byType(Drawer), matching: find.text(title));
 
 /// İP-1D: ayar öğeleri (Site Başvuruları, Modül Talepleri, Platform Ayarları, İstemci Hataları, Denetim Kaydı ...) sağ
@@ -222,14 +244,14 @@ void main() {
       await _pumpHome(t, auth);
       await _tapMenu(t, 'Platform Ayarları');
       expect(_api.configCalls, 1);
-      await t.tap(find.byTooltip('Yenile').first);
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 700));
       expect(_api.configCalls, 2);
 
       await _tapMenu(t, 'İstemci Hataları');
       final before = _api.errorCalls.length;
-      await t.tap(find.byTooltip('Yenile').first);
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 700));
       expect(_api.errorCalls.length, greaterThan(before));
@@ -238,8 +260,8 @@ void main() {
   });
 
   group('kaydedilmemiş değişiklik uyarısı (menü geçişi)', () {
-    Future<void> openSettingsAndEdit(WidgetTester t, _HomeAuth auth) async {
-      await _pumpHome(t, auth);
+    Future<void> openSettingsAndEdit(WidgetTester t, _HomeAuth auth, {double width = 400}) async {
+      await _pumpHome(t, auth, width: width);
       await _tapMenu(t, 'Platform Ayarları');
       final field = find.byKey(const ValueKey<String>('platform_latest_version'));
       await t.ensureVisible(field);
@@ -303,7 +325,7 @@ void main() {
     testWidgets('üst çubuktaki "Ana sayfa" düğmesi de korumadan geçer: Düzenlemeye Dön ekranda bırakır, Değişiklikleri Sil Panel\'e döndürür',
         (t) async {
       final auth = _HomeAuth();
-      await openSettingsAndEdit(t, auth);
+      await openSettingsAndEdit(t, auth, width: 1440);
       final home = _inAppBar(find.byTooltip('Ana sayfa'));
       expect(home, findsOneWidget, reason: 'iç ekranda (Platform Ayarları) düğme var');
 
@@ -382,40 +404,37 @@ void main() {
       final auth = _HomeAuth();
       await openSettingsAndEdit(t, auth);
 
-      final pill = _modePill();
-      expect(pill, findsOneWidget);
-      await t.tap(pill);
+      _expectModeLabel(t, 'Sakin Modu');
+      await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(find.text('Kaydedilmemiş değişiklikler'), findsOneWidget);
-      expect(find.descendant(of: find.byType(AppBar), matching: find.text('Yönetici Paneli')), findsNothing, reason: 'mod henüz değişmedi');
+      _expectModeLabel(t, 'Sakin Modu'); // Onaydan önce gerçek mod değişmedi.
 
       await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Düzenlemeye Dön')));
       await settleFor(t);
       expect(find.byKey(const ValueKey<String>('platform_dirty_notice')), findsOneWidget, reason: 'yazılanlar korunur');
 
-      await t.tap(pill);
+      await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Değişiklikleri Sil')));
       await settleFor(t);
       await t.pump(const Duration(milliseconds: 600));
-      expect(_modePill('Yönetici Paneli'), findsOneWidget, reason: 'mod değişti');
+      _expectModeLabel(t, 'Yönetici Paneline Geç');
       await _disposeHome(t);
     });
 
     testWidgets('yeniden-giriş: aynı karede iki istek TEK pencere açar; onayda mod YALNIZ BİR KEZ çevrilir (toggle iki kez çalışmaz)', (t) async {
-      // Not: Navigator, push edilen bir yoldan sonra aynı karedeki ikinci İŞARETÇİYİ zaten soğurur; bu yüzden
-      // ikinci istek anlamsal eylemle (erişilebilirlik "dokun") gönderilir — işaretçi değil.
-      final handle = t.ensureSemantics();
+      // İki istek üretim menüsünün aynı handler'ına aynı karede ulaşır. Popup'ın
+      // Navigator.pop işlemi ikinci kez tetiklenmez; sınanan davranış mod korumasıdır.
       final auth = _HomeAuth();
       await openSettingsAndEdit(t, auth);
 
-      final pill = _modePill();
-      final node = t.getSemantics(pill);
-      final owner = node.owner!; // düğümü yöneten anlamsal sahip (çoklu görünümde de doğru)
-      owner.performAction(node.id, SemanticsAction.tap);
-      owner.performAction(node.id, SemanticsAction.tap);
+      final more = find.byKey(const ValueKey('compact_header_more'));
+      final onSelected = t.widget<PopupMenuButton<String>>(more).onSelected!;
+      onSelected('mode');
+      onSelected('mode');
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(find.byType(AlertDialog), findsOneWidget, reason: 'ikinci pencere açılmaz');
@@ -424,25 +443,22 @@ void main() {
       await settleFor(t);
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byType(AlertDialog), findsNothing);
-      expect(_modePill('Yönetici Paneli'), findsOneWidget,
-          reason: 'bir kez çevrildi (iki kez çevrilseydi "Sakin Modu" kalırdı)');
-      handle.dispose();
+      _expectModeLabel(t, 'Yönetici Paneline Geç');
       await _disposeHome(t);
     });
 
     testWidgets('yeniden-giriş sıfırlanır: Düzenlemeye Dön sonrası kapı yeniden açılır', (t) async {
       final auth = _HomeAuth();
       await openSettingsAndEdit(t, auth);
-      final pill = _modePill();
       for (var i = 0; i < 2; i++) {
-        await t.tap(pill);
+        await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
         await t.pump();
         await t.pump(const Duration(milliseconds: 400));
         expect(find.text('Kaydedilmemiş değişiklikler'), findsOneWidget, reason: '$i. deneme: kapı açık kalmadı');
         await t.tap(find.descendant(of: find.byType(AlertDialog), matching: find.text('Düzenlemeye Dön')));
         await settleFor(t);
       }
-      expect(_modePill(), findsOneWidget);
+      _expectModeLabel(t, 'Sakin Modu');
       await _disposeHome(t);
     });
 
@@ -465,11 +481,11 @@ void main() {
       final auth = _HomeAuth();
       await _pumpHome(t, auth);
       await _tapMenu(t, 'Platform Ayarları');
-      await t.tap(_modePill());
+      await _tapHeaderCommand(t, 'mode', label: 'Sakin Modu');
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byType(AlertDialog), findsNothing);
-      expect(_modePill('Yönetici Paneli'), findsOneWidget);
+      _expectModeLabel(t, 'Yönetici Paneline Geç');
       await _disposeHome(t);
     });
 
@@ -486,7 +502,7 @@ void main() {
     testWidgets('kirliyken genel yenileme de onay ister; Düzenlemeye Dön GET yapmaz', (t) async {
       final auth = _HomeAuth();
       await openSettingsAndEdit(t, auth);
-      await t.tap(find.byTooltip('Yenile').first);
+      await _tapHeaderCommand(t, 'refresh');
       await t.pump();
       await t.pump(const Duration(milliseconds: 400));
       expect(find.text('Kaydedilmemiş değişiklikler'), findsOneWidget);

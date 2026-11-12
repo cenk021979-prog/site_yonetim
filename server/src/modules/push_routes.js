@@ -16,6 +16,7 @@ import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { deletePushDevice, listPushDevices, registerPushDevice, sendTestPush } from './push_devices.js';
 import { getPushStatus } from './push_worker.js';
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
+import { pushCapabilities } from './push_capabilities.js';
 
 const DAY_MS = 24 * HOUR_MS;
 
@@ -70,6 +71,13 @@ function handler({ context, fallback }, run) {
     }
   };
 }
+
+pushRouter.get(
+  '/app/push/capabilities',
+  authRequired,
+  pushDeviceReadLimiter,
+  handler({ context: 'push_capabilities', fallback: 'Bildirim alıcı durumu doğrulanamadı.' }, (req) => pushCapabilities(req.authUser)),
+);
 
 pushRouter.put(
   '/app/push/devices',

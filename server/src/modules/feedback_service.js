@@ -317,10 +317,14 @@ export async function completeFeedbackUpload({ target, actor, sha256 }) {
  * Yalnız `ready` ekler listelenir. Sayfalama: `cursor` = önceki sayfanın son kimliği, `limit` 1..100.
  * @returns {Promise<{ items: object[], next_cursor: number|null }>}
  */
-export async function listFeedback({ siteCode = null, query = {} }, db = pool) {
+export async function listFeedback({ siteCode = null, query = {}, ownerUserCode = null }, db = pool) {
   const { limit, cursor, siteCode: siteFilter } = parseListQuery(query);
   const params = [];
   const where = [];
+  if (ownerUserCode !== null) {
+    params.push(ownerUserCode);
+    where.push(`r.user_code = $${params.length}`);
+  }
   const scopedSite = siteCode !== null ? siteCode : siteFilter;
   if (scopedSite !== null) {
     params.push(scopedSite);
@@ -370,13 +374,27 @@ export async function listFeedback({ siteCode = null, query = {} }, db = pool) {
   return { items, next_cursor: nextCursor };
 }
 
+function feedbackOwnerCode(actor) {
+  const code = actorFromAuthUser(actor).userCode;
+  if (!Number.isSafeInteger(code) || code <= 0) throw feedbackAccountDeleted();
+  return code;
+}
+
+/** Kişisel geçmiş: kapsam yalnız oturumdan gelir; query içindeki kullanıcı/site alanları okunmaz. */
+export async function listOwnFeedback({ actor, query = {} }, db = pool) {
+  return listFeedback({
+    ownerUserCode: feedbackOwnerCode(actor),
+    query: { limit: query.limit, cursor: query.cursor },
+  }, db);
+}
+
 // --- GET .../attachments/:attId/content ------------------------------------------------------------------------
 
 /**
  * İndirme çözümlemesi: HAZIR ek (+ `siteCode` verildiyse o sitenin geri bildirimi); aksi 404 (varlık sızmaz).
  * @returns {Promise<{ id: number, feedbackId: number, siteCode: number|null, storageKey: string, sizeBytes: number, fileName: string, mimeType: string }>}
  */
-export async function resolveFeedbackDownload({ siteCode = null, rawId, rawAttId }, db = pool) {
+export async function resolveFeedbackDownload({ siteCode = null, rawId, rawAttId, ownerUserCode = null }, db = pool) {
   const feedbackId = parseFeedbackId(rawId);
   const attId = parseFeedbackAttachmentId(rawAttId);
   const params = [attId, feedbackId];
@@ -384,6 +402,10 @@ export async function resolveFeedbackDownload({ siteCode = null, rawId, rawAttId
   if (siteCode !== null) {
     params.push(siteCode);
     siteSql = ' AND r.site_code = $3';
+  }
+  if (ownerUserCode !== null) {
+    params.push(ownerUserCode);
+    siteSql += ` AND r.user_code = $${params.length}`;
   }
   const result = await db.query(
     `
@@ -408,4 +430,9 @@ export async function resolveFeedbackDownload({ siteCode = null, rawId, rawAttId
     fileName: row.file_name,
     mimeType: row.mime_type,
   };
+}
+
+/** Aynı sitenin yöneticisi dahi kişisel uçta yalnız kendi gönderdiği eki okuyabilir. */
+export async function resolveOwnFeedbackDownload({ actor, rawId, rawAttId }, db = pool) {
+  return resolveFeedbackDownload({ ownerUserCode: feedbackOwnerCode(actor), rawId, rawAttId }, db);
 }

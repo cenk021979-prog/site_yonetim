@@ -1,26 +1,20 @@
 import 'dart:async';
-
+import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/models/emergency_models.dart';
+import 'package:site_kapi_kontrol/models/emergency_alarm_models.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/emergency_api.dart';
 import 'package:site_kapi_kontrol/services/emergency_dialer.dart';
+import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
-import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/emergency_alarm_history_dialog.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
-import 'package:site_kapi_kontrol/ui/dialogs/emergency_firm_dialog.dart';
-import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
-import 'package:site_kapi_kontrol/ui/widgets/emergency_parts.dart';
+import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
+    show crmMessageOf;
 
-/// "Acil durum" ekranı (P2-24, karar K13): büyük 112 düğmesi, yangın ve asansör arızası için AYRI hızlı düğmeler; her senaryoda doğru numara,
-/// çağrı merkezinin soracakları ve aramada söylenecek site adresi.
-///
-/// **Kuru mod**: arama kanalı yoksa (masaüstü, web, telefonsuz tablet) ya da arama başlatılamazsa numaralar ve adres metin olarak (seçilip
-/// kopyalanabilir) gösterilir. Hiçbir yerde "arandı" denmez: `tel:` yalnız telefon uygulamasını açar, aramayı kullanıcı orada başlatır.
-///
-/// **Ağ olmadan da kullanılır**: 112 ve senaryo içeriği sabittir; yalnız site adresi ve bakım firması sunucudan gelir. Alınamazsa bu bölüm
-/// hata ile "Tekrar Dene" gösterir, 112 etkilenmez. Her sitenin adresi kendi sitesinden gelir (site seçici çok siteli kullanıcı içindir).
+/// Sakinlerin site içi alarm başlatması. Telefon rehberi diğer destek ekranları
+/// için korunur; burada alarm kaydı ve gerçek alıcı durumu gösterilir.
 class EmergencyView extends StatefulWidget {
   const EmergencyView({
     super.key,
@@ -30,484 +24,573 @@ class EmergencyView extends StatefulWidget {
     this.preferredSiteCode,
     this.allowEdit = false,
   });
-
   final AuthService authService;
   final EmergencyService? service;
-
-  /// Arama kanalı; verilmezse [TelCallChannel]. Testte sahtesi verilir.
+  // Eski çağıranlar için korunur; yeni akış telefon araması başlatmaz.
   final EmergencyCallChannel? channel;
-
-  /// Çekmecedeki site seçicinin seçili sitesi (null = tüm siteler): varsa ve kullanıcının sitelerindeyse başlangıçta o site seçilir.
   final int? preferredSiteCode;
-
-  /// Yönetici modunda mı (sakin modundaki yönetici düzenleme düğmesi görmez). Düzenleme ayrıca sitenin `can_edit` değerini ister.
   final bool allowEdit;
-
   @override
   State<EmergencyView> createState() => EmergencyViewState();
 }
 
-class EmergencyViewState extends State<EmergencyView> {
-  late EmergencyService _service = widget.service ?? EmergencyService(authService: widget.authService);
-  late EmergencyCallChannel _channel = widget.channel ?? TelCallChannel();
-  late bool _dry = !_channel.mayBeAvailable;
+typedef _PendingAlarm = ({
+  int site,
+  String kind,
+  int? equipment,
+  String? location,
+  String key,
+});
 
-  List<EmergencySite> _sites = const <EmergencySite>[];
-  bool _loaded = false;
-  bool _loading = true;
-  String? _error;
+class EmergencyViewState extends State<EmergencyView> {
+  late EmergencyService _service =
+      widget.service ?? EmergencyService(authService: widget.authService);
+  List<EmergencySite> _sites = [];
+  List<EmergencyElevator> _elevators = [];
+  List<EmergencyLocation> _locations = [];
+  bool _showLocations = false, _locationLoading = false;
+  String? _locationError;
+  int _locationToken = 0;
   int? _siteCode;
-  EmergencyScenario _scenario = EmergencyScenario.general;
-  bool _dialing = false;
-  bool _saving = false;
-  int _token = 0;
+  bool _loading = true,
+      _elevatorLoading = false,
+      _showElevators = false,
+      _sending = false;
+  bool _openingElevators = false;
+  String? _error, _elevatorError, _sendError;
+  int _siteToken = 0, _elevatorToken = 0;
+  EmergencyAlarmReceipt? _receipt;
+  _PendingAlarm? _pending;
+  String? _lastAlarmKind;
 
   @override
   void initState() {
     super.initState();
     unawaited(reload());
-    unawaited(_probe());
   }
 
   @override
   void didUpdateWidget(EmergencyView oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!identical(oldWidget.authService, widget.authService) || !identical(oldWidget.service, widget.service)) {
-      _service = widget.service ?? EmergencyService(authService: widget.authService);
-    }
-    if (!identical(oldWidget.channel, widget.channel)) {
-      _channel = widget.channel ?? TelCallChannel();
-      _dry = !_channel.mayBeAvailable;
-      unawaited(_probe());
-    }
-    final preferred = widget.preferredSiteCode;
-    if (preferred != oldWidget.preferredSiteCode && preferred != null && _sites.any((s) => s.siteCode == preferred)) {
-      _siteCode = preferred;
+    if (oldWidget.authService != widget.authService ||
+        oldWidget.service != widget.service) {
+      if (oldWidget.service == null) _service.close();
+      _service =
+          widget.service ?? EmergencyService(authService: widget.authService);
+      _sites = [];
+      _siteCode = null;
+      ++_elevatorToken;
+      ++_locationToken;
+      _elevators = [];
+      _locations = [];
+      _elevatorLoading = false;
+      _locationLoading = false;
+      _openingElevators = false;
+      _receipt = null;
+      _pending = null;
+      unawaited(reload());
+    } else if (oldWidget.preferredSiteCode != widget.preferredSiteCode &&
+        !_sending &&
+        _pending == null) {
+      final preferred = widget.preferredSiteCode;
+      if (_sites.any((s) => s.siteCode == preferred)) _selectSite(preferred);
     }
   }
 
   @override
   void dispose() {
-    ++_token;
+    ++_siteToken;
+    ++_elevatorToken;
+    ++_locationToken;
+    if (widget.service == null) _service.close();
     super.dispose();
   }
 
-  EmergencySite? get _site {
-    for (final site in _sites) {
-      if (site.siteCode == _siteCode) return site;
-    }
-    return null;
-  }
-
-  int? _pickSite(List<EmergencySite> sites) {
-    if (sites.isEmpty) return null;
-    if (_siteCode != null && sites.any((s) => s.siteCode == _siteCode)) return _siteCode;
-    final preferred = widget.preferredSiteCode;
-    if (preferred != null && sites.any((s) => s.siteCode == preferred)) return preferred;
-    return sites.first.siteCode;
-  }
-
-  /// Site bilgisini (adres + bakım firması) sunucudan yeniden okur; başarısızsa varsa SON bilinen bilgi korunur.
   Future<void> reload() async {
-    final token = ++_token;
+    final token = ++_siteToken;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+        // Yenileme yeni bir kullanıcı niyetidir; eski otomatik gönderim sürmez.
+        if (_locationLoading) {
+          ++_locationToken;
+          _locationLoading = false;
+          _locationError = null;
+        }
+      });
+    }
+    try {
+      final sites = (await _service.listAlarmSites())
+          .where((s) => s.canCreate)
+          .toList();
+      if (!mounted || token != _siteToken) return;
+      final preferred = widget.preferredSiteCode;
+      final code = sites.any((s) => s.siteCode == _siteCode)
+          ? _siteCode
+          : sites.any((s) => s.siteCode == preferred)
+          ? preferred
+          : sites.firstOrNull?.siteCode;
+      setState(() {
+        if (code != _siteCode) {
+          ++_elevatorToken;
+          ++_locationToken;
+          _elevators = [];
+          _locations = [];
+          _elevatorError = null;
+          _locationError = null;
+          _elevatorLoading = false;
+          _locationLoading = false;
+        }
+        _sites = sites;
+        _loading = false;
+        _siteCode = code;
+      });
+      if (code != null) await _loadElevators(reveal: _showElevators);
+      if (_showLocations) await _loadLocations();
+    } catch (e) {
+      if (!mounted || token != _siteToken) return;
+      setState(() {
+        _loading = false;
+        _error = crmMessageOf(e, 'Site bilgileri alınamadı.');
+      });
+    }
+  }
+
+  void _selectSite(int? code) {
+    ++_elevatorToken;
+    ++_locationToken;
     setState(() {
-      _loading = !_loaded;
-      _error = null;
+      _siteCode = code;
+      _elevators = [];
+      _locations = [];
+      _elevatorError = null;
+      _locationError = null;
+      _elevatorLoading = false;
+      _locationLoading = false;
+      _openingElevators = false;
+      _receipt = null;
+      _sendError = null;
+      _lastAlarmKind = null;
+    });
+    if (code != null) unawaited(_loadElevators(reveal: _showElevators));
+    if (_showLocations) unawaited(_loadLocations());
+  }
+
+  Future<void> _loadElevators({bool reveal = true}) async {
+    final code = _siteCode;
+    if (code == null) return;
+    final token = ++_elevatorToken;
+    setState(() {
+      if (reveal) {
+        // Yangın listesi beklerken asansöre geçildiyse geç gelen konum alarm başlatamaz.
+        ++_locationToken;
+        _locationLoading = false;
+        _locationError = null;
+        _showElevators = true;
+        _showLocations = false;
+      }
+      _openingElevators = reveal;
+      _elevatorLoading = true;
+      _elevators = [];
+      _elevatorError = null;
+      _sendError = null;
     });
     try {
-      final sites = await _service.listSites();
-      if (!mounted || token != _token) return;
+      final items = await _service.listElevators(code);
+      if (!mounted || token != _elevatorToken || code != _siteCode) return;
       setState(() {
-        _sites = sites;
-        _loaded = true;
-        _loading = false;
-        _siteCode = _pickSite(sites);
+        _elevators = items;
+        _elevatorLoading = false;
+        _openingElevators = false;
+        if (items.isEmpty) _showElevators = false;
       });
     } catch (e) {
-      if (!mounted || token != _token) return;
+      if (!mounted || token != _elevatorToken || code != _siteCode) return;
       setState(() {
-        _loading = false;
-        _error = crmMessageOf(e, 'Site bilgileri alınamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+        _elevatorLoading = false;
+        _openingElevators = false;
+        _elevatorError = crmMessageOf(e, 'Asansörler alınamadı.');
       });
     }
   }
 
-  Future<void> _probe() async {
-    if (!_channel.mayBeAvailable) {
-      if (mounted && !_dry) setState(() => _dry = true);
-      return;
-    }
-    final available = await _channel.probe();
-    if (!mounted) return;
-    if (!available && !_dry) setState(() => _dry = true);
-  }
-
-  /// Kuru moddan çıkmayı yeniden dener (yalnız kanal bu platformda olabiliyorsa).
-  Future<void> _retryChannel() async {
-    final available = await _channel.probe();
-    if (!mounted) return;
-    setState(() => _dry = !available);
-  }
-
-  Future<void> _call(String number) async {
-    if (_dialing) return;
-    _dialing = true;
-    try {
-      final outcome = await _channel.dial(number);
-      if (!mounted) return;
-      switch (outcome) {
-        case EmergencyDialOutcome.opened:
-          // DÜRÜST metin: telefon uygulaması açıldı; aramayı kullanıcı orada başlatır.
-          AppSnack.show(context, 'Telefon uygulaması açıldı. Aramayı orada başlatın.', replace: true);
-        case EmergencyDialOutcome.unavailable || EmergencyDialOutcome.failed:
-          setState(() => _dry = true);
-          AppSnack.show(
-            context,
-            'Arama başlatılamadı. $number numarasını başka bir telefondan arayın.',
-            kind: AppSnackKind.warning,
-            replace: true,
-          );
+  Future<void> _loadLocations({bool sendWhenSingle = false}) async {
+    final code = _siteCode;
+    if (code == null || _sending || _locationLoading) return;
+    final token = ++_locationToken;
+    setState(() {
+      if (_openingElevators) {
+        ++_elevatorToken;
+        _elevatorLoading = false;
+        _openingElevators = false;
       }
-    } finally {
-      _dialing = false;
-    }
-  }
-
-  Future<void> _copy(String text, String done) async {
+      _showLocations = false;
+      _showElevators = false;
+      _locationLoading = true;
+      _locations = [];
+      _locationError = null;
+      _sendError = null;
+    });
     try {
-      await Clipboard.setData(ClipboardData(text: text));
-      if (!mounted) return;
-      AppSnack.show(context, done, kind: AppSnackKind.success, replace: true);
-    } catch (_) {
-      if (!mounted) return;
-      AppSnack.show(context, 'Kopyalanamadı. Metni basılı tutup seçerek kopyalayın.', kind: AppSnackKind.warning, replace: true);
-    }
-  }
-
-  Future<void> _editFirm(EmergencySite site) async {
-    final values = await showEmergencyFirmDialog(context, site);
-    if (values == null || !mounted || _saving) return;
-    setState(() => _saving = true);
-    try {
-      final saved = await _service.saveElevatorFirm(site.siteCode, name: values.name, phone: values.phone);
-      if (!mounted) return;
+      final items = await _service.listLocations(code);
+      if (!mounted || token != _locationToken || code != _siteCode) return;
+      final blocks = items.where((item) => item.blockId != null).toList();
+      final direct = blocks.length == 1
+          ? blocks.single.id
+          : blocks.isEmpty && items.any((item) => item.id == 'site')
+          ? 'site'
+          : null;
       setState(() {
-        _sites = <EmergencySite>[
-          for (final s in _sites)
-            if (s.siteCode == site.siteCode) s.withElevatorFirm(name: saved.name, phone: saved.phone) else s,
-        ];
+        _locations = items;
+        _locationLoading = false;
+        _showLocations = blocks.length > 1;
+        if (items.isEmpty || (blocks.isEmpty && direct == null)) {
+          _locationError = 'Yangın konumu doğrulanamadı. Konumları yenileyin.';
+        }
       });
-      AppSnack.show(
-        context,
-        saved.phone == null ? 'Asansör bakım firması kaldırıldı.' : 'Asansör bakım firması kaydedildi.',
-        kind: AppSnackKind.success,
-        replace: true,
+      if (sendWhenSingle && direct != null) {
+        await _send('fire', locationId: direct);
+      }
+    } catch (e) {
+      if (!mounted || token != _locationToken || code != _siteCode) return;
+      setState(() {
+        _locationLoading = false;
+        _locationError = crmMessageOf(e, 'Konumlar alınamadı.');
+      });
+    }
+  }
+
+  Future<void> _send(
+    String kind, {
+    int? equipmentId,
+    String? locationId,
+  }) async {
+    final code = _pending?.site ?? _siteCode;
+    if (_sending || code == null) return;
+    // Belirsiz ağ sonucunda aynı anahtar korunur; tekrar ikinci alarm üretmez.
+    _pending ??= (
+      site: code,
+      kind: kind,
+      equipment: equipmentId,
+      location: locationId,
+      key:
+          '${DateTime.now().microsecondsSinceEpoch}-${Random.secure().nextInt(1 << 30)}',
+    );
+    final pending = _pending!;
+    setState(() {
+      _lastAlarmKind = pending.kind;
+      _sending = true;
+      _sendError = null;
+      _receipt = null;
+    });
+    try {
+      final receipt = await _service.createAlarm(
+        siteCode: pending.site,
+        kind: pending.kind,
+        equipmentId: pending.equipment,
+        locationId: pending.location,
+        idempotencyKey: pending.key,
       );
+      if (!mounted) return;
+      setState(() {
+        _receipt = receipt;
+        _pending = null;
+      });
+      await reload();
     } catch (e) {
-      if (mounted) {
-        AppSnack.show(context, crmMessageOf(e, 'Asansör bakım firması kaydedilemedi. Tekrar deneyin.'), kind: AppSnackKind.error, replace: true);
-      }
+      if (!mounted) return;
+      final rejected =
+          e is ApiException &&
+          e.statusCode != null &&
+          e.statusCode! >= 400 &&
+          e.statusCode! < 500 &&
+          e.statusCode != 408;
+      setState(() {
+        if (rejected) _pending = null;
+        _sendError =
+            '${crmMessageOf(e, 'Alarm kaydı doğrulanamadı.')} ${rejected ? 'Seçiminizi yenileyebilirsiniz.' : 'Aynı bildirimi tekrar deneyebilirsiniz.'}';
+      });
     } finally {
-      if (mounted) setState(() => _saving = false);
+      if (mounted) setState(() => _sending = false);
     }
-  }
-
-  void _toggleScenario(EmergencyScenario scenario) {
-    setState(() => _scenario = _scenario == scenario ? EmergencyScenario.general : scenario);
   }
 
   @override
   Widget build(BuildContext context) {
-    final children = <Widget>[
-      if (_sites.length > 1) ...[_sitePicker(), const SizedBox(height: AppSpace.md)],
-      if (_dry) ...[
-        InlineNotice(
-          key: const ValueKey<String>('emergency_dry_banner'),
-          tone: AppTone.warning,
-          icon: Icons.phone_disabled_rounded,
-          message:
-              'Bu cihazdan arama başlatılamıyor. Numaraları başka bir telefondan arayın; adres bilgisi aşağıda hazır.',
-          onRetry: _channel.mayBeAvailable ? () => unawaited(_retryChannel()) : null,
+    final disabled =
+        _siteCode == null || _loading || _sending || _pending != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Site içi acil bildirim',
+          style: Theme.of(context).textTheme.headlineSmall,
+        ),
+        const SizedBox(height: AppSpace.sm),
+        Text(
+          _elevators.isEmpty
+              ? 'Yangın ekibe ve ilgili dairelere bildirilir.'
+              : 'Asansör ekibe; yangın ekibe ve ilgili dairelere bildirilir.',
         ),
         const SizedBox(height: AppSpace.md),
-      ],
-      EmergencyHeroCard(
-        dry: _dry,
-        onCall: () => unawaited(_call(kEmergencyNumber)),
-        onCopy: () => unawaited(_copy(kEmergencyNumber, '112 numarası panoya kopyalandı.')),
-      ),
-      const SizedBox(height: AppSpace.md),
-      _quickButtons(),
-      const SizedBox(height: AppSpace.md),
-      ..._scenarioPanel(),
-    ];
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children);
-  }
-
-  Widget _sitePicker() {
-    return DropdownButtonFormField<int>(
-      key: ValueKey<int?>(_siteCode),
-      initialValue: _siteCode,
-      isExpanded: true,
-      decoration: const InputDecoration(labelText: 'Hangi site için?'),
-      items: [
-        for (final site in _sites)
-          DropdownMenuItem<int>(value: site.siteCode, child: Text(site.label, maxLines: 2, overflow: TextOverflow.ellipsis)),
-      ],
-      onChanged: (code) {
-        if (code != null) setState(() => _siteCode = code);
-      },
-    );
-  }
-
-  Widget _quickButtons() {
-    final fire = EmergencyQuickTile(
-      key: const ValueKey<String>('emergency_quick_fire'),
-      icon: Icons.local_fire_department_rounded,
-      title: 'Yangın',
-      tone: AppTone.danger,
-      selected: _scenario == EmergencyScenario.fire,
-      onTap: () => _toggleScenario(EmergencyScenario.fire),
-    );
-    final elevator = EmergencyQuickTile(
-      key: const ValueKey<String>('emergency_quick_elevator'),
-      icon: Icons.elevator_rounded,
-      title: 'Asansör arızası',
-      tone: AppTone.warning,
-      selected: _scenario == EmergencyScenario.elevator,
-      onTap: () => _toggleScenario(EmergencyScenario.elevator),
-    );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Dar ekranda ya da büyük yazıda alt alta; aksi halde yan yana (eşit genişlik).
-        final stacked = constraints.maxWidth < 380 || MediaQuery.textScalerOf(context).scale(16) > 20;
-        if (stacked) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [fire, const SizedBox(height: AppSpace.sm), elevator],
-          );
-        }
-        return IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: fire),
-              const SizedBox(width: AppSpace.sm),
-              Expanded(child: elevator),
+        if (_sites.length > 1) ...[
+          DropdownButtonFormField<int>(
+            key: ValueKey('emergency_site_$_siteCode'),
+            initialValue: _siteCode,
+            isExpanded: true,
+            decoration: const InputDecoration(labelText: 'Site'),
+            items: [
+              for (final site in _sites)
+                DropdownMenuItem(
+                  value: site.siteCode,
+                  child: Text(
+                    site.label,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
             ],
+            onChanged: _sending || _pending != null ? null : _selectSite,
           ),
-        );
-      },
-    );
-  }
-
-  List<Widget> _scenarioPanel() {
-    final th = Theme.of(context).textTheme;
-    final p = context.palette;
-    final guide = emergencyGuideOf(_scenario);
-    final site = _site;
-    const gap = SizedBox(height: AppSpace.md);
-    return [
-      AppCard(
-        key: ValueKey<String>('emergency_panel_${_scenario.name}'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Semantics(header: true, child: Text(guide.title, style: th.titleMedium)),
-            const SizedBox(height: AppSpace.xs),
-            Text(guide.summary, style: th.bodyMedium?.copyWith(color: p.textSecondary)),
-            if (guide.steps.isNotEmpty) ...[
-              const SizedBox(height: AppSpace.md),
-              EmergencyNumberedList(items: guide.steps, bullet: true),
-            ],
-          ],
+          const SizedBox(height: AppSpace.md),
+        ] else if (_sites.isNotEmpty) ...[
+          Text(_sites.first.label),
+          const SizedBox(height: AppSpace.md),
+        ],
+        if (_loading) const LinearProgressIndicator(),
+        if (_error != null) _notice(_error!, reload),
+        if (!_loading && _sites.isEmpty && _error == null)
+          const AppCard(
+            child: Text(
+              'Alarm başlatmak için bu sitede aktif daire/sakin kaydınız bulunmalı.',
+            ),
+          ),
+        if (_elevatorLoading || _locationLoading)
+          const Padding(
+            padding: EdgeInsets.only(bottom: AppSpace.sm),
+            child: LinearProgressIndicator(
+              semanticsLabel: 'Acil seçenekleri güncelleniyor',
+            ),
+          ),
+        if (_elevatorError != null)
+          _notice(_elevatorError!, () => _loadElevators(reveal: false)),
+        if (_locationError != null)
+          _notice(_locationError!, () => _loadLocations(sendWhenSingle: true)),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            // Henüz gelmemiş veriyi "asansör yok" diye göstermeyin.
+            if (_elevatorLoading && _elevators.isEmpty) {
+              return const SizedBox.shrink();
+            }
+            final buttons = [
+              if (_elevators.isNotEmpty)
+                _button(
+                  'Asansör',
+                  Icons.elevator_rounded,
+                  'emergency_quick_elevator',
+                  disabled || _elevatorLoading
+                      ? null
+                      : () => unawaited(_loadElevators()),
+                ),
+              _button(
+                'Yangın',
+                Icons.local_fire_department_rounded,
+                'emergency_quick_fire',
+                disabled || _locationLoading
+                    ? null
+                    : () => unawaited(_loadLocations(sendWhenSingle: true)),
+              ),
+            ];
+            if (constraints.maxWidth < 380 ||
+                MediaQuery.textScalerOf(context).scale(16) > 20) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (index, button) in buttons.indexed) ...[
+                    if (index > 0) const SizedBox(height: AppSpace.sm),
+                    button,
+                  ],
+                ],
+              );
+            }
+            return Row(
+              children: [
+                for (final (index, button) in buttons.indexed) ...[
+                  if (index > 0) const SizedBox(width: AppSpace.sm),
+                  Expanded(child: button),
+                ],
+              ],
+            );
+          },
         ),
-      ),
-      gap,
-      ..._callTiles(site),
-      AppCard(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ..._statusNotice(),
-            _addressBlock(guide, site),
-            const SizedBox(height: AppSpace.lg),
-            Semantics(
-              header: true,
+        if (_showElevators) ...[
+          const SizedBox(height: AppSpace.md),
+          Text(
+            'Hangi asansör?',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const Text('Adına dokunduğunuzda alarm oluşturulur.'),
+          if (!_elevatorLoading && _elevatorError == null && _elevators.isEmpty)
+            const AppCard(
               child: Text(
-                _scenario == EmergencyScenario.elevator ? 'Bakım firması ve çağrı merkezi şunları sorabilir' : 'Çağrı merkezi şunları sorabilir',
-                style: th.labelLarge?.copyWith(color: p.textMuted),
+                'Bu sitede kayıtlı aktif asansör yok. Yönetim Ekipman ve Bakım bölümünden ekleyebilir.',
               ),
             ),
-            const SizedBox(height: AppSpace.sm),
-            EmergencyNumberedList(items: guide.questions),
-            const SizedBox(height: AppSpace.sm),
-            OutlinedButton.icon(
-              key: const ValueKey<String>('emergency_copy_script'),
-              onPressed: () => unawaited(_copy(buildEmergencyScript(_scenario, site), 'Bilgiler panoya kopyalandı.')),
-              icon: const Icon(Icons.copy_all_rounded, size: 18),
-              label: const Text('Bilgileri kopyala'),
+          for (final elevator in _elevators)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.sm),
+              child: OutlinedButton(
+                key: ValueKey('emergency_elevator_${elevator.id}'),
+                onPressed: disabled
+                    ? null
+                    : () => unawaited(
+                        _send('elevator', equipmentId: elevator.id),
+                      ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(elevator.name),
+                      if (elevator.blockName != null) Text(elevator.blockName!),
+                      if (elevator.location != null) Text(elevator.location!),
+                    ],
+                  ),
+                ),
+              ),
             ),
-          ],
-        ),
-      ),
-    ];
-  }
-
-  /// Senaryoya göre aranacak numara kartları (genel acil durumda 112 kartı zaten sayfanın başındadır).
-  List<Widget> _callTiles(EmergencySite? site) {
-    const gap = SizedBox(height: AppSpace.md);
-    switch (_scenario) {
-      case EmergencyScenario.general:
-        return const <Widget>[];
-      case EmergencyScenario.fire:
-        return [_emergencyTile(filled: true), gap];
-      case EmergencyScenario.elevator:
-        return [..._elevatorFirmTile(site), _emergencyTile(filled: false, title: 'Mahsur kalan kişi tehlikedeyse'), gap];
-    }
-  }
-
-  Widget _emergencyTile({required bool filled, String title = '112 Acil Çağrı Merkezi'}) {
-    return EmergencyCallTile(
-      icon: Icons.emergency_rounded,
-      title: title,
-      number: kEmergencyNumber,
-      dry: _dry,
-      callLabel: '112\'yi ara',
-      tone: AppTone.danger,
-      filled: filled,
-      onCall: () => unawaited(_call(kEmergencyNumber)),
-      onCopy: () => unawaited(_copy(kEmergencyNumber, '112 numarası panoya kopyalandı.')),
-      callKey: const ValueKey<String>('emergency_call_112_panel'),
-      copyKey: const ValueKey<String>('emergency_copy_112_panel'),
-    );
-  }
-
-  /// Asansör bakım firması: tanımlıysa kart (+ yöneticiye düzenle); değilse dürüst ipucu (yöneticiye "ekleyin", diğerlerine "yönetimden isteyin").
-  List<Widget> _elevatorFirmTile(EmergencySite? site) {
-    const gap = SizedBox(height: AppSpace.md);
-    final canEdit = site != null && site.canEdit && widget.allowEdit;
-    if (site != null && site.hasElevatorFirm) {
-      final phone = site.elevatorFirmPhone!;
-      return [
-        EmergencyCallTile(
-          icon: Icons.elevator_rounded,
-          title: 'Asansör bakım firması',
-          subtitle: site.elevatorFirmName,
-          number: phone,
-          dry: _dry,
-          callLabel: 'Bakım firmasını ara',
-          tone: AppTone.primary,
-          onCall: () => unawaited(_call(phone)),
-          onCopy: () => unawaited(_copy(phone, 'Telefon numarası panoya kopyalandı.')),
-          callKey: const ValueKey<String>('emergency_call_firm'),
-          copyKey: const ValueKey<String>('emergency_copy_firm'),
-        ),
-        if (canEdit)
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              key: const ValueKey<String>('emergency_edit_firm'),
-              onPressed: _saving ? null : () => unawaited(_editFirm(site)),
-              icon: const Icon(Icons.edit_rounded, size: 18),
-              label: const Text('Bakım firmasını düzenle'),
+        ],
+        if (_showLocations) ...[
+          const SizedBox(height: AppSpace.md),
+          Text(
+            'Yangın nerede?',
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const Text('Bloğu seçin veya tüm siteyi bilgilendirin.'),
+          if (!_locationLoading && _locationError == null && _locations.isEmpty)
+            const Text('Konum listesi alınamadı; yenileyin.'),
+          for (final location in _locations)
+            Padding(
+              padding: const EdgeInsets.only(top: AppSpace.sm),
+              child: OutlinedButton(
+                key: ValueKey('emergency_location_${location.id}'),
+                onPressed: disabled
+                    ? null
+                    : () => unawaited(_send('fire', locationId: location.id)),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+                  child: Text(location.name),
+                ),
+              ),
+            ),
+        ],
+        if (_sending)
+          const Padding(
+            padding: EdgeInsets.all(AppSpace.sm),
+            child: Text('Alarm kaydediliyor…'),
+          ),
+        if (_sendError != null)
+          _notice(
+            _sendError!,
+            () => _pending != null
+                ? _send(
+                    _pending!.kind,
+                    equipmentId: _pending!.equipment,
+                    locationId: _pending!.location,
+                  )
+                : _lastAlarmKind == 'fire'
+                ? _loadLocations(sendWhenSingle: true)
+                : _loadElevators(),
+          ),
+        if (_receipt case final receipt?) ...[
+          const SizedBox(height: AppSpace.md),
+          AppCard(
+            key: const ValueKey('emergency_receipt'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Alarm #${receipt.alarm.id} kaydedildi.',
+                  style: Theme.of(context).textTheme.titleMedium,
+                ),
+                Text(
+                  'Atanan güvenlik: ${receipt.securityAssigned} • Asansör servisi: ${receipt.serviceAssigned}',
+                ),
+                Text('Yönetici bildirimi: ${receipt.managerNotified}'),
+                if (receipt.alarm.kind == 'fire')
+                  Text('Daire hesabı alarmı: ${receipt.residentAssigned}'),
+                if (receipt.alarm.createdByName != null)
+                  Text('Alarmı veren: ${receipt.alarm.createdByName}'),
+                const Text(
+                  'Kayıt oluşması, alıcının alarmı gördüğü veya sesi duyduğu anlamına gelmez.',
+                ),
+                if (receipt.securityAssigned == 0 &&
+                    receipt.serviceAssigned == 0 &&
+                    receipt.residentAssigned == 0)
+                  const Text(
+                    'Sesli alarm alıcısı atanmamış. Yönetim Alarm alıcıları ayarını tamamlamalı.',
+                  ),
+                for (final warning in receipt.warningMessages) Text(warning),
+              ],
             ),
           ),
-        gap,
-      ];
-    }
-    if (_loading && !_loaded) {
-      return [const Text('Site bilgileri yükleniyor...', key: ValueKey<String>('emergency_loading')), gap];
-    }
-    // Bilgi alınamadıysa "kayıtlı değil" DENMEZ (bilinmiyor); site yoksa yönetimden öğrenmesi söylenir.
-    if (_error != null && !_loaded) {
-      return [
-        const InlineNotice(
-          key: ValueKey<String>('emergency_firm_hint'),
-          tone: AppTone.warning,
-          message:
-              'Asansör bakım firması bilgisi alınamadı. Bağlantı gelince “Tekrar Dene” ile yenileyin. İçeride mahsur kalan biri tehlikedeyse 112\'yi arayın.',
-        ),
-        gap,
-      ];
-    }
-    if (site == null) {
-      return [
-        const InlineNotice(
-          key: ValueKey<String>('emergency_firm_hint'),
-          tone: AppTone.info,
-          message:
-              'Bağlı olduğunuz bir site yok. Asansör bakım firmasını sitenizin yönetiminden öğrenin. İçeride mahsur kalan biri tehlikedeyse 112\'yi arayın.',
-        ),
-        gap,
-      ];
-    }
-    return [
-      InlineNotice(
-        key: const ValueKey<String>('emergency_firm_hint'),
-        tone: AppTone.info,
-        message: canEdit
-            ? 'Asansör bakım firmasının telefonu kayıtlı değil. Ekleyin; asansör arızasında sakinler firmayı buradan tek dokunuşla arasın.'
-            : 'Bu site için asansör bakım firması telefonu henüz eklenmemiş. Site yönetiminden isteyin. İçeride mahsur kalan biri tehlikedeyse 112\'yi arayın.',
-      ),
-      if (canEdit)
+        ],
+        const SizedBox(height: AppSpace.md),
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
-            key: const ValueKey<String>('emergency_edit_firm'),
-            onPressed: _saving ? null : () => unawaited(_editFirm(site)),
-            icon: const Icon(Icons.add_rounded, size: 18),
-            label: const Text('Bakım firmasını ekle'),
+            key: const ValueKey('emergency_history'),
+            onPressed: () => showDialog<void>(
+              context: context,
+              builder: (_) => EmergencyAlarmHistoryDialog(service: _service),
+            ),
+            icon: const Icon(Icons.history),
+            label: const Text('Alarm kayıtları'),
           ),
         ),
-      gap,
-    ];
-  }
-
-  /// Site bilgisi yüklenirken / alınamayınca adres kutusunun üstündeki durum bildirimi.
-  List<Widget> _statusNotice() {
-    final error = _error;
-    if (error != null) {
-      return [
-        InlineNotice(
-          key: const ValueKey<String>('emergency_load_error'),
-          tone: _loaded ? AppTone.warning : AppTone.danger,
-          message: _loaded
-              ? 'Güncel site bilgileri alınamadı; son alınan bilgiler gösteriliyor. $error'
-              : '$error 112 aramanız bundan etkilenmez.',
-          onRetry: () => unawaited(reload()),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            onPressed: _sending ? null : () => unawaited(reload()),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Yenile'),
+          ),
         ),
-        const SizedBox(height: AppSpace.md),
-      ];
-    }
-    return const <Widget>[];
-  }
-
-  Widget _addressBlock(EmergencyGuide guide, EmergencySite? site) {
-    final say = emergencySayLines(site);
-    final loadingFirst = _loading && !_loaded;
-    final canEdit = site != null && site.canEdit && widget.allowEdit;
-    final String missing;
-    if (loadingFirst) {
-      missing = 'Site adresi yükleniyor...';
-    } else if (_error != null && !_loaded) {
-      missing = 'Site adresi alınamadı. Adresi kendiniz söyleyin.';
-    } else if (site == null) {
-      missing = 'Bağlı olduğunuz bir site yok; adresinizi kendiniz söyleyin.';
-    } else if (canEdit) {
-      missing = 'Site adresi kayıtlı değil. “Site Yönetimi” ekranından adresi ekleyin; acil durumda adres buradan okunur. Şimdilik adresi kendiniz söyleyin.';
-    } else {
-      missing = 'Site adresi kayıtlı değil. Adresi kendiniz söyleyin ve site yönetiminden adresin eklenmesini isteyin.';
-    }
-    return EmergencyAddressBlock(
-      sayLine: guide.sayLine,
-      siteName: say.siteName,
-      address: say.address,
-      missingHint: missing,
-      onCopyAddress: () {
-        final text = [?say.siteName, ?say.address].join('\n');
-        unawaited(_copy(text, 'Adres panoya kopyalandı.'));
-      },
+      ],
     );
   }
+
+  Widget _button(
+    String text,
+    IconData icon,
+    String key,
+    VoidCallback? onPressed,
+  ) => FilledButton.icon(
+    key: ValueKey(key),
+    onPressed: onPressed,
+    icon: Icon(icon),
+    style: FilledButton.styleFrom(
+      padding: const EdgeInsets.symmetric(
+        vertical: AppSpace.lg,
+        horizontal: AppSpace.md,
+      ),
+    ),
+    label: Text(text),
+  );
+  Widget _notice(String message, Future<void> Function() retry) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: AppSpace.sm),
+    child: AppCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(message),
+          TextButton(
+            onPressed: _sending ? null : () => unawaited(retry()),
+            child: const Text('Tekrar dene'),
+          ),
+        ],
+      ),
+    ),
+  );
 }

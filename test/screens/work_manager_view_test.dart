@@ -11,6 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/work_tracking_models.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart' show PrimaryActionButton;
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/views/work_manager_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/work_tracking_parts.dart';
@@ -242,8 +243,11 @@ void main() {
       final rig = _rig(kind: WorkSiteAccess.staff);
       await rig.pump(t);
       expect(_cardIds(t), <int>[3, 1], reason: 'başkasına atanmış (4) görünmez');
-      expect(find.textContaining('Size atanan ve henüz kimseye atanmamış'), findsOneWidget);
+      expect(find.textContaining('Size atanan ve henüz kimseye atanmamış'), findsNothing);
       expect(wkKey('work_read_only_note'), findsNothing);
+      await t.tap(find.byType(ContextHelp));
+      await settleFor(t);
+      expect(find.textContaining('Size atanan ve henüz kimseye atanmamış'), findsOneWidget);
     });
 
     testWidgets('kurul: iletişim ve iç not hiçbir yerde yok; kartlar yine tıklanır', (t) async {

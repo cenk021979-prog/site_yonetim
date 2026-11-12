@@ -1,0 +1,56 @@
+Argon’un `response` alanını eksiksiz okudum; dosya SHA256’sı iletilen değerle eşleşiyor. Yanıtın varlığı doğrulandı; süreçteki `ERROR`/DNS hatası nedeniyle bunu temiz araç başarısı olarak nitelemiyorum. Kod, taslak PNG ve aşağıdaki resmi kaynaklar incelendi; uygulama çalıştırılmadı, test veya değişiklik yapılmadı.
+
+1. **Rol kapsamı — Kısmen doğru.**
+   `UserRole` **4** değerden oluşuyor (`lib/models/user_role.dart:4`); kurul, görevli, şirket üyeliği ve dış alarm alıcısı ayrıca değerlendirilen bağlardır. “7 rol” tam bir teknik rol listesi değil, tasarım için seçilmiş profillerdir. `showcaseAudience` ayrıca `individual` döndürüyor (`module_showcase.dart:27`).
+   Kurul için **13 yönetim hedefi** sayılabiliyor: kişiler, finans, belgeler, işler, rezervasyon, anket, bütçe, karar defteri, ekipman, plaka/kamera, ziyaretçiler, sözleşmeler, sayaçlar. Ancak erişimler modül ve site bağına bağlı; her kurul üyesine koşulsuz 13 ekran açılmıyor. Kanıt: `home_page.dart:_extraMenuItems:1184`, ilgili kapsam yardımcıları `1299–1905`; birleşmiş kamera yolu `_canAccessMenu:2473`. Görevlinin sayaç kapsamı `fieldOnly:true` (`1834`).
+   **Karar:** İkili taslak kapsam bakımından eksik; fakat Argon’un otomatik değişen “1–5 hedef” önerisi de kanıtlanmış çözüm değil. Sabit görev adresleri, bağa göre yetkili içerikle doldurulmalı. “49+9” tam envanter sayılmamalı: 49 enum doğru; dokuz dış eylem örnek liste. Windows güncellemesi, uygulama indirme ve gelen geri bildirimler de enum dışında (`home_page.dart:6280–6325`); “Klasik’e dön” ise henüz tasarlanan yeni eylem.
+
+2. **Sakin için aylık gider/bakım ucu yok — Kısmen doğru.**
+   İncelenen kodda sakine **yapılandırılmış, yayımlanmış aylık site gideri/bakım bülteni** veren uç bulamadım. Yönetici finansı `resolveFinanceAccess:23`, bütçe `budget_routes.js:handler:56`, ekipman `resolveEquipmentAccess:66` ile korunuyor. `equipmentPublicRouter:196/210` gider özeti değil, tokenlı firma teklif formu.
+   Ancak “sakine bunu sunabilecek hiçbir uç yok” fazla geniş: duyuru ve hedefli belge yayımlama mevcut (`announcement_inbox.js:listMyAnnouncements:50`, `document_resident.js:listMyDocuments:123`). Yönetim aylık özeti bugün metin veya belge olarak paylaşabilir. Kişisel finans ucu da vardır; site gideri üretmez (`finance_read_service.js:getMyFinance:647`).
+   **Karar:** İlk taslakta bülten **DEMO/yayımlanmış içerik** olarak gösterilsin. Otomatik kategori toplamları istenirse ayrıca veri sözleşmesi tasarlansın; ham yönetici finansı sakine açılmasın. Yeni API bütün Sade görünümün önkoşulu değildir.
+
+3. **“Aidat borcum” etiketi — Doğru risk, iş mantığı ihlali henüz kanıtlanmış değil.**
+   PNG toplam kişisel borcu “Aidat borcum” diye adlandırıyor. Oysa `getMyFinance` yanıtında `account_party`, `funds`, `accounts` ayrı geliyor (`finance_read_service.js:688–696`). Tek rakam Fon borcunu da içerebilir. Çizimde yanlış etiket bulunması, finans motorunun değiştirildiğini göstermez.
+   **Karar:** “Borç durumum” ve gerçek hesap/fon kırılımı kullanılsın. Site gideri ayrı bölümde, dönem ve yayın durumuyla gösterilsin. Hata veya yayımlanmamış içerik `0 TL` değildir. “Sizin daire borcunuz” ifadesi de başkasına ait salt okunur hesabı kişisel borç gibi göstermemeli.
+
+4. **Ay başlığı ve daire rozeti — Kısmen doğru.**
+   `announcement_common.js:inboxRetentionDays:80` varsayılan 90 gün; `inboxWindowSql:101` okunmamış acil duyurulara istisna tanıyor. `mapInboxRow:610` hedef türünü döndürmüyor. Daire hedeflemesi zaten var; fakat sakinin gelen kutusundan “yalnız sizin dairenize özel” sonucu çıkarılamaz. Birden çok daire hedeflenebilir.
+   Ay başlığı tek başına şema çelişkisi değildir; bütün sayfanın ayla filtrelendiği algısı yaratması sorundur.
+   **Karar:** Ay yalnız gider bölümünün başlığı olsun; duyurular mevcut penceresini korusun. Gerekirse “Size iletilen duyuru” kullanılsın. Süresi belirlenen/pinlenen duyuru davranışı ayrıca kararlaştırılmadan `pinned_until` zorunlu teknik çözüm ilan edilmesin.
+
+5. **Altı CTA, kapı koruması ve SOS — Kısmen doğru.**
+   PNG’de yönetici Bugün bölümünde **6 koyu düğme** ve mavi SOS görülebiliyor. Bu, mevcut hiyerarşi ve tehlike paletiyle uyumsuz (`TASARIM_DILI.md:99,438`). Ancak PNG’den kapı korumasının atlandığı çıkarılamaz. Üstelik mevcut tasarım belgesi “Kapıyı aç” hızlı eyleminin Kapılar sayfasına yönlendiğini açıkça söylüyor (`289`).
+   **Karar:** Satır eylemleri ikincil, ana eylem sınırlı olsun. İlk taslakta “Kapılar” gezinmesi kullanılarak komut beklentisi giderilsin; mevcut `_openMenuItem` ve `_applyMenuSelection` korunsun (`home_page.dart:2923,2943`). **Eller Serbest**, normal yolda `HandsFreeSettingsDialog.show` açıyor (`2927`); Kapılar ile aynı iş diye birleştirilmemeli.
+
+6. **Yönetim torbası ve sayılar — Kısmen doğru.**
+   Karar JSON’unda “Yönetim / …” geçen **24 eşleme**, **10 `[P]` etiketi**, yalnız **8 “Yönetim / Platform” yolu** var. Bunlar tek yöneticinin 20+ aracının ve 10 platform ekranının aynı torbaya gömüldüğünü kanıtlamaz; farklı rollerin birleşik haritasıdır. Yine de “Yönetim” başlığının bilgi vermemesi gerçek tasarım riskidir.
+   **Kaynak düzeltmesi:** [NN/G araştırması](https://www.nngroup.com/articles/hamburger-menus/) — erişim **09.11.2026**, birincil nicel çalışma, 179 katılımcı/6 site. Masaüstünde gezinme kullanımı gizli menüde %27, görünür/karma menüde %48/%50; içerik bulunabilirliği için gövde **%20’den fazla düşüş** bildiriyor. “Yaklaşık yarı” oranını bizim görünür kategorili dizinimize doğrudan taşımak yanlış.
+   **Karar:** Yönetim sayfasının açık kategori başlıkları ve gerçek görev bağlantıları görselleştirilsin; yalnız sekme sayısından başarı sonucu çıkarılmasın.
+
+7. **Birleşik bekleyen işler altyapısı yok — Kısmen doğru; yeni uç zorunluluğu yanlış.**
+   `finance_home.js:getFinanceHome:165` zaten `collectAttention` kullanıyor. `attention_registry.js:registerAttentionSource:13`, `collectAttention:23` genişletilebilir toplama altyapısıdır. Banka satırları, borç devri ve iade kaynakları kayıtlıdır. Dekont sayacı da `FinanceViewState._loadNoticeCount:333` üzerinden mevcut özet ucundan gelir.
+   Menü rozetlerinin yalnız süper kullanıcıya ait olduğu iddiası yanlış: `_menuBadgeCounts:1127` sakin duyuru ve ziyaretçi rozetlerini de içeriyor. Geciken bakım ve daire onayının aynı özette bulunduğu ise doğrulanmadı.
+   **Karar:** Mevcut kaynakları kullan; bakım/onay için veri ve kapsam eksiklerini ayrıca kaydet. Yeni `attention-summary` bir mimari tercih olabilir, zorunluluk değildir. Registry’nin kaynak hatasını sessizce atladığı (`42`) dikkate alınmalı; eksik özet “yapılacak iş yok” diye sunulmamalı.
+
+8. **Çok siteli sakin kapsamı kilitli — Kısmen doğru.**
+   Üst çekmece seçicisi yönetici kitlesiyle sınırlı (`home_page.dart:_siteContext:6199`). Fakat uygulamada sakin seçicisi yok değildir: `announcements_inbox_view.dart:303`, `work_resident_view.dart:225`, `reservation_resident_view.dart:209`, `visitor_resident_view.dart:191` site seçimi içeriyor. Dairem tüm daireleri listeliyor (`my_apartment_view.dart:273`); finans da daire bazlı kartlar sunuyor (`my_finance_view.dart:162`).
+   **Karar:** Yeni birleşik Bugün için kapsam birleştirme tasarlansın; mevcut ekranların hepsi “ilk siteye kilitli” kabul edilmesin. Site seçiminin “Tüm dairelerim” finans görünümünü sessizce daraltıp daraltmayacağı açıkça tanımlansın.
+
+9. **İndirme düğmesini gizlemek sunucu politikasıdır — Birleşik ifade yanlış.**
+   Düğmeyi kaldırmak **sunum değişikliğidir**. Eski içeriğe erişimi gerçekten kaldırmak veya dosya alma yetkisini daraltmak **politika değişikliğidir**. Bunlar ayrılmalı.
+   Ayrıca bütün duyuru eklerinin Dosya Deposu’nda zaten görüleceği doğru değildir: normal belge erişimi belge hedefini denetler (`document_resident.js:resolveResidentDownload:195`); duyuru eki erişimi gerçek alıcıyı, etkin bağı ve belge kitlesini denetler, belge hedefini aynı biçimde kullanmaz (`resolveAnnouncementAttachmentDownload:221`).
+   **Karar:** Kullanıcının istediği düğmesiz okuyucu tasarlanabilir. Mutlak indirme/ekran görüntüsü engeli vaat edilmesin. Mevcut bileşen dosyayı indirip teslim ediyor (`document_attachments_list.dart:_open:43`); yalnız ikon silmek yerleşik önizleme davranışı oluşturmaz.
+
+10. **Mobil kaçış ve 320×%200 — Kısmen doğru.**
+    Mobil PNG’lerde hesap/Klasik dönüşü görünmüyor; bunların bütün akışta olmadığı kanıtlanmış değil. `LocalDataWiper.wipe:107` korunmayan tercihleri siler; bu doğrudur. Hesap temizliğinde Sade tercihinin de sıfırlanması makul olabilir, mutlaka korunması gerekmez.
+    **Standart düzeltmesi:** [W3C Reflow](https://www.w3.org/WAI/WCAG22/Understanding/reflow) ve [Resize Text](https://www.w3.org/WAI/WCAG22/Understanding/resize-text) — erişim **09.11.2026**, standardın açıklayıcı belgeleri. Reflow 320 **CSS px**, metin büyütme %200 ölçütüdür; birleşimleri aynı normatif test değildir. İstisna yalnız tablo değil; gerekli harita, diyagram, video, oyun ve diğer iki boyutlu içerikler de kapsanır. Projenin 320 dp + %200 birleşik stres şartı ayrıca korunmalı.
+    [Android Navigation Bar](https://developer.android.com/develop/ui/compose/components/navigation-bar) — erişim **09.11.2026**, üretici bileşen rehberi: 3–5 eş önemde, tutarlı hedef ve dar pencere önerir; evrensel sekme zorunluluğu değildir. M3 sayfası doğrudan metin vermedi; bu resmi Android kaynağı kullanıldı. Beş Türkçe sekmenin taşacağı çizimden kanıtlanamaz.
+
+İlk kurgu için **beş karar ve bağımlılık sırası**:
+
+1. **P0 — Sunum/politika ayrımı:** Düğmesiz duyuru okuyucusu ve Sade kabuk mevcut izinlerle tasarlanır. Eski ayları gerçekten kapatma, yayınlı gider bülteni ve duyuru ömrü ayrı değişiklikler olarak işaretlenir; bütün tasarım bunları beklemez.
+2. **P0 — Kapsam matrisi:** 49 enumun yanında gerçek enum dışı eylemler; kurul, görevli, şirket, platform, dış alarm alıcısı ve çoklu bağlar eşlenir. Mevcut platform kısıtları yeni yetenekmiş gibi sunulmaz.
+3. **P1 — Karşılaştırmalı taslak:** 4+4 hâlâ adaydır. Alternatif olarak yöneticide **Bugün / Finans / Daireler / İşler / Yönetim** denenebilir; görünür kategorili dört hedefli seçenekle aynı görevlerde karşılaştırılır. Görevliye boş Evim/Ödemeler üretilmez; geniş ekranda gruplu yan gezinme kullanılır.
+4. **P0 — Veri ve komut doğruluğu:** Ortak yönlendirici, kapı koruması, alarm alıcı katmanı, hesap/fon ayrımı ve mevcut özet kaynakları korunur. Yeni API yalnız gerçekten eksik veri sözleşmesi için düşünülür.
+5. **P1 — Görselden sonra gözlenebilir doğrulama:** Bağlam değişimi, bekleyen komut, hata/boş/eksik özet, ay devri, Klasik dönüş, 320 dp/%200, klavye ve gerçek görev bulma senaryoları sınanır. Bu araştırma bunların geçtiğini göstermiyor; model mutabakatı kullanıcı başarısının yerine geçmez.

@@ -410,8 +410,16 @@ class _DocumentEditDialogState extends State<DocumentEditDialog> {
                   keyPrefix: 'document_edit_audience_',
                   enabled: !_submitting,
                   value: _audience,
+                  preserveLegacyManagers:
+                      _initial.audience == DocumentAudience.managers ||
+                      _initial.audience == DocumentAudience.unknown,
+                  preserveLegacyResidents:
+                      _initial.audience == DocumentAudience.residents,
                   onChanged: (audience) => setState(() {
                     _audience = audience;
+                    if (audience == DocumentAudience.all) {
+                      _target = const DocumentTargetSelection();
+                    }
                     _targetError = null;
                   }),
                 ),
@@ -441,8 +449,10 @@ class _DocumentEditDialogState extends State<DocumentEditDialog> {
               ),
               if (_initial.attachedAnnouncements.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.sm),
-                if (_initial.audience == DocumentAudience.residents &&
-                    _audience != DocumentAudience.residents)
+                if ((_initial.audience == DocumentAudience.residents ||
+                        _initial.audience == DocumentAudience.all) &&
+                    _audience != DocumentAudience.residents &&
+                    _audience != DocumentAudience.all)
                   const InlineNotice(
                     key: ValueKey<String>('document_edit_detach_warning'),
                     tone: AppTone.warning,

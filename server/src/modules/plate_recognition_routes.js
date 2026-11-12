@@ -51,6 +51,8 @@ import {
   updateCamera,
 } from './plate_cameras_service.js';
 import { recordManagerPlateEvent } from './plate_edge_service.js';
+import { plateStatistics } from './plate_statistics_service.js';
+import { parkingOverview, saveParkingPolicy, saveApartmentParking, releaseParkingRecord, requestParkingAdmission } from './parking_access_service.js';
 import {
   clearInside,
   createEdgeClient,
@@ -151,6 +153,13 @@ function managerHandler({ context, fallback, write = false, status = 200, limite
 
 const BASE = '/manager/sites/:siteCode/plate-recognition';
 
+plateRecognitionRouter.get(`${BASE}/parking`, ...managerHandler({ context: 'parking_overview', fallback: 'Otopark bilgisi yüklenemedi.' }, ({ access }) => parkingOverview(access.siteCode)));
+plateRecognitionRouter.put(`${BASE}/parking`, ...managerHandler({ context: 'parking_policy', fallback: 'Otopark ayarı kaydedilemedi.', write: true }, ({ access, req }) => saveParkingPolicy({ ...access, body: bodyOf(req) })));
+plateRecognitionRouter.put(`${BASE}/parking/apartments/:id`, ...managerHandler({ context: 'parking_apartment', fallback: 'Daire onayı kaydedilemedi.', write: true }, ({ access, req }) => saveApartmentParking({ ...access, apartmentId: req.params.id, body: bodyOf(req) })));
+plateRecognitionRouter.post(`${BASE}/parking/records/:id/release`, ...managerHandler({ context: 'parking_release', fallback: 'Kayıt düzeltilemedi.', write: true }, ({ access, req }) => releaseParkingRecord({ ...access, id: req.params.id })));
+plateRecognitionRouter.post(`${BASE}/parking/presence/:id/release`, ...managerHandler({ context: 'parking_release', fallback: 'Kayıt düzeltilemedi.', write: true }, ({ access, req }) => releaseParkingRecord({ ...access, id: req.params.id, origin: 'presence' })));
+plateRecognitionRouter.post(`${BASE}/admissions`, ...managerHandler({ context: 'parking_admission', fallback: 'Araç giriş hakkı doğrulanamadı.', write: true, limiter: readLimiter }, ({ access, req }) => requestParkingAdmission({ siteCode: access.siteCode, body: bodyOf(req) })));
+
 // Canlı akış (since / live=1) birkaç saniyede bir yoklanır: genel okuma sınırından daha geniş, yine de kullanıcı + IP başına sınırlı.
 export const eventsLimiter = createRuleLimiter({
   rules: [
@@ -162,6 +171,7 @@ export const eventsLimiter = createRuleLimiter({
 });
 
 plateRecognitionRouter.get(`${BASE}/events`, ...managerHandler({ context: 'plate_events', fallback: 'Plaka kayıtları yüklenemedi.', limiter: eventsLimiter },({ req, access }) => listDecisions(access.siteCode, req.query, { canWrite: access.canWrite })));
+plateRecognitionRouter.get(`${BASE}/statistics`, ...managerHandler({ context: 'plate_statistics', fallback: 'Plaka raporu yüklenemedi.', limiter: eventsLimiter }, ({ req, access }) => plateStatistics(access.siteCode, req.query)));
 plateRecognitionRouter.post(
   `${BASE}/events`,
   ...managerHandler({ context: 'plate_event_record', fallback: 'Plaka olayı kaydedilemedi.', write: true, limiter: eventsLimiter }, ({ req, access }) =>
@@ -316,7 +326,9 @@ plateRecognitionRouter.post(
 );
 plateRecognitionRouter.get(`${BASE}/cameras/:id/snapshot`, authRequired, snapshotViewLimiter, async (req, res) => {
   try {
-    const access = await resolveAccess(req, res, { write: false });
+    // Camera pixels are restricted to management, independently of read-only
+    // access to camera configuration or the parking capacity/plate overview.
+    const access = await resolveAccess(req, res, { write: true });
     if (!access) return undefined;
     const snapshot = await readSnapshot({ siteCode: access.siteCode, rawId: req.params.id });
     res.set({

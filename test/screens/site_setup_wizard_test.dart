@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../support/people_nav.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:site_kapi_kontrol/models/bulk_import.dart';
 import 'package:site_kapi_kontrol/models/site_setup_progress.dart';
@@ -348,8 +349,7 @@ void main() {
       await _launch(t, run);
       await _tap(t, 'site_setup_people_manual');
       expect(find.text('Kişi Ekle'), findsOneWidget);
-      final tab = t.widget<ChoiceChip>(find.byKey(const ValueKey<String>('people_tab_0')));
-      expect(tab.selected, isTrue);
+      expect(selectedPeopleSection(t), 0);
       final dropdown = t.widget<DropdownButtonFormField<int>>(find.byType(DropdownButtonFormField<int>).first);
       expect(dropdown.initialValue, 11, reason: 'ilk site değil, sihirbazın sitesi seçili açılır');
       _noError(t);
@@ -361,8 +361,7 @@ void main() {
       await _tap(t, 'site_setup_back');
       expect(_title(t), 'Adım 3 / 6 · Daireler');
       await _tap(t, 'site_setup_apartments_list');
-      final tab = t.widget<ChoiceChip>(find.byKey(const ValueKey<String>('people_tab_1')));
-      expect(tab.selected, isTrue);
+      expect(selectedPeopleSection(t), 1);
       _noError(t);
     });
 

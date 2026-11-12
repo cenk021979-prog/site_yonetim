@@ -373,6 +373,9 @@ class DecisionManagerViewState extends State<DecisionManagerView> {
         PageHeaderCard(
           title: 'Karar Defteri',
           icon: Icons.gavel_rounded,
+          help: canWrite
+              ? 'Yönetim kurulu, genel kurul ve denetim kurulu kararlarını kaydedin; kesinleşen karar numara alır.'
+              : 'Sitedeki kararları ve taslakları izleyin.',
           action: canWrite && !_moduleOff
               ? ElevatedButton.icon(
                   key: const ValueKey<String>('decision_new'),
@@ -381,13 +384,6 @@ class DecisionManagerViewState extends State<DecisionManagerView> {
                   label: const Text('Yeni Karar'),
                 )
               : null,
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          canWrite
-              ? 'Yönetim kurulu, genel kurul ve denetim kurulu kararlarını kaydedin; kesinleşen karar numara alır.'
-              : 'Sitedeki kararları ve taslakları izleyin.',
-          style: th.bodyMedium,
         ),
         const SizedBox(height: AppSpace.md),
         const DecisionLegalNote(),

@@ -47,9 +47,12 @@ class FakePushGateway implements PushMessagingGateway {
   int deleteTokenCalls = 0;
   int initialCalls = 0;
 
-  final StreamController<String> refreshController = StreamController<String>.broadcast();
-  final StreamController<PushMessage> messageController = StreamController<PushMessage>.broadcast();
-  final StreamController<PushMessage> openedController = StreamController<PushMessage>.broadcast();
+  final StreamController<String> refreshController =
+      StreamController<String>.broadcast();
+  final StreamController<PushMessage> messageController =
+      StreamController<PushMessage>.broadcast();
+  final StreamController<PushMessage> openedController =
+      StreamController<PushMessage>.broadcast();
 
   @override
   Future<void> init() async => initCalls++;
@@ -143,6 +146,15 @@ class FakePushApi extends PushApi {
   Completer<void>? updateGate;
 
   PushPreferences prefs = const PushPreferences(available: true);
+  PushCapabilities capability = const PushCapabilities();
+  Completer<PushCapabilities>? capabilityGate;
+  int capabilityCalls = 0;
+  @override
+  Future<PushCapabilities> capabilities({required String token}) async {
+    capabilityCalls++;
+    return capabilityGate == null ? capability : capabilityGate!.future;
+  }
+
   List<PushDevice> devices = <PushDevice>[];
   PushTestResult testResult = const PushTestResult(sent: 1, failed: 0);
 
@@ -189,7 +201,11 @@ class FakePushApi extends PushApi {
     Duration? timeout,
   }) async {
     events.add('delete:$token');
-    deletes.add((token: token, installId: installId, sessionPresent: watchAuth?.session != null));
+    deletes.add((
+      token: token,
+      installId: installId,
+      sessionPresent: watchAuth?.session != null,
+    ));
     final gate = deleteGate;
     if (gate != null) await gate.future;
     final error = deleteError;
@@ -242,21 +258,25 @@ class FakePushApi extends PushApi {
   }
 }
 
-UserSession pushSession({int id = 5, String token = 'tok-A', UserRole role = UserRole.apartmentOwner}) =>
-    UserSession(
-      id: id,
-      fullName: 'Ali Veli',
-      email: 'ali$id@example.com',
-      loginName: null,
-      role: role,
-      isActive: true,
-      token: token,
-    );
+UserSession pushSession({
+  int id = 5,
+  String token = 'tok-A',
+  UserRole role = UserRole.apartmentOwner,
+}) => UserSession(
+  id: id,
+  fullName: 'Ali Veli',
+  email: 'ali$id@example.com',
+  loginName: null,
+  role: role,
+  isActive: true,
+  token: token,
+);
 
 /// Oturumu testten sürülen [AuthService] (hesap değişimi, oturum yokken bekletme). Gerçek `logout` kancası için
 /// gerçek [AuthService] kullanılır.
 class SwitchableAuth extends AuthService {
-  SwitchableAuth([this._current]) : super(api: AuthApi(baseUrl: 'http://push.test'));
+  SwitchableAuth([this._current])
+    : super(api: AuthApi(baseUrl: 'http://push.test'));
 
   UserSession? _current;
   int refreshCalls = 0;
@@ -274,7 +294,9 @@ class SwitchableAuth extends AuthService {
 }
 
 /// Mikro görevlerin ve kısa zamanlayıcıların bitmesini bekler (gerçek zaman; `test()` içinde).
-Future<void> pushSettle() => Future<void>.delayed(const Duration(milliseconds: 20));
+Future<void> pushSettle() =>
+    Future<void>.delayed(const Duration(milliseconds: 20));
 
 /// Kullanıcının bu cihazda telefon bildirimini AÇIKÇA açmış olduğu durum (açık rıza işareti).
-Future<void> pushConsent(int userId) => PushLocalStore().setEnabledHere(userId, true);
+Future<void> pushConsent(int userId) =>
+    PushLocalStore().setEnabledHere(userId, true);

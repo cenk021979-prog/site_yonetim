@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/design/empty_state.dart';
 import 'package:site_kapi_kontrol/ui/design/icon_orb.dart';
 import 'package:site_kapi_kontrol/ui/design/skeleton.dart';
@@ -36,6 +37,7 @@ class PageHeaderCard extends StatelessWidget {
     super.key,
     required this.title,
     this.action,
+    this.help,
     this.icon,
     this.tone = AppTone.primary,
   });
@@ -44,6 +46,10 @@ class PageHeaderCard extends StatelessWidget {
 
   /// null ise yalnız başlık gösterilir.
   final Widget? action;
+
+  /// Genel açıklama: fareyle üzerine gelince, dokunarak veya klavyeyle açılır.
+  /// İşlem sonucu, hata veya kritik uyarı bunun yerine görünür tutulmalıdır.
+  final String? help;
 
   /// Başlığın solundaki rozet simgesi; null ise rozet yok.
   final IconData? icon;
@@ -56,7 +62,7 @@ class PageHeaderCard extends StatelessWidget {
     final action = this.action;
     final icon = this.icon;
     final compact = MediaQuery.sizeOf(context).width < 680;
-    final Widget heading = icon == null || isLargeText(context)
+    final Widget titleBlock = icon == null || isLargeText(context)
         ? SectionHeader(title: title)
         : Row(
             children: [
@@ -68,6 +74,14 @@ class PageHeaderCard extends StatelessWidget {
               ),
               const SizedBox(width: AppSpace.md),
               Expanded(child: SectionHeader(title: title)),
+            ],
+          );
+    final Widget heading = help == null
+        ? titleBlock
+        : Row(
+            children: [
+              Expanded(child: titleBlock),
+              ContextHelp(title: title, message: help!),
             ],
           );
     final Widget content;

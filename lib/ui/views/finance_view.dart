@@ -485,27 +485,67 @@ class FinanceViewState extends State<FinanceView> {
     }
   }
 
-  /// Kart Ödemesi (komisyon notu) + Online Tahsilat (ödeme kuruluşu bağlantısı kurulumu; yönetici düzenler, kurul görüntüler).
-  Widget _cardPaymentsButton(PeopleSite site) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
+  /// Finans eylemleri: aynı yetki ve akışlar, genişliğe göre yan yana yerleşir.
+  /// Kurul yalnız Kart Ödemesi ve Online Tahsilat bilgilerini görüntüler.
+  Widget _actions(PeopleSite site) {
+    final actions = <Widget>[
+      if (site.canWrite) ...[
         PrimaryActionButton(
-          key: const ValueKey<String>('finance_open_card_payments'),
-          label: 'Kart Ödemesi',
-          icon: Icons.credit_card_rounded,
-          variant: AppButtonVariant.tonal,
-          onPressed: () => _openCardPayments(site),
+          key: const ValueKey<String>('finance_add_payment'),
+          label: 'Tahsilat Ekle',
+          icon: Icons.add_card_rounded,
+          expand: false,
+          onPressed: () => _addPayment(site),
         ),
-        const SizedBox(height: AppSpace.sm),
         PrimaryActionButton(
-          key: const ValueKey<String>('finance_open_online_collection'),
-          label: 'Online Tahsilat',
-          icon: Icons.account_balance_rounded,
+          key: const ValueKey<String>('finance_add_charge'),
+          label: 'Ek Borç Ekle',
+          icon: Icons.post_add_rounded,
+          expand: false,
           variant: AppButtonVariant.tonal,
-          onPressed: () => _openOnlineCollection(site),
+          onPressed: () => _addCharge(site),
+        ),
+        PrimaryActionButton(
+          key: const ValueKey<String>('finance_open_settings'),
+          label: 'Finans Ayarları',
+          icon: Icons.tune_rounded,
+          expand: false,
+          variant: AppButtonVariant.tonal,
+          onPressed: () => _openSettings(site),
         ),
       ],
+      PrimaryActionButton(
+        key: const ValueKey<String>('finance_open_card_payments'),
+        label: 'Kart Ödemesi',
+        icon: Icons.credit_card_rounded,
+        expand: false,
+        variant: AppButtonVariant.tonal,
+        onPressed: () => _openCardPayments(site),
+      ),
+      PrimaryActionButton(
+        key: const ValueKey<String>('finance_open_online_collection'),
+        label: 'Online Tahsilat',
+        icon: Icons.account_balance_rounded,
+        expand: false,
+        variant: AppButtonVariant.tonal,
+        onPressed: () => _openOnlineCollection(site),
+      ),
+    ];
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Küçük yazıda telefonda iki sütun; büyük yazıda etiketleri ezmeden
+        // tek sütun. Masaüstünde eylemler içerik genişliğinde yan yana akar.
+        final scale = MediaQuery.textScalerOf(context).scale(1);
+        final columns = constraints.maxWidth >= 680 ? 0 : (scale > 1.25 ? 1 : 2);
+        final width = columns == 0
+            ? null
+            : (constraints.maxWidth - AppSpace.sm * (columns - 1)) / columns;
+        return Wrap(
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: [for (final action in actions) SizedBox(width: width, child: action)],
+        );
+      },
     );
   }
 
@@ -540,7 +580,6 @@ class FinanceViewState extends State<FinanceView> {
 
   @override
   Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
     final site = _site;
     final Widget content;
     if (site == null) {
@@ -561,13 +600,12 @@ class FinanceViewState extends State<FinanceView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Finans', icon: Icons.account_balance_wallet_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Aidat tanımlarını, daire borç ve alacaklarını, tahsilatları ve mali dönemleri buradan yönetin.',
-          style: th.bodyMedium,
+        const PageHeaderCard(
+          title: 'Finans',
+          icon: Icons.account_balance_wallet_rounded,
+          help: 'Aidat tanımlarını, daire borç ve alacaklarını, tahsilatları ve mali dönemleri buradan yönetin.',
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         content,
       ],
     );
@@ -635,37 +673,8 @@ class FinanceViewState extends State<FinanceView> {
         else ...[
           _buildSummary(context),
           const SizedBox(height: AppSpace.md),
-          if (site.canWrite) ...[
-            PrimaryActionButton(
-              key: const ValueKey<String>('finance_add_payment'),
-              label: 'Tahsilat Ekle',
-              icon: Icons.add_card_rounded,
-              onPressed: () => _addPayment(site),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            PrimaryActionButton(
-              key: const ValueKey<String>('finance_add_charge'),
-              label: 'Ek Borç Ekle',
-              icon: Icons.post_add_rounded,
-              variant: AppButtonVariant.tonal,
-              onPressed: () => _addCharge(site),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            PrimaryActionButton(
-              key: const ValueKey<String>('finance_open_settings'),
-              label: 'Finans Ayarları',
-              icon: Icons.tune_rounded,
-              variant: AppButtonVariant.tonal,
-              onPressed: () => _openSettings(site),
-            ),
-            const SizedBox(height: AppSpace.sm),
-            _cardPaymentsButton(site),
-            const SizedBox(height: AppSpace.md),
-          ] else ...[
-            // Kurul üyesi (salt okur): kart ödemesi bilgilerini görüntüler.
-            _cardPaymentsButton(site),
-            const SizedBox(height: AppSpace.md),
-          ],
+          _actions(site),
+          const SizedBox(height: AppSpace.md),
           // Sekme çubuğu: ekran okuyucu "sekme" rolünü ve seçili durumu okur.
           Semantics(
             container: true,

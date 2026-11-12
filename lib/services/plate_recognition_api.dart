@@ -4,9 +4,11 @@
 // "açılırdı" olarak kaydedilir. Olay alma ucu (kamera -> sunucu) 6B'nindir ve cihaz belirteciyle çalışır; istemci çağırmaz.
 import 'dart:async';
 import 'dart:convert';
+import 'package:site_kapi_kontrol/models/plate_statistics.dart';
 
 import 'package:http/http.dart' as http;
 import 'package:site_kapi_kontrol/models/plate_gates.dart';
+import 'package:site_kapi_kontrol/models/parking_access.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/auth_api.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
@@ -25,7 +27,11 @@ enum PlateAccess {
 
 /// Ekrandaki bir site ve erişim türü.
 class PlateSite {
-  const PlateSite({required this.code, required this.name, required this.access});
+  const PlateSite({
+    required this.code,
+    required this.name,
+    required this.access,
+  });
 
   final int code;
   final String name;
@@ -36,7 +42,11 @@ class PlateSite {
   String get label => name.trim().isEmpty ? 'İsimsiz site' : name.trim();
 
   @override
-  bool operator ==(Object other) => other is PlateSite && other.code == code && other.name == name && other.access == access;
+  bool operator ==(Object other) =>
+      other is PlateSite &&
+      other.code == code &&
+      other.name == name &&
+      other.access == access;
 
   @override
   int get hashCode => Object.hash(code, name, access);
@@ -45,12 +55,27 @@ class PlateSite {
 // --- Plaka biçimi (sunucuyla aynı kural) --------------------------------------------------------------------------
 
 /// Türkiye plakası: il kodu 01-81 + 1-3 harf + 2-4 rakam.
-final RegExp trPlatePattern = RegExp(r'^(0[1-9]|[1-7][0-9]|8[01])([A-Z]{1,3})([0-9]{2,4})$');
+final RegExp trPlatePattern = RegExp(
+  r'^(0[1-9]|[1-7][0-9]|8[01])([A-Z]{1,3})([0-9]{2,4})$',
+);
 
 /// Boşluk / tire / nokta atılır, büyük harf, Türkçe harfler ASCII'ye iner. Biçim doğrulanmaz.
 String canonicalTrPlate(String raw) {
   if (raw.length > 24) return '';
-  const map = <String, String>{'Ç': 'C', 'Ğ': 'G', 'İ': 'I', 'Ö': 'O', 'Ş': 'S', 'Ü': 'U', 'ç': 'C', 'ğ': 'G', 'ı': 'I', 'ö': 'O', 'ş': 'S', 'ü': 'U'};
+  const map = <String, String>{
+    'Ç': 'C',
+    'Ğ': 'G',
+    'İ': 'I',
+    'Ö': 'O',
+    'Ş': 'S',
+    'Ü': 'U',
+    'ç': 'C',
+    'ğ': 'G',
+    'ı': 'I',
+    'ö': 'O',
+    'ş': 'S',
+    'ü': 'U',
+  };
   final cleaned = raw.replaceAll(RegExp(r'[\s\-._]'), '');
   final out = StringBuffer();
   for (final rune in cleaned.runes) {
@@ -78,15 +103,24 @@ String formatTrPlate(String plate) {
 /// Geçişin kimliği (sözleşme v3, yalnız yazma yetkisi olana gelir): `resident` (kayıtlı araç) | `guest` (misafir izni).
 /// Tanımsız plakada sunucu `identity: null` yollar; satırda yalnız plaka görünür.
 class PlateIdentity {
-  const PlateIdentity({required this.kind, this.apartmentLabel, this.personLabel});
+  const PlateIdentity({
+    required this.kind,
+    this.apartmentLabel,
+    this.personLabel,
+  });
 
   /// `identity` nesnesi ya da null; bilinmeyen tür (`resident`/`guest` dışı) null döner.
   static PlateIdentity? tryParse(Object? raw) {
     if (raw is! Map) return null;
     final kind = raw['kind'];
     if (kind != 'resident' && kind != 'guest') return null;
-    String? clean(Object? v) => v is String && v.trim().isNotEmpty ? v.trim() : null;
-    return PlateIdentity(kind: kind as String, apartmentLabel: clean(raw['apartment_label']), personLabel: clean(raw['person_label']));
+    String? clean(Object? v) =>
+        v is String && v.trim().isNotEmpty ? v.trim() : null;
+    return PlateIdentity(
+      kind: kind as String,
+      apartmentLabel: clean(raw['apartment_label']),
+      personLabel: clean(raw['person_label']),
+    );
   }
 
   final String kind;
@@ -111,23 +145,30 @@ class PlateDecisionRow {
     this.direction,
     this.identity,
     this.gateState,
+    this.gateId,
   });
 
-  factory PlateDecisionRow.fromJson(Map<String, dynamic> json) => PlateDecisionRow(
-    decisionKind: json['decision_kind'] as String?,
-    direction: json['direction'] as String?,
-    identity: PlateIdentity.tryParse(json['identity']),
-    gateState: (json['gate_state'] == 'triggered' || json['gate_state'] == 'no_response') ? json['gate_state'] as String : null,
-    id: (json['id'] as num?)?.toInt() ?? 0,
-    plate: '${json['plate'] ?? ''}',
-    decision: '${json['decision'] ?? 'UNKNOWN'}',
-    reasonLabel: '${json['reason_label'] ?? json['reason'] ?? ''}',
-    confidence: (json['confidence'] as num?)?.toDouble(),
-    autoAction: '${json['auto_action'] ?? 'none'}',
-    seenAt: DateTime.tryParse('${json['seen_at'] ?? ''}')?.toLocal(),
-    deviceName: json['device_name'] as String?,
-    doorName: json['door_name'] as String?,
-  );
+  factory PlateDecisionRow.fromJson(Map<String, dynamic> json) =>
+      PlateDecisionRow(
+        decisionKind: json['decision_kind'] as String?,
+        direction: json['direction'] as String?,
+        gateId: (json['gate_id'] as num?)?.toInt(),
+        identity: PlateIdentity.tryParse(json['identity']),
+        gateState:
+            (json['gate_state'] == 'triggered' ||
+                json['gate_state'] == 'no_response')
+            ? json['gate_state'] as String
+            : null,
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        plate: '${json['plate'] ?? ''}',
+        decision: '${json['decision'] ?? 'UNKNOWN'}',
+        reasonLabel: '${json['reason_label'] ?? json['reason'] ?? ''}',
+        confidence: (json['confidence'] as num?)?.toDouble(),
+        autoAction: '${json['auto_action'] ?? 'none'}',
+        seenAt: DateTime.tryParse('${json['seen_at'] ?? ''}')?.toLocal(),
+        deviceName: json['device_name'] as String?,
+        doorName: json['door_name'] as String?,
+      );
 
   final int id;
   final String plate;
@@ -144,6 +185,7 @@ class PlateDecisionRow {
 
   /// Geçiş yönü: giris | cikis (eski kayıtlarda null).
   final String? direction;
+  final int? gateId;
 
   /// Kimlik (daire + kişi / misafir); yetkisiz okuyucuda ve tanımsız plakada null.
   final PlateIdentity? identity;
@@ -157,12 +199,24 @@ class PlateDecisionRow {
 
 /// Canlı geçiş akışı yanıtı: son geçişler + içerideki araç sayısı + sunucunun söylediği yenileme ayarı (istemcide sabit yok).
 class PlateLiveFeed {
-  const PlateLiveFeed({required this.events, required this.insideCount, required this.refreshSeconds, required this.limit});
+  const PlateLiveFeed({
+    required this.events,
+    required this.insideCount,
+    required this.refreshSeconds,
+    required this.limit,
+  });
 
   factory PlateLiveFeed.fromJson(Map<String, dynamic> json) => PlateLiveFeed(
-    events: <PlateDecisionRow>[for (final raw in (json['events'] as List? ?? const <Object?>[])) if (raw is Map) PlateDecisionRow.fromJson(Map<String, dynamic>.from(raw))],
+    events: <PlateDecisionRow>[
+      for (final raw in (json['events'] as List? ?? const <Object?>[]))
+        if (raw is Map)
+          PlateDecisionRow.fromJson(Map<String, dynamic>.from(raw)),
+    ],
     insideCount: (json['inside_count'] as num?)?.toInt() ?? 0,
-    refreshSeconds: ((json['refresh_seconds'] as num?)?.toInt() ?? 5).clamp(2, 60),
+    refreshSeconds: ((json['refresh_seconds'] as num?)?.toInt() ?? 5).clamp(
+      2,
+      60,
+    ),
     limit: ((json['limit'] as num?)?.toInt() ?? 30).clamp(1, 200),
   );
 
@@ -212,21 +266,30 @@ class PlatePermit {
 class PlateApartment {
   const PlateApartment({required this.id, required this.label});
 
-  factory PlateApartment.fromJson(Map<String, dynamic> json) => PlateApartment(id: (json['id'] as num?)?.toInt() ?? 0, label: '${json['label'] ?? ''}');
+  factory PlateApartment.fromJson(Map<String, dynamic> json) => PlateApartment(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    label: '${json['label'] ?? ''}',
+  );
 
   final int id;
   final String label;
 }
 
 class PlateBlacklistItem {
-  const PlateBlacklistItem({required this.id, required this.plate, required this.reason, required this.createdByName});
+  const PlateBlacklistItem({
+    required this.id,
+    required this.plate,
+    required this.reason,
+    required this.createdByName,
+  });
 
-  factory PlateBlacklistItem.fromJson(Map<String, dynamic> json) => PlateBlacklistItem(
-    id: (json['id'] as num?)?.toInt() ?? 0,
-    plate: '${json['plate'] ?? ''}',
-    reason: json['reason'] as String?,
-    createdByName: json['created_by_name'] as String?,
-  );
+  factory PlateBlacklistItem.fromJson(Map<String, dynamic> json) =>
+      PlateBlacklistItem(
+        id: (json['id'] as num?)?.toInt() ?? 0,
+        plate: '${json['plate'] ?? ''}',
+        reason: json['reason'] as String?,
+        createdByName: json['created_by_name'] as String?,
+      );
 
   final int id;
   final String plate;
@@ -235,10 +298,17 @@ class PlateBlacklistItem {
 }
 
 class PlateCamera {
-  const PlateCamera({required this.id, required this.name, required this.isActive});
+  const PlateCamera({
+    required this.id,
+    required this.name,
+    required this.isActive,
+  });
 
-  factory PlateCamera.fromJson(Map<String, dynamic> json) =>
-      PlateCamera(id: (json['id'] as num?)?.toInt() ?? 0, name: '${json['name'] ?? ''}', isActive: json['is_active'] != false);
+  factory PlateCamera.fromJson(Map<String, dynamic> json) => PlateCamera(
+    id: (json['id'] as num?)?.toInt() ?? 0,
+    name: '${json['name'] ?? ''}',
+    isActive: json['is_active'] != false,
+  );
 
   final int id;
   final String name;
@@ -256,15 +326,16 @@ class PlateGateSetting {
     required this.cooldownSeconds,
   });
 
-  factory PlateGateSetting.fromJson(Map<String, dynamic> json) => PlateGateSetting(
-    doorId: (json['door_id'] as num?)?.toInt() ?? 0,
-    doorName: '${json['door_name'] ?? ''}',
-    deviceId: (json['device_id'] as num?)?.toInt(),
-    cameraName: json['camera_name'] as String?,
-    autoOpen: json['auto_open'] == true,
-    minConfidence: (json['min_confidence'] as num?)?.toDouble() ?? 0.85,
-    cooldownSeconds: (json['cooldown_seconds'] as num?)?.toInt() ?? 30,
-  );
+  factory PlateGateSetting.fromJson(Map<String, dynamic> json) =>
+      PlateGateSetting(
+        doorId: (json['door_id'] as num?)?.toInt() ?? 0,
+        doorName: '${json['door_name'] ?? ''}',
+        deviceId: (json['device_id'] as num?)?.toInt(),
+        cameraName: json['camera_name'] as String?,
+        autoOpen: json['auto_open'] == true,
+        minConfidence: (json['min_confidence'] as num?)?.toDouble() ?? 0.85,
+        cooldownSeconds: (json['cooldown_seconds'] as num?)?.toInt() ?? 30,
+      );
 
   final int doorId;
   final String doorName;
@@ -276,11 +347,22 @@ class PlateGateSetting {
 }
 
 class PlateSettings {
-  const PlateSettings({required this.doors, required this.cameras, required this.autoOpenSupported});
+  const PlateSettings({
+    required this.doors,
+    required this.cameras,
+    required this.autoOpenSupported,
+  });
 
   factory PlateSettings.fromJson(Map<String, dynamic> json) => PlateSettings(
-    doors: <PlateGateSetting>[for (final raw in (json['doors'] as List? ?? const <Object?>[])) if (raw is Map) PlateGateSetting.fromJson(Map<String, dynamic>.from(raw))],
-    cameras: <PlateCamera>[for (final raw in (json['cameras'] as List? ?? const <Object?>[])) if (raw is Map) PlateCamera.fromJson(Map<String, dynamic>.from(raw))],
+    doors: <PlateGateSetting>[
+      for (final raw in (json['doors'] as List? ?? const <Object?>[]))
+        if (raw is Map)
+          PlateGateSetting.fromJson(Map<String, dynamic>.from(raw)),
+    ],
+    cameras: <PlateCamera>[
+      for (final raw in (json['cameras'] as List? ?? const <Object?>[]))
+        if (raw is Map) PlateCamera.fromJson(Map<String, dynamic>.from(raw)),
+    ],
     autoOpenSupported: json['auto_open_supported'] == true,
   );
 
@@ -299,12 +381,22 @@ class PlateResidentOverview {
     required this.dailyRemaining,
     required this.maxDays,
     this.movementNotify = false,
+    this.movementNotifyAvailable = false,
   });
 
-  factory PlateResidentOverview.fromJson(Map<String, dynamic> json) => PlateResidentOverview(
+  factory PlateResidentOverview.fromJson(
+    Map<String, dynamic> json,
+  ) => PlateResidentOverview(
     movementNotify: json['movement_notify'] == true,
-    apartments: <PlateApartment>[for (final raw in (json['apartments'] as List? ?? const <Object?>[])) if (raw is Map) PlateApartment.fromJson(Map<String, dynamic>.from(raw))],
-    permits: <PlatePermit>[for (final raw in (json['permits'] as List? ?? const <Object?>[])) if (raw is Map) PlatePermit.fromJson(Map<String, dynamic>.from(raw))],
+    movementNotifyAvailable: json['movement_notify_available'] == true,
+    apartments: <PlateApartment>[
+      for (final raw in (json['apartments'] as List? ?? const <Object?>[]))
+        if (raw is Map) PlateApartment.fromJson(Map<String, dynamic>.from(raw)),
+    ],
+    permits: <PlatePermit>[
+      for (final raw in (json['permits'] as List? ?? const <Object?>[]))
+        if (raw is Map) PlatePermit.fromJson(Map<String, dynamic>.from(raw)),
+    ],
     dailyLimit: (json['daily_limit'] as num?)?.toInt() ?? 5,
     dailyRemaining: (json['daily_remaining'] as num?)?.toInt() ?? 0,
     maxDays: (json['max_days'] as num?)?.toInt() ?? 30,
@@ -318,11 +410,18 @@ class PlateResidentOverview {
 
   /// Araç giriş / çıkış bildirimi tercihi (varsayılan kapalı).
   final bool movementNotify;
+  final bool movementNotifyAvailable;
 }
 
 /// Misafir izni formu çıktısı. duration: day | week | custom.
 class PermitDraft {
-  const PermitDraft({required this.apartmentId, required this.plate, required this.duration, this.days, this.note});
+  const PermitDraft({
+    required this.apartmentId,
+    required this.plate,
+    required this.duration,
+    this.days,
+    this.note,
+  });
 
   final int? apartmentId;
   final String plate;
@@ -349,57 +448,170 @@ class PlateRecognitionApi {
   final String _baseUrl;
   final http.Client _client;
 
-  static String _site(int site, String tail) => '/manager/sites/$site/plate-recognition/$tail';
+  static String _site(int site, String tail) =>
+      '/manager/sites/$site/plate-recognition/$tail';
 
-  Future<List<PlateDecisionRow>> events(String token, int site, {String? decision}) async {
-    final json = await _send('GET', _site(site, 'events'), token, query: <String, String>{'limit': '50', 'decision': ?decision});
-    return <PlateDecisionRow>[for (final raw in (json['events'] as List? ?? const <Object?>[])) if (raw is Map) PlateDecisionRow.fromJson(Map<String, dynamic>.from(raw))];
+  Future<ParkingOverview> parking(
+    String token,
+    int site, {
+    String method = 'GET',
+    String tail = '',
+    Map<String, Object?>? body,
+  }) async => ParkingOverview.fromJson(
+    await _send(method, _site(site, 'parking$tail'), token, body: body),
+  );
+  Future<String> parkingPhoto(String token, int apartment, int vehicle) async {
+    final data = await _send(
+      'GET',
+      '/app/apartments/$apartment/vehicles/$vehicle/registration-photo',
+      token,
+    );
+    final encoded = data['image_base64'];
+    if (encoded is! String) throw ApiException('Ruhsat fotoğrafı okunamadı.');
+    return encoded;
+  }
+
+  Future<List<PlateDecisionRow>> events(
+    String token,
+    int site, {
+    String? decision,
+  }) async {
+    final json = await _send(
+      'GET',
+      _site(site, 'events'),
+      token,
+      query: <String, String>{'limit': '50', 'decision': ?decision},
+    );
+    return <PlateDecisionRow>[
+      for (final raw in (json['events'] as List? ?? const <Object?>[]))
+        if (raw is Map)
+          PlateDecisionRow.fromJson(Map<String, dynamic>.from(raw)),
+    ];
   }
 
   /// Canlı akış: `live=1` (limit sunucu ayarından); [limit] verilmezse sunucu karar verir.
-  Future<PlateLiveFeed> liveFeed(String token, int site, {int? limit}) async {
-    final json = await _send('GET', _site(site, 'events'), token, query: <String, String>{'live': '1', if (limit != null) 'limit': '$limit'});
+  Future<PlateStatistics> statistics(
+    String token,
+    int site, {
+    int? gateId,
+    String? anchor,
+  }) async => PlateStatistics.fromJson(
+    await _send(
+      'GET',
+      _site(site, 'statistics'),
+      token,
+      query: {if (gateId != null) 'gate_id': '$gateId', 'anchor': ?anchor},
+    ),
+  );
+
+  Future<PlateLiveFeed> liveFeed(
+    String token,
+    int site, {
+    int? limit,
+    int? gateId,
+  }) async {
+    final json = await _send(
+      'GET',
+      _site(site, 'events'),
+      token,
+      query: <String, String>{
+        'live': '1',
+        if (limit != null) 'limit': '$limit',
+        if (gateId != null) 'gate_id': '$gateId',
+      },
+    );
     return PlateLiveFeed.fromJson(json);
   }
 
   Future<List<PlatePermit>> permits(String token, int site) async {
-    final json = await _send('GET', _site(site, 'permits'), token, query: const <String, String>{'status': 'active', 'limit': '100'});
-    return <PlatePermit>[for (final raw in (json['permits'] as List? ?? const <Object?>[])) if (raw is Map) PlatePermit.fromJson(Map<String, dynamic>.from(raw))];
+    final json = await _send(
+      'GET',
+      _site(site, 'permits'),
+      token,
+      query: const <String, String>{'status': 'active', 'limit': '100'},
+    );
+    return <PlatePermit>[
+      for (final raw in (json['permits'] as List? ?? const <Object?>[]))
+        if (raw is Map) PlatePermit.fromJson(Map<String, dynamic>.from(raw)),
+    ];
   }
 
-  Future<List<PlateApartment>> searchApartments(String token, int site, String q) async {
-    final json = await _send('GET', _site(site, 'apartments'), token, query: <String, String>{'q': q.trim()});
-    return <PlateApartment>[for (final raw in (json['apartments'] as List? ?? const <Object?>[])) if (raw is Map) PlateApartment.fromJson(Map<String, dynamic>.from(raw))];
+  Future<List<PlateApartment>> searchApartments(
+    String token,
+    int site,
+    String q,
+  ) async {
+    final json = await _send(
+      'GET',
+      _site(site, 'apartments'),
+      token,
+      query: <String, String>{'q': q.trim()},
+    );
+    return <PlateApartment>[
+      for (final raw in (json['apartments'] as List? ?? const <Object?>[]))
+        if (raw is Map) PlateApartment.fromJson(Map<String, dynamic>.from(raw)),
+    ];
   }
 
   Future<void> createPermit(String token, int site, PermitDraft draft) async {
-    await _send('POST', _site(site, 'permits'), token, body: draft.toBody(), okStatuses: const <int>{201});
+    await _send(
+      'POST',
+      _site(site, 'permits'),
+      token,
+      body: draft.toBody(),
+      okStatuses: const <int>{201},
+    );
   }
 
   Future<void> revokePermit(String token, int site, int id) async {
-    await _send('POST', _site(site, 'permits/$id/revoke'), token, body: const <String, Object?>{});
+    await _send(
+      'POST',
+      _site(site, 'permits/$id/revoke'),
+      token,
+      body: const <String, Object?>{},
+    );
   }
 
   Future<List<PlateBlacklistItem>> blacklist(String token, int site) async {
     final json = await _send('GET', _site(site, 'blacklist'), token);
-    return <PlateBlacklistItem>[for (final raw in (json['items'] as List? ?? const <Object?>[])) if (raw is Map) PlateBlacklistItem.fromJson(Map<String, dynamic>.from(raw))];
+    return <PlateBlacklistItem>[
+      for (final raw in (json['items'] as List? ?? const <Object?>[]))
+        if (raw is Map)
+          PlateBlacklistItem.fromJson(Map<String, dynamic>.from(raw)),
+    ];
   }
 
-  Future<void> addBlacklist(String token, int site, String plate, String reason) async {
+  Future<void> addBlacklist(
+    String token,
+    int site,
+    String plate,
+    String reason,
+  ) async {
     await _send(
       'POST',
       _site(site, 'blacklist'),
       token,
-      body: <String, Object?>{'plate': plate, if (reason.trim().isNotEmpty) 'reason': reason.trim()},
+      body: <String, Object?>{
+        'plate': plate,
+        if (reason.trim().isNotEmpty) 'reason': reason.trim(),
+      },
       okStatuses: const <int>{201},
     );
   }
 
   Future<void> removeBlacklist(String token, int site, int id) async {
-    await _send('POST', _site(site, 'blacklist/$id/remove'), token, body: const <String, Object?>{});
+    await _send(
+      'POST',
+      _site(site, 'blacklist/$id/remove'),
+      token,
+      body: const <String, Object?>{},
+    );
   }
 
-  Future<PlateSettings> settings(String token, int site) async => PlateSettings.fromJson(await _send('GET', _site(site, 'settings'), token));
+  Future<PlateSettings> settings(String token, int site) async =>
+      PlateSettings.fromJson(
+        await _send('GET', _site(site, 'settings'), token),
+      );
 
   Future<PlateSettings> saveGate(
     String token,
@@ -428,13 +640,33 @@ class PlateRecognitionApi {
 
   // --- Geçiş noktaları (A1) ---
 
-  Future<PlateGatesOverview> gatesOverview(String token, int site) async => PlateGatesOverview.fromJson(await _send('GET', _site(site, 'gates'), token));
+  Future<PlateGatesOverview> gatesOverview(String token, int site) async =>
+      PlateGatesOverview.fromJson(
+        await _send('GET', _site(site, 'gates'), token),
+      );
 
-  Future<PlateGatesOverview> createGatePoint(String token, int site, GateDraft draft) async =>
-      PlateGatesOverview.fromJson(await _send('POST', _site(site, 'gates'), token, body: draft.toBody(), okStatuses: const <int>{201}));
+  Future<PlateGatesOverview> createGatePoint(
+    String token,
+    int site,
+    GateDraft draft,
+  ) async => PlateGatesOverview.fromJson(
+    await _send(
+      'POST',
+      _site(site, 'gates'),
+      token,
+      body: draft.toBody(),
+      okStatuses: const <int>{201},
+    ),
+  );
 
-  Future<PlateGatesOverview> updateGatePoint(String token, int site, int id, GateDraft draft) async =>
-      PlateGatesOverview.fromJson(await _send('PUT', _site(site, 'gates/$id'), token, body: draft.toBody()));
+  Future<PlateGatesOverview> updateGatePoint(
+    String token,
+    int site,
+    int id,
+    GateDraft draft,
+  ) async => PlateGatesOverview.fromJson(
+    await _send('PUT', _site(site, 'gates/$id'), token, body: draft.toBody()),
+  );
 
   /// Yalnızca geçiş ve arka plaka engelleme sürelerini günceller (cihaz, yön veya kameralara dokunmaz).
   Future<PlateGatesOverview> updateGateTimings(
@@ -444,21 +676,26 @@ class PlateRecognitionApi {
     required int consecutiveVehicleDelaySeconds,
     required int entryRearSuppressSeconds,
     required int exitRearSuppressSeconds,
-  }) async =>
-      PlateGatesOverview.fromJson(
-        await _send(
-          'PUT',
-          _site(site, 'gates/$id'),
-          token,
-          body: <String, Object?>{
-            'consecutive_vehicle_delay_seconds': consecutiveVehicleDelaySeconds,
-            'entry_rear_suppress_seconds': entryRearSuppressSeconds,
-            'exit_rear_suppress_seconds': exitRearSuppressSeconds,
-          },
-        ),
-      );
+  }) async => PlateGatesOverview.fromJson(
+    await _send(
+      'PUT',
+      _site(site, 'gates/$id'),
+      token,
+      body: <String, Object?>{
+        'consecutive_vehicle_delay_seconds': consecutiveVehicleDelaySeconds,
+        'entry_rear_suppress_seconds': entryRearSuppressSeconds,
+        'exit_rear_suppress_seconds': exitRearSuppressSeconds,
+      },
+    ),
+  );
 
-  Future<PlateGatesOverview> deleteGatePoint(String token, int site, int id) async => PlateGatesOverview.fromJson(await _send('DELETE', _site(site, 'gates/$id'), token));
+  Future<PlateGatesOverview> deleteGatePoint(
+    String token,
+    int site,
+    int id,
+  ) async => PlateGatesOverview.fromJson(
+    await _send('DELETE', _site(site, 'gates/$id'), token),
+  );
 
   Future<void> saveGateSettings(
     String token,
@@ -470,6 +707,7 @@ class PlateRecognitionApi {
     required int insideTimeoutHours,
     required int alertIntervalMinutes,
     required int notifyMaxAgeMinutes,
+    bool? movementNotificationsEnabled,
   }) async {
     await _send(
       'PUT',
@@ -483,43 +721,89 @@ class PlateRecognitionApi {
         'inside_timeout_hours': insideTimeoutHours,
         'alert_interval_minutes': alertIntervalMinutes,
         'resident_notify_max_age_minutes': notifyMaxAgeMinutes,
+        'resident_movement_notifications_enabled': ?movementNotificationsEnabled,
       },
     );
   }
 
   /// Kenar istemci kaydı: anahtar YALNIZ bu yanıtta döner (sunucuda yalnız özeti saklanır).
   Future<String> createEdgeClient(String token, int site, String name) async {
-    final json = await _send('POST', _site(site, 'edge-clients'), token, body: <String, Object?>{'name': name.trim()}, okStatuses: const <int>{201});
+    final json = await _send(
+      'POST',
+      _site(site, 'edge-clients'),
+      token,
+      body: <String, Object?>{'name': name.trim()},
+      okStatuses: const <int>{201},
+    );
     return '${json['edge_key']}';
   }
 
-  Future<String> rotateEdgeKey(String token, int site, int id) async => '${(await _send('POST', _site(site, 'edge-clients/$id/rotate-key'), token, body: const <String, Object?>{}))['edge_key']}';
+  Future<String> rotateEdgeKey(String token, int site, int id) async =>
+      '${(await _send('POST', _site(site, 'edge-clients/$id/rotate-key'), token, body: const <String, Object?>{}))['edge_key']}';
 
   Future<void> revokeEdgeClient(String token, int site, int id) async {
-    await _send('POST', _site(site, 'edge-clients/$id/revoke'), token, body: const <String, Object?>{});
+    await _send(
+      'POST',
+      _site(site, 'edge-clients/$id/revoke'),
+      token,
+      body: const <String, Object?>{},
+    );
   }
 
-  Future<PlateInside> inside(String token, int site) async => PlateInside.fromJson(await _send('GET', _site(site, 'inside'), token));
+  Future<PlateInside> inside(String token, int site) async =>
+      PlateInside.fromJson(await _send('GET', _site(site, 'inside'), token));
 
   Future<void> clearInside(String token, int site, int id) async {
-    await _send('POST', _site(site, 'inside/$id/clear'), token, body: const <String, Object?>{});
+    await _send(
+      'POST',
+      _site(site, 'inside/$id/clear'),
+      token,
+      body: const <String, Object?>{},
+    );
   }
 
   Future<PlateResidentOverview> residentOverview(String token, int site) async {
-    return PlateResidentOverview.fromJson(await _send('GET', '/app/plate-permits', token, query: <String, String>{'site_code': '$site'}));
+    return PlateResidentOverview.fromJson(
+      await _send(
+        'GET',
+        '/app/plate-permits',
+        token,
+        query: <String, String>{'site_code': '$site'},
+      ),
+    );
   }
 
   Future<void> residentCreate(String token, int site, PermitDraft draft) async {
-    await _send('POST', '/app/plate-permits', token, body: <String, Object?>{'site_code': site, ...draft.toBody()}, okStatuses: const <int>{201});
+    await _send(
+      'POST',
+      '/app/plate-permits',
+      token,
+      body: <String, Object?>{'site_code': site, ...draft.toBody()},
+      okStatuses: const <int>{201},
+    );
   }
 
   Future<void> residentRevoke(String token, int site, int id) async {
-    await _send('POST', '/app/plate-permits/$id/revoke', token, body: <String, Object?>{'site_code': site});
+    await _send(
+      'POST',
+      '/app/plate-permits/$id/revoke',
+      token,
+      body: <String, Object?>{'site_code': site},
+    );
   }
 
   /// Aracım giriş / çıkış yaptığında bildirim (kişi bazında, varsayılan KAPALI).
-  Future<void> setMovementNotify(String token, int site, {required bool enabled}) async {
-    await _send('PUT', '/app/plate-permits/notify', token, body: <String, Object?>{'site_code': site, 'movement_enabled': enabled});
+  Future<void> setMovementNotify(
+    String token,
+    int site, {
+    required bool enabled,
+  }) async {
+    await _send(
+      'PUT',
+      '/app/plate-permits/notify',
+      token,
+      body: <String, Object?>{'site_code': site, 'movement_enabled': enabled},
+    );
   }
 
   Future<Map<String, dynamic>> _send(
@@ -540,23 +824,40 @@ class PlateRecognitionApi {
     if (body != null) request.body = jsonEncode(body);
     final http.Response response;
     try {
-      response = await _client.send(request).then(http.Response.fromStream).timeout(const Duration(seconds: 20));
+      response = await _client
+          .send(request)
+          .then(http.Response.fromStream)
+          .timeout(const Duration(seconds: 20));
     } on TimeoutException {
       throw ApiException('Sunucu yanıt vermedi, tekrar deneyin.');
     } on Exception {
-      throw ApiException('Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.');
+      throw ApiException(
+        'Sunucuya bağlanılamadı. İnternet bağlantınızı kontrol edip tekrar deneyin.',
+      );
     }
     Map<String, dynamic> payload = const <String, dynamic>{};
     try {
-      final raw = jsonDecode(utf8.decode(response.bodyBytes, allowMalformed: true));
+      final raw = jsonDecode(
+        utf8.decode(response.bodyBytes, allowMalformed: true),
+      );
       if (raw is Map) payload = Map<String, dynamic>.from(raw);
     } on FormatException {
       // Gövde JSON değil.
     }
     if (okStatuses.contains(response.statusCode)) return payload;
     final code = payload['code'] is String ? payload['code'] as String : null;
-    if (response.statusCode == 401) throw SessionExpiredException('Oturum süreniz doldu. Lütfen tekrar giriş yapın.', code);
-    throw ApiException(_message(code, payload['error'], response.statusCode), statusCode: response.statusCode, code: code, payload: payload);
+    if (response.statusCode == 401) {
+      throw SessionExpiredException(
+        'Oturum süreniz doldu. Lütfen tekrar giriş yapın.',
+        code,
+      );
+    }
+    throw ApiException(
+      _message(code, payload['error'], response.statusCode),
+      statusCode: response.statusCode,
+      code: code,
+      payload: payload,
+    );
   }
 
   /// Sunucu mesajı Türkçe ve kullanıcıya yöneliktir; bu kodlar için olduğu gibi gösterilir.
@@ -588,17 +889,26 @@ class PlateRecognitionApi {
       case 'FORBIDDEN_SITE':
         return 'Bu siteye erişim yetkiniz yok.';
     }
-    if (code != null && _serverTextCodes.contains(code) && serverText is String && serverText.trim().isNotEmpty) return serverText.trim();
+    if (code != null &&
+        _serverTextCodes.contains(code) &&
+        serverText is String &&
+        serverText.trim().isNotEmpty) {
+      return serverText.trim();
+    }
     final mapped = code == null ? null : AuthApi.messageForErrorCode(code);
     if (mapped != null) return mapped;
-    if (serverText is String && serverText.trim().isNotEmpty) return AuthApi.sanitizeServerMessage(serverText.trim()) ?? 'İşlem başarısız ($status)';
+    if (serverText is String && serverText.trim().isNotEmpty) {
+      return AuthApi.sanitizeServerMessage(serverText.trim()) ??
+          'İşlem başarısız ($status)';
+    }
     return 'İşlem başarısız ($status)';
   }
 }
 
 /// Oturum belirtecini [AuthService]'ten alan katman.
 class PlateRecognitionService {
-  PlateRecognitionService({required this.authService, PlateRecognitionApi? api}) : api = api ?? PlateRecognitionApi(baseUrl: authService.api.baseUrl);
+  PlateRecognitionService({required this.authService, PlateRecognitionApi? api})
+    : api = api ?? PlateRecognitionApi(baseUrl: authService.api.baseUrl);
 
   final AuthService authService;
   final PlateRecognitionApi api;
@@ -616,16 +926,62 @@ class PlateRecognitionService {
     }
   }
 
-  Future<List<PlateDecisionRow>> events(int site, {String? decision}) => _guard((t) => api.events(t, site, decision: decision));
-  Future<PlateLiveFeed> liveFeed(int site, {int? limit}) => _guard((t) => api.liveFeed(t, site, limit: limit));
-  Future<List<PlatePermit>> permits(int site) => _guard((t) => api.permits(t, site));
-  Future<List<PlateApartment>> searchApartments(int site, String q) => _guard((t) => api.searchApartments(t, site, q));
-  Future<void> createPermit(int site, PermitDraft draft) => _guard((t) => api.createPermit(t, site, draft));
-  Future<void> revokePermit(int site, int id) => _guard((t) => api.revokePermit(t, site, id));
-  Future<List<PlateBlacklistItem>> blacklist(int site) => _guard((t) => api.blacklist(t, site));
-  Future<void> addBlacklist(int site, String plate, String reason) => _guard((t) => api.addBlacklist(t, site, plate, reason));
-  Future<void> removeBlacklist(int site, int id) => _guard((t) => api.removeBlacklist(t, site, id));
-  Future<PlateSettings> settings(int site) => _guard((t) => api.settings(t, site));
+  Future<List<PlateDecisionRow>> events(int site, {String? decision}) =>
+      _guard((t) => api.events(t, site, decision: decision));
+  Future<ParkingOverview> parking(int site) =>
+      _guard((t) => api.parking(t, site));
+  Future<String> parkingPhoto(int apartment, int vehicle) =>
+      _guard((t) => api.parkingPhoto(t, apartment, vehicle));
+  Future<ParkingOverview> saveParking(int site, Map<String, Object?> body) =>
+      _guard((t) => api.parking(t, site, method: 'PUT', body: body));
+  Future<ParkingOverview> saveApartmentParking(
+    int site,
+    int apartment, {
+    required bool approved,
+    required int slots,
+  }) => _guard(
+    (t) => api.parking(
+      t,
+      site,
+      method: 'PUT',
+      tail: '/apartments/$apartment',
+      body: {'approved': approved, 'parking_slots': slots},
+    ),
+  );
+  Future<ParkingOverview> releaseParking(
+    int site,
+    int id, {
+    bool legacyPresence = false,
+  }) => _guard(
+    (t) => api.parking(
+      t,
+      site,
+      method: 'POST',
+      tail: '/${legacyPresence ? 'presence' : 'records'}/$id/release',
+      body: {},
+    ),
+  );
+  Future<PlateLiveFeed> liveFeed(int site, {int? limit, int? gateId}) =>
+      _guard((t) => api.liveFeed(t, site, limit: limit, gateId: gateId));
+
+  Future<PlateStatistics> statistics(int site, {int? gateId, String? anchor}) =>
+      _guard((t) => api.statistics(t, site, gateId: gateId, anchor: anchor));
+  Future<List<PlatePermit>> permits(int site) =>
+      _guard((t) => api.permits(t, site));
+  Future<List<PlateApartment>> searchApartments(int site, String q) =>
+      _guard((t) => api.searchApartments(t, site, q));
+  Future<void> createPermit(int site, PermitDraft draft) =>
+      _guard((t) => api.createPermit(t, site, draft));
+  Future<void> revokePermit(int site, int id) =>
+      _guard((t) => api.revokePermit(t, site, id));
+  Future<List<PlateBlacklistItem>> blacklist(int site) =>
+      _guard((t) => api.blacklist(t, site));
+  Future<void> addBlacklist(int site, String plate, String reason) =>
+      _guard((t) => api.addBlacklist(t, site, plate, reason));
+  Future<void> removeBlacklist(int site, int id) =>
+      _guard((t) => api.removeBlacklist(t, site, id));
+  Future<PlateSettings> settings(int site) =>
+      _guard((t) => api.settings(t, site));
   Future<PlateSettings> saveGate(
     int site,
     int doorId, {
@@ -635,29 +991,44 @@ class PlateRecognitionService {
     required int cooldownSeconds,
     required bool confirmRisk,
   }) => _guard(
-    (t) => api.saveGate(t, site, doorId, deviceId: deviceId, autoOpen: autoOpen, minConfidence: minConfidence, cooldownSeconds: cooldownSeconds, confirmRisk: confirmRisk),
+    (t) => api.saveGate(
+      t,
+      site,
+      doorId,
+      deviceId: deviceId,
+      autoOpen: autoOpen,
+      minConfidence: minConfidence,
+      cooldownSeconds: cooldownSeconds,
+      confirmRisk: confirmRisk,
+    ),
   );
-  Future<PlateGatesOverview> gatesOverview(int site) => _guard((t) => api.gatesOverview(t, site));
-  Future<PlateGatesOverview> createGatePoint(int site, GateDraft draft) => _guard((t) => api.createGatePoint(t, site, draft));
-  Future<PlateGatesOverview> updateGatePoint(int site, int id, GateDraft draft) => _guard((t) => api.updateGatePoint(t, site, id, draft));
+  Future<PlateGatesOverview> gatesOverview(int site) =>
+      _guard((t) => api.gatesOverview(t, site));
+  Future<PlateGatesOverview> createGatePoint(int site, GateDraft draft) =>
+      _guard((t) => api.createGatePoint(t, site, draft));
+  Future<PlateGatesOverview> updateGatePoint(
+    int site,
+    int id,
+    GateDraft draft,
+  ) => _guard((t) => api.updateGatePoint(t, site, id, draft));
   Future<PlateGatesOverview> updateGateTimings(
     int site,
     int id, {
     required int consecutiveVehicleDelaySeconds,
     required int entryRearSuppressSeconds,
     required int exitRearSuppressSeconds,
-  }) =>
-      _guard(
-        (t) => api.updateGateTimings(
-          t,
-          site,
-          id,
-          consecutiveVehicleDelaySeconds: consecutiveVehicleDelaySeconds,
-          entryRearSuppressSeconds: entryRearSuppressSeconds,
-          exitRearSuppressSeconds: exitRearSuppressSeconds,
-        ),
-      );
-  Future<PlateGatesOverview> deleteGatePoint(int site, int id) => _guard((t) => api.deleteGatePoint(t, site, id));
+  }) => _guard(
+    (t) => api.updateGateTimings(
+      t,
+      site,
+      id,
+      consecutiveVehicleDelaySeconds: consecutiveVehicleDelaySeconds,
+      entryRearSuppressSeconds: entryRearSuppressSeconds,
+      exitRearSuppressSeconds: exitRearSuppressSeconds,
+    ),
+  );
+  Future<PlateGatesOverview> deleteGatePoint(int site, int id) =>
+      _guard((t) => api.deleteGatePoint(t, site, id));
   Future<void> saveGateSettings(
     int site, {
     required String guestRule,
@@ -667,6 +1038,7 @@ class PlateRecognitionService {
     required int insideTimeoutHours,
     required int alertIntervalMinutes,
     required int notifyMaxAgeMinutes,
+    bool? movementNotificationsEnabled,
   }) => _guard(
     (t) => api.saveGateSettings(
       t,
@@ -678,15 +1050,24 @@ class PlateRecognitionService {
       insideTimeoutHours: insideTimeoutHours,
       alertIntervalMinutes: alertIntervalMinutes,
       notifyMaxAgeMinutes: notifyMaxAgeMinutes,
+      movementNotificationsEnabled: movementNotificationsEnabled,
     ),
   );
-  Future<String> createEdgeClient(int site, String name) => _guard((t) => api.createEdgeClient(t, site, name));
-  Future<String> rotateEdgeKey(int site, int id) => _guard((t) => api.rotateEdgeKey(t, site, id));
-  Future<void> revokeEdgeClient(int site, int id) => _guard((t) => api.revokeEdgeClient(t, site, id));
+  Future<String> createEdgeClient(int site, String name) =>
+      _guard((t) => api.createEdgeClient(t, site, name));
+  Future<String> rotateEdgeKey(int site, int id) =>
+      _guard((t) => api.rotateEdgeKey(t, site, id));
+  Future<void> revokeEdgeClient(int site, int id) =>
+      _guard((t) => api.revokeEdgeClient(t, site, id));
   Future<PlateInside> inside(int site) => _guard((t) => api.inside(t, site));
-  Future<void> clearInside(int site, int id) => _guard((t) => api.clearInside(t, site, id));
-  Future<PlateResidentOverview> residentOverview(int site) => _guard((t) => api.residentOverview(t, site));
-  Future<void> residentCreate(int site, PermitDraft draft) => _guard((t) => api.residentCreate(t, site, draft));
-  Future<void> residentRevoke(int site, int id) => _guard((t) => api.residentRevoke(t, site, id));
-  Future<void> setMovementNotify(int site, {required bool enabled}) => _guard((t) => api.setMovementNotify(t, site, enabled: enabled));
+  Future<void> clearInside(int site, int id) =>
+      _guard((t) => api.clearInside(t, site, id));
+  Future<PlateResidentOverview> residentOverview(int site) =>
+      _guard((t) => api.residentOverview(t, site));
+  Future<void> residentCreate(int site, PermitDraft draft) =>
+      _guard((t) => api.residentCreate(t, site, draft));
+  Future<void> residentRevoke(int site, int id) =>
+      _guard((t) => api.residentRevoke(t, site, id));
+  Future<void> setMovementNotify(int site, {required bool enabled}) =>
+      _guard((t) => api.setMovementNotify(t, site, enabled: enabled));
 }

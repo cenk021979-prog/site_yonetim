@@ -9,6 +9,7 @@ import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { isModuleEnabled } from './module_service.js';
 import { apartmentLabel } from './people_common.js';
 import { myApartmentsCte } from './visitor_log_resident.js';
+import { loadSiteSettings } from './plate_gates_service.js';
 import {
   MAX_PERMIT_DAYS,
   PLATE_RECOGNITION_MODULE,
@@ -210,7 +211,9 @@ export async function residentOverview(authUser, rawSiteCode) {
   const dailyUsed = used.rows[0]?.n ?? 0;
   // A3: araç giriş / çıkış bildirimi tercihi (kişi bazında, satır yoksa KAPALI).
   const pref = await pool.query(`SELECT movement_enabled FROM plate_notify_prefs WHERE site_code = $1 AND user_code = $2`, [ctx.siteCode, ctx.userCode]);
+  const settings = await loadSiteSettings(pool, ctx.siteCode);
   return {
+    movement_notify_available: settings.resident_movement_notifications_enabled === true,
     movement_notify: pref.rows[0]?.movement_enabled === true,
     apartments: ctx.apartments.map((a) => ({ id: a.id, label: a.label })),
     permits: permits.rows.map((row) => mapPermit(row)),
@@ -222,15 +225,10 @@ export async function residentOverview(authUser, rawSiteCode) {
 
 /** Sakin izin verir: daire yalnız kendi dairelerinden biri olabilir (verilmezse en küçük kimlikli). */
 export async function residentCreate(authUser, body) {
-  const ctx = await residentContext(authUser, body.site_code);
-  let apartmentId = ctx.apartments[0].id;
-  if (body.apartment_id !== undefined && body.apartment_id !== null && body.apartment_id !== '') {
-    apartmentId = Number(body.apartment_id);
-    if (!ctx.apartments.some((a) => a.id === apartmentId)) {
-      throw new PlatformError(403, 'FORBIDDEN_APARTMENT', 'Yalnızca kendi daireniz adına misafir plakası tanımlayabilirsiniz.');
-    }
-  }
-  return createPermit({ siteCode: ctx.siteCode, apartmentId, body, authUser, resident: true });
+  // Eski istemciler açık hata alır; yönetici yolu ve eski izinleri iptal etme korunur.
+  void authUser;
+  void body;
+  throw new PlatformError(403, 'RESIDENT_GUEST_PERMIT_DISABLED', 'Sakinler misafir plakası ekleyemez. Kendi aracınızı Dairem → Araçlarım bölümünden kaydedin.');
 }
 
 export async function residentRevoke(authUser, rawSiteCode, rawId) {

@@ -180,11 +180,11 @@ export function resolveNewRtspUrl({ brand, host, port, rtspUrl, rtspPath }) {
 // --- Plakayla otomatik kapı açma durumu --------------------------------------------------------------------------------------
 
 export const AUTO_OPEN_MESSAGES = Object.freeze({
-  active: 'Etkin: Bu sistem yerel ağdaki kameraları izler, plakaları okur ve kapıya SmartKeyPass (UDP 8765) üzerinden açıl komutu gönderir.',
-  no_edge_client: 'Kameralar yerel istasyon tarafından izlenir ve kapılar SmartKeyPass ile açılır.',
-  edge_offline: 'Plakayla otomatik kapı açma hazır.',
-  model_unknown: 'Plakayla otomatik kapı açma hazır.',
-  model_not_approved: 'Plakayla otomatik kapı açma kalibrasyon modunda.',
+  active: 'İzleme uygulaması bağlı ve plaka tanıma hazır. Kapı komutundan önce geçiş yetkileri ve kapı kuralları ayrıca denetlenir.',
+  no_edge_client: 'Sunucu izleme durumunu doğrulayamadı. Yerel uygulamadaki kamera ve model durumunu kontrol edin.',
+  edge_offline: 'İzleme uygulamasından güncel bağlantı bilgisi alınamadı; otomatik açmanın hazır olduğu doğrulanamıyor.',
+  model_unknown: 'İzleme bağlantısı var ancak plaka tanıma modelinin hazır olduğu doğrulanamadı.',
+  model_not_approved: 'İzleme uygulaması plaka tanıma modelinin hazır olmadığını bildiriyor.',
   no_camera: 'Bir kapıya bağlı etkin kamera yok: kapılar plakayla tetiklenemez.',
 });
 
@@ -192,15 +192,17 @@ export const AUTO_OPEN_MESSAGES = Object.freeze({
  * @param {{ edges: Array<{ online: boolean, recognition_ready: boolean|null }>, boundActiveCameras: number }} input
  * @returns {{ state: 'active'|'inactive', reason: string|null, message: string }}
  */
-export function computeAutoOpen({ edges, boundActiveCameras }) {
-  // Ayrı bir kenar istemciye gerek yoktur; plaka tanıma ve SmartKeyPass (UDP 8765) kapı açma doğrudan yürütülür.
-  return {
-    state: 'active',
-    reason: null,
-    message: boundActiveCameras > 0
-      ? 'Etkin: Bu sistem yerel ağdaki kameraları izler, plakaları okur ve kapıya SmartKeyPass (UDP 8765) üzerinden açıl komutu gönderir.'
-      : 'Etkin: Kamera bağlandığında otomatik plaka tanıma ve kapı açma doğrudan yürütülür.',
-  };
+export function computeAutoOpen({ edges = [], boundActiveCameras = 0 } = {}) {
+  // Server evidence describes readiness, never physical gate delivery. A local
+  // application can work independently; missing telemetry does not prove it is ready.
+  const clients = Array.isArray(edges) ? edges : [];
+  const online = clients.filter((edge) => edge?.online === true);
+  const reason = boundActiveCameras < 1 ? 'no_camera'
+    : clients.length === 0 ? 'no_edge_client'
+      : online.length === 0 ? 'edge_offline'
+        : online.some((edge) => edge.recognition_ready === true) ? null
+          : online.every((edge) => edge.recognition_ready === false) ? 'model_not_approved' : 'model_unknown';
+  return { state: reason === null ? 'active' : 'inactive', reason, message: AUTO_OPEN_MESSAGES[reason ?? 'active'] };
 }
 
 // --- Kimlik ve kapı durumu metinleri -------------------------------------------------------------------------------------------

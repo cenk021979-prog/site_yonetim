@@ -6,6 +6,7 @@
 import { PlatformError } from './errors.js';
 import { INVISIBLE_RE } from './document_common.js';
 import { TR_PLATE_RE, plateInvalid, requireTrPlate } from './plate_format.js';
+import { PARKING_REASON_LABELS } from './parking_access_common.js';
 
 // Plaka biçimi kuralı tek yerde (plate_format.js); mevcut içe aktarmalar bozulmasın diye buradan da dışa verilir.
 export { TR_PLATE_RE, canonicalPlate, formatPlate, normalizeTrPlate, plateInvalid, requireTrPlate } from './plate_format.js';
@@ -35,6 +36,9 @@ export const PERMIT_DURATIONS = Object.freeze(['day', 'week', 'custom']);
 
 /** Neden kodu -> Türkçe kısa açıklama (arayüz bu metni gösterir). */
 export const REASON_LABELS = Object.freeze({
+  ...Object.fromEntries(Object.entries(PARKING_REASON_LABELS).map(([key, value]) => [`parking_${key}`, value])),
+  admission_required: 'Güncel izleme uygulamasından araç hakkı doğrulaması gerekiyor.',
+  apartment_not_approved: 'Dairenin araç girişine yönetim onayı bekleniyor.',
   invalid_plate: 'Plaka biçimi geçersiz',
   low_confidence: 'Okuma güveni düşük',
   blacklist: 'Kara listede',

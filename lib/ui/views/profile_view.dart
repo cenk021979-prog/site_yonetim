@@ -117,7 +117,8 @@ class ProfileView extends StatelessWidget {
                       helperMaxLines: 4,
                     ),
                     // Dokunulmamış eski kayıt (sabit hat / serbest biçim) kaydetmeyi engellemez.
-                    validator: (value) => validatePhoneInput(value, stored: session.phoneNumber),
+                    validator: (value) =>
+                        validatePhoneInput(value, stored: session.phoneNumber),
                   ),
                   // Kimlik alanları ile şifre değiştirme alanları ayrı gruplar.
                   const Divider(height: AppSpace.xl),
@@ -203,7 +204,7 @@ class ProfileView extends StatelessWidget {
   }
 }
 
-/// Profil üst kartı (ekranın tek hero öğesi): rol tonunda büyük cilalı avatar ([UserRoleOrb], glow'lu),
+/// Profil üst kartı: düz rol simgesi ([UserRoleOrb]; sade stilde glow çizilmez),
 /// ad, e-posta ve rol rozeti. Ad ve e-posta kırpılmadan sarar (en çok 3 / 2 satır); avatar büyük
 /// yazıda (>= 1,75x) gizlenir.
 class _ProfileHero extends StatelessWidget {
@@ -385,7 +386,6 @@ class ResidentProfileView extends StatelessWidget {
   }
 }
 
-
 class _ResidentPasswordSection extends StatefulWidget {
   const _ResidentPasswordSection({
     required this.authService,
@@ -396,7 +396,8 @@ class _ResidentPasswordSection extends StatefulWidget {
   final UserSession session;
 
   @override
-  State<_ResidentPasswordSection> createState() => _ResidentPasswordSectionState();
+  State<_ResidentPasswordSection> createState() =>
+      _ResidentPasswordSectionState();
 }
 
 class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
@@ -425,7 +426,10 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
     final confirmPass = _confirmController.text.trim();
     if (newPass != confirmPass) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.newPasswordMismatch), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(context.l10n.newPasswordMismatch),
+          backgroundColor: Colors.red,
+        ),
       );
       return;
     }
@@ -439,7 +443,9 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
       );
       if (error != null) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error), backgroundColor: Colors.red),
+        );
         return;
       }
       if (!mounted) return;
@@ -447,12 +453,18 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
       _newController.clear();
       _confirmController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.passwordUpdateSuccess), backgroundColor: Colors.green),
+        SnackBar(
+          content: Text(context.l10n.passwordUpdateSuccess),
+          backgroundColor: Colors.green,
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.toString().replaceFirst('Exception: ', '')), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text(e.toString().replaceFirst('Exception: ', '')),
+          backgroundColor: Colors.red,
+        ),
       );
     } finally {
       if (mounted) setState(() => _isSaving = false);
@@ -484,11 +496,15 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
               decoration: InputDecoration(
                 labelText: l.currentPasswordOrPin,
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureCurrent ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _obscureCurrent = !_obscureCurrent),
+                  icon: Icon(
+                    _obscureCurrent ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
                 ),
               ),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Mevcut şifrenizi girin.' : null,
+              validator: (v) =>
+                  (v ?? '').trim().isEmpty ? 'Mevcut şifrenizi girin.' : null,
             ),
             const SizedBox(height: AppSpace.md),
             TextFormField(
@@ -498,7 +514,9 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
                 labelText: l.newPassword,
                 helperText: PasswordPolicy.hint,
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureNew ? Icons.visibility_off : Icons.visibility),
+                  icon: Icon(
+                    _obscureNew ? Icons.visibility_off : Icons.visibility,
+                  ),
                   onPressed: () => setState(() => _obscureNew = !_obscureNew),
                 ),
               ),
@@ -516,11 +534,16 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
               decoration: InputDecoration(
                 labelText: l.newPasswordConfirm,
                 suffixIcon: IconButton(
-                  icon: Icon(_obscureConfirm ? Icons.visibility_off : Icons.visibility),
-                  onPressed: () => setState(() => _obscureConfirm = !_obscureConfirm),
+                  icon: Icon(
+                    _obscureConfirm ? Icons.visibility_off : Icons.visibility,
+                  ),
+                  onPressed: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
                 ),
               ),
-              validator: (v) => (v ?? '').trim().isEmpty ? 'Yeni şifrenizi tekrar girin.' : null,
+              validator: (v) => (v ?? '').trim().isEmpty
+                  ? 'Yeni şifrenizi tekrar girin.'
+                  : null,
             ),
             const SizedBox(height: AppSpace.lg),
             SizedBox(
@@ -531,10 +554,15 @@ class _ResidentPasswordSectionState extends State<_ResidentPasswordSection> {
                     ? const SizedBox(
                         width: 16,
                         height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
                       )
                     : const Icon(Icons.check_rounded),
-                label: Text(_isSaving ? l.profileSaving : l.passwordUpdateButton),
+                label: Text(
+                  _isSaving ? l.profileSaving : l.passwordUpdateButton,
+                ),
               ),
             ),
           ],

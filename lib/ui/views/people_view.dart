@@ -21,9 +21,10 @@ import 'package:site_kapi_kontrol/ui/views/people_vehicles_tab.dart';
 import 'package:site_kapi_kontrol/ui/widgets/bulk_export_sheet.dart';
 import 'package:site_kapi_kontrol/ui/widgets/bulk_export_sources.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/people_section_navigation.dart';
 
-/// "Kişiler" ekranı (Platform Faz 2a, çekirdek `people` modülü): site seçici + üç sekme
-/// (Kişiler | Daireler | Araçlar).
+/// "Kişiler" ekranı (çekirdek `people` modülü): varsayılan kişi listesi,
+/// doğrudan Daireler/Kadro erişimi ve İşlemler menüsünde genel araç kayıtları.
 ///
 /// - [manageSites] true (site yöneticisi yönetici modunda / süper kullanıcı): yönettiği (ya da tüm)
 ///   onaylı siteler listelenir ve yazma yetkisi vardır.
@@ -61,12 +62,7 @@ class PeopleView extends StatefulWidget {
 }
 
 class PeopleViewState extends State<PeopleView> {
-  static const List<(String, IconData)> _tabs = <(String, IconData)>[
-    ('Kişiler', Icons.groups_2_rounded),
-    ('Daireler', Icons.apartment_rounded),
-    ('Araçlar', Icons.directions_car_rounded),
-    ('Kadro', Icons.badge_rounded),
-  ];
+  static const _tabs = ['Kişiler', 'Daireler', 'Araçlar', 'Kadro'];
 
   List<PeopleSite> _sites = const <PeopleSite>[];
   int? _siteCode;
@@ -278,13 +274,14 @@ class PeopleViewState extends State<PeopleView> {
     if (tab != null && tab != _tab) _selectTab(tab);
   }
 
-  /// «Dışa Aktar» alt sayfası; açık sekmenin süzgeçleri önseçili gelir.
+  /// Tek dosyada tüm kişi, daire, araç ve kadro kayıtları.
   Future<void> _openBulkExport(PeopleScope scope) {
     return ExportSheet.show(
       context,
-      initialIndex: _tab,
+      combineSources: true,
       sources: buildCrmExportSources(
         service: BulkService(authService: widget.authService),
+        combined: true,
         siteCode: scope.siteCode,
         persons: () => _personsKey.currentState?.exportFilters ?? const BulkExportFilters(),
         apartments: () => _apartmentsKey.currentState?.exportFilters ?? const BulkExportFilters(),
@@ -295,7 +292,6 @@ class PeopleViewState extends State<PeopleView> {
 
   @override
   Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
     final site = _site;
     final Widget content;
     if (site == null) {
@@ -316,13 +312,11 @@ class PeopleViewState extends State<PeopleView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Kişiler', icon: Icons.contacts_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Sitenizdeki kişileri, dairelerin malik ve kiracı bilgilerini ve araçları buradan yönetin.',
-          style: th.bodyMedium,
+        const PageHeaderCard(
+          title: 'Kişiler',
+          help: 'Sitenizdeki kişileri, dairelerin malik ve kiracı bilgilerini ve araçları buradan yönetin.',
         ),
-        const SizedBox(height: AppSpace.lg),
+        const SizedBox(height: AppSpace.md),
         content,
       ],
     );
@@ -405,36 +399,17 @@ class PeopleViewState extends State<PeopleView> {
                 icon: Icons.download_rounded,
                 onPressed: () => unawaited(_openBulkExport(scope)),
               ),
-              AppBarAction(
-                actionKey: const ValueKey<String>('people_safety_requests'),
-                label: 'Güvenlik talepleri',
-                icon: Icons.shield_outlined,
-                tone: AppTone.warning,
-                onPressed: () => unawaited(
-                  SafetyRequestsDialog.show(
-                    context,
-                    service: ApartmentManagementService(authService: widget.authService),
-                    siteCode: site.code,
-                    siteName: site.label,
-                  ),
-                ),
-              ),
             ],
           ),
           const SizedBox(height: AppSpace.md),
         ],
-        AppChipTabs(
+        PeopleSectionNavigation(
           selected: _tab,
+          unitPlural: site.terms.unitPlural,
           onSelected: _selectTab,
-          items: [
-            for (var i = 0; i < _tabs.length; i++)
-              AppTabItem(
-                key: ValueKey<String>('people_tab_$i'),
-                icon: _tabs[i].$2,
-                // F9: "Daireler" sekmesi türün terimiyle (Ofisler, Mağazalar, ...); iş mantığı aynıdır.
-                label: i == 1 ? site.terms.unitPlural : _tabs[i].$1,
-              ),
-          ],
+          onSafetyRequests: site.canWrite && _tab == 3
+              ? () => unawaited(_openSafetyRequests(site))
+              : null,
         ),
         const SizedBox(height: AppSpace.md),
         // Kurulu sekmeler durumunu korur; görünmeyenin animasyonları (iskelet) durur.
@@ -449,6 +424,19 @@ class PeopleViewState extends State<PeopleView> {
             ),
       ],
     );
+  }
+
+  Future<void> _openSafetyRequests(PeopleSite site) async {
+    await SafetyRequestsDialog.show(
+      context,
+      service: ApartmentManagementService(authService: widget.authService),
+      siteCode: site.code,
+      siteName: site.label,
+    );
+    if (!mounted || site.code != _siteCode) return;
+    _reloadVisibleTab();
+    _markOthersDirty(_tab);
+    widget.onDataChanged?.call();
   }
 
   Widget _buildTab(int index, PeopleScope scope, int siteCode) {

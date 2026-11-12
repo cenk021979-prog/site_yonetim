@@ -83,6 +83,70 @@ Future<_Rig> _open(WidgetTester t, {int id = 41}) async {
 }
 
 void main() {
+  group('eski özel belge görünürlüğü', () {
+    testWidgets('eski sakin belgesinin başlığını değiştirmek görevliye açmaz', (
+      t,
+    ) async {
+      final rig = await _open(t);
+      await _type(t, 'document_edit_title', 'Hedefli belge yeni başlık');
+      await _tap(t, 'document_edit_save');
+      await settleFor(t);
+      await settleFor(t);
+      expect(rig.service.updateCalls.single.fields, {
+        'title': 'Hedefli belge yeni başlık',
+      });
+      expect(rig.service.docs[41]!.audience, 'residents');
+      expect(rig.service.docs[41]!.targetType, 'blocks');
+    });
+
+    testWidgets(
+      'Herkes açıkça seçilirse eski hedef kaldırılır ve all gönderilir',
+      (t) async {
+        final rig = await _open(t);
+        await _tap(t, 'document_edit_audience_all');
+        await _tap(t, 'document_edit_save');
+        await settleFor(t);
+        await settleFor(t);
+        expect(rig.service.updateCalls.single.fields, {'audience': 'all'});
+      expect(rig.service.docs[41]!.targetType, 'site');
+      expect(rig.service.docs[41]!.blockIds, isEmpty);
+      },
+    );
+
+    testWidgets('başlık değişikliği özel yönetici belgesini kurula açmaz', (
+      t,
+    ) async {
+      final rig = await _open(t, id: 39);
+      expect(_key('document_edit_audience_managers'), findsOneWidget);
+      expect(find.text('Özel yönetici belgesi'), findsOneWidget);
+      await _type(t, 'document_edit_title', 'Özel belge yeni başlık');
+      await _tap(t, 'document_edit_save');
+      await settleFor(t);
+      await settleFor(t);
+      expect(rig.service.updateCalls.single.fields, {
+        'title': 'Özel belge yeni başlık',
+      });
+      expect(rig.service.docs[39]!.audience, 'managers');
+    });
+
+    testWidgets('eski özel belge yalnız açık Yönetim seçimiyle genişler', (
+      t,
+    ) async {
+      final rig = await _open(t, id: 39);
+      await _tap(t, 'document_edit_audience_board');
+      expect(
+        _key('document_edit_audience_managers'),
+        findsOneWidget,
+        reason: 'kaydetmeden eski seçime geri dönülebilir',
+      );
+      await _tap(t, 'document_edit_save');
+      await settleFor(t);
+      await settleFor(t);
+      expect(rig.service.updateCalls.single.fields, {'audience': 'board'});
+      expect(rig.service.docs[39]!.audience, 'board');
+    });
+  });
+
   group('yayındaki duyuruya ekli belgede kitle değişikliği (DOCUMENT_IN_USE onayı)', () {
     Future<_Rig> openAttached(WidgetTester t, {int attached = 2}) async {
       final rig = _Rig();
@@ -118,7 +182,7 @@ void main() {
       '409 DOCUMENT_IN_USE -> onay penceresi -> "Yine de Değiştir" confirm:true ile yeniden dener',
       (t) async {
         final rig = await openAttached(t);
-        await _tap(t, 'document_edit_audience_managers');
+        await _tap(t, 'document_edit_audience_board');
         await _tap(t, 'document_edit_save');
         await settleFor(t);
         await settleFor(t);
@@ -139,9 +203,9 @@ void main() {
         expect(rig.service.updateCalls, hasLength(2));
         expect(rig.service.updateCalls.last.confirm, isTrue);
         expect(rig.service.updateCalls.last.fields, <String, Object?>{
-          'audience': 'managers',
+          'audience': 'board',
         });
-        expect(rig.service.docs[41]!.audience, 'managers');
+        expect(rig.service.docs[41]!.audience, 'board');
         expect(rig.service.docs[41]!.attachedAnnouncements, isEmpty);
         expect(rig.closed, isTrue);
       },
@@ -258,7 +322,7 @@ void main() {
       rig.service.docs[41]!.attachedAnnouncements = <int>[7, 8];
       await rig.open(t, width: w, height: h, scale: s, dark: dark);
       await settleFor(t);
-      await _tap(t, 'document_edit_audience_managers');
+      await _tap(t, 'document_edit_audience_board');
       expect(_key('document_edit_detach_warning'), findsOneWidget);
       await _tap(t, 'document_edit_save');
       await settleFor(t);
@@ -352,10 +416,10 @@ void main() {
     });
 
     testWidgets(
-      'sakinlerden yöneticilere: yalnız audience gider (hedef gönderilmez)',
+      'sakinlerden yönetime: yalnız audience gider (hedef gönderilmez)',
       (t) async {
         final rig = await _open(t);
-        await _tap(t, 'document_edit_audience_managers');
+        await _tap(t, 'document_edit_audience_board');
         expect(
           find.byKey(const ValueKey<String>('document_target_site')),
           findsNothing,
@@ -365,7 +429,7 @@ void main() {
         await settleFor(t);
         await settleFor(t);
         expect(rig.service.updateCalls.single.fields, <String, Object?>{
-          'audience': 'managers',
+          'audience': 'board',
         });
       },
     );

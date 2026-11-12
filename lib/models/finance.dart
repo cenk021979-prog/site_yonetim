@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
-import 'package:site_kapi_kontrol/models/announcement.dart' show announcementInstant;
+import 'package:site_kapi_kontrol/models/announcement.dart'
+    show announcementInstant;
 import 'package:site_kapi_kontrol/models/finance_funds.dart';
 import 'package:site_kapi_kontrol/models/residency_relation.dart';
 import 'package:site_kapi_kontrol/models/vehicle_record.dart'
@@ -77,7 +78,9 @@ class FinancePeriod implements Comparable<FinancePeriod> {
   /// "2026-10", "2026-10-01" ya da ISO zaman damgasının ilk on karakteri; bozuk değerde null.
   static FinancePeriod? tryParse(Object? raw) {
     if (raw == null) return null;
-    final match = RegExp(r'^(\d{4})-(\d{2})(?:-\d{2})?').firstMatch(raw.toString().trim());
+    final match = RegExp(
+      r'^(\d{4})-(\d{2})(?:-\d{2})?',
+    ).firstMatch(raw.toString().trim());
     if (match == null) return null;
     final year = int.parse(match.group(1)!);
     final month = int.parse(match.group(2)!);
@@ -97,7 +100,8 @@ class FinancePeriod implements Comparable<FinancePeriod> {
   FinancePeriod get previous => addMonths(-1);
 
   /// Sunucuya giden biçim: "2026-10".
-  String toApi() => '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
+  String toApi() =>
+      '${year.toString().padLeft(4, '0')}-${month.toString().padLeft(2, '0')}';
 
   /// Ayın ilk günü (takvim günü).
   DateTime get firstDay => DateTime(year, month, 1);
@@ -166,7 +170,11 @@ enum FeeKind {
 
 /// Dağıtım yöntemi (sözleşme: 4 yöntem + sabit tutar).
 enum FeeDistribution {
-  equal('equal', 'Eşit bölüş', 'Toplam tutar, hedefteki tüm dairelere eşit bölünür.'),
+  equal(
+    'equal',
+    'Eşit bölüş',
+    'Toplam tutar, hedefteki tüm dairelere eşit bölünür.',
+  ),
   fixed('fixed', 'Sabit tutar', 'Her daireye aynı (daire başı) tutar yazılır.'),
   category(
     'category',
@@ -183,7 +191,11 @@ enum FeeDistribution {
     'Kişi sayısına göre',
     'Toplam tutar, dairelerde kayıtlı güncel kişi sayısına göre bölünür (Kişiler ekranı). Kişi kaydı olmayan daire eksik veri sayılır.',
   ),
-  area('area', 'Metrekareye göre', 'Toplam tutar, dairelerin metrekarelerine göre bölünür.'),
+  area(
+    'area',
+    'Metrekareye göre',
+    'Toplam tutar, dairelerin metrekarelerine göre bölünür.',
+  ),
   unknown('', 'Dağıtım bilinmiyor', '');
 
   const FeeDistribution(this.apiValue, this.label, this.description);
@@ -342,7 +354,8 @@ enum ChargeParty {
     ChargeParty.occupant =>
       'Borç sorumlusu malikse ev sahibi hesabına; kiracı ya da malik ve kiracıysa, borç tarihinde dairede kiracı varsa '
           'kiracı hesabına, yoksa ev sahibi hesabına yazılır.',
-    ChargeParty.owner => 'Her zaman ev sahibi hesabına yazılır (örneğin çatı, cephe, demirbaş).',
+    ChargeParty.owner =>
+      'Her zaman ev sahibi hesabına yazılır (örneğin çatı, cephe, demirbaş).',
   };
 
   static ChargeParty? tryParse(Object? value) {
@@ -355,16 +368,22 @@ enum ChargeParty {
   }
 
   /// Sunucu varsayılanı (alan gönderilmezse): aylık aidat dairede oturan, tek seferlik ek borç ev sahibi.
-  static ChargeParty defaultFor(FeeKind kind) => kind == FeeKind.recurring ? occupant : owner;
+  static ChargeParty defaultFor(FeeKind kind) =>
+      kind == FeeKind.recurring ? occupant : owner;
 
   /// Borcun kasası: dairede oturan öder ⇒ İşletme Projesi (Aidat) Hesabı, malik öder ⇒ Yatırım ve Demirbaş (Fon) Hesabı.
-  FinanceFund get fund => this == owner ? FinanceFund.capital : FinanceFund.operating;
+  FinanceFund get fund =>
+      this == owner ? FinanceFund.capital : FinanceFund.operating;
 }
 
 /// Bir hesabın toplamı (`accounts.owner` / `accounts.tenant`): bakiye (> 0 borç, < 0 alacak), vadesi geçen ve satır sayısı.
 @immutable
 class AccountTotals {
-  const AccountTotals({required this.balanceMinor, this.overdueMinor, this.entryCount});
+  const AccountTotals({
+    required this.balanceMinor,
+    this.overdueMinor,
+    this.entryCount,
+  });
 
   final int balanceMinor;
 
@@ -410,7 +429,9 @@ List<FeeTargetItem> _targetItems(Object? raw, String labelKey) {
   for (final item in raw.whereType<Map>()) {
     final id = crmIntOrNull(item['id']);
     final label = crmText(item[labelKey]);
-    if (id != null && label != null) result.add(FeeTargetItem(id: id, label: label));
+    if (id != null && label != null) {
+      result.add(FeeTargetItem(id: id, label: label));
+    }
   }
   return List<FeeTargetItem>.unmodifiable(result);
 }
@@ -454,7 +475,9 @@ class FeeTarget {
     return FeeTarget(
       type: type,
       blockIds: _intList(source['block_ids'] ?? source['target_block_ids']),
-      apartmentIds: _intList(source['apartment_ids'] ?? source['target_apartment_ids']),
+      apartmentIds: _intList(
+        source['apartment_ids'] ?? source['target_apartment_ids'],
+      ),
       blockItems: _targetItems(source['blocks'], 'name'),
       apartmentItems: _targetItems(source['apartments'], 'label'),
     );
@@ -474,7 +497,9 @@ class FeeTarget {
       case FeeTargetType.blocks:
         return blockIds.isEmpty ? 'Seçili blok yok' : '${blockIds.length} blok';
       case FeeTargetType.apartments:
-        return apartmentIds.isEmpty ? 'Seçili daire yok' : '${apartmentIds.length} daire';
+        return apartmentIds.isEmpty
+            ? 'Seçili daire yok'
+            : '${apartmentIds.length} daire';
     }
   }
 
@@ -525,7 +550,8 @@ class FeeDefinition {
   final ChargeParty? chargeParty;
 
   /// Etkin "Kim öder": sunucu değeri, yoksa türe göre varsayılan (aylık dairede oturan, tek seferlik ev sahibi).
-  ChargeParty get effectiveChargeParty => chargeParty ?? ChargeParty.defaultFor(kind);
+  ChargeParty get effectiveChargeParty =>
+      chargeParty ?? ChargeParty.defaultFor(kind);
 
   /// Borcun kasası (`fund`). Eski sunucu göndermez: null ([effectiveFund] "kim öder"den türetir).
   final FinanceFund? fund;
@@ -558,10 +584,12 @@ class FeeDefinition {
 
   /// Hiç borçlandırılmadı mı? (Yalnız o zaman tutar / dağıtım değişebilir; sunucu da zorlar.) `has_runs`
   /// varsa o, yoksa son borçlandırma dönemi esas alınır.
-  bool get neverPosted => hasRuns != null ? !hasRuns! : lastPostedPeriod == null;
+  bool get neverPosted =>
+      hasRuns != null ? !hasRuns! : lastPostedPeriod == null;
 
   /// Yazma eylemleri (düzenle / borçlandır) bu tanımda güvenle sunulabilir mi?
-  bool get isKnown => kind != FeeKind.unknown && distribution != FeeDistribution.unknown;
+  bool get isKnown =>
+      kind != FeeKind.unknown && distribution != FeeDistribution.unknown;
 
   factory FeeDefinition.fromJson(Map<String, dynamic> json) {
     final rawCategories = json['category_amounts'];
@@ -636,8 +664,10 @@ class FeeDefinitionInput {
     if (distribution == FeeDistribution.area && areaBasis != null)
       'area_basis': areaBasis!.apiValue,
     // Tutar KURUŞ tamsayıdır (TL değil). Sunucu kanonik alan adı `amount_minor`dur (`amount` eş anlamlıdır).
-    if (distribution.needsAmount && amountMinor != null) 'amount_minor': amountMinor,
-    if (distribution == FeeDistribution.category) 'category_amounts': categoryAmounts,
+    if (distribution.needsAmount && amountMinor != null)
+      'amount_minor': amountMinor,
+    if (distribution == FeeDistribution.category)
+      'category_amounts': categoryAmounts,
     if (dueDay != null) 'due_day': dueDay,
     'start_period': startPeriod.toApi(),
     if (endPeriod != null) 'end_period': endPeriod!.toApi(),
@@ -684,39 +714,63 @@ class ExtraChargeInput {
   final String? decisionReason;
 
   /// Aynı ek borç + dayanak (onay isteği için).
-  ExtraChargeInput withBasis({int? decisionId, String? decisionReason}) => ExtraChargeInput(
-    name: name,
-    distribution: distribution,
-    areaBasis: areaBasis,
-    amountMinor: amountMinor,
-    categoryAmounts: categoryAmounts,
-    target: target,
-    dueDate: dueDate,
-    chargeParty: chargeParty,
-    fund: fund,
-    decisionId: decisionId,
-    decisionReason: decisionReason,
-  );
+  ExtraChargeInput withBasis({int? decisionId, String? decisionReason}) =>
+      ExtraChargeInput(
+        name: name,
+        distribution: distribution,
+        areaBasis: areaBasis,
+        amountMinor: amountMinor,
+        categoryAmounts: categoryAmounts,
+        target: target,
+        dueDate: dueDate,
+        chargeParty: chargeParty,
+        fund: fund,
+        decisionId: decisionId,
+        decisionReason: decisionReason,
+      );
 
   Map<String, dynamic> toJson() => <String, dynamic>{
     'name': name.trim(),
     'distribution': distribution.apiValue,
     if (distribution == FeeDistribution.area && areaBasis != null)
       'area_basis': areaBasis!.apiValue,
-    if (distribution.needsAmount && amountMinor != null) 'amount_minor': amountMinor,
-    if (distribution == FeeDistribution.category) 'category_amounts': categoryAmounts,
+    if (distribution.needsAmount && amountMinor != null)
+      'amount_minor': amountMinor,
+    if (distribution == FeeDistribution.category)
+      'category_amounts': categoryAmounts,
     'target': target.toJson(),
     if (dueDate != null) 'due_date': crmDateParam(dueDate!),
     if (chargeParty != null) 'charge_party': chargeParty!.apiValue,
     if (fund != null) 'fund': fund!.apiValue,
     'decision_id': ?decisionId,
-    if (decisionReason != null && decisionReason!.trim().isNotEmpty) 'decision_reason': decisionReason!.trim(),
+    if (decisionReason != null && decisionReason!.trim().isNotEmpty)
+      'decision_reason': decisionReason!.trim(),
   };
 }
 
 // --- Önizleme / borçlandırma --------------------------------------------------------------------
 
 /// Önizleme satırı: hangi daireye, kim öder, ne kadar.
+@immutable
+class FeeProrationShare {
+  const FeeProrationShare({
+    required this.accountParty,
+    required this.days,
+    required this.amountMinor,
+  });
+  final AccountParty accountParty;
+  final int days;
+  final int amountMinor;
+
+  factory FeeProrationShare.fromJson(Map<String, dynamic> json) =>
+      FeeProrationShare(
+        accountParty:
+            AccountParty.tryParse(json['account_party']) ?? AccountParty.owner,
+        days: crmInt(json['days']),
+        amountMinor: _requiredMinor(json, 'amount_minor'),
+      );
+}
+
 @immutable
 class FeePreviewLine {
   const FeePreviewLine({
@@ -727,6 +781,8 @@ class FeePreviewLine {
     required this.amountMinor,
     this.accountParty,
     this.basisValue,
+    this.prorationDays,
+    this.prorationShares = const [],
   });
 
   final int apartmentId;
@@ -740,6 +796,8 @@ class FeePreviewLine {
 
   /// Dağıtım tabanının daire için değeri (K5): arsa payı kesri ("35/1000") ya da kişi sayısı ("3"); eşit / sabit / kategoride ve eski sunucuda null.
   final String? basisValue;
+  final int? prorationDays;
+  final List<FeeProrationShare> prorationShares;
 
   factory FeePreviewLine.fromJson(Map<String, dynamic> json) => FeePreviewLine(
     apartmentId: crmInt(json['apartment_id']),
@@ -748,7 +806,21 @@ class FeePreviewLine {
     payerParty: ResponsibleParty.fromApi(json['payer_party']),
     amountMinor: _requiredMinor(json, 'amount_minor'),
     accountParty: AccountParty.tryParse(json['account_party']),
-    basisValue: json['basis_value'] == null ? null : crmText(json['basis_value']?.toString()),
+    basisValue: json['basis_value'] == null
+        ? null
+        : crmText(json['basis_value']?.toString()),
+    prorationDays: json['proration'] is Map
+        ? crmInt(json['proration']['total_days'])
+        : null,
+    prorationShares:
+        json['proration'] is Map && json['proration']['shares'] is List
+        ? List<FeeProrationShare>.unmodifiable(
+            (json['proration']['shares'] as List).whereType<Map>().map(
+              (share) =>
+                  FeeProrationShare.fromJson(Map<String, dynamic>.from(share)),
+            ),
+          )
+        : const [],
   );
 }
 
@@ -802,16 +874,25 @@ String financeMissingReason(String reason, {String code = ''}) {
   }
   final text = reason.trim();
   final lower = text.toLowerCase();
-  if (lower.contains('land') || lower.contains('arsa')) return 'Arsa payı tanımlı değil.';
+  if (lower.contains('land') || lower.contains('arsa')) {
+    return 'Arsa payı tanımlı değil.';
+  }
   if (lower.contains('categ') || lower.contains('kategori')) {
-    return lower.contains('map') || lower.contains('tutar') || lower.contains('listede') || lower.contains('unmapped')
+    return lower.contains('map') ||
+            lower.contains('tutar') ||
+            lower.contains('listede') ||
+            lower.contains('unmapped')
         ? 'Kategorisi için tutar belirlenmemiş.'
         : 'Kategori tanımlı değil.';
   }
-  if (lower.contains('area') || lower.contains('m2') || lower.contains('metrekare') || lower.contains('alan')) {
+  if (lower.contains('area') ||
+      lower.contains('m2') ||
+      lower.contains('metrekare') ||
+      lower.contains('alan')) {
     return 'Metrekare bilgisi tanımlı değil.';
   }
-  final technical = RegExp(r'^[a-z0-9_.:-]+$').hasMatch(text) || text.contains('_');
+  final technical =
+      RegExp(r'^[a-z0-9_.:-]+$').hasMatch(text) || text.contains('_');
   if (text.isEmpty || technical) return 'Gerekli daire bilgisi eksik.';
   return text;
 }
@@ -870,7 +951,9 @@ class FeePreview {
   factory FeePreview.fromJson(Map<String, dynamic> json) {
     final lines = _listOf(json['lines'], FeePreviewLine.fromJson);
     final rawHash = json['preview_hash'];
-    final hash = rawHash is String && rawHash.trim().isNotEmpty ? rawHash.trim() : null;
+    final hash = rawHash is String && rawHash.trim().isNotEmpty
+        ? rawHash.trim()
+        : null;
     return FeePreview(
       period: FinancePeriod.tryParse(json['period']),
       definitionId: crmIntOrNull(json['definition_id']),
@@ -887,7 +970,9 @@ class FeePreview {
       redistributed: json['redistributed'] == true,
       skippedCount: crmInt(json['skipped_count']),
       duplicateOfRunId: crmIntOrNull(json['duplicate_of_run_id']),
-      decisionRequirement: DecisionRequirement.tryParse(json['decision_requirement']),
+      decisionRequirement: DecisionRequirement.tryParse(
+        json['decision_requirement'],
+      ),
     );
   }
 }
@@ -896,7 +981,11 @@ class FeePreview {
 /// sayısını ve içerik özetini bildirir. Alan yoksa null (kullanıcıya yalnız "önizleme eskidi" söylenir).
 @immutable
 class PreviewStaleInfo {
-  const PreviewStaleInfo({this.totalMinor, this.apartmentCount, this.previewHash});
+  const PreviewStaleInfo({
+    this.totalMinor,
+    this.apartmentCount,
+    this.previewHash,
+  });
 
   final int? totalMinor;
   final int? apartmentCount;
@@ -908,7 +997,9 @@ class PreviewStaleInfo {
     return PreviewStaleInfo(
       totalMinor: _optionalMinor(map, 'total_minor'),
       apartmentCount: crmIntOrNull(map['apartment_count']),
-      previewHash: rawHash is String && rawHash.trim().isNotEmpty ? rawHash.trim() : null,
+      previewHash: rawHash is String && rawHash.trim().isNotEmpty
+          ? rawHash.trim()
+          : null,
     );
   }
 }
@@ -933,7 +1024,12 @@ class DuplicateChargeInfo {
 /// Borçlandırma sonucu (`POST .../post` ve `POST .../charges`): çalışma özeti.
 @immutable
 class FeePostResult {
-  const FeePostResult({this.runId, this.totalMinor, this.apartmentCount, this.entriesCount = 0});
+  const FeePostResult({
+    this.runId,
+    this.totalMinor,
+    this.apartmentCount,
+    this.entriesCount = 0,
+  });
 
   final int? runId;
   final int? totalMinor;
@@ -941,12 +1037,17 @@ class FeePostResult {
   final int entriesCount;
 
   factory FeePostResult.fromJson(Map<String, dynamic> json) {
-    final run = json['run'] is Map ? Map<String, dynamic>.from(json['run'] as Map) : json;
+    final run = json['run'] is Map
+        ? Map<String, dynamic>.from(json['run'] as Map)
+        : json;
     return FeePostResult(
       runId: crmIntOrNull(run['id']),
       totalMinor: _optionalMinor(run, 'total_minor'),
       apartmentCount: crmIntOrNull(run['apartment_count']),
-      entriesCount: crmInt(json['entries_count'], crmInt(run['apartment_count'])),
+      entriesCount: crmInt(
+        json['entries_count'],
+        crmInt(run['apartment_count']),
+      ),
     );
   }
 }
@@ -1061,14 +1162,17 @@ class LedgerEntry {
   bool get isReversed => reversedByEntryId != null;
 
   /// Yönetici bu kaydı iptal edebilir mi? (Ters kayıt ve zaten iptal edilmiş kayıt iptal edilemez.)
-  bool get canReverse => !isReversal && !isReversed && kind != LedgerKind.unknown;
+  bool get canReverse =>
+      !isReversal && !isReversed && kind != LedgerKind.unknown;
 
   /// Devir alacağı (K16; alacaklı devir): önceki dönemden devredilen ALACAK. Defterde tahsilat (`payment`) türündedir ama kaynak izi `opening`dir;
   /// gerçek bir nakit / havale tahsilatı DEĞİLDİR (makbuz düzenlenmez, düzeltilemez, kasaya eşlenmez).
-  bool get isOpeningCredit => kind == LedgerKind.payment && sourceKind == 'opening';
+  bool get isOpeningCredit =>
+      kind == LedgerKind.payment && sourceKind == 'opening';
 
   /// Yalnız tahsilat düzeltilebilir (ters kayıt + yeni tahsilat); devir alacağı düzeltilemez (iptal edilir ya da devir yüklemesi geri alınır).
-  bool get canCorrect => canReverse && kind == LedgerKind.payment && !isOpeningCredit;
+  bool get canCorrect =>
+      canReverse && kind == LedgerKind.payment && !isOpeningCredit;
 
   factory LedgerEntry.fromJson(Map<String, dynamic> json) => LedgerEntry(
     id: crmInt(json['id']),
@@ -1156,7 +1260,8 @@ class LedgerWriteResult {
       receipt: ReceiptRef.tryParse(json['receipt']) ?? parsedEntry.receipt,
       movementId: crmIntOrNull(json['movement_id']),
       accountBalanceMinor: _optionalMinor(json, 'account_balance_minor'),
-      fundSplit: FundSplit.tryParse(json['fund_split']) ?? parsedEntry.fundSplit,
+      fundSplit:
+          FundSplit.tryParse(json['fund_split']) ?? parsedEntry.fundSplit,
     );
   }
 }
@@ -1263,12 +1368,13 @@ class AccountApartment {
   final String? blockName;
   final ResponsibleParty responsibleParty;
 
-  factory AccountApartment.fromJson(Map<String, dynamic> json) => AccountApartment(
-    id: crmInt(json['id']),
-    label: json['label']?.toString() ?? '',
-    blockName: crmText(json['block_name']),
-    responsibleParty: ResponsibleParty.fromApi(json['responsible_party']),
-  );
+  factory AccountApartment.fromJson(Map<String, dynamic> json) =>
+      AccountApartment(
+        id: crmInt(json['id']),
+        label: json['label']?.toString() ?? '',
+        blockName: crmText(json['block_name']),
+        responsibleParty: ResponsibleParty.fromApi(json['responsible_party']),
+      );
 }
 
 /// Daire ekstresi (`GET .../apartments/:id/account`).
@@ -1317,9 +1423,11 @@ class AccountView {
   final AccountParty? defaultPaymentAccount;
 
   /// Ekran iki hesabı ayrı sekmelerde gösterebilir mi? (Sunucu iki hesabı da verdi ve kiracı sekmesi gerekli.)
-  bool get hasTwoAccounts => showTenantAccount && ownerAccount != null && tenantAccount != null;
+  bool get hasTwoAccounts =>
+      showTenantAccount && ownerAccount != null && tenantAccount != null;
 
-  AccountTotals? accountOf(AccountParty party) => party == AccountParty.owner ? ownerAccount : tenantAccount;
+  AccountTotals? accountOf(AccountParty party) =>
+      party == AccountParty.owner ? ownerAccount : tenantAccount;
 
   factory AccountView.fromJson(Map<String, dynamic> json) {
     final apartment = json['apartment'];
@@ -1336,9 +1444,13 @@ class AccountView {
       tenantAccount: _accountOf(json['accounts'], AccountParty.tenant),
       showTenantAccount: json['show_tenant_account'] == true,
       hasCurrentTenant: json['has_current_tenant'] == true,
-      defaultPaymentAccount: AccountParty.tryParse(json['default_payment_account']),
+      defaultPaymentAccount: AccountParty.tryParse(
+        json['default_payment_account'],
+      ),
       funds: FundBreakdown.tryParse(json['funds']),
-      advanceMinor: json['advance_minor'] == null ? null : fundMinor(json['advance_minor']),
+      advanceMinor: json['advance_minor'] == null
+          ? null
+          : fundMinor(json['advance_minor']),
     );
   }
 }
@@ -1510,20 +1622,25 @@ class MyFinanceAccount {
 
   bool get isReadOnly => role == MyFinanceAccountRole.readOnly;
 
-  factory MyFinanceAccount.fromJson(Map<String, dynamic> json) => MyFinanceAccount(
-    accountParty: AccountParty.tryParse(json['account_party']),
-    role: json['role'] == 'read_only' ? MyFinanceAccountRole.readOnly : MyFinanceAccountRole.own,
-    balanceMinor: _requiredMinor(json, 'balance_minor'),
-    overdueMinor: _optionalMinor(json, 'overdue_minor'),
-    nextDueDate: crmDate(json['next_due_date']),
-    nextDueMinor: _optionalMinor(json, 'next_due_minor'),
-    visibleFrom: FinancePeriod.tryParse(json['visible_from']),
-    offsetNote: json['offset_note'] == true,
-    recent: _listOf(json['recent'], LedgerEntry.fromJson),
-    funds: FundBreakdown.tryParse(json['funds']),
-    advanceMinor: json['advance_minor'] == null ? null : fundMinor(json['advance_minor']),
-    breakdown: DebtBreakdown.tryParse(json['breakdown']),
-  );
+  factory MyFinanceAccount.fromJson(Map<String, dynamic> json) =>
+      MyFinanceAccount(
+        accountParty: AccountParty.tryParse(json['account_party']),
+        role: json['role'] == 'read_only'
+            ? MyFinanceAccountRole.readOnly
+            : MyFinanceAccountRole.own,
+        balanceMinor: _requiredMinor(json, 'balance_minor'),
+        overdueMinor: _optionalMinor(json, 'overdue_minor'),
+        nextDueDate: crmDate(json['next_due_date']),
+        nextDueMinor: _optionalMinor(json, 'next_due_minor'),
+        visibleFrom: FinancePeriod.tryParse(json['visible_from']),
+        offsetNote: json['offset_note'] == true,
+        recent: _listOf(json['recent'], LedgerEntry.fromJson),
+        funds: FundBreakdown.tryParse(json['funds']),
+        advanceMinor: json['advance_minor'] == null
+            ? null
+            : fundMinor(json['advance_minor']),
+        breakdown: DebtBreakdown.tryParse(json['breakdown']),
+      );
 }
 
 /// Sakinin bir dairedeki mali durumu (`GET /app/my-finance` -> `items[]`).
@@ -1611,28 +1728,31 @@ class MyFinanceApartment {
   final bool offsetNote;
   final List<LedgerEntry> recent;
 
-  factory MyFinanceApartment.fromJson(Map<String, dynamic> json) => MyFinanceApartment(
-    siteCode: crmInt(json['site_code']),
-    siteName: json['site_name']?.toString() ?? '',
-    apartmentId: crmInt(json['apartment_id']),
-    label: json['label']?.toString() ?? '',
-    blockName: crmText(json['block_name']),
-    balanceMinor: _requiredMinor(json, 'balance_minor'),
-    overdueMinor: _optionalMinor(json, 'overdue_minor'),
-    nextDueDate: crmDate(json['next_due_date']),
-    nextDueMinor: _optionalMinor(json, 'next_due_minor'),
-    payerParty: json['payer_party'] == null
-        ? null
-        : ResponsibleParty.fromApi(json['payer_party']),
-    visibleFrom: FinancePeriod.tryParse(json['visible_from']),
-    offsetNote: json['offset_note'] == true,
-    recent: _listOf(json['recent'], LedgerEntry.fromJson),
-    accountParty: AccountParty.tryParse(json['account_party']),
-    accounts: _listOf(json['accounts'], MyFinanceAccount.fromJson),
-    funds: FundBreakdown.tryParse(json['funds']),
-    advanceMinor: json['advance_minor'] == null ? null : fundMinor(json['advance_minor']),
-    breakdown: DebtBreakdown.tryParse(json['breakdown']),
-  );
+  factory MyFinanceApartment.fromJson(Map<String, dynamic> json) =>
+      MyFinanceApartment(
+        siteCode: crmInt(json['site_code']),
+        siteName: json['site_name']?.toString() ?? '',
+        apartmentId: crmInt(json['apartment_id']),
+        label: json['label']?.toString() ?? '',
+        blockName: crmText(json['block_name']),
+        balanceMinor: _requiredMinor(json, 'balance_minor'),
+        overdueMinor: _optionalMinor(json, 'overdue_minor'),
+        nextDueDate: crmDate(json['next_due_date']),
+        nextDueMinor: _optionalMinor(json, 'next_due_minor'),
+        payerParty: json['payer_party'] == null
+            ? null
+            : ResponsibleParty.fromApi(json['payer_party']),
+        visibleFrom: FinancePeriod.tryParse(json['visible_from']),
+        offsetNote: json['offset_note'] == true,
+        recent: _listOf(json['recent'], LedgerEntry.fromJson),
+        accountParty: AccountParty.tryParse(json['account_party']),
+        accounts: _listOf(json['accounts'], MyFinanceAccount.fromJson),
+        funds: FundBreakdown.tryParse(json['funds']),
+        advanceMinor: json['advance_minor'] == null
+            ? null
+            : fundMinor(json['advance_minor']),
+        breakdown: DebtBreakdown.tryParse(json['breakdown']),
+      );
 }
 
 /// Salt okunur kiracı hesabının açıklaması (Borcum kartı).
@@ -1708,7 +1828,9 @@ class DecisionRequirement {
     return DecisionRequirement(
       isRequired: isRequired,
       // Zorunluysa ve mod bilinmiyorsa en güvenli girdi (gerekçe) istenir; zorunlu değilse hiçbiri.
-      mode: isRequired && mode == RunBasisMode.none ? RunBasisMode.reason : mode,
+      mode: isRequired && mode == RunBasisMode.none
+          ? RunBasisMode.reason
+          : mode,
       moduleEnabled: raw['module_enabled'] == true,
       reasonMin: crmIntOrNull(raw['reason_min']) ?? 3,
       reasonMax: crmIntOrNull(raw['reason_max']) ?? 300,
@@ -1735,7 +1857,8 @@ class LedgerDecision {
   /// Tek satır özet: "Karar 2026/4 · Asansör yenileme" ya da "Gerekçe: ...".
   String get summary {
     final parts = <String>[
-      if (numberLabel != null) 'Karar $numberLabel${title == null ? '' : ' · $title'}',
+      if (numberLabel != null)
+        'Karar $numberLabel${title == null ? '' : ' · $title'}',
       if (reason != null) numberLabel == null ? 'Gerekçe: $reason' : reason!,
     ];
     return parts.join(' · ');
@@ -1820,31 +1943,37 @@ class DebtBreakdownItem {
   int get paidMinor => amountMinor - remainingMinor;
 
   /// Satır başlığı: tanım adı, yoksa türün adı.
-  String get title => (name != null && name!.trim().isNotEmpty) ? name!.trim() : type.label;
+  String get title =>
+      (name != null && name!.trim().isNotEmpty) ? name!.trim() : type.label;
 
-  factory DebtBreakdownItem.fromJson(Map<String, dynamic> json) => DebtBreakdownItem(
-    entryId: crmInt(json['entry_id']),
-    type: DebtItemType.fromApi(json['type']),
-    name: crmText(json['name']),
-    fund: FinanceFund.tryParse(json['fund']),
-    period: FinancePeriod.tryParse(json['period']),
-    dueDate: crmDate(json['due_date']),
-    overdue: json['overdue'] == true,
-    amountMinor: _requiredMinor(json, 'amount_minor'),
-    remainingMinor: _requiredMinor(json, 'remaining_minor'),
-    decision: LedgerDecision.tryParse(json['decision']),
-  );
+  factory DebtBreakdownItem.fromJson(Map<String, dynamic> json) =>
+      DebtBreakdownItem(
+        entryId: crmInt(json['entry_id']),
+        type: DebtItemType.fromApi(json['type']),
+        name: crmText(json['name']),
+        fund: FinanceFund.tryParse(json['fund']),
+        period: FinancePeriod.tryParse(json['period']),
+        dueDate: crmDate(json['due_date']),
+        overdue: json['overdue'] == true,
+        amountMinor: _requiredMinor(json, 'amount_minor'),
+        remainingMinor: _requiredMinor(json, 'remaining_minor'),
+        decision: LedgerDecision.tryParse(json['decision']),
+      );
 }
 
 /// Kalem dökümü (`breakdown`): ödenmemiş borç kalemleri, mahsup sırasıyla (en eski vade önce). [truncated]: sunucu çok kalemi kesti.
 @immutable
 class DebtBreakdown {
-  const DebtBreakdown({this.items = const <DebtBreakdownItem>[], this.truncated = false});
+  const DebtBreakdown({
+    this.items = const <DebtBreakdownItem>[],
+    this.truncated = false,
+  });
 
   final List<DebtBreakdownItem> items;
   final bool truncated;
 
-  int get totalRemainingMinor => items.fold<int>(0, (sum, item) => sum + item.remainingMinor);
+  int get totalRemainingMinor =>
+      items.fold<int>(0, (sum, item) => sum + item.remainingMinor);
 
   /// Eski sunucuda alan yoksa null (ekran bölüm göstermez; "borç yok" DEMEZ).
   static DebtBreakdown? tryParse(Object? raw) {

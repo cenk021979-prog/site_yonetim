@@ -320,6 +320,21 @@ describe('rota tablosu taraması: gerçek server.js uygulaması', () => {
     assert.deepEqual(guarded.filter((r) => verdictOf(r).ok).map(label), []);
   });
 
+  it('acil listeler demo site ile sınırlı; alarm/ACK ve alıcı ataması denemede kapalı; eski firma PUT korunur', () => {
+    for (const suffix of ['elevators', 'locations']) {
+      const path = `/app/emergency/sites/${DEMO}/${suffix}`;
+      assert.equal(evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'GET', path }).ok, true);
+      const denied = evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'GET', path: `/app/emergency/sites/${OTHER}/${suffix}` });
+      assert.equal(denied.code, 'TRIAL_SCOPE_DENIED');
+    }
+    for (const path of ['/app/emergency/alarms', ...['received', 'played', 'ack', 'resolve'].map((action) => `/app/emergency/alarms/1/${action}`)]) {
+      assert.equal(evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'POST', path }).code, 'TRIAL_ACTION_DENIED');
+    }
+    assert.equal(evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'PUT', path: `/manager/sites/${DEMO}/emergency/responders` }).code, 'TRIAL_ACTION_DENIED');
+    assert.equal(evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'PUT', path: `/manager/sites/${DEMO}/emergency` }).ok, true);
+    assert.equal(evaluateTrialRequest({ trial, demoSiteCode: DEMO, method: 'GET', path: '/app/emergency' }).ok, true);
+  });
+
   it('TEHLİKELİ UÇLAR (yeni site / yönetici daveti / e-posta-SMS / hesap üretimi / donanım / platform arama) rota tablosunda VAR ve KAPALI', () => {
     const mustBeClosed = [
       'POST /manager/sites',

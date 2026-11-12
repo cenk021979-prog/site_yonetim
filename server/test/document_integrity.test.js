@@ -56,8 +56,8 @@ function fakeDb({ settings = new Map(), versions = [], expenseTable = true, expe
       if (/^SELECT storage_key FROM expense_documents WHERE storage_key = ANY\(\$1::TEXT\[\]\)$/.test(sql)) {
         return ok(expenses.filter((row) => params[0].includes(row.storage_key)).map((row) => ({ storage_key: row.storage_key })));
       }
-      if (/^SELECT storage_key FROM document_versions WHERE status = 'ready' ORDER BY id DESC LIMIT 20$/.test(sql)) {
-        return ok(versions.filter((row) => row.status === 'ready').map((row) => ({ storage_key: row.storage_key })));
+      if (/^SELECT storage_key FROM document_versions WHERE status = 'ready' AND server_copy = TRUE ORDER BY id DESC LIMIT 20$/.test(sql)) {
+        return ok(versions.filter((row) => row.status === 'ready' && row.server_copy !== false).map((row) => ({ storage_key: row.storage_key })));
       }
       if (/^SELECT storage_key FROM expense_documents WHERE status = 'ready' ORDER BY id DESC LIMIT 20$/.test(sql)) {
         return ok(expenses.filter((row) => row.status === 'ready').map((row) => ({ storage_key: row.storage_key })));
@@ -142,6 +142,15 @@ describe('depolama kimliği durum makinesi (R9 F4)', () => {
     return KEY(n);
   };
   const settingsOf = (id) => new Map(id ? [[IDENTITY_SETTING_KEY, { id }]] : []);
+
+  it('yalnız Drive kopyası olan sürüm diskteki yabancı dosyayı güvenilir yapmaz; server_copy=true gerekir', async () => {
+    await plantFile(1);
+    const version = { storage_key: KEY(1), status: 'ready', server_copy: false };
+    assert.deepEqual(await ensureStorageIdentity(fakeDb({ versions: [version] }), root), { ok: false, state: 'unverified_state' });
+    const owned = await ensureStorageIdentity(fakeDb({ versions: [{ ...version, server_copy: true }] }), root);
+    assert.equal(owned.ok, true);
+    assert.equal(owned.state, 'initialized');
+  });
 
   it('dosya + DB eşit -> verified (yazma yok); farklı -> mismatch; bozuk dosya -> file_identity_invalid', async () => {
     await writeIdentity(ID_A);
