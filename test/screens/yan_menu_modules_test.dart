@@ -103,9 +103,9 @@ void main() {
       final drawer = _titles(t);
       expect(drawer, <String>[
         'Panel',
-        'Daire Sakinleri',
         'Site Yönetimi',
         'Kişiler',
+        'Daire Sakinleri',
         'Daireye Katıl',
         'Yeni Site Oluştur',
         'Çıkış Yap',

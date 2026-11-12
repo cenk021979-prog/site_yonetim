@@ -31,6 +31,14 @@ function defineModule(definition) {
 
 export const MODULE_CATALOG = Object.freeze([
   defineModule({
+    code: 'people',
+    name: 'Kişi ve Daire Kayıtları',
+    description: 'Blok, daire, sakin ve görevli kayıtlarının tutulması.',
+    core: true,
+    status: MODULE_STATUS_AVAILABLE,
+    defaultEnabled: true,
+  }),
+  defineModule({
     code: 'door_control',
     name: 'Geçiş Kontrol (SmartKeyPass)',
     description: 'Telefondan kapı açma, karekod ve misafir geçişi; kapı ve cihaz yönetimi.',
@@ -40,9 +48,18 @@ export const MODULE_CATALOG = Object.freeze([
     confirmOnDisable: DOOR_CONTROL_DISABLE_WARNING,
   }),
   defineModule({
-    code: 'people',
-    name: 'Kişi ve Daire Kayıtları',
-    description: 'Blok, daire, sakin ve görevli kayıtlarının tutulması.',
+    code: 'plate_recognition',
+    name: 'Plaka Tanıma ve Kapı Açma',
+    description: 'Kameralarla araç plakasını okuyarak SmartKeyPass kapılarını otomatik açma ve geçiş kaydı.',
+    core: false,
+    status: MODULE_STATUS_AVAILABLE,
+    defaultEnabled: false,
+  }),
+  defineModule({
+    code: 'finance',
+    name: 'Aidat ve Finans',
+    description: 'Aidat, borç ve alacak takibi; gelir ve gider kayıtları.',
+    // Temel modül (Kural 25): site kurulumunda açık tanımlanır, talep edilmez, kapatılamaz.
     core: true,
     status: MODULE_STATUS_AVAILABLE,
     defaultEnabled: true,
@@ -51,15 +68,6 @@ export const MODULE_CATALOG = Object.freeze([
     code: 'announcements',
     name: 'Duyuru ve Bildirim',
     description: 'Sakinlere duyuru ve bildirim gönderme.',
-    core: true,
-    status: MODULE_STATUS_AVAILABLE,
-    defaultEnabled: true,
-  }),
-  defineModule({
-    code: 'finance',
-    name: 'Aidat ve Finans',
-    description: 'Aidat, borç ve alacak takibi; gelir ve gider kayıtları.',
-    // Temel modül (Kural 25): site kurulumunda açık tanımlanır, talep edilmez, kapatılamaz.
     core: true,
     status: MODULE_STATUS_AVAILABLE,
     defaultEnabled: true,
@@ -180,14 +188,6 @@ export const MODULE_CATALOG = Object.freeze([
     core: true,
     status: MODULE_STATUS_AVAILABLE,
     defaultEnabled: true,
-  }),
-  defineModule({
-    code: 'plate_recognition',
-    name: 'Plaka Tanıma ve Kapı Açma',
-    description: 'Kameralarla araç plakasını okuyarak SmartKeyPass kapılarını otomatik açma ve geçiş kaydı.',
-    core: false,
-    status: MODULE_STATUS_AVAILABLE,
-    defaultEnabled: false,
   }),
   defineModule({
     code: 'hgs_access',

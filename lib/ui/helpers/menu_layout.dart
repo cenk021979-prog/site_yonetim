@@ -15,9 +15,11 @@ import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 /// "Kapılar" bilerek eşlenmez: kapı açma ürünün ana eylemidir ve kompakt kümeye bağlı değildir.
 const Map<SirketMenuItem, String> menuModuleCodes = <SirketMenuItem, String>{
   SirketMenuItem.kisiler: PlatformModuleCodes.people,
-  SirketMenuItem.duyurular: PlatformModuleCodes.announcements,
+  SirketMenuItem.plakaTanima: PlatformModuleCodes.plateRecognition,
+  SirketMenuItem.odemeKamera: PlatformModuleCodes.plateCameras,
   SirketMenuItem.finans: PlatformModuleCodes.finance,
   SirketMenuItem.borcum: PlatformModuleCodes.finance,
+  SirketMenuItem.duyurular: PlatformModuleCodes.announcements,
   SirketMenuItem.sayaclar: PlatformModuleCodes.metering,
   SirketMenuItem.isletmeProjesi: PlatformModuleCodes.budget,
   SirketMenuItem.belgeler: PlatformModuleCodes.driveStorage,
@@ -35,8 +37,6 @@ const Map<SirketMenuItem, String> menuModuleCodes = <SirketMenuItem, String>{
   SirketMenuItem.rehber: PlatformModuleCodes.directory,
   SirketMenuItem.komsuPanosu: PlatformModuleCodes.neighborBoard,
   SirketMenuItem.faaliyetRaporu: PlatformModuleCodes.annualReport,
-  SirketMenuItem.plakaTanima: PlatformModuleCodes.plateRecognition,
-  SirketMenuItem.odemeKamera: PlatformModuleCodes.plateCameras,
   SirketMenuItem.ekipmanBakim: PlatformModuleCodes.equipment,
 };
 

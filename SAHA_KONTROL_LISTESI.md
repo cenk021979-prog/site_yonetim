@@ -5037,6 +5037,21 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
   - **Nasıl Test Edilir:** Ev sahibi hesabına borç devri sırasında finans defterinde bir kesinti/hata oluşursa ayrılma sonucunu inceleyin.
   - **Beklenen Sonuç:** Hata yutulmamalı (`swallowed error` riski önlenmeli); `debtTransferFailed: true` ve `debtTransferError` kullanıcıya ve yöneticiye açıkça raporlanmalıdır.
 
+---
+
+## 171. 🧭 Menü ve Vitrin Öncelik Sıralaması (Site Yönetimi, Kişiler, Kapılar, Plaka Tanıma, Finans)
+*Tüm menülerde, çekmecede, modül vitrininde ve modül kataloğunda standart öncelik sırası.*
+
+- [ ] **171.1. Modül Vitrini Kart Sıralaması:**
+  - **Nasıl Test Edilir:** Site yöneticisi veya süper kullanıcı olarak giriş yapıp ana ekran modül vitrinini inceleyin.
+  - **Beklenen Sonuç:** Kartlar en üstte sırasıyla: 1. `Site Yönetimi`, 2. `Kişiler`, 3. `Kapılar`, 4. `Plaka Tanıma ve Kameralar`, 5. `Finans` ve ardından diğer açık modüller olacak şekilde dizilmelidir.
+- [ ] **171.2. Yan Menü ve Çekmece Sıralaması:**
+  - **Nasıl Test Edilir:** Yan menüyü (çekmeceyi) açın.
+  - **Beklenen Sonuç:** Panel'in hemen altında `Site Yönetimi` ve `Kişiler` öncelikli olarak listelenmeli; `Kapılar`, `Plaka Tanıma` ve `Finans` üst sıralarda erişilebilir olmalıdır.
+- [ ] **171.3. Backend Modül Kataloğu ve Menü Düzeni Eşleşmesi:**
+  - **Nasıl Test Edilir:** `GET /app/my-modules` ve Menü Düzeni ekranını açın.
+  - **Beklenen Sonuç:** Modül listesi `people` (#1), `door_control` (#2), `plate_recognition` (#3), `finance` (#4) öncelik sırasını korumalı; mükerrer `plate_recognition` tanımı olmamalıdır.
+
 ## Birleşim kabul kontrolü — 12 Kasım 2026
 
 - [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.

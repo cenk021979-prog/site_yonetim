@@ -1328,11 +1328,33 @@ List<SirketMenuItem> _withExtras(
         if (anchor >= 0) break;
       }
     }
+    // "Sayaçlar": "Finans" / "Borcum" / "Sözleşmeler" / ... altına.
+    if (extra == SirketMenuItem.sayaclar) {
+      for (final above in const <SirketMenuItem>[
+        SirketMenuItem.sozlesmeler,
+        SirketMenuItem.ziyaretcilerim,
+        SirketMenuItem.ziyaretciKayitlari,
+        SirketMenuItem.anket,
+        SirketMenuItem.anketler,
+        SirketMenuItem.rezervasyon,
+        SirketMenuItem.rezervasyonlar,
+        SirketMenuItem.taleplerim,
+        SirketMenuItem.talepler,
+        SirketMenuItem.belgeler,
+        SirketMenuItem.duyurular,
+        SirketMenuItem.borcum,
+        SirketMenuItem.finans,
+      ]) {
+        anchor = result.indexOf(above);
+        if (anchor >= 0) break;
+      }
+    }
     // "Karar Defteri" (yönetim) / "Kararlar" (sakin): "Sözleşmeler" / "Ziyaretçi ve Kargo" / "Anket" / ... / "Kişiler"
     // sırasıyla ilk bulunanın altına; "Kararlar" varsa "Karar Defteri"nin altına.
     if (extra == SirketMenuItem.kararDefteri || extra == SirketMenuItem.kararlar) {
       for (final above in <SirketMenuItem>[
         if (extra == SirketMenuItem.kararlar) SirketMenuItem.kararDefteri,
+        SirketMenuItem.sayaclar,
         SirketMenuItem.sozlesmeler,
         SirketMenuItem.ziyaretcilerim,
         SirketMenuItem.ziyaretciKayitlari,
@@ -1366,29 +1388,34 @@ List<SirketMenuItem> _withExtras(
         if (anchor >= 0) break;
       }
     }
-    // "Kamera ve Plaka": "Karar Defteri" / "Sözleşmeler" / ... / "Kişiler" sırasıyla ilk bulunanın altına.
+    // "Kamera ve Plaka": "Plaka Tanıma" / "Karar Defteri" / "Sözleşmeler" / ... altına.
     if (extra == SirketMenuItem.odemeKamera) {
-      for (final above in const <SirketMenuItem>[
-        SirketMenuItem.kararDefteri,
-        SirketMenuItem.sozlesmeler,
-        SirketMenuItem.ziyaretciKayitlari,
-        SirketMenuItem.anketler,
-        SirketMenuItem.rezervasyonlar,
-        SirketMenuItem.talepler,
-        SirketMenuItem.belgeler,
-        SirketMenuItem.finans,
-        SirketMenuItem.duyurular,
-        SirketMenuItem.kisiler,
-      ]) {
-        anchor = result.indexOf(above);
-        if (anchor >= 0) break;
+      if (result.contains(SirketMenuItem.plakaTanima)) {
+        anchor = result.indexOf(SirketMenuItem.plakaTanima);
+      } else {
+        for (final above in const <SirketMenuItem>[
+          SirketMenuItem.kararDefteri,
+          SirketMenuItem.sayaclar,
+          SirketMenuItem.sozlesmeler,
+          SirketMenuItem.ziyaretciKayitlari,
+          SirketMenuItem.anketler,
+          SirketMenuItem.rezervasyonlar,
+          SirketMenuItem.talepler,
+          SirketMenuItem.belgeler,
+          SirketMenuItem.finans,
+          SirketMenuItem.duyurular,
+          SirketMenuItem.kisiler,
+        ]) {
+          anchor = result.indexOf(above);
+          if (anchor >= 0) break;
+        }
       }
     }
-    // "Plaka Tanıma": "Karar Defteri" / "Sözleşmeler" / ... / "Kişiler" sırasıyla ilk bulunanın altına (numaralandırmada önde olduğundan
-    // "Kamera ve Plaka" ve "Ekipman ve Bakım" sonradan ekleniyor ve kendi çıpalarının altına giriyor).
+    // "Plaka Tanıma": "Karar Defteri" / "Sözleşmeler" / ... altına.
     if (extra == SirketMenuItem.plakaTanima) {
       for (final above in const <SirketMenuItem>[
         SirketMenuItem.kararDefteri,
+        SirketMenuItem.sayaclar,
         SirketMenuItem.sozlesmeler,
         SirketMenuItem.ziyaretciKayitlari,
         SirketMenuItem.anketler,
@@ -1403,11 +1430,13 @@ List<SirketMenuItem> _withExtras(
         if (anchor >= 0) break;
       }
     }
-    // "Ekipman ve Bakım": "Kamera ve Plaka" / "Karar Defteri" / "Sözleşmeler" / ... / "Kişiler" sırasıyla ilk bulunanın altına.
+    // "Ekipman ve Bakım": "Kamera ve Plaka" / "Plaka Tanıma" / ... altına.
     if (extra == SirketMenuItem.ekipmanBakim) {
       for (final above in const <SirketMenuItem>[
         SirketMenuItem.odemeKamera,
+        SirketMenuItem.plakaTanima,
         SirketMenuItem.kararDefteri,
+        SirketMenuItem.sayaclar,
         SirketMenuItem.sozlesmeler,
         SirketMenuItem.ziyaretciKayitlari,
         SirketMenuItem.anketler,
@@ -1422,13 +1451,11 @@ List<SirketMenuItem> _withExtras(
         if (anchor >= 0) break;
       }
     }
-    // "İşlem Kayıtları" (yönetici, çekirdek): "Modüller"in hemen altına (Ayarlar panelinde Modüller'in ardından).
+    // "İşlem Kayıtları" (yönetici, çekirdek): "Modüller"in hemen altına.
     if (extra == SirketMenuItem.islemKayitlari) anchor = result.indexOf(SirketMenuItem.moduller);
-    // "Kapılar" her zaman "Panel"in hemen altındadır (kapı paneli bir dokunuş uzakta). Numaralandırmada en sonda
-    // olduğundan öteki ek öğelerden SONRA eklenir ve "Panel"in altına, onların önüne girer.
+    // "Kapılar" her zaman "Panel"in hemen altındadır (kapı paneli bir dokunuş uzakta).
     if (extra == SirketMenuItem.kapilar) anchor = result.indexOf(SirketMenuItem.dashboard);
-    // "Acil durum": "Kapılar"ın (yoksa "Panel"in) hemen altına eklenir; numaralandırmada "Kapılar"dan sonra olduğundan o zaten listededir.
-    // Çekmecede grup eşlemesiyle ([menuGroupOf]) "Ana sayfa" başlığı altında "Panel"in yanında görünür.
+    // "Acil durum": "Kapılar"ın (yoksa "Panel"in) hemen altına eklenir.
     if (extra == SirketMenuItem.acilDurum) {
       anchor = result.indexOf(SirketMenuItem.kapilar);
       if (anchor < 0) anchor = result.indexOf(SirketMenuItem.dashboard);
@@ -1448,8 +1475,8 @@ List<SirketMenuItem> _itemsForRole(
   if (canToggleMode && !isResidentMode && (role == UserRole.individual || role == UserRole.apartmentOwner)) {
     return const [
       SirketMenuItem.dashboard,
-      SirketMenuItem.profilim,
       SirketMenuItem.siteler,
+      SirketMenuItem.profilim,
       SirketMenuItem.kayitliCihazlar,
       SirketMenuItem.katilimVeKurulum,
       SirketMenuItem.yeniSite,
@@ -1460,13 +1487,13 @@ List<SirketMenuItem> _itemsForRole(
     case UserRole.superUser:
       return const [
         SirketMenuItem.dashboard,
+        SirketMenuItem.siteler,
+        SirketMenuItem.kisiler,
+        SirketMenuItem.daireKullanicilariYonetimi,
         SirketMenuItem.profilim,
         SirketMenuItem.kullaniciYonetimi,
         SirketMenuItem.superUserYonetimi,
         SirketMenuItem.siteYoneticileriYonetimi,
-        SirketMenuItem.daireKullanicilariYonetimi,
-        SirketMenuItem.siteler,
-        SirketMenuItem.kisiler,
         SirketMenuItem.moduller,
         SirketMenuItem.modulTalepleri,
         SirketMenuItem.siteBasvurulari,
@@ -1491,9 +1518,9 @@ List<SirketMenuItem> _itemsForRole(
       }
       return const [
         SirketMenuItem.dashboard,
-        SirketMenuItem.profilim,
         SirketMenuItem.siteler,
         SirketMenuItem.kisiler,
+        SirketMenuItem.profilim,
         SirketMenuItem.moduller,
         SirketMenuItem.kayitliCihazlar,
         SirketMenuItem.katilimVeKurulum,
