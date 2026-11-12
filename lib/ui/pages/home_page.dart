@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:site_kapi_kontrol/models/apartment_household.dart';
+import 'package:site_kapi_kontrol/models/apartment_member_record.dart';
 import 'package:site_kapi_kontrol/models/apartment_record.dart';
 
 import 'package:site_kapi_kontrol/models/device_page.dart';
@@ -240,6 +241,7 @@ import 'package:site_kapi_kontrol/ui/design/interface_mode_switch.dart';
 import 'package:site_kapi_kontrol/ui/helpers/simple_navigation.dart';
 import 'package:site_kapi_kontrol/ui/widgets/simple_navigation.dart';
 import 'package:site_kapi_kontrol/ui/widgets/manager_call_action.dart';
+import 'package:site_kapi_kontrol/ui/widgets/unaffiliated_account_menu.dart';
 import 'package:site_kapi_kontrol/ui/views/module_showcase_view.dart';
 // İP-1D: gruplu menü, Ayarlar paneli ve sakin alt çubuğu.
 import 'package:site_kapi_kontrol/ui/helpers/resident_tabs.dart';
@@ -323,12 +325,28 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   SirketMenuItem _selectedMenu = SirketMenuItem.dashboard;
   final InterfaceModeService _interfaceMode = InterfaceModeService();
   SimpleTopic _simpleTopic = SimpleTopic.today;
-  bool get _inlineSimpleNavigation => MediaQuery.sizeOf(context).height - MediaQuery.viewInsetsOf(context).vertical < 600 || MediaQuery.textScalerOf(context).scale(16) > 24;
+  bool get _inlineSimpleNavigation =>
+      MediaQuery.sizeOf(context).height -
+              MediaQuery.viewInsetsOf(context).vertical <
+          600 ||
+      MediaQuery.textScalerOf(context).scale(16) > 24;
 
   Widget _simpleTopicNavigation(UserSession session, SirketMenuItem page) {
-    final audience = showcaseAudience(role: session.role, isResidentMode: _isResidentMode, canToggleMode: _canToggleDualMode);
-    final topic = simpleTopics(audience).contains(_simpleTopic) ? _simpleTopic : SimpleTopic.today;
-    return SimpleTopicBar(audience: audience, selected: page == SirketMenuItem.dashboard ? topic : simpleTopicFor(page, audience), onSelected: _selectSimpleTopic);
+    final audience = showcaseAudience(
+      role: session.role,
+      isResidentMode: _isResidentMode,
+      canToggleMode: _canToggleDualMode,
+    );
+    final topic = simpleTopics(audience).contains(_simpleTopic)
+        ? _simpleTopic
+        : SimpleTopic.today;
+    return SimpleTopicBar(
+      audience: audience,
+      selected: page == SirketMenuItem.dashboard
+          ? topic
+          : simpleTopicFor(page, audience),
+      onSelected: _selectSimpleTopic,
+    );
   }
 
   void _onInterfaceModeChanged() {
@@ -669,6 +687,56 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
+  List<MyApartmentRecord>? _myApartments;
+  int _apartmentsRequestToken = 0;
+  int? _apartmentsAccountId;
+  bool _affiliationDoorsLoaded = false;
+
+  Future<void> _loadApartments() async {
+    final session = widget.authService.session;
+    final requestToken = ++_apartmentsRequestToken;
+    _apartmentsAccountId = session?.id;
+    if (session == null ||
+        session.role == UserRole.superUser ||
+        session.role == UserRole.siteManager) {
+      return;
+    }
+    try {
+      final (list, _) = await widget.authService.getMyApartments();
+      if (!mounted ||
+          requestToken != _apartmentsRequestToken ||
+          widget.authService.session?.id != session.id) {
+        return;
+      }
+      if (list != null) {
+        setState(() => _myApartments = list);
+      }
+    } catch (_) {}
+  }
+
+  /// Hiçbir daireye veya siteye abone / bağlı olmayan ve site yöneticisi olmayan kullanıcı.
+  /// Bu kullanıcıya site/apartman/kapı menüleri (Kapılar, Acil durum, Dairem vb.) ve çekmece/ayar menüleri gösterilmez.
+  bool _isUnaffiliated(UserSession session) {
+    if (session.role == UserRole.superUser ||
+        session.role == UserRole.siteManager) {
+      return false;
+    }
+    // Yüklenmemiş ya da hatalı yanıt "üyeliği yok" değildir. Özellikle ağ
+    // kesildiğinde gerçek sakinin menüsünü kurulum ekranına düşürmeyiz.
+    if (!_moduleAccess.isLoaded ||
+        _moduleAccess.isSuper ||
+        _myApartments == null ||
+        !_affiliationDoorsLoaded) {
+      return false;
+    }
+    final hasSites =
+        (_doorControlSitesPage?.sites.isNotEmpty ?? false) ||
+        _moduleAccess.allSites.isNotEmpty;
+    final hasDoors = _doorControlStructure?.doors.isNotEmpty ?? false;
+    final hasApartments = _myApartments?.isNotEmpty ?? false;
+    return !hasSites && !hasDoors && !hasApartments;
+  }
+
   final GlobalKey<IndividualHomeViewState> _individualHomeKey =
       GlobalKey<IndividualHomeViewState>();
   // Panel = modül vitrini: borç özeti (sakin) aşağı çekip yenilemeyle tazelenir.
@@ -939,6 +1007,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   void _loadInitialData() {
+    _loadApartments();
     _loadDoorControlSites();
 
     // /manager/sites yalnızca site yöneticisi / süper kullanıcı içindir: bireysel kullanıcı ve
@@ -988,12 +1057,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// yöneticisi olma) yeniden çekilir.
   void _onAuthChanged() {
     final session = widget.authService.session;
+    final accountChanged = _apartmentsAccountId != session?.id;
+    if (accountChanged) {
+      ++_apartmentsRequestToken;
+      _apartmentsAccountId = session?.id;
+      _myApartments = null;
+      _affiliationDoorsLoaded = false;
+    }
     if (_interfaceMode.accountId != session?.id) {
       _simpleTopic = SimpleTopic.today;
       unawaited(_interfaceMode.setAccount(session?.id));
     }
     if (session == null) {
       _lastSeenRole = null;
+      _myApartments = null;
       _moduleAccess.clear();
       _announcements.clear();
       _siteApplications.clear();
@@ -1004,9 +1081,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         (_) => _checkForceChangePassword(),
       );
     }
-    if (_lastSeenRole != session.role) {
+    if (_lastSeenRole != session.role || accountChanged) {
       final previousRole = _lastSeenRole;
       _lastSeenRole = session.role;
+      // Önceki hesap/rolün yönetilen siteleri yeni oturumun üyeliği değildir.
+      // Bekleyen eski yanıtlar da bu temizliği geri alamaz.
+      ++_doorControlSitesToken;
+      ++_doorControlResidentToken;
+      ++_doorControlSiteToken;
+      _doorControlSitesPage = null;
+      _doorControlSite = null;
+      _doorControlStructure = null;
+      _doorControlDoor = null;
+      _doorRuntimeStatus = null;
+      _affiliationDoorsLoaded = false;
       // İP-1D: site seçicinin kapsamı seçildiği yönetici görünümüne aittir; rol değişince (örn. yöneticilik kalktı)
       // tüm sitelere dönülür: sakin görünümünde değiştirilemeyen bir kapsam kalmasın.
       _moduleAccess.setScopeSiteCode(null);
@@ -1072,19 +1160,44 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Menüden gizlenecek öğeler: Geçiş Kontrol bağlı olunan TÜM sitelerde kapalıyken kapı öğeleri; daire sakini rolünde
   /// kapı erişimi olan sitesi ve kapısı olmayan hesapta da (yalnız görevli / kurul / site üyeliği bağı). Kapı listesi
   /// doluysa ([_hasResidentSignal]) kapı öğeleri kalır. Bkz. [hiddenMenuItemsFor].
-  Set<SirketMenuItem> _hiddenMenuItems(UserRole role) =>
-      hiddenMenuItemsFor(role, _moduleAccess, hasDoors: _hasResidentSignal);
+  Set<SirketMenuItem> _hiddenMenuItems(UserRole role) {
+    final session = widget.authService.session;
+    if (session != null && _isUnaffiliated(session)) {
+      return <SirketMenuItem>{
+        ...hiddenMenuItemsFor(
+          role,
+          _moduleAccess,
+          hasDoors: _hasResidentSignal,
+        ),
+        ...doorControlMenuItems,
+        SirketMenuItem.dairem,
+        SirketMenuItem.acilDurum,
+      };
+    }
+    return hiddenMenuItemsFor(
+      role,
+      _moduleAccess,
+      hasDoors: _hasResidentSignal,
+    );
+  }
 
   /// Çekmecede görünen öğeler (rol listesi + ek öğeler - gizlenenler). ÇEKMECE de Panel vitrini de bu listeyi kullanır:
   /// görünürlük kuralı tek yerde ([YanMenu.visibleItems]) olduğundan kapalı bir modül vitrinde de asla görünmez.
-  List<SirketMenuItem> _visibleMenuItems(UserSession session) =>
-      YanMenu.visibleItems(
-        role: session.role,
-        isResidentMode: _isResidentMode,
-        canToggleMode: _canToggleDualMode,
-        additionalItems: _extraMenuItems(session.role),
-        hiddenItems: _hiddenMenuItems(session.role),
-      );
+  List<SirketMenuItem> _visibleMenuItems(UserSession session) {
+    if (_isUnaffiliated(session)) {
+      return const <SirketMenuItem>[
+        SirketMenuItem.dashboard,
+        SirketMenuItem.profilim,
+      ];
+    }
+    return YanMenu.visibleItems(
+      role: session.role,
+      isResidentMode: _isResidentMode,
+      canToggleMode: _canToggleDualMode,
+      additionalItems: _extraMenuItems(session.role),
+      hiddenItems: _hiddenMenuItems(session.role),
+    );
+  }
 
   /// K8 (P1-16) KOMPAKT MENÜ: çekmecede ve Panel vitrininde öne çıkan öğeler. null: kompakt menü yok (süper kullanıcı, modül verisi hiç
   /// gelmemiş, eski sunucu): her görünür öğe öne çıkar. YETENEĞİ değil yalnız YERLEŞİMİ belirler: görünürlük [_visibleMenuItems]'te,
@@ -1251,12 +1364,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// Dairem: daire sakini, bireysel sakin ve sakin modundaki yönetici (modül gerektirmez). Ekran, bağlı daire yoksa bunu açıkça söyler.
   bool _canAccessDairem(UserRole role) =>
-      role == UserRole.apartmentOwner ||
-      role == UserRole.individual ||
-      (role == UserRole.siteManager && _isResidentMode);
+      !(widget.authService.session != null &&
+          _isUnaffiliated(widget.authService.session!)) &&
+      (role == UserRole.apartmentOwner ||
+          role == UserRole.individual ||
+          (role == UserRole.siteManager && _isResidentMode));
 
-  /// Acil durum (P2-24): modül değil, çekirdek özelliktir; süper kullanıcı dışında herkeste ve modül verisi gelmese de açıktır (acil durumda
-  /// menü ağ ya da modül durumuna bağlı olmaz). Ekran siteyi/adresi kendi uç noktasından alır.
+  /// Alarm başlatma yalnız ilgili sitede sakin olan hesaplara açıktır.
   Set<int> _emergencyResidentSites = {};
   bool _emergencyResidencyLoaded = false;
   int _emergencyResidencyToken = 0;
@@ -1354,7 +1468,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (!_moduleAccess.isFiltering) return const <PeopleSite>[];
     final staffSites = <PeopleSite>[
       for (final site in _moduleAccess.result!.sites)
-        if (site.role == 'staff' && site.isEnabled(PlatformModuleCodes.driveStorage))
+        if (site.role == 'staff' &&
+            site.isEnabled(PlatformModuleCodes.driveStorage))
           PeopleSite(code: site.siteCode, name: site.siteName),
     ];
     switch (role) {
@@ -2410,6 +2525,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   // --- Navigasyon & Menü ---
 
   bool _canAccessMenu(SirketMenuItem item, UserRole role) {
+    final session = widget.authService.session;
+    if (session != null && _isUnaffiliated(session)) {
+      return item == SirketMenuItem.dashboard ||
+          item == SirketMenuItem.profilim;
+    }
     // Modül süzgeci: Geçiş Kontrol kapalıyken kapıyla ilgili öğeler menüde de erişimde de yoktur.
     if (_hiddenMenuItems(role).contains(item)) {
       return false;
@@ -2565,7 +2685,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   String _titleForMenu(SirketMenuItem item) {
-    return YanMenu.titleFor(item, widget.authService.session?.role, context);
+    final session = widget.authService.session;
+    if (session != null &&
+        _isUnaffiliated(session) &&
+        item == SirketMenuItem.dashboard) {
+      return 'Daireye Katıl ve Kurulum';
+    }
+    return YanMenu.titleFor(item, session?.role, context);
   }
 
   /// "Yerel Ağda Aktif" yalnızca cihaz yerelde görünüyorsa VE yerel açma gerçekten mümkünse (kapı
@@ -2733,11 +2859,21 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       platform: _feedbackPlatform,
     );
     if (!mounted || outcome == null) return;
-    AppSnack.show(context,
+    AppSnack.show(
+      context,
       outcome.allUploaded
           ? 'Geri bildiriminiz gönderildi. Teşekkür ederiz.'
           : 'Geri bildiriminiz gönderildi; ${outcome.failed} dosya yüklenemedi.',
-      action: SnackBarAction(label: 'Gönderdiklerim', onPressed: () => unawaited(FeedbackInboxPage.open(context, service: _feedbackService, mine: true))),
+      action: SnackBarAction(
+        label: 'Gönderdiklerim',
+        onPressed: () => unawaited(
+          FeedbackInboxPage.open(
+            context,
+            service: _feedbackService,
+            mine: true,
+          ),
+        ),
+      ),
       persist: false,
     );
   }
@@ -2888,7 +3024,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   void _applyDoorPanelRequest() {
     final requests = widget.doorPanelRequests;
     final session = widget.authService.session;
-    if (!mounted || requests == null || session == null || !requests.isPending) {
+    if (!mounted ||
+        requests == null ||
+        session == null ||
+        !requests.isPending) {
       return;
     }
     // İP-1D (a): modül verisi henüz hiç gelmediyse (soğuk açılış) karar verilmez: fail-open hâlde "Kapılar" bir an açılıp
@@ -3208,6 +3347,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         if (doors == null) {
           return; // Hata: mevcut görünümü koru.
         }
+        _affiliationDoorsLoaded = true;
+        // Yönetici rolü sona erdiğinde eski yönetilen site listesi sakin için
+        // devam eden bir üyelik sinyali olarak kalmamalı.
+        _doorControlSitesPage = null;
 
         if (doors.isEmpty) {
           // Hiç kapı kalmadıysa eski kapı/durum ekranda kalmasın.
@@ -3274,6 +3417,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       setState(() {
         _isLoadingDoorControlSites = false;
         _doorControlSitesPage = data;
+        _affiliationDoorsLoaded = true;
 
         // Yalnız Geçiş Kontrol modülü AÇIK siteler Panel'de seçilebilir (kapalı site listede yoktur).
         final selectable = _doorControlSelectableSites(data.sites);
@@ -4854,10 +4998,29 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
   }
 
-  Future<void> _openDoorDialog({DoorRecord? door}) async {
-    final site = _selectedSite;
-    if (site == null) return;
-    final structure = _selectedSiteStructure;
+  Future<void> _openDoorDialog({
+    DoorRecord? door,
+    SiteRecord? siteOverride,
+    String? initialDeviceUid,
+  }) async {
+    final site = siteOverride ?? _doorControlSite ?? _selectedSite;
+    if (site == null) {
+      _showMessage('Kapı eklemek için önce bir site seçiniz.');
+      return;
+    }
+    SiteStructureRecord? structure = _selectedSiteStructure;
+    if (structure == null || structure.site.id != site.id) {
+      if (_doorControlStructure?.site.id == site.id) {
+        structure = _doorControlStructure;
+      } else {
+        try {
+          final (struct, _) = await widget.authService.getSiteStructure(
+            siteCode: site.id,
+          );
+          structure = struct;
+        } catch (_) {}
+      }
+    }
     final blocks = structure?.blocks ?? const <SiteBlockRecord>[];
 
     final availableDevices = await widget.authService.getAssignableDevices(
@@ -4872,14 +5035,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       door: door,
       blocks: blocks,
       availableDevices: availableDevices,
+      initialDeviceUid: initialDeviceUid,
     );
 
     if (result == true) {
       _showMessage(
         door == null ? 'Yeni kapı oluşturuldu.' : 'Kapı güncellendi.',
       );
-      _selectSite(site);
+      if (_selectedSite?.id == site.id) {
+        _selectSite(site);
+      }
       _loadDoorControlSites();
+      _loadCompanyDevices(force: true);
     }
   }
 
@@ -4967,6 +5134,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           _loadInitialData();
         } else if (result == SetupSiteOutcome.applied) {
           unawaited(_siteApplications.noteChanged());
+        }
+      } else {
+        if (mounted) {
+          AppSnack.show(
+            context,
+            'Cihaz ($claimedUid) hesabınıza bağlandı.',
+            kind: AppSnackKind.success,
+            duration: const Duration(seconds: 8),
+            action: SnackBarAction(
+              label: 'Kapı Oluştur',
+              onPressed: () => _openDoorDialog(initialDeviceUid: claimedUid),
+            ),
+          );
         }
       }
     }
@@ -5563,17 +5743,23 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   }
 
   Future<void> _openWifiProvision() async {
-    Navigator.of(context).push(
+    final provisionedUid = await Navigator.of(context).push<String>(
       MaterialPageRoute(
         builder: (_) => WifiProvisionPage(
           authService: widget.authService,
-
           accentColor: widget.authService.session?.role.accentColor,
-
           surfaceColor: widget.authService.session?.role.surfaceColor,
         ),
       ),
     );
+
+    if (provisionedUid != null && provisionedUid.isNotEmpty && mounted) {
+      final role = widget.authService.session?.role;
+      if (role == UserRole.superUser ||
+          (role == UserRole.siteManager && !_isResidentMode)) {
+        await _openDoorDialog(initialDeviceUid: provisionedUid);
+      }
+    }
   }
 
   Future<void> _saveProfile() async {
@@ -5967,6 +6153,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _announcements.resetBackoff();
         unawaited(_announcements.refresh());
         _refreshVisitorBadge();
+        await _loadApartments();
         await _loadDoorControlSites();
         await _showcaseKey.currentState?.reload();
         await _individualHomeKey.currentState?.loadAll();
@@ -6362,7 +6549,13 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       title: 'Gönderdiğim geri bildirimler',
       onTap: () {
         Navigator.of(context).pop();
-        unawaited(FeedbackInboxPage.open(context, service: _feedbackService, mine: true));
+        unawaited(
+          FeedbackInboxPage.open(
+            context,
+            service: _feedbackService,
+            mine: true,
+          ),
+        );
       },
     ),
     if (_canReadFeedback(session))
@@ -6505,7 +6698,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         minimumSize: WidgetStatePropertyAll(Size(48, 48)),
       ),
       tooltip: 'Diğer işlemler',
-      icon: _settingsGearIcon(session),
+      icon: _isUnaffiliated(session)
+          ? const Icon(Icons.more_vert_rounded)
+          : _settingsGearIcon(session),
       onSelected: (action) {
         switch (action) {
           case 'refresh':
@@ -6566,18 +6761,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               ),
             ),
           ),
-        PopupMenuItem(
-          value: 'settings',
-          child: ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.settings_outlined),
-            title: Text(
-              context.l10n.settingsTooltip,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
+        if (!_isUnaffiliated(session))
+          PopupMenuItem(
+            value: 'settings',
+            child: ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.settings_outlined),
+              title: Text(
+                context.l10n.settingsTooltip,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           ),
-        ),
         if (kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
           const PopupMenuItem(
             value: 'download',
@@ -6599,9 +6795,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final session = widget.authService.session!;
-    final simple = _interfaceMode.mode == InterfaceMode.simple;
-    final simpleAudience = showcaseAudience(role: session.role, isResidentMode: _isResidentMode, canToggleMode: _canToggleDualMode);
-    final activeTopic = simpleTopics(simpleAudience).contains(_simpleTopic) ? _simpleTopic : SimpleTopic.today;
+    final unaffiliated = _isUnaffiliated(session);
+    final simple = _interfaceMode.mode == InterfaceMode.simple && !unaffiliated;
+    final simpleAudience = showcaseAudience(
+      role: session.role,
+      isResidentMode: _isResidentMode,
+      canToggleMode: _canToggleDualMode,
+    );
+    final activeTopic = simpleTopics(simpleAudience).contains(_simpleTopic)
+        ? _simpleTopic
+        : SimpleTopic.today;
     final compactHeader = MediaQuery.sizeOf(context).width < 900;
     // İP-1D: "Masaüstüne Widget Ekle" AppBar'dan Ayarlar paneline taşındı ([_settingsExtraActions]); yerine sağ üstte
     // dişli (Ayarlar) durur: 320 dp x2,0'da hap + tema + yenile + çıkış + dişli sığar.
@@ -6621,7 +6824,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     // P1-13: sakin alt çubuğu çiziliyorsa Panel'e dönüş onun "Özet" sekmesidir (ikinci bir yol üretilmez). Çubuk yokken
     // (yönetici, süper kullanıcı, bireysel, ikiden az sekmeli sakin hesabı, yatay telefon) iç ekranlarda menü düğmesinin
     // yanında "Ana sayfa" düğmesi durur.
-    final residentBar = _residentBottomBar(session, effectiveMenu);
+    final residentBar = unaffiliated
+        ? null
+        : _residentBottomBar(session, effectiveMenu);
     final showHome =
         !compactHeader &&
         showsHomeShortcut(
@@ -6638,220 +6843,268 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               6,
         );
 
-    return InterfaceModeScope(service: _interfaceMode, child: EmergencyAlarmHost(
-      key: ValueKey('emergency_host_${session.id}'),
-      authService: widget.authService,
-      controller: widget.emergencyAlarmController,
-      builder: (context, alarmAction, alarmBanner) => Scaffold(
-        backgroundColor: Colors.transparent,
-        onDrawerChanged: _onStartDrawerChanged,
-        onEndDrawerChanged: _onEndDrawerChanged,
-        appBar: AppBar(
-          titleSpacing: 0,
-          // Menü düğmesi 48 dp; iç ekranlarda yanına "Ana sayfa" düğmesi gelir (toplam 96). Ana sayfa düğmesi varken menü
-          // düğmesi de açıkça kurulur (AppBar'ın kendiliğinden eklediği düğmeyle aynı: DrawerButton).
-          leadingWidth: showHome ? homeShortcutLeadingWidth : 48,
-          leading: showHome
-              ? Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const DrawerButton(),
-                    // Çekmeceden "Panel"i seçmekle aynı korumalı gezinme (Platform Ayarları onayı dahil).
-                    HomeShortcutButton(
-                      onPressed: () => _openMenuItem(SirketMenuItem.dashboard),
-                    ),
-                  ],
-                )
-              : null,
-          title: simple
-              ? Text('Sade · ${effectiveMenu == SirketMenuItem.dashboard ? activeTopic.label : YanMenu.titleFor(effectiveMenu, session.role)}', maxLines: 1, overflow: TextOverflow.ellipsis)
-              : _compactPageHeading(session, effectiveMenu),
-          elevation: 0,
-          // Kaydırınca başlık bandı M3 yüzey tonuyla griye dönmesin (tema ile de aynı değer).
-          scrolledUnderElevation: 0,
-          backgroundColor: isDark
-              ? const Color(0xFF0F172A).withValues(alpha: 0.8)
-              : Colors.white.withValues(alpha: 0.88),
-          iconTheme: IconThemeData(
-            color: isDark ? Colors.white : AppColors.textDark,
-          ),
-          shape: const RoundedRectangleBorder(
-            borderRadius: BorderRadius.only(
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(20),
+    return InterfaceModeScope(
+      service: _interfaceMode,
+      child: EmergencyAlarmHost(
+        key: ValueKey('emergency_host_${session.id}'),
+        authService: widget.authService,
+        controller: widget.emergencyAlarmController,
+        builder: (context, alarmAction, alarmBanner) => Scaffold(
+          backgroundColor: Colors.transparent,
+          onDrawerChanged: _onStartDrawerChanged,
+          onEndDrawerChanged: _onEndDrawerChanged,
+          appBar: AppBar(
+            titleSpacing: 0,
+            // Menü düğmesi 48 dp; iç ekranlarda yanına "Ana sayfa" düğmesi gelir (toplam 96). Ana sayfa düğmesi varken menü
+            // düğmesi de açıkça kurulur (AppBar'ın kendiliğinden eklediği düğmeyle aynı: DrawerButton).
+            leadingWidth: unaffiliated
+                ? (effectiveMenu == SirketMenuItem.dashboard ? 0 : 48)
+                : (showHome ? homeShortcutLeadingWidth : 48),
+            leading: unaffiliated
+                ? (effectiveMenu == SirketMenuItem.dashboard
+                      ? const SizedBox.shrink()
+                      : IconButton(
+                          tooltip: 'Geri',
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          onPressed: () =>
+                              _openMenuItem(SirketMenuItem.dashboard),
+                        ))
+                : showHome
+                ? Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const DrawerButton(),
+                      // Çekmeceden "Panel"i seçmekle aynı korumalı gezinme (Platform Ayarları onayı dahil).
+                      HomeShortcutButton(
+                        onPressed: () =>
+                            _openMenuItem(SirketMenuItem.dashboard),
+                      ),
+                    ],
+                  )
+                : null,
+            title: simple
+                ? Text(
+                    'Sade · ${effectiveMenu == SirketMenuItem.dashboard ? activeTopic.label : YanMenu.titleFor(effectiveMenu, session.role)}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  )
+                : _compactPageHeading(session, effectiveMenu),
+            elevation: 0,
+            // Kaydırınca başlık bandı M3 yüzey tonuyla griye dönmesin (tema ile de aynı değer).
+            scrolledUnderElevation: 0,
+            backgroundColor: isDark
+                ? const Color(0xFF0F172A).withValues(alpha: 0.8)
+                : Colors.white.withValues(alpha: 0.88),
+            iconTheme: IconThemeData(
+              color: isDark ? Colors.white : AppColors.textDark,
             ),
-          ),
-          // Premium başlık sayfası: rol tonunun sol-üstten yumuşak yıkaması (statik, tek gradyan).
-          flexibleSpace: ClipRRect(
-            borderRadius: const BorderRadius.only(
-              bottomLeft: Radius.circular(20),
-              bottomRight: Radius.circular(20),
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    session.role.tone.hue.withValues(
-                      alpha: isDark ? 0.20 : 0.13,
-                    ),
-                    session.role.tone.hue.withValues(alpha: 0),
-                  ],
-                  stops: const [0.0, 0.7],
-                ),
+            shape: const RoundedRectangleBorder(
+              borderRadius: BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
             ),
-          ),
-          actions: [
-            alarmAction,
-            if (simple && simpleAudience == ShowcaseAudience.resident)
-              ManagerCallAction(fetch: widget.authService.getManagerContacts, siteCode: _moduleAccess.scopeSiteCode),
-            if (simple && simpleAudience == ShowcaseAudience.admin && session.role == UserRole.siteManager && (session.phoneNumber ?? '').trim().isEmpty && _canAccessMenu(SirketMenuItem.profilim, session.role))
-              IconButton(key: const ValueKey('header_add_manager_phone'), tooltip: 'Telefon numaranızı ekleyin',
-                onPressed: () => _openMenuItem(SirketMenuItem.profilim), icon: const Icon(Icons.add_call, size: 21)),
-            if (AppConfig.temporaryFeedbackLinks)
-              TemporaryFeedbackStrip(
-                screen: _feedbackContext(session),
-                onFeedback: () => unawaited(_showFeedbackDialog()),
+            // Premium başlık sayfası: rol tonunun sol-üstten yumuşak yıkaması (statik, tek gradyan).
+            flexibleSpace: ClipRRect(
+              borderRadius: const BorderRadius.only(
+                bottomLeft: Radius.circular(20),
+                bottomRight: Radius.circular(20),
               ),
-            if (compactHeader) _compactHeaderMore(session),
-            if (!compactHeader &&
-                kIsWeb &&
-                defaultTargetPlatform == TargetPlatform.windows)
-              Tooltip(
-                message: 'Windows Uygulamasını İndir (.ZIP)',
-                child: IconButton(
-                  icon: const Icon(
-                    Icons.download_for_offline_outlined,
-                    color: Colors.blueAccent,
-                  ),
-                  onPressed: () => launchUrl(
-                    Uri.parse('/download/windows'),
-                    mode: LaunchMode.externalApplication,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      session.role.tone.hue.withValues(
+                        alpha: isDark ? 0.20 : 0.13,
+                      ),
+                      session.role.tone.hue.withValues(alpha: 0),
+                    ],
+                    stops: const [0.0, 0.7],
                   ),
                 ),
               ),
-            if (!compactHeader && _canToggleDualMode)
-              _buildModeToggle(
-                context,
-                // Hapın genişlik payı: yanındaki 44-52 dp'lik düğmeler (yenile, dişli, [tema], [Ana sayfa]). P2-26: çıkış AppBar'dan
-                // kalktı (çekmecenin dibinde, onaylı), bu yüzden pay iki sabit düğmedir.
-                otherActions:
-                    4 +
-                    (hasThemeToggle ? 1 : 0) +
-                    (showHome ? 1 : 0) +
-                    (kIsWeb ? 1 : 0),
-                homeShown: showHome,
-              ),
-            // Aydınlık / karanlık tema geçişi (44 dp, diğer eylem düğmeleriyle aynı boyut ve yoğunluk).
-            if (!compactHeader) const ThemeToggleButton(iconSize: 20),
-            // P2-26: belirgin "Yenile" (yuvarlak, çerçeveli; sürerken ilerleme). "Çıkış Yap" AppBar'da DEĞİL: menünün dibinde
-            // ve onaylı (yanlışlıkla çıkış olmasın).
-            if (!compactHeader)
-              RefreshActionButton(
-                status: _refreshStatus,
-                onPressed: () => unawaited(_refreshAll()),
-              ),
-            // İP-1D / G2: Ayarlar sağ üstte dişli; sağdan açılan Ayarlar panelini (endDrawer) açar.
-            if (!compactHeader)
-              Builder(
-                builder: (scaffoldContext) => _appBarAction(
-                  tooltip: context.l10n.settingsTooltip,
-                  icon: _settingsGearIcon(session),
-                  onPressed: () => Scaffold.of(scaffoldContext).openEndDrawer(),
+            ),
+            actions: [
+              alarmAction,
+              if (simple && simpleAudience == ShowcaseAudience.resident)
+                ManagerCallAction(
+                  fetch: widget.authService.getManagerContacts,
+                  siteCode: _moduleAccess.scopeSiteCode,
                 ),
-              ),
-            const SizedBox(width: 6),
-          ],
-        ),
-        drawer: YanMenu(
-          extraActions: _residentExtraActions(session),
-
-          hiddenItems: _hiddenMenuItems(session.role),
-
-          additionalItems: _extraMenuItems(session.role),
-
-          badgeCounts: _menuBadgeCounts(session),
-          badgeNouns: _menuBadgeNouns,
-          fullName: session.fullName,
-          userEmail: session.email,
-          role: session.role,
-          selectedItem: effectiveMenu,
-          isResidentMode: _isResidentMode,
-          canToggleMode: _canToggleDualMode,
-          onToggleMode: () {
-            Navigator.pop(context);
-            _toggleResidentMode();
-          },
-          onSelect: _selectMenu,
-          onOpenHelp: _openHelp,
-          onOpenFeedback: _openFeedback,
-          // P2-26: çıkış her zaman onaydan geçer; vazgeçilirse çekmece açık kalır ve oturum kapanmaz.
-          onLogout: () => unawaited(_confirmAndLogout()),
-          // İP-1D / G2: site seçici çekmecenin en üstünde.
-          siteContext: _siteContext(session),
-          // K8 (P1-16): kompakt menü (yalnız yerleşim) + her zaman erişilen "Tüm işlemler".
-          featuredItems: _featuredMenuItems(session),
-          onOpenAllActions: _openAllActions,
-        ),
-        // İP-1D / G2: Ayarlar öğeleri sağ üstteki dişliden açılan panelde (çekmeceyle aynı görünürlük kuralı ve rozetler).
-        endDrawer: YanMenuAyarlar(
-          role: session.role,
-          selectedItem: effectiveMenu,
-          isResidentMode: _isResidentMode,
-          canToggleMode: _canToggleDualMode,
-          additionalItems: _extraMenuItems(session.role),
-          hiddenItems: _hiddenMenuItems(session.role),
-          badgeCounts: _menuBadgeCounts(session),
-          badgeNouns: _menuBadgeNouns,
-          extraActions: _settingsExtraActions(session),
-          onSelect: _selectMenu,
-        ),
-        // İP-1D / G3: sakin alt çubuğu (Özet · Duyuru · Arıza · Kapı · Dosyalar; iki sekmeden azsa yok).
-        bottomNavigationBar: simple ? null : residentBar,
-        // Geri tuşu: bir modül sayfasındayken Panel vitrinine döner (uygulamadan çıkmaz); vitrindeyken eskisi gibi çıkar.
-        // Çekmece AÇIKKEN geri tuşu önce çekmeceyi kapatır, sayfa değişmez: PopScope rota yerel geçmişinden ÖNCE
-        // değerlendirildiği için ([ModalRoute.popDisposition]) çekmece açıkken pop'a izin verilir; pop'u çekmecenin
-        // yerel geçmişi karşılar (route kapanmaz, onPopInvokedWithResult çağrılmaz). Karar ekrandaki etkin sayfayla verilir.
-        body: ValueListenableBuilder<bool>(
-          valueListenable: _drawerOpen,
-          builder: (context, drawerOpen, child) => PopScope(
-            canPop: drawerOpen || (effectiveMenu == SirketMenuItem.dashboard && (!simple || activeTopic == SimpleTopic.today)),
-            onPopInvokedWithResult: (didPop, _) {
-              if (!didPop) {
-                if (simple && effectiveMenu == SirketMenuItem.dashboard) {
-                  _selectSimpleTopic(SimpleTopic.today);
-                } else {
-                  _goToMenu(SirketMenuItem.dashboard);
-                }
-              }
-            },
-            child: child!,
-          ),
-          // Acil duyuru şeridi kaydırılan gövdenin DIŞINDA, üstünde bir kardeştir. Gövdenin kabı (Panel'de düz zemin)
-          // şeridin ALTINDAN başlar ve ekranın altına (sistem gezinme çubuğu payı dahil) uzanır: zemin şeridin bölgesine
-          // hiç boyamaz, kaydırılmaz. Sistem boşlukları eskisiyle aynıdır: şeritte üst / yanlar, kaydırılan gövdede yanlar /
-          // alt. Kap her sayfada ve iki temada da vardır (yalnız rengi değişir): gövdenin alt ağacı yeniden kurulmaz.
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _contextStripSlot(session),
-              if (simple && !_inlineSimpleNavigation) _simpleTopicNavigation(session, effectiveMenu),
-              SafeArea(bottom: false, child: _urgentBannerSlot(session)),
-              alarmBanner,
-              Expanded(
-                child: DecoratedBox(
-                  key: const ValueKey<String>('panel_vitrin_zemin'),
-                  decoration: BoxDecoration(color: bodyBackground),
-                  child: SafeArea(top: false, child: _buildScrollBody(session)),
+              if (simple &&
+                  simpleAudience == ShowcaseAudience.admin &&
+                  session.role == UserRole.siteManager &&
+                  (session.phoneNumber ?? '').trim().isEmpty &&
+                  _canAccessMenu(SirketMenuItem.profilim, session.role))
+                IconButton(
+                  key: const ValueKey('header_add_manager_phone'),
+                  tooltip: 'Telefon numaranızı ekleyin',
+                  onPressed: () => _openMenuItem(SirketMenuItem.profilim),
+                  icon: const Icon(Icons.add_call, size: 21),
                 ),
-              ),
+              if (AppConfig.temporaryFeedbackLinks)
+                TemporaryFeedbackStrip(
+                  screen: _feedbackContext(session),
+                  onFeedback: () => unawaited(_showFeedbackDialog()),
+                ),
+              if (compactHeader) _compactHeaderMore(session),
+              if (unaffiliated)
+                UnaffiliatedAccountMenu(
+                  fullName: session.fullName,
+                  onProfile: () => _openMenuItem(SirketMenuItem.profilim),
+                  onLogout: () => unawaited(_confirmAndLogout()),
+                ),
+              if (!compactHeader &&
+                  kIsWeb &&
+                  defaultTargetPlatform == TargetPlatform.windows)
+                Tooltip(
+                  message: 'Windows Uygulamasını İndir (.ZIP)',
+                  child: IconButton(
+                    icon: const Icon(
+                      Icons.download_for_offline_outlined,
+                      color: Colors.blueAccent,
+                    ),
+                    onPressed: () => launchUrl(
+                      Uri.parse('/download/windows'),
+                      mode: LaunchMode.externalApplication,
+                    ),
+                  ),
+                ),
+              if (!compactHeader && _canToggleDualMode)
+                _buildModeToggle(
+                  context,
+                  // Hapın genişlik payı: yanındaki 44-52 dp'lik düğmeler (yenile, dişli, [tema], [Ana sayfa]). P2-26: çıkış AppBar'dan
+                  // kalktı (çekmecenin dibinde, onaylı), bu yüzden pay iki sabit düğmedir.
+                  otherActions:
+                      4 +
+                      (hasThemeToggle ? 1 : 0) +
+                      (showHome ? 1 : 0) +
+                      (kIsWeb ? 1 : 0),
+                  homeShown: showHome,
+                ),
+              // Aydınlık / karanlık tema geçişi (44 dp, diğer eylem düğmeleriyle aynı boyut ve yoğunluk).
+              if (!compactHeader) const ThemeToggleButton(iconSize: 20),
+              // P2-26: belirgin "Yenile" (yuvarlak, çerçeveli; sürerken ilerleme). "Çıkış Yap" AppBar'da DEĞİL: menünün dibinde
+              // ve onaylı (yanlışlıkla çıkış olmasın).
+              if (!compactHeader)
+                RefreshActionButton(
+                  status: _refreshStatus,
+                  onPressed: () => unawaited(_refreshAll()),
+                ),
+              // İP-1D / G2: Ayarlar sağ üstte dişli; sağdan açılan Ayarlar panelini (endDrawer) açar.
+              if (!compactHeader && !unaffiliated)
+                Builder(
+                  builder: (scaffoldContext) => _appBarAction(
+                    tooltip: context.l10n.settingsTooltip,
+                    icon: _settingsGearIcon(session),
+                    onPressed: () =>
+                        Scaffold.of(scaffoldContext).openEndDrawer(),
+                  ),
+                ),
+              const SizedBox(width: 6),
             ],
+          ),
+          drawer: unaffiliated
+              ? null
+              : YanMenu(
+                  extraActions: _residentExtraActions(session),
+
+                  hiddenItems: _hiddenMenuItems(session.role),
+
+                  additionalItems: _extraMenuItems(session.role),
+
+                  badgeCounts: _menuBadgeCounts(session),
+                  badgeNouns: _menuBadgeNouns,
+                  fullName: session.fullName,
+                  userEmail: session.email,
+                  role: session.role,
+                  selectedItem: effectiveMenu,
+                  isResidentMode: _isResidentMode,
+                  canToggleMode: _canToggleDualMode,
+                  onToggleMode: () {
+                    Navigator.pop(context);
+                    _toggleResidentMode();
+                  },
+                  onSelect: _selectMenu,
+                  onOpenHelp: _openHelp,
+                  onOpenFeedback: _openFeedback,
+                  // P2-26: çıkış her zaman onaydan geçer; vazgeçilirse çekmece açık kalır ve oturum kapanmaz.
+                  onLogout: () => unawaited(_confirmAndLogout()),
+                  // İP-1D / G2: site seçici çekmecenin en üstünde.
+                  siteContext: _siteContext(session),
+                  // K8 (P1-16): kompakt menü (yalnız yerleşim) + her zaman erişilen "Tüm işlemler".
+                  featuredItems: _featuredMenuItems(session),
+                  onOpenAllActions: _openAllActions,
+                ),
+          // İP-1D / G2: Ayarlar öğeleri sağ üstteki dişliden açılan panelde (çekmeceyle aynı görünürlük kuralı ve rozetler).
+          endDrawer: unaffiliated
+              ? null
+              : YanMenuAyarlar(
+                  role: session.role,
+                  selectedItem: effectiveMenu,
+                  isResidentMode: _isResidentMode,
+                  canToggleMode: _canToggleDualMode,
+                  additionalItems: _extraMenuItems(session.role),
+                  hiddenItems: _hiddenMenuItems(session.role),
+                  badgeCounts: _menuBadgeCounts(session),
+                  badgeNouns: _menuBadgeNouns,
+                  extraActions: _settingsExtraActions(session),
+                  onSelect: _selectMenu,
+                ),
+          // İP-1D / G3: sakin alt çubuğu (Özet · Duyuru · Arıza · Kapı · Dosyalar; iki sekmeden azsa yok).
+          bottomNavigationBar: simple ? null : residentBar,
+          // Geri tuşu: bir modül sayfasındayken Panel vitrinine döner (uygulamadan çıkmaz); vitrindeyken eskisi gibi çıkar.
+          // Çekmece AÇIKKEN geri tuşu önce çekmeceyi kapatır, sayfa değişmez: PopScope rota yerel geçmişinden ÖNCE
+          // değerlendirildiği için ([ModalRoute.popDisposition]) çekmece açıkken pop'a izin verilir; pop'u çekmecenin
+          // yerel geçmişi karşılar (route kapanmaz, onPopInvokedWithResult çağrılmaz). Karar ekrandaki etkin sayfayla verilir.
+          body: ValueListenableBuilder<bool>(
+            valueListenable: _drawerOpen,
+            builder: (context, drawerOpen, child) => PopScope(
+              canPop:
+                  drawerOpen ||
+                  (effectiveMenu == SirketMenuItem.dashboard &&
+                      (!simple || activeTopic == SimpleTopic.today)),
+              onPopInvokedWithResult: (didPop, _) {
+                if (!didPop) {
+                  if (simple && effectiveMenu == SirketMenuItem.dashboard) {
+                    _selectSimpleTopic(SimpleTopic.today);
+                  } else {
+                    _goToMenu(SirketMenuItem.dashboard);
+                  }
+                }
+              },
+              child: child!,
+            ),
+            // Acil duyuru şeridi kaydırılan gövdenin DIŞINDA, üstünde bir kardeştir. Gövdenin kabı (Panel'de düz zemin)
+            // şeridin ALTINDAN başlar ve ekranın altına (sistem gezinme çubuğu payı dahil) uzanır: zemin şeridin bölgesine
+            // hiç boyamaz, kaydırılmaz. Sistem boşlukları eskisiyle aynıdır: şeritte üst / yanlar, kaydırılan gövdede yanlar /
+            // alt. Kap her sayfada ve iki temada da vardır (yalnız rengi değişir): gövdenin alt ağacı yeniden kurulmaz.
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _contextStripSlot(session),
+                if (simple && !_inlineSimpleNavigation)
+                  _simpleTopicNavigation(session, effectiveMenu),
+                SafeArea(bottom: false, child: _urgentBannerSlot(session)),
+                alarmBanner,
+                Expanded(
+                  child: DecoratedBox(
+                    key: const ValueKey<String>('panel_vitrin_zemin'),
+                    decoration: BoxDecoration(color: bodyBackground),
+                    child: SafeArea(
+                      top: false,
+                      child: _buildScrollBody(session),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),
-    ));
+    );
   }
 
   /// Kaydırılan sayfa gövdesi (aşağı çek yenile + ortalanmış, en çok 1100 dp içerik).
@@ -6891,21 +7144,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               key: _bodyContentKey,
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: BoxConstraints(maxWidth: _interfaceMode.mode == InterfaceMode.simple ? 1440 : 1100),
+                constraints: BoxConstraints(
+                  maxWidth: _interfaceMode.mode == InterfaceMode.simple
+                      ? 1440
+                      : 1100,
+                ),
                 // RepaintBoundary: SingleChildScrollView içeriği her kaydırma karesinde baştan boyanır;
                 // yüzlerce daire/kullanıcı kartlı sayfalarda bu kare başına binlerce boyama demekti.
                 // Sınır sayesinde içerik önbellekteki katman olarak kaydırılır.
                 child: RepaintBoundary(
                   // Kapı durumu yoklaması yalnız bu dinleyiciyi yeniden kurar (Scaffold/AppBar/Drawer değil).
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (_interfaceMode.mode == InterfaceMode.simple && _inlineSimpleNavigation) _simpleTopicNavigation(session, page),
-                    ValueListenableBuilder<int>(
-                    key: const ValueKey('home_content_live'),
-                    valueListenable: _doorPanelRevision,
-                    builder: (context, _, _) =>
-                        _buildContent(widget.authService.session ?? session),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_interfaceMode.mode == InterfaceMode.simple &&
+                          !_isUnaffiliated(session) &&
+                          _inlineSimpleNavigation)
+                        _simpleTopicNavigation(session, page),
+                      ValueListenableBuilder<int>(
+                        key: const ValueKey('home_content_live'),
+                        valueListenable: _doorPanelRevision,
+                        builder: (context, _, _) => _buildContent(
+                          widget.authService.session ?? session,
+                        ),
+                      ),
+                    ],
                   ),
-                  ]),
                 ),
               ),
             ),
@@ -6975,7 +7239,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     ];
     if (names.isEmpty) {
       final fallback = _doorControlStructure?.site.name.trim();
-      if (fallback != null && fallback.isNotEmpty && fallback != 'Site Kapısı') {
+      if (fallback != null &&
+          fallback.isNotEmpty &&
+          fallback != 'Site Kapısı') {
         names.add(fallback);
       }
     }
@@ -7086,19 +7352,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final showcase = ModuleShowcaseView(
       key: _showcaseKey,
       simple: _interfaceMode.mode == InterfaceMode.simple,
-      simpleTopic: simpleTopics(audience).contains(_simpleTopic) ? _simpleTopic : SimpleTopic.today,
+      simpleTopic: simpleTopics(audience).contains(_simpleTopic)
+          ? _simpleTopic
+          : SimpleTopic.today,
       onSimpleTopicSelected: _selectSimpleTopic,
       simpleTodayOverview: SimpleTodayOverview(
         canReceiveAnnouncements: _receivesAnnouncements(session.role),
-        unreadCount: _announcements.summary == null ? null : _announcements.unreadCount,
+        unreadCount: _announcements.summary == null
+            ? null
+            : _announcements.unreadCount,
         degraded: _announcements.isDegraded,
-        onOpenTopic: () => _selectSimpleTopic(resident ? SimpleTopic.site : SimpleTopic.management),
+        onOpenTopic: () => _selectSimpleTopic(
+          resident ? SimpleTopic.site : SimpleTopic.management,
+        ),
       ),
-      simpleFinanceAttention: audience == ShowcaseAudience.admin ? _financeAttentionBar(session) : null,
-      simpleManagementAttention: audience == ShowcaseAudience.admin ? SiteSetupResumeCard(
-        userId: session.id,
-        onResume: (siteCode, siteName) => unawaited(_openSetupWizard(siteCode, siteName)),
-      ) : null,
+      simpleFinanceAttention: audience == ShowcaseAudience.admin
+          ? _financeAttentionBar(session)
+          : null,
+      simpleManagementAttention: audience == ShowcaseAudience.admin
+          ? SiteSetupResumeCard(
+              userId: session.id,
+              onResume: (siteCode, siteName) =>
+                  unawaited(_openSetupWizard(siteCode, siteName)),
+            )
+          : null,
       session: session,
       audience: audience,
       menuItems: _visibleMenuItems(session),
@@ -7154,8 +7431,14 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           session.role == UserRole.siteManager &&
           (session.phoneNumber ?? '').trim().isEmpty,
     );
-    final personalTopic = audience == ShowcaseAudience.admin ? SimpleTopic.management : SimpleTopic.home;
-    if (!embedIndividualHome || (_interfaceMode.mode == InterfaceMode.simple && _simpleTopic != personalTopic)) return showcase;
+    final personalTopic = audience == ShowcaseAudience.admin
+        ? SimpleTopic.management
+        : SimpleTopic.home;
+    if (!embedIndividualHome ||
+        (_interfaceMode.mode == InterfaceMode.simple &&
+            _simpleTopic != personalTopic)) {
+      return showcase;
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -7173,6 +7456,17 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     switch (_selectedMenu) {
       case SirketMenuItem.dashboard:
+        if (_isUnaffiliated(session)) {
+          return JoinAndSetupView(
+            showReapplyOnRejected: false,
+            authService: widget.authService,
+            session: session,
+            onOpenJoinSite: _openJoinRequestFlow,
+            onRefreshAll: _loadInitialData,
+            applications: _siteApplications,
+            onRefreshAccount: () => _refreshAccountAfterApproval(),
+          );
+        }
         return _buildShowcase(session);
 
       case SirketMenuItem.kapilar:
@@ -7257,6 +7551,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               : (_doorControlSite != null
                     ? () => _exportSiteLogsPdf(_doorControlSite!)
                     : null),
+
+          onOpenAddDoor:
+              (session.role == UserRole.superUser ||
+                  (session.role == UserRole.siteManager && !_isResidentMode))
+              ? () => _openDoorDialog()
+              : null,
 
           voiceDoorService: session.role == UserRole.apartmentOwner
               ? widget.voiceDoorService
@@ -7609,7 +7909,11 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         return MyApartmentView(
           key: _myApartmentKey,
           authService: widget.authService,
-          onChanged: () => unawaited(_moduleAccess.refresh()),
+          onChanged: () {
+            unawaited(_moduleAccess.refresh());
+            unawaited(_loadApartments());
+            unawaited(_loadDoorControlSites());
+          },
         );
 
       case SirketMenuItem.acilDurum:

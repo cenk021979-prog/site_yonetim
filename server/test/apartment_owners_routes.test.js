@@ -186,11 +186,34 @@ describe('coklu malik rotalari: zincir', () => {
   it('kaynakta: okuma ucu peopleReadLimiter, yazma uclari peopleWriteLimiter kullanir', async () => {
     const { readFileSync } = await import('node:fs');
     const source = readFileSync(new URL('../src/modules/people_routes.js', import.meta.url), 'utf8').replace(/\r\n/g, '\n');
-    const block = source.slice(source.indexOf('// --- Malikler'), source.indexOf('// --- Araçlar'));
+    const block = source.slice(source.indexOf('// --- Malikler'), source.indexOf('// --- 360°'));
     assert.match(block, /peopleRouter\.get\(\s*'\/manager\/sites\/:siteCode\/apartments\/:apartmentId\/owners',\s*authRequired,\s*peopleReadLimiter,/);
     assert.equal((block.match(/authRequired,\s*peopleWriteLimiter,/g) ?? []).length, 3);
     assert.equal((block.match(/write: true/g) ?? []).length, 3, 'uc yazma ucu write:true ile yetki cozer');
     assert.equal(typeof authRequired, 'function');
+  });
+});
+
+describe('360 ayrılma rotaları: kimlik, hız ve rol sınırları', () => {
+  it('önizleme okuma limiti, yürütme yazma limiti ve write:true ile korunur', async () => {
+    const { readFileSync } = await import('node:fs');
+    const source = readFileSync(new URL('../src/modules/people_routes.js', import.meta.url), 'utf8');
+    assert.match(source, /peopleRouter\.get\(\s*'[^']*\/termination-preview',\s*authRequired,\s*peopleReadLimiter,/);
+    assert.match(source, /peopleRouter\.post\(\s*'[^']*\/terminate',\s*authRequired,\s*peopleWriteLimiter,\s*handler\(\{[^}]*write: true/);
+  });
+  it('kurul okuyabilir ama sonlandıramaz; sakin/görevli ve başka sitenin yöneticisi yetki kazanamaz', async () => {
+    const base = `/manager/sites/${SITE_1}/apartments/301/residencies/11`;
+    for (const user of [users.resident, users.staff, users.outsider, users.mgrB]) {
+      const get = await call('GET', `${base}/termination-preview`, { user });
+      const post = await call('POST', `${base}/terminate`, { user, body: {} });
+      assert.equal(get.status, 403, user.full_name);
+      assert.equal(post.status, 403, user.full_name);
+    }
+    const boardWrite = await call('POST', `${base}/terminate`, { user: users.board, body: {} });
+    assert.equal(boardWrite.status, 403);
+    const boardRead = await call('GET', `${base}/termination-preview`, { user: users.board });
+    assert.equal(boardRead.status, 404, 'kurul okuma yetkisini geçti; sahte DB ikamet bulmadı');
+    assert.equal(state.log.some((q) => /^(INSERT|UPDATE|DELETE)\b/.test(q.sql)), false);
   });
 });
 

@@ -78,7 +78,7 @@ Future<void> _render(WidgetTester t, {required double width, required double hei
   await t.pump(const Duration(milliseconds: 650));
   expect(t.takeException(), isNull);
   await t.runAsync(() async {
-    const directory = 'work/sade-redesign-2026-11-10';
+    const directory = String.fromEnvironment('SIMPLE_REVIEW_DIR', defaultValue: 'work/sade-redesign-2026-11-10');
     await Directory(directory).create(recursive: true);
     final image = await t.renderObject<RenderRepaintBoundary>(find.byKey(key)).toImage(pixelRatio: 1);
     final bytes = await image.toByteData(format: ui.ImageByteFormat.png);

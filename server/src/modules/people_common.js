@@ -362,7 +362,7 @@ export function redactManagerNotes(value) {
 }
 
 /** Kurul üyesine (salt okuma) hiç verilmeyen kullanıcı kodu alanları: yönetici/hesap kimlikleri (history actor_user_code vb.). */
-const USER_CODE_KEYS = new Set(['actor_user_code', 'user_code', 'created_by']);
+const USER_CODE_KEYS = new Set(['actor_user_code', 'user_code', 'created_by', 'userCode', 'defaultSuccessorUserCode', 'newAdminUserCode']);
 
 /**
  * Salt okuma rolü (BOARD_MEMBER) yanıt temizliği: yönetici iç notları NULL (redactManagerNotes) + kullanıcı kodu alanları

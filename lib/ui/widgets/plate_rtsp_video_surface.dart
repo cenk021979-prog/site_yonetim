@@ -71,7 +71,8 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
 
   Player? _player;
   VideoController? _controller;
-  final List<StreamSubscription<dynamic>> _subs = <StreamSubscription<dynamic>>[];
+  final List<StreamSubscription<dynamic>> _subs =
+      <StreamSubscription<dynamic>>[];
   Timer? _reconnectTimer;
   Timer? _frameFeederTimer;
   bool _disposed = false;
@@ -146,7 +147,9 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
         await oldPlayer.dispose();
       } catch (_) {}
     }
-    if (!_disposed && PlateRtspVideoSurface.isSupported && widget.camera.isActive) {
+    if (!_disposed &&
+        PlateRtspVideoSurface.isSupported &&
+        widget.camera.isActive) {
       await _startStream();
     }
   }
@@ -160,11 +163,16 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
     }
   }
 
-  Future<void> _trySetProperty(NativePlayer native, String key, String value) async {
+  Future<void> _trySetProperty(
+    NativePlayer native,
+    String key,
+    String value,
+  ) async {
     await rtsp_probe.trySetNativeProperty(native, key, value);
   }
 
   Future<void> _configureLowLatency(Player player) async {
+    if (kIsWeb) return;
     final platform = player.platform;
     if (platform is NativePlayer) {
       await _trySetProperty(platform, 'hwdec', 'auto-safe');
@@ -217,7 +225,8 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
 
       PlateRtspVideoSurface.ensureMediaKitInitialized();
 
-      Player player = _player ??
+      Player player =
+          _player ??
           Player(
             configuration: const PlayerConfiguration(
               muted: true,
@@ -393,9 +402,12 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
         unawaited(_captureFrameForEngine());
       }
     });
-    _frameFeederTimer = Timer.periodic(Duration(milliseconds: 920 + staggerMs), (_) {
-      unawaited(_captureFrameForEngine());
-    });
+    _frameFeederTimer = Timer.periodic(
+      Duration(milliseconds: 920 + staggerMs),
+      (_) {
+        unawaited(_captureFrameForEngine());
+      },
+    );
   }
 
   Future<void> _captureFrameForEngine() async {
@@ -416,9 +428,16 @@ class _PlateRtspVideoSurfaceState extends State<PlateRtspVideoSurface> {
       if (widget.camerasService != null &&
           widget.siteCode != null &&
           cam.id > 0 &&
-          (_lastServerUploadAt == null || now.difference(_lastServerUploadAt!).inSeconds >= 3)) {
+          (_lastServerUploadAt == null ||
+              now.difference(_lastServerUploadAt!).inSeconds >= 3)) {
         _lastServerUploadAt = now;
-        unawaited(widget.camerasService!.uploadSnapshot(widget.siteCode!, cam.id, bytes));
+        unawaited(
+          widget.camerasService!.uploadSnapshot(
+            widget.siteCode!,
+            cam.id,
+            bytes,
+          ),
+        );
       }
     } catch (_) {
     } finally {

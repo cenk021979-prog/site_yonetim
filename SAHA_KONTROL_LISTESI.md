@@ -4922,3 +4922,130 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
 - [ ] Sade yönetici görünümünde eksik telefon ipucu üstteki telefon kontrolünden Profilim'e ulaşmalı. Sakin görünümünde yönetim telefonu doğru seçili siteye ait olmalı; telefon yoksa başka sitenin numarası gösterilmemelidir. Sakin ana görünümünde Yeni Site davet kartı olmamalı; yetkili mevcut başvuru yolu süper onayını korumalıdır.
 - [ ] Sayaçlar'da Tümü türü olmadığını, yalnız kayıtlı türlerin gösterildiğini doğrulayın. Pasif/geçmiş sayaç varsa o türün kayıtlarına erişim sürmelidir. Bağımsız tür aç/kapat ayarı varmış gibi değerlendirmeyin.
 - [ ] Yönetim plaka geçiş bildirim iznini kapalı tuttuğunda sakinde ilgili anahtar görünmemeli; yönetim açınca sakin kendi tercihini seçebilmelidir. Sakin misafir plaka oluşturamamalı; mevcut izin geçmişi ve iptal hakkı yetkisi ölçüsünde korunmalıdır. Kendi araçları Dairem'den yönetilmeli; mevcut daire düzeyinde geçiş onayı araç başına ayrı onay sanılmamalıdır.
+
+---
+
+## 166. 🍓 Raspberry Pi 5 Desteği, Custom-Device Entegrasyonu ve Linux ARM64 Çalışma Ortamı
+*Mevcut Windows, mobil ve ESP32 mimarisini bozmadan Raspberry Pi 5'in Flutter cihaz seçicisine eklenmesi, tek tıklama kurulum betikleri ve ARM64 çalışma ortamı doğrulaması.*
+
+- [ ] **166.1. Flutter Cihaz Seçicide Raspberry Pi 5 Görünürlüğü:**
+  - **Nasıl Test Edilir:** Windows terminalinde `flutter devices` komutunu çalıştırın veya VS Code sağ altındaki cihaz seçici menüsünü açın.
+  - **Beklenen Sonuç:** Listede `Raspberry Pi 5 (mobile) • raspberry-pi-5 • linux-arm64 • Raspberry Pi OS (Bookworm ARM64)` cihazı aktif ve bağlı olarak görünmeli; seçim yapıldığında VS Code alt çubuğunda hedef cihaz olarak Raspberry Pi 5 seçilebilmelidir.
+- [ ] **166.2. Tek Tıklamayla Kurulum Betiği (`enable_rpi5_device.ps1`):**
+  - **Nasıl Test Edilir:** PowerShell'de `.\tools\rpi\enable_rpi5_device.ps1` betiğini çalıştırın.
+  - **Beklenen Sonuç:** Betik `flutter config --enable-custom-devices` ayarını açmalı, `.flutter_custom_devices.json` dosyasını oluşturup doğrulamalı ve yeşil renkli başarı bildirimi vermelidir.
+- [ ] **166.3. Raspberry Pi 5 OS Hazırlık Betiği (`setup_rpi5.sh`):**
+  - **Nasıl Test Edilir:** Raspberry Pi 5 üzerinde `tools/rpi/setup_rpi5.sh` betiğini çalıştırın.
+  - **Beklenen Sonuç:** Gerekli GTK3, EGL, Mesa, DRM ve libgpiod kütüphaneleri eksiksiz kurulmalı, kullanıcı izinleri ayarlanmalı ve cihaz IP adresi terminalde gösterilmelidir.
+- [ ] **166.4. Geriye Dönük Uyumluluk ve Sıfır Regresyon:**
+  - **Nasıl Test Edilir:** Windows üzerinde mevcut plaka komuta merkezi testlerini (`flutter test test/plate_live_command_center_test.dart`) çalıştırın.
+  - **Beklenen Sonuç:** Tüm 60 test pürüzsüz geçmeli; Windows Win32 API, D3D11VA GPU akışı ve ESP32 haberleşmesi hiçbir aksama yaşamamalıdır.
+
+---
+
+## 167. 📲 Sahadaki Eski AHBU Cihazlarının Bluetooth (BLE) ile Keşfi, Wi-Fi Bağlantısı ve Kapı Anahtarlaması
+*Sahada aktif çalışan eski AHBU ve yeni SmartKeyPass donanımlarının Bluetooth üzerinden kesintisiz bulunabilmesi, Wi-Fi ve MQTT kimliğiyle internete bağlanması ve röle anahtarlama görevini eksiksiz yürütmesi.*
+
+- [ ] **167.1. BLE Taramasında AHBU Donanımlarının Görünmesi (Donanım Filtresi Engeli Kaldırıldı):**
+  - **Nasıl Test Edilir:** Sahada üzerinde eski firmware bulunan veya adı `AHBU...` ile başlayan bir kapı kontrol kartını açın (veya butona 3 saniye basarak BLE kurulum moduna geçirin). Mobil uygulamada "Bluetooth ile Wi-Fi Kurulumu" sayfasına girip taramayı başlatın.
+  - **Beklenen Sonuç:** 128-bit servis UUID'si donanım tarama filtresinden kaynaklı paket kaybı yaşamadan `AHBUxxxxxxxxxxxx` cihazı BLE listesinde anında listelenmeli; sinyal gücü rozeti ve cihaz adı doğru görüntülenmelidir.
+- [ ] **167.2. Otomatik UID Çıkarımı ve Bağlantı (Fallback UID Desteği):**
+  - **Nasıl Test Edilir:** Listeden AHBU cihazına dokunarak bağlanın.
+  - **Beklenen Sonuç:** Cihaz durumu JSON'unda `device_uid` boş kalsa veya eski formatta (`uid`/`id`) olsa bile cihaz adından veya Bluetooth MAC adresinden 12 karakterlik benzersiz donanım UID'si (`240AC4E2E001`) otomatik olarak çözümlenmeli; `"Cihaz unique id okunamadı"` hatası oluşmadan cihazla bağlantı kurulmalıdır.
+- [ ] **167.3. Wi-Fi ve MQTT Kimlik Aktarımı ile İnternete Bağlanma:**
+  - **Nasıl Test Edilir:** Listeden Wi-Fi ağını seçip şifreyi girin (veya modemin Wi-Fi karekodunu okutun) ve "Wi-Fi Bilgilerini Cihaza Kaydet" butonuna dokunun.
+  - **Beklenen Sonuç:** Şirket/site hesabı üzerinden cihazın MQTT kimliği (`mqtt_host`, `mqtt_username`, `mqtt_password`) sunucudan çekilerek BLE üzerinden cihaza yazılmalı; cihaz başarıyla Wi-Fi'a ve MQTT broker'a bağlanarak online duruma geçmelidir.
+- [ ] **167.4. Kapı Anahtarlama (Röle Tetikleme) Görevi Doğrulaması:**
+  - **Nasıl Test Edilir:** İnternete bağlanan AHBU cihazı kapıya atandıktan sonra mobil uygulamadan "Kapıyı Aç" butonuna basın veya tanımlı bir plaka/QR ile geçiş yapın.
+  - **Beklenen Sonuç:** Hem yerel UDP (port 8765) hem de bulut MQTT (`device/<UID>/cmd`) üzerinden gelen kapı açma komutu AHBU kartı tarafından anında işlenmeli; röle kontağı çekip kapı motorunu/kilidini tetiklemeli (anahtarlama görevini eksiksiz yapmalı) ve durum güncellenmelidir.
+
+---
+
+## 168. 🚪 360° Daireden Ayrılma, Otopark/Plaka, Borç Devri ve Site Yönetim Görevi Devir Sistemi
+*Sakin veya daire yöneticisi ayrıldığında kapı, araç plakası PTS beyaz listesi, ileri tarihli rezervasyonlar, geçici misafir linkleri, finansal borçlar ve site görevlerinin tek bir atomik işlemde güvenle yönetilmesi.*
+
+- [ ] **168.1. Ayrılma Önizlemesi (360° Termination Preview):**
+  - **Nasıl Test Edilir:** Yönetici olarak `GET /manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/termination-preview` uç noktasına istek atın.
+  - **Beklenen Sonuç:** Ayrılacak kişinin bağlı olduğu tüm aktif araç plakaları, bekleyen tesis rezervasyonları, aktif misafir linkleri, vadesi geçmiş aidat borcu, dairede kalan diğer sakinler ve site yönetim görevleri (`site_team_duties` / `site_manager_sites`) eksiksiz listelenmelidir.
+- [ ] **168.2. Otopark & Araç Plakalarının Otomatik Pasifleştirilmesi:**
+  - **Nasıl Test Edilir:** Daireden ayrılma işlemi tamamlandığında ayrılan kişiye ait araçların `vehicles.is_active` durumunu kontrol edin ve plaka tanıma kamerasıyla geçiş deneyin.
+  - **Beklenen Sonuç:** Kişiye (ve hane tamamen boşalıyorsa daireye) ait tüm araçlar `is_active = FALSE` durumuna geçmeli, PTS beyaz listesinden çıkarılmalı ve bariyer geçişi engellenmelidir. Dairenin otopark kotası serbest kalmalıdır.
+- [ ] **168.3. İleri Tarihli Rezervasyonlar ve Misafir Linklerinin İptali:**
+  - **Nasıl Test Edilir:** Ayrılan kişinin daha önce oluşturduğu aktif misafir linkini (`guest_passes`) ve ileri tarihli rezervasyonunu kontrol edin.
+  - **Beklenen Sonuç:** Misafir linki geçersiz kılınmalı (`is_active = FALSE`), rezervasyon takvimde iptal edilerek (`status = 'iptal'`) saatler diğer komşular için boşa çıkarılmalıdır.
+- [ ] **168.4. Daire Adminliği ve Site Yönetim Görevi Devri:**
+  - **Nasıl Test Edilir:** Daire admini olan bir kiracı veya malik ayrılırken yeni admin adayı seçilerek veya boş bırakılarak işlem icra edilsin. Kişinin yönetim kurulu üyeliği sonlandırılsın.
+  - **Beklenen Sonuç:** Seçilen aday (veya yoksa kurala göre malik) yeni `APARTMENT_ADMIN` olarak atanmalı; `terminateSiteRoles = true` seçildiyse `site_team_duties` ve `site_manager_sites` yetkileri tek seferde sonlandırılmalıdır.
+- [ ] **168.5. Finansal Mutabakat ve Kiracı Borcunun Malike Devri (KMK m.20):**
+  - **Nasıl Test Edilir:** Vadesi geçmiş aidat borcu olan bir kiracı daireden ayrılırken borç çözüm modunu `TRANSFER_TO_OWNER` seçin ve varsa sayaç son endeksini girin.
+  - **Beklenen Sonuç:** Kiracının açık borç bakiyesi ev sahibi hesabına aktarılmalı, finans defterine yansıtılmalı (`liability_transfer`), sayaç son okuma endeksi `meter_readings` tablosuna kaydedilmeli ve denetim kütüğüne işlenmelidir.
+- [ ] **168.6. Flutter Mobil ve Web UI Daireden Ayrılma Sihirbazı (ResidencyTerminationDialog):**
+  - **Nasıl Test Edilir:** Daire Detay kartından (`ApartmentCardDialog`) veya Kişi Detay kartından (`PersonCardDialog`) bir sakinin yanındaki "Daireden Ayrıldı / Taşındı" düğmesine tıklayın.
+  - **Beklenen Sonuç:** Açılan 360° sihirbazda araçlar, rezervasyonlar, vadesi geçmiş borçlar, sayaçlar, daire admini halef seçimi ve yönetim kurulu görevleri net kartlar halinde listelenmeli; onaylandığında tüm işlemler tek seferde icra edilip sayfa anında otomatik yenilenmelidir. Taşma (overflow) hatası yaşanmamalıdır.
+- [ ] **168.7. Sakin Tarafı 'Bu Daireden Ayrıl' ve 'Daireyi Devret / Çıkış' 360° Temizliği (ResidentLeaveDialog):**
+  - **Nasıl Test Edilir:** Sakin olarak oturum açıp "Dairem" (`MyApartmentView`) ekranından "Bu daireden ayrıl" veya "Daireyi devret / çıkış" butonuna tıklayın.
+  - **Beklenen Sonuç:** Açılan onay kartında sakinin kapı erişiminin sona ereceği, kayıtlı araçlarının PTS bariyer geçiş izinlerinin iptal edileceği, bekleyen misafir linkleri ve tesis rezervasyonlarının temizleneceği, aidat borcu varsa uyarılacağı ve hesabının silinmeyeceği net maddeler halinde gösterilmeli; onaylandığında tüm bağlı varlıklar temizlenerek daireden ayrılma tamamlanmalıdır.
+
+---
+
+## 169. 🎴 Proje Geneli Evrensel Menülü Kart Mimarisi (AppActionCard, Sadelik & Hızlı Erişim)
+*Tüm ekranlarda açık buton kalabalığını kaldıran, Fitts ve Hick-Hyman yasalarına uygun, her kartın sağında ergonomik 3-nokta (⋮) taşma menüsü ve sıfır taşma (Rule 6) garantili evrensel kart dönüşümü.*
+
+- [ ] **169.1. Daire Kartında Menülü Sakin Listesi (ApartmentCardDialog):**
+  - **Nasıl Test Edilir:** Daireler listesinden bir daireye dokunarak detay kartını açın. Sakinler bölümündeki sakin ve malik kartlarını inceleyin.
+  - **Beklenen Sonuç:** Sakin satırlarındaki açık ve dar alanda sıkışan butonlar yerine her sakinin sağında ergonomik `⋮` 3-nokta menüsü bulunmalı; menü tıklandığında "Daireden Ayrıldı / Taşındı", "Hesap Muhatabı Yap", "Maliki Çıkar" ve "PIN Sıfırla" eylemleri açılmalıdır. Kartlarda sıfır taşma olmalıdır.
+- [ ] **169.2. Kişi Kartında Daire İlişkileri ve Araçlar Menülü Kartı (PersonCardDialog):**
+  - **Nasıl Test Edilir:** Kişiler listesinden bir kişiye tıklayarak kişi detay penceresini açın. Daire ilişkileri ve kayıtlı araçlar kartlarını inceleyin.
+  - **Beklenen Sonuç:** Her daire ilişkisi ve her kayıtlı araç `AppActionCard` formatında listelenmeli; sağ üstteki `⋮` menüden araç çıkarma, düzenleme veya pasife alma işlemleri yapılabilmelidir.
+- [ ] **169.3. Sakin Portalı Dairem Ekranı Hane & Araçlar (MyApartmentView & MyApartmentVehicles):**
+  - **Nasıl Test Edilir:** Sakin olarak giriş yapıp "Dairem" sekmesine geçin. Hane halkı ve araçlarım listelerini kontrol edin.
+  - **Beklenen Sonuç:** Aile üyeleri ve araçlar derli toplu `AppActionCard` yapısıyla görünmeli; sağdaki `⋮` menüsünden silme veya pasife alma işlemleri kolayca yönetilebilmelidir.
+- [ ] **169.4. Geçiş Kontrol & Kapı Kartları (AdminDoorStatusCard):**
+  - **Nasıl Test Edilir:** Yönetici olarak Kapı Kontrolü & Telemetri kartını 320px dar ekranda ve 2.0x büyük yazı tipinde inceleyin.
+  - **Beklenen Sonuç:** Kapı başlığı ve eylemleri esnek `Wrap` yapısıyla kırılmadan yerleşmeli, hiçbir taşma (RenderFlex overflow) oluşmamalıdır.
+- [ ] **169.5. PTS Plaka Tanıma & Canlı Kamera Kartları (PlateGatesPanel):**
+  - **Nasıl Test Edilir:** Plaka Tanıma modülünde Geçiş Noktaları sekmesine gidin. Kapı başlığını ve bağlı kameraları inceleyin.
+  - **Beklenen Sonuç:** Her kapının ve her kameranın sağında `⋮` 3-nokta menüsü yer almalı; "Süreleri Ayarla", "Canlı Akış", "Kamera Ekle", "Sına", "Düzenle", "Kapıdan Ayır", "Durdur/Başlat" ve "Sil" seçenekleri güvenle ve tek tıkla çalışmalıdır. İçerideki araçlar `AppActionCard` ile listelenmelidir.
+- [ ] **169.6. Finans, Kasa/Banka ve Makbuz Kartları (Finance 4b):**
+  - **Nasıl Test Edilir:** Finans sekmesinden Kasa / Banka hesaplarını ve Makbuzlar listesini açın.
+  - **Beklenen Sonuç:** Kasa kartlarında ve makbuzlarda sağ üst `⋮` menüsüyle "Hareketler", "Düzeltme", "Banka/Kasa Kontrolü", "Düzenle" ve "Makbuzu Görüntüle" seçeneklerine doğrudan erişilebilmelidir.
+- [ ] **169.7. İş Takibi & Görevler ve Ziyaretçi/Kargo Kartları:**
+  - **Nasıl Test Edilir:** İş Takibi ve Ziyaretçi & Kargo listelerini açın.
+  - **Beklenen Sonuç:** Görevler (`WorkResidentCard`, `WorkManagedCard`) ve ziyaretçi kartları (`VisitorManagedCard`, `VisitorResidentCard`) sağdaki `⋮` 3-nokta menüsüyle durum değiştirme ve detay işlemlerini sade, anlaşılır ve parmak dostu olarak sunmalıdır.
+
+---
+
+## 170. 🛡️ 11 Kasım Dört Rapor Uzlaşısı ve Güvenlik Bütünlüğü
+*11 Kasım 2026 denetim raporlarındaki bulguların (Rapor 3 & 4) giderilmesi; açılış şemaları, eşzamanlılık kilitleri, günlük aidat bildirim sırası ve 360° ayrılma dayanıklılığı.*
+
+- [ ] **170.1. db.js Açılış Şeması Bütünlüğü (6 Modül Şeması & Başvuru Kapatma):**
+  - **Nasıl Test Edilir:** Sunucuyu yeniden başlatın (`pm2 restart kapi-api`) ve açılış loglarını inceleyin.
+  - **Beklenen Sonuç:** `document_audience`, `equipment_blocks`, `finance_proration`, `emergency_alarms`, `plate_movement_policy` ve `parking_access` tabloları ile `join_requests.dismissed_at` kolonları eksiksiz ve idempotent olarak kurulmalı, boot hatası oluşmamalıdır.
+- [ ] **170.2. Üyelik İşlemlerinde Eşzamanlılık Kilitleri (membership_service):**
+  - **Nasıl Test Edilir:** Bir sitede eşzamanlı olarak daire sakini çıkarma (`removeApartmentMember`), daire admini değiştirme (`setApartmentPrimaryAdmin`) ve aidat tahakkuku işlemlerini simüle edin.
+  - **Beklenen Sonuç:** `peopleLockKey` ve `financeLockKey` danışma kilitleri (advisory locks) sırayla alınmalı, yarış durumu (race condition) ve çift bakiye/üye oluşturulması engellenmelidir.
+- [ ] **170.3. Kiracı Ayrılışında Günlük Aidat Paylaşımı Sonrası Doğru Bakiye Bildirimi:**
+  - **Nasıl Test Edilir:** Ay ortasında (örneğin 30 günlük ayın 18'inde) kiracının daireden ayrılışını (`exitTenancy`) onaylayın.
+  - **Beklenen Sonuç:** Günlük paylaşım motoru (`endTenancy`) önce çalışmalı; ardından güncel kalan borç (`tenantDebtMinorSafe`) okunarak bildirim ve WhatsApp mesajında tam doğru tutar gösterilmelidir.
+- [ ] **170.4. Ayrılmada Rezervasyon Temizliğinin Site Kapsamında İzolasyonu:**
+  - **Nasıl Test Edilir:** Kullanıcının iki farklı sitede (Site A ve Site B) daire kaydı ve ileri tarihli rezervasyonu varken, Site A'daki dairesinden ayrılma işlemini tamamlayın.
+  - **Beklenen Sonuç:** Yalnızca Site A'daki rezervasyonları iptal edilmeli, Site B'deki rezervasyonları kesinlikle etkilenmemelidir.
+- [ ] **170.5. 360° Ayrılma Servisi Şema ve Rol Uyumluluğu:**
+  - **Nasıl Test Edilir:** Yönetim kurulunda görevi bulunan ve sayacı olan bir sakinin ayrılma önizlemesini (`termination-preview`) ve ayrılmasını (`terminate`) çalıştırın.
+  - **Beklenen Sonuç:** `site_manager_sites.manager_user_code` ve `meter_readings.value` sütunları doğru okunmalı; SQL şema uyuşmazlığı hatası yaşanmadan işlem tamamlanmalıdır.
+- [ ] **170.6. Kiracı Borç Devrinde (TRANSFER_TO_OWNER) Kısmi Hata Güvenliği:**
+  - **Nasıl Test Edilir:** Ev sahibi hesabına borç devri sırasında finans defterinde bir kesinti/hata oluşursa ayrılma sonucunu inceleyin.
+  - **Beklenen Sonuç:** Hata yutulmamalı (`swallowed error` riski önlenmeli); `debtTransferFailed: true` ve `debtTransferError` kullanıcıya ve yöneticiye açıkça raporlanmalıdır.
+
+## Birleşim kabul kontrolü — 12 Kasım 2026
+
+- [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.
+- [ ] Sade görünümden kendi geri bildirimlerinize ve yönetim telefonuna ulaşın; yetkisiz kişinin başkasının geri bildirim eki açılmamalıdır.
+- [ ] Sitesiz yeni hesapta yalnız ilgili katılım/kurulum ve hesap işlemleri görünür. Ağ hatası veya yükleme sürerken mevcut sakinin menüleri kaybolmamalı; onay sonrası yenileme menüleri geri getirmelidir. Reddedilmiş başvuruda Anladım kalıcı kapatmalı, Yeniden başvur kartı dönmemelidir.
+- [ ] Gerçek AHBU ve SmartKeyPass cihazlarını Bluetooth'ta tarayın: eski ad ve UUID ile adsız yayın bulunur. Eksik kimlikte kayıt engellenir; kayıt beklerken başka cihaz seçilemez. Wi-Fi kaydı ve yeniden bağlanma gerçek cihaz üzerinde doğrulanmalıdır.
+- [ ] 30 günlük ayda 3.000 TL aidat, 18'i dahil çıkış: kiracı 1.800 TL, malik 1.200 TL; toplam korunur, iki pay Aidat Hesabı kapsamındadır. Fon ve tahsilatta K3 seçimi değişmez.
+- [ ] 360 ayrılmada önizleme hatasını deneyin: sıfır borç gibi gösterilmez, yeniden deneme sunulur. Geçersiz tarih/endeks gönderilemez; başka daire sayacı ve azalan endekste hiçbir ayrılma yazması kalmamalıdır.
+- [ ] Birden fazla daire/site bağı olan kişinin tek ikametini kapatın: diğer dairenin aracı, rezervasyonu ve devam eden bağın misafir yetkisi korunur. Kurul yalnız okuyabilir; ham misafir erişim token'ı yanıt içinde bulunmaz.
+- [ ] Malike devir seçilmemişken borç kendiliğinden aktarılmaz. Ayrılma tamamlanıp borç devri başarısız olduğunda açık uyarı ve Finans bölümünden devam yönlendirmesi görünür; yanlış başarı mesajı verilmez.
+- [ ] Asansörsüz kapsamda Asansör gösterilmez; tek blokta yangın için gereksiz blok sorulmaz. Güvenlik/servis sesli, yönetici sessiz bildirim kuralı korunur. Kapalı telefon bildirimi ayrıca gerçek FCM kurulumu ve cihaz denemesi gerektirir.
+- [ ] 320 px ve yüzde 200 yazı boyutunda 360 ayrılma, Dairem ve Wi-Fi kurulumunda taşma olmamalıdır; eylemler kaydırılarak erişilebilir kalır.

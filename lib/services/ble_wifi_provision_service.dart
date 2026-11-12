@@ -14,14 +14,65 @@ const String bleWifiResultUuid = '6f64be30-0d46-4f6d-9cd4-4f9d08b5f005';
 /// Kurulum yayınındaki cihaz adı önekleri. Yeni firmware `SmartKeyPass<UID>` yayınlar; 128-bit servis UUID'si
 /// reklam paketinde yer kapladığından ad orada kısaltılabilir (`SmartKey…`), bu yüzden önek `SmartKey`dir.
 /// Sahadaki eski kartlar (yeni firmware yüklenene kadar) `AHBU<UID>` yayınlar. İkisi de tanınır.
-const List<String> bleProvisionDeviceNamePrefixes = <String>['SmartKey', 'AHBU'];
+const List<String> bleProvisionDeviceNamePrefixes = <String>[
+  'SmartKey',
+  'SmartKeyPass',
+  'AHBU',
+  'SKP',
+  'KAPI',
+  'ESP32',
+];
 
-/// Ad, kurulabilir bir kapı cihazına mı ait (büyük/küçük harf duyarsız önek eşleşmesi)?
+/// Tarama adayıdır; kurulum servisi ve cihaz kimliği bağlantıdan sonra okunur.
 bool isBleProvisionDeviceName(String name) {
   final String upper = name.trim().toUpperCase();
-  return bleProvisionDeviceNamePrefixes.any(
-    (String prefix) => upper.startsWith(prefix.toUpperCase()),
-  );
+  if (upper.isEmpty) {
+    return false;
+  }
+  for (final String prefix in bleProvisionDeviceNamePrefixes) {
+    if (upper.startsWith(prefix.toUpperCase())) {
+      return true;
+    }
+  }
+  if (upper.contains('AHBU') ||
+      upper.contains('SMARTKEY') ||
+      upper.contains('SKP')) {
+    return true;
+  }
+  return false;
+}
+
+/// BLE cihaz adı veya MAC adresinden hex kimlik adayı ayıklar.
+/// [deviceId] ile bulunan adres, firmware UID'sinin doğrulandığı anlamına gelmez.
+/// Kurulum akışı bu geri dönüşü kullanmaz; BLE MAC adresi eFuse UID'den farklı olabilir.
+/// Örn: "AHBU240AC4E2E001" -> "240AC4E2E001", "AHBU-240AC4E2E001" -> "240AC4E2E001",
+/// "SmartKeyPass240AC4E2E001" -> "240AC4E2E001", "24:0A:C4:E2:E0:01" -> "240AC4E2E001".
+String extractBleDeviceUid(String name, {String? deviceId}) {
+  final String trimmedName = name.trim();
+  final Match? prefixMatch = RegExp(
+    r'(?:AHBU|SmartKey|SmartKeyPass|SKP|ESP32|KAPI)[-_:]?([0-9A-Fa-f]{6,16})',
+    caseSensitive: false,
+  ).firstMatch(trimmedName);
+  if (prefixMatch != null && prefixMatch.group(1) != null) {
+    return prefixMatch.group(1)!.toUpperCase();
+  }
+
+  final String cleanName = trimmedName.replaceAll('-', '').replaceAll(':', '');
+  if (RegExp(r'^[0-9A-Fa-f]{8,16}$').hasMatch(cleanName)) {
+    return cleanName.toUpperCase();
+  }
+
+  if (deviceId != null && deviceId.trim().isNotEmpty) {
+    final String cleanMac = deviceId
+        .replaceAll(':', '')
+        .replaceAll('-', '')
+        .trim();
+    if (RegExp(r'^[0-9A-Fa-f]{12}$').hasMatch(cleanMac)) {
+      return cleanMac.toUpperCase();
+    }
+  }
+
+  return '';
 }
 
 class BleProvisionException implements Exception {
@@ -64,16 +115,54 @@ class BleWifiState {
   final String ssid;
   final String ip;
 
-  factory BleWifiState.fromPayload(String payload) {
+  factory BleWifiState.fromPayload(String payload, {String? fallbackUid}) {
     final Map<String, dynamic> json = _decodeJsonMap(payload);
+    if (json.isEmpty) {
+      throw const BleProvisionException(
+        'Cihazın kurulum durumu okunamadı. Bağlantıyı yenileyip tekrar deneyin.',
+      );
+    }
+    String uid = '';
+    for (final key in const ['device_uid', 'uid', 'id', 'deviceUid']) {
+      final Object? value = json[key];
+      if (value is! String && value is! num) continue;
+      final String candidate = value.toString().trim();
+      if (candidate.isNotEmpty) {
+        uid = candidate;
+        break;
+      }
+    }
+    if (uid.isEmpty && fallbackUid != null && fallbackUid.trim().isNotEmpty) {
+      uid = fallbackUid.trim();
+    }
     return BleWifiState(
-      deviceUid: (json['device_uid'] ?? '').toString(),
+      deviceUid: uid,
       wifiConnected: json['wifi_connected'] == true,
       provisioning: json['provisioning'] == true,
       hasCredentials: json['has_credentials'] == true,
       mqttConfigured: json['mqtt_configured'] == true,
       ssid: (json['ssid'] ?? '').toString(),
       ip: (json['ip'] ?? '').toString(),
+    );
+  }
+
+  BleWifiState copyWith({
+    String? deviceUid,
+    bool? wifiConnected,
+    bool? provisioning,
+    bool? hasCredentials,
+    bool? mqttConfigured,
+    String? ssid,
+    String? ip,
+  }) {
+    return BleWifiState(
+      deviceUid: deviceUid ?? this.deviceUid,
+      wifiConnected: wifiConnected ?? this.wifiConnected,
+      provisioning: provisioning ?? this.provisioning,
+      hasCredentials: hasCredentials ?? this.hasCredentials,
+      mqttConfigured: mqttConfigured ?? this.mqttConfigured,
+      ssid: ssid ?? this.ssid,
+      ip: ip ?? this.ip,
     );
   }
 }
@@ -144,6 +233,7 @@ class BleWifiProvisionService {
 
   StreamSubscription<ConnectionStateUpdate>? _connectionSubscription;
   String? _deviceId;
+  String? _connectedDeviceName;
 
   bool get isSupportedPlatform {
     if (kIsWeb) {
@@ -218,7 +308,10 @@ class BleWifiProvisionService {
     if (defaultTargetPlatform == TargetPlatform.android) {
       final scan = await Permission.bluetoothScan.status;
       final connect = await Permission.bluetoothConnect.status;
-      if (scan.isGranted || scan.isLimited || connect.isGranted || connect.isLimited) {
+      if (scan.isGranted ||
+          scan.isLimited ||
+          connect.isGranted ||
+          connect.isLimited) {
         return true;
       }
       final location = await Permission.locationWhenInUse.status;
@@ -238,7 +331,8 @@ class BleWifiProvisionService {
       final connectStatus = await Permission.bluetoothConnect.request();
 
       final isScanGranted = scanStatus.isGranted || scanStatus.isLimited;
-      final isConnectGranted = connectStatus.isGranted || connectStatus.isLimited;
+      final isConnectGranted =
+          connectStatus.isGranted || connectStatus.isLimited;
 
       if (!isScanGranted && !isConnectGranted) {
         final locationStatus = await Permission.locationWhenInUse.request();
@@ -270,21 +364,33 @@ class BleWifiProvisionService {
         <String, BleProvisionDevice>{};
     Object? scanError;
 
+    // Sahadaki eski AHBU cihazlarinda 128-bit servis UUID'si reklam paketindeki 31 bayt siniri nedeniyle
+    // yalniz Scan Response icinde yer alabilir veya bazi Android surumlerinde donanim filtreleri
+    // Scan Response'u yutar. Bu yuzden tarama tum yayinlara acik yapilir (withServices bos), eslesme Dart'ta yapilir.
     final StreamSubscription<DiscoveredDevice> subscription = _ble
         .scanForDevices(
-          withServices: <Uuid>[_serviceUuid],
+          withServices: const <Uuid>[],
           scanMode: ScanMode.lowLatency,
           requireLocationServicesEnabled: false,
         )
         .listen(
           (DiscoveredDevice device) {
             final String name = device.name.trim();
-            if (!isBleProvisionDeviceName(name)) {
+            final bool hasMatchingName = isBleProvisionDeviceName(name);
+            final bool hasMatchingService = device.serviceUuids.contains(
+              _serviceUuid,
+            );
+            if (!hasMatchingName && !hasMatchingService) {
               return;
             }
+            final String displayName = name.isNotEmpty
+                ? name
+                : (hasMatchingService
+                      ? 'SmartKey/AHBU (${device.id})'
+                      : device.id);
             devices[device.id] = BleProvisionDevice(
               id: device.id,
-              name: name,
+              name: displayName,
               rssi: device.rssi,
             );
           },
@@ -314,6 +420,7 @@ class BleWifiProvisionService {
 
     final Completer<void> completer = Completer<void>();
     _deviceId = device.id;
+    _connectedDeviceName = device.name;
     _connectionSubscription = _ble
         .connectToDevice(
           id: device.id,
@@ -342,6 +449,7 @@ class BleWifiProvisionService {
                 );
               }
               _deviceId = null;
+              _connectedDeviceName = null;
             }
           },
           onError: (Object error, StackTrace stackTrace) {
@@ -351,30 +459,55 @@ class BleWifiProvisionService {
               );
             }
             _deviceId = null;
+            _connectedDeviceName = null;
           },
         );
 
-    await completer.future.timeout(
-      const Duration(seconds: 15),
-      onTimeout: () => throw const BleProvisionException(
-        'Bluetooth baglantisi zaman asimina ugradi.',
-      ),
-    );
-
     try {
-      await _ble.requestMtu(deviceId: device.id, mtu: 180);
-    } catch (_) {
-      // MTU arttirimi zorunlu degil.
-    }
+      await completer.future.timeout(
+        const Duration(seconds: 15),
+        onTimeout: () => throw const BleProvisionException(
+          'Bluetooth baglantisi zaman asimina ugradi.',
+        ),
+      );
+      try {
+        await _ble.requestMtu(deviceId: device.id, mtu: 180);
+      } catch (_) {
+        // MTU arttirimi zorunlu degil.
+      }
 
-    return readState();
+      // İsim eşleşmesi yeterli değildir: özel GATT durum karakteristiği okunmalı.
+      return await readState();
+    } catch (error) {
+      await disconnect();
+      if (error is BleProvisionException) rethrow;
+      throw const BleProvisionException(
+        'Cihazın kurulum servisine erişilemedi. Kurulum modunu açıp tekrar deneyin.',
+      );
+    }
   }
 
   Future<BleWifiState> readState() async {
     final List<int> raw = await _ble.readCharacteristic(
       _qualifiedCharacteristic(_stateUuid),
     );
-    return BleWifiState.fromPayload(utf8.decode(raw, allowMalformed: true));
+    // Kısaltılmış reklam adı veya BLE MAC adresi MQTT kimliği yerine geçmez.
+    // Sahadaki firmware cihazUniqueId() ile 12 haneli eFuse UID yayınlar.
+    final Match? advertisedUid = RegExp(
+      r'^(?:AHBU|SmartKeyPass|SmartKey|SKP|ESP32|KAPI)[-_:]?([0-9A-F]{12})$',
+      caseSensitive: false,
+    ).firstMatch((_connectedDeviceName ?? '').trim());
+    final String fallbackUid = advertisedUid?.group(1)?.toUpperCase() ?? '';
+    final BleWifiState state = BleWifiState.fromPayload(
+      utf8.decode(raw, allowMalformed: true),
+      fallbackUid: fallbackUid,
+    );
+    if (state.deviceUid.isEmpty) {
+      throw const BleProvisionException(
+        'Cihaz kimliği okunamadı. Durumu yenileyip tekrar deneyin; Bluetooth adresi cihaz kimliği olarak kullanılamaz.',
+      );
+    }
+    return state;
   }
 
   Future<BleWifiResult> readResult() async {
@@ -473,7 +606,8 @@ class BleWifiProvisionService {
       } catch (_) {
         return const BleWifiResult(
           status: 'restarting',
-          message: 'Wi-Fi bilgileri cihaza yazildi. Cihaz yeniden baslatiliyor.',
+          message:
+              'Wi-Fi bilgileri cihaza yazildi. Cihaz yeniden baslatiliyor.',
         );
       }
       if (result.isProvisionAccepted) {
@@ -509,6 +643,7 @@ class BleWifiProvisionService {
     await _connectionSubscription?.cancel();
     _connectionSubscription = null;
     _deviceId = null;
+    _connectedDeviceName = null;
   }
 
   Future<void> dispose() async {

@@ -1105,6 +1105,8 @@ export async function ensureDbSchema() {
       CREATE INDEX IF NOT EXISTS idx_join_requests_user ON join_requests(user_code);
       CREATE INDEX IF NOT EXISTS idx_join_requests_apartment ON join_requests(apartment_id);
       ALTER TABLE join_requests ADD COLUMN IF NOT EXISTS notes TEXT;
+      ALTER TABLE join_requests ADD COLUMN IF NOT EXISTS dismissed_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS idx_join_requests_user_dismissed ON join_requests(user_code) WHERE dismissed_at IS NULL;
 
       ALTER TABLE site_doors
       ADD COLUMN IF NOT EXISTS access_scope TEXT NOT NULL DEFAULT 'SITE_COMMON';
@@ -1949,6 +1951,7 @@ export async function ensureDbSchema() {
     await ensureFinance4bSchema(client);
     // 039 (belgeler, faz 3b-A): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (document_schema.js = migrations/039).
     await ensureDocumentsSchema(client);
+    // 131 (belge kitlesi genisletmesi: 'all' audience): idempotent.
     await ensureDocumentAudienceSchema(client);
     // 041 (telefon bildirimi, faz 3b-B): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (push_schema.js = migrations/041).
     // notification_preferences'a ALTER yalniz sutunlar eksikse calisir (normal acilista hic kilit yok).
@@ -1969,6 +1972,7 @@ export async function ensureDbSchema() {
     await ensureContractsSchema(client);
     // 068 (ekipman, bakim ve teklif): dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli ifadesi (equipment_schema.js = migrations/068).
     await ensureEquipmentSchema(client);
+    // 132 (ekipman blok baglantisi): idempotent.
     await ensureEquipmentBlockSchema(client);
     // 096 (is kaydi <-> ekipman bagi, fotograf once/sonra etiketi): 042 / 047 / 068'den SONRA; katalog kontrolu + her adim kendi otomatik onayli ifadesi (work_equipment_schema.js = migrations/096).
     await ensureWorkEquipmentSchema(client);
@@ -2060,6 +2064,7 @@ export async function ensureDbSchema() {
     // 090 (demirbas / fon tahakkukunun dayanagi: Karar Defteri kaydi ya da gerekce): 034 (fee_runs) ve 050 (board_decisions) SONRASI; dev blokta DEGIL; katalog kontrolu + her adim kendi otomatik onayli
     // ifadesi (finance_run_decision_schema.js = migrations/090). Her sey varsa hicbir ifade / kilit yok. Geri doldurma yok (eski calistirmalar dayanaksiz kalir).
     await ensureFinanceRunDecisionSchema(client);
+    // 127 (gunluk aidat paylasimi: ledger_entries.proration): idempotent.
     await ensureFinanceProrationSchema(client);
     // 091 (aidat dagitim tabani: 'person_count' = kisi sayisina gore): fee_definitions (034) SONRASI; dev blokta DEGIL; kisit zaten guncelse tek katalog sorgusu, kilit yok
     // (finance_distribution_schema.js = migrations/091). fee_definitions yoksa hicbir sey yapmaz. Hata acilisi durdurmaz (yalniz 'person_count' tanimi yazilamaz; sonraki acilis yeniden dener).
@@ -2090,6 +2095,7 @@ export async function ensureDbSchema() {
     await ensureWorkCategoriesSchema(client);
     // 107 (acil durum akisi: site basina asansor bakim firmasi): sites'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade gonderilmez (emergency_schema.js = migrations/107).
     await ensureEmergencySchema(client);
+    // 128 + 129 (site ici acil alarm ve yangin yayini): idempotent.
     await ensureEmergencyAlarmSchema(client);
     // 106 (deneme erisim kodu, P2-27 / K10): sites ve users'tan SONRA; dev blokta DEGIL; tablo varsa hicbir ifade / kilit yok, yoksa her adim kendi otomatik onayli ifadesi
     // (trial_access_schema.js = migrations/106). Mevcut tablolara ALTER yok.
@@ -2113,10 +2119,12 @@ export async function ensureDbSchema() {
     // 121 (plaka tanima A3: "iceride" esikleri, kopukluk uyari siniri, sakin bildirim tercihi, olay karar turune 'kara_liste'): 120'den SONRA (plate_site_settings, plate_presence);
     // katalog kontrolu + eksikse idempotent ifadeler (plate_alerts_schema.js = migrations/121). Mevcut satirlara dokunmaz.
     await ensurePlateAlertsSchema(client);
-    await ensurePlateMovementPolicySchema(client);
     // 122 (plaka tanima sozlesme surum 3: kamera RTSP + sinama sonucu, uzaktan komut kuyrugu, son goruntu karesi, olaya kimlik baglama + kapi komutu, site ayari sutunlari):
     // 120/121'den SONRA (plate_edge_clients, plate_site_settings, plate_events); katalog kontrolu + eksikse idempotent ifadeler (plate_cameras_schema.js = migrations/122). Mevcut satirlara dokunmaz.
     await ensurePlateCamerasSchema(client);
+    // 133 (plaka hareket bildirim politikasi): idempotent.
+    await ensurePlateMovementPolicySchema(client);
+    // 130 (otopark politikasi ve atomik tahsis): idempotent.
     await ensureParkingAccessSchema(client);
 
     // 031 people_v1: mevcut sakinlerin CRM'e tek seferlik aktarimi. Savunmaci: hata sunucunun acilmasini ENGELLEMEZ

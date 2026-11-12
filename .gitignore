@@ -76,6 +76,8 @@ hatalaar.txt
 *.pem
 *.key
 *.p12
+*.jks
+*.keystore
 !/server/.env.example
 # OTA imza araci: ornek ortam dosyasi (yalniz AD, deger yok) izlenir; gercek .env ve ozel anahtarlar *.pem / .env.* ile yok sayilir
 !/tools/ota_imza/.env.example
@@ -118,3 +120,6 @@ tools/demo_seed/out/
 
 # Tek merkezi onceki-is kopyasi; kaynak veya kimlik bilgisi olarak yayinlanmaz.
 /work/geri-donus/
+
+# Yerel analiz, paket, kanit ve geri donus dosyalari.
+/work/

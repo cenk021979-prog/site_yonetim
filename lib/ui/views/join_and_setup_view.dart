@@ -5,6 +5,7 @@ import 'package:site_kapi_kontrol/models/join_request_record.dart';
 import 'package:site_kapi_kontrol/models/site_application.dart';
 import 'package:site_kapi_kontrol/models/user_session.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
+import 'package:site_kapi_kontrol/services/join_request_tracker.dart';
 import 'package:site_kapi_kontrol/services/site_application_tracker.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
@@ -25,6 +26,7 @@ class JoinAndSetupView extends StatefulWidget {
     this.onRefreshAll,
     this.applications,
     this.onRefreshAccount,
+    this.showReapplyOnRejected = true,
   });
 
   final AuthService authService;
@@ -38,6 +40,7 @@ class JoinAndSetupView extends StatefulWidget {
 
   /// Onaylanmış başvuruda rolü elle yenileme ("Hesabı yenile").
   final Future<void> Function()? onRefreshAccount;
+  final bool showReapplyOnRejected;
 
   @override
   State<JoinAndSetupView> createState() => _JoinAndSetupViewState();
@@ -100,16 +103,27 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
   Future<void> _loadRequests() async {
     setState(() => _isLoadingRequests = true);
     try {
+      await JoinRequestTracker.loadConsumed();
       final (list, _) = await widget.authService.getMyJoinRequests();
       if (!mounted) return;
       setState(() {
-        _myRequests = list ?? [];
+        _myRequests = JoinRequestTracker.filterVisible(list ?? []);
         _isLoadingRequests = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoadingRequests = false);
     }
+  }
+
+  Future<void> _dismissRequest(JoinRequestRecord req) async {
+    setState(() {
+      _myRequests.removeWhere((r) => r.id == req.id);
+    });
+    await JoinRequestTracker.consume(req.id);
+    try {
+      await widget.authService.dismissJoinRequest(req.id);
+    } catch (_) {}
   }
 
   @override
@@ -148,9 +162,7 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const SectionHeader(
-                                title: 'Daireye Katıl',
-                              ),
+                              const SectionHeader(title: 'Daireye Katıl'),
                               const SizedBox(height: AppSpace.xs),
                               Text(
                                 'Yöneticinizin paylaştığı site katılım QR kodu ya da katılım koduyla bir siteye/daireye katılabilirsiniz.',
@@ -171,9 +183,11 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
                     tracker: widget.applications!,
                     onReapply: _openApplicationForm,
                     onRefreshAccount: widget.onRefreshAccount,
-                    showApproved: showsApprovedApplicationCard(widget.session.role),
+                    showApproved: showsApprovedApplicationCard(
+                      widget.session.role,
+                    ),
                     showLoadFailure: canApplyForSite(widget.session.role),
-                    showReapplyOnRejected: true,
+                    showReapplyOnRejected: widget.showReapplyOnRejected,
                   ),
 
                 // ==========================================
@@ -254,6 +268,9 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
                         child: JoinRequestCard(
                           title: req.siteName ?? 'Site #${req.siteCode}',
                           status: JoinRequestCard.statusOf(req),
+                          onDismiss: (req.isApproved || req.isRejected)
+                              ? () => _dismissRequest(req)
+                              : null,
                           details: [
                             Text(
                               '${req.blockName?.isNotEmpty == true ? '${req.blockName} • ' : ''}Daire ${req.unitLabel ?? '-'}',

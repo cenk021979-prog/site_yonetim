@@ -88,12 +88,14 @@ void main() {
         expect(find.byType(ExpansionTile), findsNWidgets(7));
         expect(t.takeException(), isNull);
         await t.runAsync(() async {
+          const directory = String.fromEnvironment('SIMPLE_REVIEW_DIR', defaultValue: 'work/sade-redesign-2026-11-10');
+          await Directory(directory).create(recursive: true);
           final bitmap = await t
               .renderObject<RenderRepaintBoundary>(find.byKey(key))
               .toImage();
           final bytes = await bitmap.toByteData(format: ui.ImageByteFormat.png);
           await File(
-            'work/sade-redesign-2026-11-10/my-feedback-${width.toInt()}-${dark ? 'dark' : 'light'}.png',
+            '$directory/my-feedback-${width.toInt()}-${dark ? 'dark' : 'light'}.png',
           ).writeAsBytes(bytes!.buffer.asUint8List());
           bitmap.dispose();
         });

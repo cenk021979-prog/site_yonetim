@@ -43,6 +43,27 @@ const BleWifiState _connectedState = BleWifiState(
   ip: '192.168.1.45',
 );
 
+class _TrackingMqttAuth extends G4MqttAuth {
+  _TrackingMqttAuth({this.gate, this.responseUid});
+
+  final Completer<void>? gate;
+  final String? responseUid;
+  int credentialRequests = 0;
+
+  @override
+  Future<(Map<String, dynamic>?, String?)> getDeviceMqttCredentials({
+    required String deviceUid,
+  }) async {
+    credentialRequests++;
+    await gate?.future;
+    final (credentials, error) = await super.getDeviceMqttCredentials(deviceUid: deviceUid);
+    return (
+      credentials == null ? null : {...credentials, if (responseUid != null) 'device_uid': responseUid},
+      error,
+    );
+  }
+}
+
 /// `pumpAt` ile aynı düzenek (ölçü, ölçek, tema, hareket azaltma, 450 ms, çerçeve hatası yok);
 /// farkı: sayfanın kendi Scaffold'u için kaydırma sarmalayıcısı YOK.
 Future<void> _pumpPage(
@@ -157,7 +178,7 @@ void main() {
 
       expect(
         find.textContaining(
-          'Kurulum modunda cihaz bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
+          'Kurulum modunda AHBU / SmartKeyPass cihazı bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
         ),
         findsOneWidget,
       );
@@ -288,6 +309,79 @@ void main() {
   });
 
   group('davranış (Kural 7 ve mevcut akış korunur)', () {
+    testWidgets('MQTT yanıtı beklerken cihaz değiştirme ve yeniden tarama kilitlenir', (t) async {
+      final gate = Completer<void>();
+      final auth = _TrackingMqttAuth(gate: gate);
+      final service = FakeBleService(devices: _devices, networks: _networks, state: _connectedState);
+      await _pumpPage(t, WifiProvisionPage(service: service, authService: auth), height: 1400);
+      await _connect(t);
+      await _tapVisible(t, find.text('Wi-Fi Ağlarını Tara'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      await t.enterText(find.byType(TextField), 'test-sifresi');
+      await _tapVisible(t, find.text('Wi-Fi Bilgilerini Cihaza Kaydet'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      expect(auth.credentialRequests, 1);
+      expect(t.widget<ListTile>(find.widgetWithText(ListTile, 'SmartKeyPass-KAPI-02')).onTap, isNull);
+      expect(t.widget<IconButton>(find.widgetWithIcon(IconButton, Icons.refresh)).onPressed, isNull);
+      expect(service.provisioned, isEmpty);
+      gate.complete();
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      expect(service.provisioned, hasLength(1));
+      expect(t.widget<ListTile>(find.widgetWithText(ListTile, 'SmartKeyPass-KAPI-02')).onTap, isNotNull);
+      await _dispose(t);
+    });
+
+    testWidgets('Sunucudan başka cihaza ait MQTT kimliği gelirse cihaza yazılmaz', (t) async {
+      final auth = _TrackingMqttAuth(responseUid: 'OTHER_DEVICE');
+      final service = FakeBleService(devices: _devices, networks: _networks, state: _connectedState);
+      await _pumpPage(t, WifiProvisionPage(service: service, authService: auth), height: 1400);
+      await _connect(t);
+      await _tapVisible(t, find.text('Wi-Fi Ağlarını Tara'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      await t.enterText(find.byType(TextField), 'test-sifresi');
+      await _tapVisible(t, find.text('Wi-Fi Bilgilerini Cihaza Kaydet'));
+      await t.pump();
+      await t.pump(const Duration(milliseconds: 300));
+      expect(auth.credentialRequests, 1);
+      expect(service.provisioned, isEmpty);
+      expect(find.textContaining('Sunucudan gelen cihaz kimliği seçili cihazla eşleşmiyor'), findsWidgets);
+      await _dispose(t);
+    });
+
+    testWidgets(
+      'UID okunmadıysa BLE adresiyle MQTT kimliği istenmez ve hızlı kapı eylemi açılmaz',
+      (t) async {
+        final service = FakeBleService(
+          devices: _devices,
+          networks: _networks,
+          state: _connectedState.copyWith(deviceUid: ''),
+        );
+        final auth = _TrackingMqttAuth();
+        await _pumpPage(
+          t,
+          WifiProvisionPage(service: service, authService: auth),
+          height: 1400,
+        );
+        await _connect(t);
+        expect(find.text('Bu Cihazla Kapı Oluştur'), findsNothing);
+        await _tapVisible(t, find.text('Wi-Fi Ağlarını Tara'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 300));
+        await t.enterText(find.byType(TextField), 'test-sifresi');
+        await _tapVisible(t, find.text('Wi-Fi Bilgilerini Cihaza Kaydet'));
+        await t.pump();
+        await t.pump(const Duration(milliseconds: 300));
+        expect(auth.credentialRequests, 0);
+        expect(service.provisioned, isEmpty);
+        expect(find.textContaining('Cihaz unique id okunamadı'), findsWidgets);
+        await _dispose(t);
+      },
+    );
+
     testWidgets('açılışta otomatik tarama; yenile düğmesi yeniden tarar', (
       t,
     ) async {

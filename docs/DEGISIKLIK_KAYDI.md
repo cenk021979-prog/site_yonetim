@@ -415,3 +415,36 @@ Kullanıcının kendi yedi notu (#2–#8) ve yedi eki okundu. Kayıtlarda çöz�
 - **Canlı web yayını:** `20261110_093800` işleminde 55 uygulama dosyası yayımlandı. HTTPS200 üzerinden alınan **10.956.397 baytlık** JS, yukarıdaki `96c6ba00…832f46` SHA256 ile birebir eşleşti; görünüm, kişisel geçmiş ve iki üst telefon işareti toplam dört çalışma işareti olarak doğrulandı. Sağlık, DB ve MQTT düzgündür. Ana denetçi bağımsız HTTPS indirmesiyle aynı özet ve işaretleri tekrar doğruladı. Mevcut üretim APK/Windows ZIP, Windows sürüm JSON'u ve önceki TEST APK'sı dört yabancı dosya olarak SHA256/izinleriyle korundu; bu tur Android derlemesi veya native indirme yenilemesi yapılmadı. Kanıt: `work/sade-redesign-2026-11-10/{web-public-proof,web-published-state,root-public-verification}.json`.
 
 Bu çalışmanın geri kalan sınırları: araç başına ayrı onay; bağımsız sayaç türü site ayarı; gerçek cihaz kabulü; Firebase/FCM ve kapalı telefon teslim/ses kontrolü. Yeni Android üretim/test paketi bu kayıtla vaat edilmez; mevcut firmware/C3, finans hesap mantığı ve üretim indirmeleri ayrı korunur. Yeni kaynak yedeği veya DB dump oluşturulmaz.
+
+## 2026-11-12 — yerel çalışmalar ile ortak geliştirici sürümünün birleştirilmesi
+
+Yerel 8–10 Kasım çalışmaları, GitHub `444a922` sürümüyle ayrı çalışma ağacında birleştirildi. Başlangıçta bilgisayardaki kaynaklar değiştirilmeden `747adb7` kontrol noktası alındı. Origin geçmişi korunur; zorlamalı yükleme ve eski veritabanını geri yükleme yapılmaz.
+
+- Sade/Klasik görünüm, ortalanmış Bugün/Evim/Ödemeler/Site bölümleri, liste/kutucuk seçimi, kendi geri bildirimleri, yönetim telefonu ve sakin alarmı korunur.
+- Günlük aidat paylaşımı, iki kasa ve K3 hesap seçimi; belgeler, blok kapsamı, otopark ve plaka tercihleri korunur. Kiracı ayrılırken borç, günlük paylaşımın ardından okunur.
+- Ortak geliştiricinin geniş Bluetooth taraması, AHBU/SmartKeyPass uyumu, hızlı kapı oluşturma, ortak eylem kartları, başvuru kapatma ve 360 ayrılma akışı korunur.
+- Birleşimde 360 ayrılmanın gerçek şema alanları, çıkış tarihi, sayaç ve halef denetimleri düzeltildi. Başka daire/site varlıkları korunur. Borç devri tamamlanmazsa ayrılma sonucu ile devir sonucu ayrı gösterilir; devir kendiliğinden seçilmez.
+- Bluetooth adresi doğrulanmış cihaz kimliği yerine kullanılmaz. MQTT kimliği beklenirken cihaz değiştirilemez; yanlış cihaza ait yanıt reddedilir. Fiziksel radyo testi yapılmış sayılmaz.
+- AGENTS/GEMINI ortak kuralları, doğrulanmış SSH bilgisi ve finans K3 ilkesi eşitlendi. SQL satır sonları farklı bilgisayarlarda aynı test sözleşmesini korumak için LF yapıldı. Yerel çalışma paketleri ve Android imza dosyaları Git kapsamı dışında tutulur.
+
+### Doğrulama ve yayın kaydı
+
+Birleşim sürümü `1.0.2+3`. Son test, derleme ve yayın sonucu iş tamamlandığında bu bölüme eklenir. Android üretim anahtarı bu bilgisayarda bulunmadı; canlı APK'nin yayın sertifikası yerel debug sertifikasından farklıdır. İmza anahtarı olmadan üretim APK değiştirilemez. Bu birleştirme işi için tek önceki iş kontrol noktası tutulur; uygulama verileri otomatik olarak geçmişe alınmaz.
+### Birleşim doğrulamasının sonucu (12 Kasım 2026)
+
+- Backend genel suite: 6.643 test, 6.640 başarılı, 0 hata, 3 isteğe bağlı PostgreSQL kontrolü atlandı. Ayrı boş PostgreSQL veritabanında tüm migrationlar ve iki şema kurulumu aynı parmak izini verdi; 67/67 kontrol atlamasız geçti. İlk gerçek-PG koşusundaki tek hata test fixture rolüydü; gerçek enumla düzeltilerek yeniden doğrulandı. Test veritabanı silindi.
+- Flutter: birleşim, Sade arayüz ve finans/model kapsamındaki 554 farklı test ile Bluetooth/Wi-Fi paketindeki 64 test geçti; paketlerde ortak test olabileceği için bu sayılar toplanmaz. Son analiz `No issues found`. 128 gerçek widget görüntüsü `work/merge-visual` altında üretildi; geniş Evim ve dar/büyük yazılı Dairem ana ajan tarafından ayrıca incelendi.
+- Server ESLint: 0 hata, önceki kod alanlarında 24 uyarı. Web release başarılı; mevcut JavaScript hedefi kullanıldı, Wasm dry-run uyarıları Wasm desteği olarak değerlendirilmez. Windows release `1.0.2+3` başarılı.
+- Backend 17 kaynak dosyasıyla canlıya aktarıldı. PM2 online; yerel ve genel health, PostgreSQL ve MQTT bağlı; yayın sonrasındaki yeni günlüklerde hata işareti yok. Canlı ortam dosyası değiştirilmedi.
+- Web 55 uygulama dosyası atomik geçişle yayımlandı. Genel HTTPS üzerinden hash eşleşmesi ve Sade/geri bildirim/telefon/acil/Bluetooth özellik işaretleri doğrulandı. Ana JavaScript SHA-256: `d7ff536bbd4a40dbadd96fe47f317e7eb1afb51fd05bb6a040623a92e0aeb3ff`.
+- Windows yeni ZIP'i yerelde hazır: `work/integration-2026-11-12/site_yonetim_windows_1.0.2+3.zip`, SHA-256 `e2c4f1ed7ce4eab58cf8ac3998474b14dcbe19692c28e76afe4c39253ddfea4b`. İlk SCP bağlantısı zaman aşımına uğradı; AGENTS kural 8 uyarınca tekrar denenmedi. Canlı Windows manifesti hâlâ `1.0.1+2`. Kullanıcı, çalışma arkadaşının sunucu konsoluna erişebildiğini belirtti; SSH/Fail2ban kontrol sonucu bekleniyor.
+- Android üretim APK'sı değiştirilmedi. Kullanıcı imza anahtarının yerini bilmiyor. Canlı APK yayın sertifikası yerel debug sertifikasından farklıdır. Eski AHBU BLE protokolünün 28 tarihsel kaynak sürümü tam `device_uid` döndürür; canlı C3 3.5.0 dosyasında protokol işaretleri bulunur, fakat fiziksel cihazda kurulum testi yapılmadı.
+
+### Bir önceki işe dönüş ve kalan yayın adımları
+
+Canlıda yalnız bu iş için `/home/salihceylan/backups/kapi_onceki_is` altında tek kontrol noktası vardır: sunucu kaynakları, web ve önceki indirmeler SHA-256 ile arşiv içeriğine kadar doğrulandı. PostgreSQL custom dump oluşturuldu ve `pg_restore --list` doğrulandı; veri geri yükleme provası yapılmış sayılmaz. Yedek manifesti aynı yayın kimliği (`20261112_103000`) ve backend'in yayın öncesi hashleriyle eşleşir.
+
+Geri dönüş, yeni veri kaybına neden olacak veritabanı restorasyonu anlamına gelmez. Önce güncel kaynaklar ile yayın kanıtı karşılaştırılır; değişmiş başka geliştirici dosyası varsa durulur. Backend eski dosyaları tek tek doğrulanır, yalnız bu yayında eklenen dosyalar manifest üzerinden kaldırılır; eski arşivi körlemesine üstüne açmak yeterli değildir. Web arşivi ayrı dizinde doğrulanarak atomik değiştirilir; PM2, health, DB/MQTT ve indirme hashleri tekrar kontrol edilir. Backend dosya bazında atomiktir; yarım aktivasyon otomatik olarak tekrar çalıştırılmaz.
+
+Windows yayını SSH erişimi doğrulandıktan sonra hazırlanmış paketle sürdürülebilir; Android üretim yayını mevcut yayın anahtarını gerektirir. Uzak geçici test/dağıtım klasörlerinin temizliği de SSH erişimi sonrası kontrollü yapılacaktır. Bu dosya mevcut yayın/engel durumunu kaynaklardan ayrı ve açıkça kaydeder.
+**Android derleme doğrulaması:** Android debug `1.0.2+3` derlemesi SDK 37 / Kotlin 2.3.20 / AGP 8.11.1 ile başarılı oldu (596,3 saniye). Bu bir test paketidir; mevcut üretim imzasını taşımadığı için canlı APK'nin yerine konmadı ve telefona kurulmadı. Derleme için ek Android kaynak/Gradle sürüm değişikliği gerekmedi.

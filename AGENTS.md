@@ -212,3 +212,55 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - `cihaz_kontrol/include/ota_public_key.h` yer tutucuyken (`OTA-PUBLIC-KEY-NOT-SET-REPLACE!!`) köprü ya da üretim firmware'i yayınlama: yer tutuculu sürümü kuran cihaz bir daha OTA ile güncellenemez. Yayın öncesi `node cihaz_kontrol/tools/ota_anahtar.mjs kontrol <firmware.bin> <genel_anahtar>` çıkış kodu 0 olmalı (yayın derlemesi `SKP_OTA_ANAHTAR_ZORUNLU=1` ile yapılır).
       - Yeni firmware paketlerini sunucunun yükleme ucuyla (`POST /admin/firmware/<hedef>/releases`) yayınla; `server/firmware/<hedef>/` içine elle dosya kopyalama ve `manifest.json` düzenleme yalnız köprü öncesi imzasız eski akış içindir. `OTA_SERVE_UNSIGNED=0` ancak köprü sürüm sahaya yayıldıktan sonra yapılır; iki donanım hedefinin (C3 / WROOM) paketleri ve imzaları yine asla karışmaz (kural 4).
       - Cihaz yalnız ARTAN sürümü kurar; sürüm düşürme yetkisi YALNIZ imzadaki `rollback_max` ile verilir (sunucu ya da manifest tek başına açamaz). Geri dönüş için tercih: eski kodu DAHA YÜKSEK sürüm numarasıyla yeniden derleyip normal imzalamak.
+
+28. **Ortak Geliştirme ve Otomatik Git Senkronizasyonu (Zorunlu Pull/Push ve Eşzamanlı Çalışma):**
+    - **Neden Yapıldı:**
+      - Proje birden fazla ortak geliştirici ve yapay zeka ajanları (Antigravity, Gemini, Cursor, Copilot vb.) tarafından eşzamanlı olarak geliştirilmektedir.
+      - Kodların geride kalmaması, diğer geliştiricinin yazdıklarının ezilmemesi ve her iki tarafın ajanlarının daima en güncel kod tabanında çalışması için katı ve otomatik bir senkronizasyon protokolü zorunludur.
+    - **Tüm Ajanlar İçin İstisnasız ve Zorunlu Çalışma Protokolü:**
+      1. **GÖREVE BAŞLARKEN (ZORUNLU PULL):**
+         - Ajan, kullanıcıdan herhangi bir yeni görev, özellik talebi veya hata düzeltmesi aldığında; kodlarda veya dosyalarda değişiklik yapmaya başlamadan ÖNCE MUTLAKA `git pull --rebase origin main` (veya üzerinde çalışılan aktif dal) komutunu çalıştırmalıdır.
+         - Diğer ortağın/ajanın yaptığı en son değişiklikler yerel depoya çekilmeden ASLA kod yazmaya başlanamaz.
+      2. **GÖREV TAMAMLANDIĞINDA (ZORUNLU PUSH):**
+         - Ajan kod yazımını, düzeltmelerini ve testlerini tamamladığında; kullanıcının "git push yap", "commit at" demesini beklemeden MUTLAKA otomatik olarak anlamlı ve kurallı bir commit mesajı ile commit oluşturmalı ve doğrudan `git push origin main` (veya aktif dal) çalıştırmalıdır. Yerelde gönderilmemiş (unpushed) commit bırakmak yasaktır.
+      3. **ÇAKIŞMA VE INDEX GÜVENLİĞİ:**
+         - Git işlemleri öncesinde `.git/index` bütünlüğü gözetilmeli (Kural 10). Rebase veya merge sırasında çakışma (conflict) meydana gelirse ajan bunu iki tarafın da kodlarını koruyarak temiz şekilde çözmeli ve birleştirmelidir.
+      4. **CANLI SUNUCU DAĞITIMI (KURAL 8 ENTEGRASYONU):**
+         - Backend tarafında (servisler, rotalar, DB vb.) bir değişiklik yapıldıysa, Kural 8 gereği sunucuya dağıtım ve PM2 yeniden başlatma doğrulaması eksiksiz uygulanacaktır.
+
+
+30. **Site Oluştururken Ticari/Kurumsal Seçeneklerin (İş Merkezi, Kooperatif, Alışveriş Merkezi) Gizlenmesi:**
+    - **Neden Yapıldı:**
+      - Kullanıcı kararı doğrultusunda, site oluşturma ve başvuru ekranlarında kafa karışıklığını önlemek ve sadeleştirmek amacıyla business_center (İş Merkezi), cooperative (Kooperatif) ve shopping_mall (Alışveriş Merkezi) yönetim türü seçenekleri gizlenmiştir.
+      - Arayüzde (ManagementTypeSelector.showAllTypes = false) yalnızca `apartment_site` (Apartman ve Site) ile `residence` (Rezidans) listelenir.
+      - Kullanıcı açıkça talep etmedikçe ("ben istersem açarsın" ilkesi) bu üç seçenek arayüzde gösterilmeyecektir.
+      - Geriye dönük uyumluluk gereği backend veri modeli, veritabanı kısıtları ve mevcut sitelerin türleri korunur.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Kullanıcı açıkça talep etmedikçe ManagementTypeSelector içinde İş Merkezi, Kooperatif ve Alışveriş Merkezi seçeneklerini varsayılan olarak tekrar görünür yapma (showAllTypes: false varsayılanını koru).
+      - Veritabanından veya backendden bu türleri silme; mevcut siteler ve veri modeli bozulmamalıdır.
+
+31. **Onaylanan ve Kapatılan Başvuruların (Katılım & Site Kurulum) Kalıcı Olarak Gizlenmesi:**
+    - **Neden Yapıldı:**
+      - Bir sakinin veya kullanıcının başvurusu (site kurulumu için süper kullanıcı, daire/siteye katılım için site yöneticisi/daire admini tarafından) onaylandığında ya da kullanıcı daireden ayrıldığında, eski onaylanmış başvuruların ekranda ("Katılım Başvurularım -> Onaylandı", "Site başvurunuz onaylandı") kalıcı olarak kalması kullanıcı deneyimini bozuyordu.
+      - Kullanıcı onaylandığını görüp "Anladım" dediğinde (veya reddedilen başvurusunu kapattığında) bu bildirim kalıcı olarak (SharedPreferences ve veritabanı dismissed_at ile) gizlenir ve bir daha asla ekranda çıkmaz.
+      - Ayrıca kullanıcı daireden ayrılmışsa (apartment_residencies.is_current = false veya apartment_memberships.is_active = false), o daireye ait eski onaylı katılım başvurusu sunucu sorgusunda otomatik olarak elenir (WHERE jr.dismissed_at IS NULL AND (jr.status != 'APPROVED' OR EXISTS (aktif sakinlik))).
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Daireden ayrılmış kişilerin eski katılım başvurularını listelerde tekrar gösteren sorgular yazma.
+      - Katılım ve site başvurularından "Anladım" / kapatma mekanizmasını (JoinRequestTracker, SiteApplicationTracker.consumeApproval, dismissJoinRequest) kaldırma.
+      - Onaylanan veya reddedilen başvuruların ekranda asılı kalarak kullanıcıyı rahatsız etmesine izin verme.
+
+
+32. **Bağsız / Abonesiz Kullanıcı Arayüzü Sadeleştirmesi (İlişkisiz Kartların ve Menülerin Gizlenmesi):**
+    - **Neden Yapıldı:**
+      - Hiçbir siteye veya daireye aboneliği, üyeliği ya da daire adminliği/site yöneticiliği bulunmayan (`sites.length == 0` ve `myApartments.length == 0` ve süper kullanıcı olmayan) yeni veya bireysel kullanıcıların ana ekranda (Dashboard) yetkileri ve ilişkileri olmayan `Kapılar`, `Acil durum` ve `Dairem` kartlarını görmesi anlamsızdı.
+      - Ayrıca henüz hiçbir siteye dahil olmayan bu kullanıcıların sol çekmece menüsünü (hamburger menü) ve sağ ayarlar menüsünü (dişli çark / `endDrawer`) görmesi kafa karışıklığı yaratıyordu.
+      - Yapılan geliştirmeyle bağsız (unaffiliated) kullanıcılar için:
+        - `Kapılar`, `Acil durum` ve `Dairem` kartları panodan tamamen kaldırılmıştır.
+        - Sol çekmece (`drawer: YanMenu`) ve sağ ayarlar çekmecesi (`endDrawer: YanMenuAyarlar`) ile bunlara ait AppBar butonları gizlenmiştir.
+        - Ana ekranda kullanıcıyı doğrudan yönlendiren "Daireye Katıl ve Kurulum" (`JoinAndSetupView`) görünümü sunulur (Site Sakini Girişi, Katılım Başvurularım, Site Kurulum Başvurusu).
+        - Üst barda (AppBar) tema değiştirme ve yenileme butonlarının yanında sade bir Hesap menüsü (`Profilim` ve `Çıkış Yap`) sağlanır.
+        - Kullanıcı bir daireye katıldığında, başvurusu onaylandığında veya site kurduğunda arayüz dinamik olarak tazelemeyle (`_loadApartments` / `_loadSites`) tüm kartları ve menüleri otomatik açar (Kural 7).
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Bağsız kullanıcılar için `_isUnaffiliated` kontrolünü kaldırma veya bypass etme.
+      - Yetkisi ve dairesi olmayan kullanıcılara `Kapılar`, `Acil durum` veya `Dairem` kartlarını tekrar gösterme.
+      - Bağsız kullanıcıların ekranına gereksiz sol ve sağ çekmeceleri geri koyma.

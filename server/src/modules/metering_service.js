@@ -202,7 +202,7 @@ export async function checkOrder(client, meterId, date, milli) {
 }
 
 /** Tek okuma ekler. Ayni sayac+tarih+ayni deger: sessizce ayni kayit (replayed). Farkli deger: 409 READING_EXISTS. */
-async function insertReading(client, { siteCode, meterId, date, parsed, source, userCode }) {
+export async function insertReading(client, { siteCode, meterId, date, parsed, source, userCode }) {
   const existing = await client.query(`SELECT id, value::TEXT AS value FROM meter_readings WHERE meter_id = $1 AND reading_date = $2::DATE`, [meterId, date]);
   if (existing.rows[0]) {
     if (milliOf(existing.rows[0].value) === parsed.milli) return { id: Number(existing.rows[0].id), replayed: true };

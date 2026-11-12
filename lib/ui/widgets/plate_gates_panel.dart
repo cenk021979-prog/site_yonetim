@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/services/plate_camera_snapshot.dart';
 import 'package:site_kapi_kontrol/services/plate_cameras_api.dart';
 import 'package:site_kapi_kontrol/services/plate_recognition_api.dart';
 import 'package:site_kapi_kontrol/services/plate_recognition_engine.dart';
+import 'package:site_kapi_kontrol/ui/design/app_action_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/status_dot.dart';
@@ -723,13 +724,134 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: <Widget>[
-                Text(
-                  name,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (widget.canWrite)
+                      PopupMenuButton<String>(
+                        key: ValueKey<String>('camera_actions_menu_$cameraId'),
+                        icon: const Icon(Icons.more_vert_rounded, size: 18),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(
+                          minWidth: 32,
+                          minHeight: 32,
+                        ),
+                        tooltip: 'Kamera İşlemleri',
+                        onSelected: (val) {
+                          switch (val) {
+                            case 'probe':
+                              _probeCamera(cameraId);
+                              break;
+                            case 'edit':
+                              _editCamera(cameraId);
+                              break;
+                            case 'unlink':
+                              if (gate != null) {
+                                _unlinkCamera(
+                                  gate,
+                                  GateCamera(
+                                    cameraId: cameraId,
+                                    name: name,
+                                    direction: direction ?? 'auto',
+                                    isActive: isActive,
+                                    status: status,
+                                  ),
+                                );
+                              }
+                              break;
+                            case 'toggle':
+                              _toggleCamera(
+                                GateCamera(
+                                  cameraId: cameraId,
+                                  name: name,
+                                  direction: direction ?? 'auto',
+                                  isActive: isActive,
+                                  status: status,
+                                ),
+                              );
+                              break;
+                            case 'delete':
+                              _deleteCamera(cameraId, name);
+                              break;
+                          }
+                        },
+                        itemBuilder: (context) => <PopupMenuEntry<String>>[
+                          const PopupMenuItem<String>(
+                            value: 'probe',
+                            child: Row(
+                              children: <Widget>[
+                                Icon(Icons.speed_rounded, size: 18),
+                                SizedBox(width: 8),
+                                Text('Kamerayı Sına'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuItem<String>(
+                            value: 'edit',
+                            child: Row(
+                              children: <Widget>[
+                                Icon(Icons.edit_outlined, size: 18),
+                                SizedBox(width: 8),
+                                Text('Düzenle'),
+                              ],
+                            ),
+                          ),
+                          if (gate != null)
+                            const PopupMenuItem<String>(
+                              value: 'unlink',
+                              child: Row(
+                                children: <Widget>[
+                                  Icon(Icons.link_off_rounded, size: 18),
+                                  SizedBox(width: 8),
+                                  Text('Kapıdan Ayır'),
+                                ],
+                              ),
+                            ),
+                          PopupMenuItem<String>(
+                            value: 'toggle',
+                            child: Row(
+                              children: <Widget>[
+                                Icon(
+                                  isActive
+                                      ? Icons.pause_circle_outline_rounded
+                                      : Icons.play_circle_outline_rounded,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Text(isActive ? 'Durdur' : 'Başlat'),
+                              ],
+                            ),
+                          ),
+                          const PopupMenuDivider(),
+                          const PopupMenuItem<String>(
+                            value: 'delete',
+                            child: Row(
+                              children: <Widget>[
+                                Icon(
+                                  Icons.delete_outline_rounded,
+                                  size: 18,
+                                  color: Colors.red,
+                                ),
+                                SizedBox(width: 8),
+                                Text(
+                                  'Kamerayı Sil',
+                                  style: TextStyle(color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -962,6 +1084,62 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                     ),
                     padding: EdgeInsets.zero,
                     onPressed: () => _editGateTimings(gate),
+                  ),
+                  PopupMenuButton<String>(
+                    key: ValueKey<String>('gate_overflow_menu_${gate.id}'),
+                    icon: const Icon(Icons.more_vert_rounded, size: 20),
+                    tooltip: 'Kapı İşlemleri',
+                    onSelected: (val) {
+                      switch (val) {
+                        case 'timings':
+                          _editGateTimings(gate);
+                          break;
+                        case 'live_wall':
+                          widget.onOpenLiveWall?.call(gate);
+                          break;
+                        case 'add_camera':
+                          widget.onAddCamera?.call(gate);
+                          break;
+                      }
+                    },
+                    itemBuilder: (ctx) => <PopupMenuEntry<String>>[
+                      const PopupMenuItem<String>(
+                        value: 'timings',
+                        child: Row(
+                          children: <Widget>[
+                            Icon(Icons.tune_rounded, size: 18),
+                            SizedBox(width: 8),
+                            Text('Süreleri Ayarla'),
+                          ],
+                        ),
+                      ),
+                      if (widget.onOpenLiveWall != null)
+                        const PopupMenuItem<String>(
+                          value: 'live_wall',
+                          child: Row(
+                            children: <Widget>[
+                              Icon(
+                                Icons.fullscreen_rounded,
+                                size: 18,
+                                color: Color(0xFF8B5CF6),
+                              ),
+                              SizedBox(width: 8),
+                              Text('Canlı Akış (4 Kamera)'),
+                            ],
+                          ),
+                        ),
+                      if (widget.onAddCamera != null)
+                        const PopupMenuItem<String>(
+                          value: 'add_camera',
+                          child: Row(
+                            children: <Widget>[
+                              Icon(Icons.add_a_photo_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text('Kamera Ekle / Ata'),
+                            ],
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ],
@@ -1383,42 +1561,73 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
           _section('Tüm içeridekiler'),
         ],
         for (final item in widget.inside.items)
-          ListTile(
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-            title: Text(item.plate),
-            subtitle: Text(
-              <String>[
-                item.kindLabel,
-                if (item.apartmentLabel != null) item.apartmentLabel!,
-                if (item.gateName != null) item.gateName!,
-                if (item.sinceAt != null) _fmt(item.sinceAt!),
-              ].join('  •  '),
+          AppActionCard(
+            key: ValueKey<String>('inside_item_${item.id}'),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.md,
+              vertical: AppSpace.xs,
             ),
-            trailing: widget.canWrite
-                ? IconButton(
-                    tooltip: 'İçeriden düşür (çıkış kaçırıldıysa)',
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
+            leading: const CardAvatarIcon(
+              icon: Icons.directions_car_rounded,
+              tone: AppTone.primary,
+            ),
+            title: item.plate,
+            subtitle: <String>[
+              item.kindLabel,
+              if (item.apartmentLabel != null) item.apartmentLabel!,
+              if (item.gateName != null) item.gateName!,
+              if (item.sinceAt != null) _fmt(item.sinceAt!),
+            ].join('  •  '),
+            actions: widget.canWrite
+                ? <CardActionItem>[
+                    CardActionItem(
+                      label: 'İçeriden Düşür',
+                      icon: Icons.logout_rounded,
+                      isDestructive: true,
+                      onTap: () async {
+                        if (await _confirm(
+                          'İçeriden düşürülsün mü?',
+                          '${item.plate} içeride görünmeyecek. Çıkışı sistem görmediyse kullanın.',
+                          'Düşür',
+                        )) {
+                          await _run(
+                            () => widget.service.clearInside(
+                              widget.siteCode,
+                              item.id,
+                            ),
+                            'Araç içeriden düşürüldü.',
+                          );
+                        }
+                      },
                     ),
-                    icon: const Icon(Icons.logout_rounded),
-                    onPressed: () async {
-                      if (await _confirm(
-                        'İçeriden düşürülsün mü?',
-                        '${item.plate} içeride görünmeyecek. Çıkışı sistem görmediyse kullanın.',
-                        'Düşür',
-                      )) {
-                        await _run(
-                          () => widget.service.clearInside(
-                            widget.siteCode,
-                            item.id,
-                          ),
-                          'Araç içeriden düşürüldü.',
-                        );
-                      }
-                    },
-                  )
+                  ]
+                : const <CardActionItem>[],
+            inlineActions: widget.canWrite
+                ? <Widget>[
+                    IconButton(
+                      tooltip: 'İçeriden düşür (çıkış kaçırıldıysa)',
+                      constraints: const BoxConstraints(
+                        minWidth: 48,
+                        minHeight: 48,
+                      ),
+                      icon: const Icon(Icons.logout_rounded),
+                      onPressed: () async {
+                        if (await _confirm(
+                          'İçeriden düşürülsün mü?',
+                          '${item.plate} içeride görünmeyecek. Çıkışı sistem görmediyse kullanın.',
+                          'Düşür',
+                        )) {
+                          await _run(
+                            () => widget.service.clearInside(
+                              widget.siteCode,
+                              item.id,
+                            ),
+                            'Araç içeriden düşürüldü.',
+                          );
+                        }
+                      },
+                    ),
+                  ]
                 : null,
           ),
       ],

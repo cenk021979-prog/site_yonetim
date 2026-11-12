@@ -149,7 +149,7 @@ void main() {
       }
     });
 
-    test('BLE taraması yeni SmartKeyPass ve eski AHBU adlı kartları tanır, başkalarını tanımaz', () {
+    test('BLE taraması yeni SmartKeyPass, eski AHBU ve kurulum adlarını aday gösterir', () {
       expect(isBleProvisionDeviceName('SmartKeyPass240AC4E2E001'), isTrue);
       expect(isBleProvisionDeviceName('SMARTKEYPASS240AC4E2E001'), isTrue);
       expect(isBleProvisionDeviceName(' smartkeypass240ac4e2e001 '), isTrue);
@@ -159,7 +159,9 @@ void main() {
       expect(isBleProvisionDeviceName('AHBU240AC4E2E001'), isTrue);
       expect(isBleProvisionDeviceName('ahbu240ac4e2e001'), isTrue);
       expect(isBleProvisionDeviceName('Smart240AC4E2E001'), isFalse);
-      expect(isBleProvisionDeviceName('ESP32'), isFalse);
+      // Geniş tarama düzeltmesi: ad yalnız adaydır; GATT + UID bağlantıda okunur.
+      expect(isBleProvisionDeviceName('ESP32'), isTrue);
+      expect(isBleProvisionDeviceName('JBL Flip 5'), isFalse);
       expect(isBleProvisionDeviceName(''), isFalse);
     });
 

@@ -34,6 +34,7 @@ class DashboardView extends StatelessWidget {
     required this.onCreateGuestPass,
     this.onDownloadCredentialsPdf,
     this.onDownloadLogsPdf,
+    this.onOpenAddDoor,
     this.voiceDoorService,
     this.authService,
     this.successTick = 0,
@@ -58,6 +59,7 @@ class DashboardView extends StatelessWidget {
   final VoidCallback onCreateGuestPass;
   final VoidCallback? onDownloadCredentialsPdf;
   final VoidCallback? onDownloadLogsPdf;
+  final VoidCallback? onOpenAddDoor;
   final VoiceDoorService? voiceDoorService;
   final AuthService? authService;
 
@@ -121,6 +123,7 @@ class DashboardView extends StatelessWidget {
           onCreateGuestPass: onCreateGuestPass,
           onDownloadCredentialsPdf: onDownloadCredentialsPdf,
           onDownloadLogsPdf: onDownloadLogsPdf,
+          onOpenAddDoor: onOpenAddDoor,
           voiceDoorService: voiceDoorService,
           authService: authService,
           successTick: successTick,

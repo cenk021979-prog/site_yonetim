@@ -16,6 +16,7 @@
 // başka sitenin yöneticisi 403 FORBIDDEN_SITE. Sözleşme: docs/PLATFORM_KISILER.md. Hata gövdesi: { error, code }.
 
 import express from 'express';
+import { pool } from '../db.js';
 import { authRequired } from '../middlewares/auth_middleware.js';
 import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { addApartmentOwner, listApartmentOwners, removeApartmentOwner, setAccountHolder } from './apartment_owners_service.js';
@@ -23,6 +24,7 @@ import { getApartmentDetail, listApartments, updateApartment } from './apartment
 import { resolvePeopleAccess } from './people_access.js';
 import { redactForReadOnlyRole } from './people_common.js';
 import { listMyRecords, listPeopleHistory } from './people_history_service.js';
+import { previewResidencyTermination, executeResidencyTermination } from './residency_termination_service.js';
 import {
   addResidency,
   createPerson,
@@ -327,6 +329,46 @@ peopleRouter.post(
       actor: req.authUser,
     }),
   })),
+);
+
+// --- 360° Daireden Ayrılma / İlişik Kesme ---
+
+peopleRouter.get(
+  '/manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/termination-preview',
+  authRequired,
+  peopleReadLimiter,
+  handler({ context: 'termination_preview', fallback: 'Ayrılma önizlemesi yüklenemedi.' }, async ({ req, access }) => ({
+    body: await previewResidencyTermination(pool, {
+      siteCode: access.siteCode,
+      apartmentId: req.params.apartmentId,
+      residencyId: req.params.residencyId,
+      personId: req.query.personId,
+    }),
+  })),
+);
+
+peopleRouter.post(
+  '/manager/sites/:siteCode/apartments/:apartmentId/residencies/:residencyId/terminate',
+  authRequired,
+  peopleWriteLimiter,
+  handler({ context: 'termination_execute', fallback: 'Ayrılma işlemi tamamlanamadı.', write: true }, async ({ req, access }) => {
+    const b = bodyOf(req);
+    return {
+      body: await executeResidencyTermination(pool, {
+        siteCode: access.siteCode,
+        apartmentId: req.params.apartmentId,
+        residencyId: req.params.residencyId,
+        moveOutDate: b.move_out_date,
+        successorUserCode: b.successor_user_code,
+        terminateSiteRoles: b.terminate_site_roles === true,
+        debtDisposition: b.debt_disposition,
+        finalMeterReadings: Array.isArray(b.final_meter_readings) ? b.final_meter_readings : [],
+        actor: req.authUser,
+        actorRole: access.role,
+        reason: b.reason || 'move_out',
+      }),
+    };
+  }),
 );
 
 // --- Araçlar ----------------------------------------------------------------------------------------------

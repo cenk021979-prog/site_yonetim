@@ -27,6 +27,7 @@ class _FakeApt extends ApartmentManagementService {
   MyApartmentsData data;
   final List<String> calls = <String>[];
   String removeMode = 'removed';
+  Object? previewFailure;
   final List<Map<String, Object?>> tenantBodies = <Map<String, Object?>>[];
 
   /// Doluysa [mine] bunu fırlatır (yükleme hatası senaryoları).
@@ -81,6 +82,12 @@ class _FakeApt extends ApartmentManagementService {
 
   @override
   Future<void> leave(int apartmentId) async => calls.add('leave:$apartmentId');
+
+  @override
+  Future<ExitPreview> exitPreview(int apartmentId) async {
+    if (previewFailure != null) throw previewFailure!;
+    return const ExitPreview();
+  }
 
   @override
   Future<void> sendSafetyRequest(
@@ -144,20 +151,26 @@ Future<void> _pump(
 }
 
 void main() {
-  testWidgets('geniş Dairem ekranında araçlar aile bilgileriyle yan yana, dar ve büyük yazıda aşağı akar', (t) async {
-    final svc = _FakeApt(MyApartmentsData(apartments: <MyApartment>[_apt()]));
-    await _pump(t, svc, width: 1100);
-    final family = t.getRect(find.text('Aile üyeleri'));
-    final vehicles = t.getRect(find.text('Araçlarım'));
-    expect(vehicles.left, greaterThan(family.right));
-    expect(vehicles.top, lessThan(family.top));
-    expect(find.text('Kiracı ekle'), findsOneWidget);
-    expect(find.text('Aile üyesi ekle'), findsOneWidget);
-    expect(t.takeException(), isNull);
-    await _pump(t, svc, width: 320, scale: 2);
-    expect(t.getRect(find.text('Araçlarım')).top, greaterThan(t.getRect(find.text('Aile üyeleri')).bottom));
-    expect(t.takeException(), isNull);
-  });
+  testWidgets(
+    'geniş Dairem ekranında araçlar aile bilgileriyle yan yana, dar ve büyük yazıda aşağı akar',
+    (t) async {
+      final svc = _FakeApt(MyApartmentsData(apartments: <MyApartment>[_apt()]));
+      await _pump(t, svc, width: 1100);
+      final family = t.getRect(find.text('Aile üyeleri'));
+      final vehicles = t.getRect(find.text('Araçlarım'));
+      expect(vehicles.left, greaterThan(family.right));
+      expect(vehicles.top, lessThan(family.top));
+      expect(find.text('Kiracı ekle'), findsOneWidget);
+      expect(find.text('Aile üyesi ekle'), findsOneWidget);
+      expect(t.takeException(), isNull);
+      await _pump(t, svc, width: 320, scale: 2);
+      expect(
+        t.getRect(find.text('Araçlarım')).top,
+        greaterThan(t.getRect(find.text('Aile üyeleri')).bottom),
+      );
+      expect(t.takeException(), isNull);
+    },
+  );
 
   testWidgets(
     'malik admin: yönetim üstte yazar, kiracı ekle ve aile üyesi ekle var; kiracı çıkışı yok',
@@ -431,13 +444,37 @@ void main() {
     await t.tap(find.text('Bu daireden ayrıl'));
     await settleFor(t);
     expect(
-      find.textContaining('Diğer üyelere bildirim gitmez'),
+      find.textContaining(
+        'Daire üyeliğiniz ve bu daireden gelen erişimleriniz sona erer',
+      ),
       findsOneWidget,
     );
     await t.tap(find.text('Ayrıl'));
     await settleFor(t);
     expect(svc.calls, contains('leave:5'));
   });
+
+  testWidgets(
+    'ayrılma özeti hata verirse sıfır borç gösterilmez ve onay açılmaz',
+    (t) async {
+      final svc = _FakeApt(MyApartmentsData(apartments: [_apt()]))
+        ..previewFailure = StateError('offline');
+      await _pump(t, svc);
+      await t.tap(find.text('Bu daireden ayrıl'));
+      await settleFor(t);
+      expect(find.text('Ayrıl'), findsNothing);
+      expect(find.textContaining('Ayrılma özeti alınamadı'), findsOneWidget);
+      expect(
+        find.textContaining('açık borcunuz bulunmamaktadır'),
+        findsNothing,
+      );
+      expect(svc.calls, isEmpty);
+      svc.previewFailure = null;
+      await t.tap(find.text('Tekrar Dene'));
+      await settleFor(t);
+      expect(find.text('Ayrıl'), findsOneWidget);
+    },
+  );
 
   testWidgets('dar ekran + büyük yazıda taşma yok', (t) async {
     const tenant = AptPerson(

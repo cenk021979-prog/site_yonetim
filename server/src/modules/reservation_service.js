@@ -12,7 +12,7 @@
 
 import { pool } from '../db.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
-import { parsePositiveId } from './people_common.js';
+import { invalidBody, parsePositiveId } from './people_common.js';
 import {
   MAX_AREAS_PER_SITE,
   accountDeleted,
@@ -382,24 +382,52 @@ export async function decideReservation({ siteCode, rawId, actor, access, body }
  * Silinen kullanıcının GELECEKTEKİ (bitişi geçmemiş) beklemede / onaylandi rezervasyonları ve açık konsiyerj talepleri sistem tarafından iptal edilir;
  * geçmiş kayıtlar kalır (kullanıcı satırı tombstone). Satırlar id sırasıyla kilitlenir. Tablo yoksa atlanır. @returns { reservations, requests }
  */
-export async function releaseUserReservations(client, userCode) {
+export async function releaseUserReservations(client, userCode, siteCode = null, apartmentId = null) {
+  const sCode = siteCode == null ? null : parsePositiveId(siteCode);
+  const aId = apartmentId == null ? null : parsePositiveId(apartmentId);
+  if ((siteCode != null && sCode === null) || (apartmentId != null && (aId === null || sCode === null))) {
+    throw invalidBody('reservation_scope');
+  }
   const present = (await client.query(`SELECT to_regclass('public.reservations') IS NOT NULL AS present`)).rows?.[0];
   if (present?.present !== true) {
     return { reservations: 0, requests: 0 };
   }
-  const reservations = await client.query(
-    `
-      UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
-      WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
-    `,
-    [userCode],
-  );
-  const requests = await client.query(
-    `
-      UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
-      WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
-    `,
-    [userCode],
-  );
+  // Hesap silme iki parametreyle bütün siteleri temizler. Ayrılma yalnız ilgili daireyi
+  // temizler; eski dairesiz kaydı, aynı sitede başka etkin üyelik kalmadıysa iptal eder.
+  const apartmentScope = aId === null ? '' : `AND (apartment_id = $3 OR (apartment_id IS NULL AND NOT EXISTS (
+    SELECT 1 FROM apartment_memberships am INNER JOIN apartments a ON a.id = am.apartment_id
+    WHERE am.user_code = $1 AND am.is_active = TRUE AND a.site_code = $2 AND a.id <> $3
+  )))`;
+  const scopedParams = aId === null ? [userCode, sCode] : [userCode, sCode, aId];
+  const reservations = sCode !== null
+    ? await client.query(
+        `
+          UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
+          WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND site_code = $2 ${apartmentScope} AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
+        `,
+        scopedParams,
+      )
+    : await client.query(
+        `
+          UPDATE reservations SET status = 'iptal', cancelled_at = NOW(), cancelled_by_kind = 'system', updated_at = NOW()
+          WHERE id IN (SELECT id FROM reservations WHERE user_code = $1 AND status IN ('beklemede', 'onaylandi') AND ends_at > NOW() ORDER BY id FOR UPDATE)
+        `,
+        [userCode],
+      );
+  const requests = sCode !== null
+    ? await client.query(
+        `
+          UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
+          WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND site_code = $2 ${apartmentScope} AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
+        `,
+        scopedParams,
+      )
+    : await client.query(
+        `
+          UPDATE concierge_requests SET status = 'iptal', closed_at = NOW(), updated_at = NOW()
+          WHERE id IN (SELECT id FROM concierge_requests WHERE user_code = $1 AND status IN ('yeni', 'hazirlaniyor') ORDER BY id FOR UPDATE)
+        `,
+        [userCode],
+      );
   return { reservations: reservations.rowCount ?? 0, requests: requests.rowCount ?? 0 };
 }

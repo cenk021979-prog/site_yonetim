@@ -4,8 +4,8 @@ class AppConfig {
   AppConfig._();
 
   static const String appName = 'Site ve Toplu Yaşam Yönetim Sistemi';
-  static const String appVersion = '1.0.0';
-  static const int buildNumber = 1;
+  static const String appVersion = '1.0.2';
+  static const int buildNumber = 3;
 
   /// Geçici sayfa bağlantıları; mevcut kalıcı geri bildirim menüsü korunur.
   static const bool temporaryFeedbackLinks = bool.fromEnvironment(

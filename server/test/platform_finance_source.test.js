@@ -70,6 +70,7 @@ describe('finans kaynakları: para hesabında kayan nokta YOK', () => {
       'finance_accounts.js',
       'finance_charts.js',
       'finance_common.js',
+      'finance_core_module.js',
       'finance_debt_breakdown.js',
       'finance_distribution.js',
       'finance_distribution_basis.js',

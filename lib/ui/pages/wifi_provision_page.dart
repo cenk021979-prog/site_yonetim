@@ -157,6 +157,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
   }
 
   Future<void> _scanDevices() async {
+    if (_savingWifi || _connectingDevice) return;
     setState(() {
       _loadingDevices = true;
       _devices = const <BleProvisionDevice>[];
@@ -173,7 +174,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
       setState(() => _devices = devices);
       if (devices.isEmpty) {
         _showMessage(
-          'Kurulum modunda cihaz bulunamadı. Gerekirse cihazdaki butona 3 saniye basın.',
+          'Kurulum modunda AHBU / SmartKeyPass cihazı bulunamadı. Cihazdaki butona 3 saniye basıp LED yanıp sönerken tekrar deneyin.',
           kind: AppSnackKind.warning,
         );
       }
@@ -188,6 +189,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
   }
 
   Future<void> _connectDevice(BleProvisionDevice device) async {
+    if (_savingWifi || _connectingDevice) return;
     setState(() {
       _connectingDevice = true;
       _selectedDevice = device;
@@ -291,6 +293,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
   }
 
   Future<void> _saveWifi() async {
+    if (_savingWifi || _connectingDevice) return;
     final String? ssid = _selectedSsid;
     if (ssid == null || ssid.isEmpty) {
       _showMessage(
@@ -307,7 +310,8 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
     setState(() => _savingWifi = true);
     try {
       final String deviceUid = (_deviceState?.deviceUid ?? '').trim();
-      if (deviceUid.isEmpty) {
+      final String? selectedDeviceId = _selectedDevice?.id;
+      if (deviceUid.isEmpty || selectedDeviceId == null) {
         throw const BleProvisionException(
           'Cihaz unique id okunamadı. Önce Bluetooth cihazına bağlanın.',
         );
@@ -325,6 +329,22 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
       if (mqttError != null || mqttCredentials == null) {
         throw BleProvisionException(
           mqttError ?? 'MQTT cihaz kimliği alınamadı.',
+        );
+      }
+      if (!mounted) return;
+      if (_selectedDevice?.id != selectedDeviceId ||
+          _deviceState?.deviceUid.trim() != deviceUid) {
+        throw const BleProvisionException(
+          'Seçili cihaz değişti. Cihaza yeniden bağlanıp kaydetmeyi tekrar deneyin.',
+        );
+      }
+      final String credentialUid = (mqttCredentials['device_uid'] ?? '')
+          .toString()
+          .trim();
+      if (credentialUid.isNotEmpty &&
+          credentialUid.toUpperCase() != deviceUid.toUpperCase()) {
+        throw const BleProvisionException(
+          'Sunucudan gelen cihaz kimliği seçili cihazla eşleşmiyor. Bilgiler cihaza yazılmadı.',
         );
       }
 
@@ -455,7 +475,9 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
             header: SectionHeader(
               title: 'Bluetooth Cihazları',
               trailing: IconButton(
-                onPressed: _loadingDevices ? null : _scanDevices,
+                onPressed: _loadingDevices || _connectingDevice || _savingWifi
+                    ? null
+                    : _scanDevices,
                 icon: _loadingDevices
                     ? const SizedBox(
                         width: 18,
@@ -473,7 +495,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
             )
           else if (_devices.isEmpty && !_loadingDevices)
             const Text(
-              'Kurulum modunda cihaz bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
+              'Kurulum modunda AHBU / SmartKeyPass cihazı bulunamadı. Gerekirse cihazdaki butona 3 saniye basın ve yeniden tarayın.',
             )
           else if (_devices.isEmpty)
             // Tarama sürüyor: cihaz satırı iskeletleri (yalnız tarama süresince ağaçta).
@@ -521,7 +543,9 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : null,
-          onTap: _connectingDevice ? null : () => _connectDevice(device),
+          onTap: _connectingDevice || _savingWifi
+              ? null
+              : () => _connectDevice(device),
         ),
       ),
     );
@@ -609,8 +633,7 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
                       if (!state.mqttConfigured) ...<Widget>[
                         const SizedBox(height: AppSpace.sm),
                         const InlineNotice(
-                          message:
-                              'MQTT Kimliği: Eksik veya henüz yazılmadı',
+                          message: 'MQTT Kimliği: Eksik veya henüz yazılmadı',
                           tone: AppTone.warning,
                         ),
                       ],
@@ -659,12 +682,20 @@ class _WifiProvisionPageState extends State<WifiProvisionPage> {
                 label: const Text('Karekod ile Wi-Fi Oku'),
               ),
               OutlinedButton.icon(
-                onPressed: _connectingDevice
+                onPressed: _connectingDevice || _savingWifi
                     ? null
                     : () => _connectDevice(device),
                 icon: const Icon(Icons.sync_outlined),
                 label: const Text('Durumu Yenile'),
               ),
+              if (state != null && state.deviceUid.isNotEmpty)
+                FilledButton.tonalIcon(
+                  onPressed: _connectingDevice || _savingWifi
+                      ? null
+                      : () => Navigator.of(context).pop(state.deviceUid),
+                  icon: const Icon(Icons.meeting_room_outlined),
+                  label: const Text('Bu Cihazla Kapı Oluştur'),
+                ),
             ],
           ),
           const SizedBox(height: 16),

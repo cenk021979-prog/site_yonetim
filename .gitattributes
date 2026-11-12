@@ -5,6 +5,7 @@
 
 # Linux'ta calisan betikler LF OLMAK ZORUNDA (CRLF "\r: command not found" uretir)
 *.sh text eol=lf
+*.sql text eol=lf
 server/scripts/kapi-mqtt-sync.sh text eol=lf
 .nvmrc text eol=lf
 Dockerfile text eol=lf
