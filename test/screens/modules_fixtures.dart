@@ -424,6 +424,36 @@ class ModulesFakeAuth extends AuthService with ModuleRequestFixtures {
     if (error != null) throw error;
     return auditPages[index.clamp(0, auditPages.length - 1)];
   }
+
+  // Platform modülleri
+  List<PlatformModule>? platformModules;
+  final List<({String code, bool active})> toggleCalls = <({String code, bool active})>[];
+
+  @override
+  Future<List<PlatformModule>> getPlatformModules() async {
+    return List<PlatformModule>.from(platformModules ?? const <PlatformModule>[]);
+  }
+
+  @override
+  Future<void> setPlatformModuleActive(String code, bool isActive) async {
+    toggleCalls.add((code: code, active: isActive));
+    final list = platformModules;
+    if (list != null) {
+      final idx = list.indexWhere((m) => m.code == code);
+      if (idx >= 0) {
+        list[idx] = list[idx].copyWith(isPlatformActive: isActive);
+      }
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> cleanupPlatformModules() async {
+    return <String, dynamic>{
+      'deletedSiteModulesCount': 0,
+      'deletedModuleRequestsCount': 0,
+      'vacuumExecuted': true,
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------------------------
