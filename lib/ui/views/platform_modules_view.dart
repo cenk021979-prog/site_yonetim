@@ -9,6 +9,7 @@ import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 
 enum ModuleFilterMode { all, deployed, undeployed }
 
@@ -24,11 +25,15 @@ class PlatformModulesView extends StatefulWidget {
     required this.authService,
     this.showOnlyActive,
     this.onChanged,
+    this.isEmbedded = false,
+    this.onNavigate,
   });
 
   final AuthService authService;
   final bool? showOnlyActive;
   final VoidCallback? onChanged;
+  final bool isEmbedded;
+  final ValueChanged<SirketMenuItem>? onNavigate;
 
   @override
   State<PlatformModulesView> createState() => PlatformModulesViewState();
@@ -185,6 +190,30 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     final deployedList = modules.where((m) => m.isPlatformActive).toList();
     final undeployedList = modules.where((m) => !m.isPlatformActive).toList();
 
+    final content = RefreshIndicator(
+      onRefresh: loadData,
+      child: ListView(
+        padding: const EdgeInsets.all(AppSpace.md),
+        children: [
+          _buildViewFilterHeader(deployedList.length, undeployedList.length),
+          const SizedBox(height: AppSpace.md),
+          if (_loading && _modules == null)
+            const ListSkeleton(rows: 5)
+          else if (_error != null && _modules == null)
+            InlineNotice(
+              message: _error!,
+              onRetry: loadData,
+            )
+          else if (_modules != null)
+            _buildMainContent(deployedList, undeployedList),
+        ],
+      ),
+    );
+
+    if (widget.isEmbedded) {
+      return content;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Platform Modül Yönetimi (Süper User)'),
@@ -201,25 +230,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: loadData,
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpace.md),
-          children: [
-            _buildViewFilterHeader(deployedList.length, undeployedList.length),
-            const SizedBox(height: AppSpace.md),
-            if (_loading && _modules == null)
-              const ListSkeleton(rows: 5)
-            else if (_error != null && _modules == null)
-              InlineNotice(
-                message: _error!,
-                onRetry: loadData,
-              )
-            else if (_modules != null)
-              _buildMainContent(deployedList, undeployedList),
-          ],
-        ),
-      ),
+      body: content,
     );
   }
 
@@ -242,6 +253,18 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                       style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                     ),
                   ),
+                  if (widget.isEmbedded) ...[
+                    IconButton(
+                      tooltip: 'Veritabanı Temizliği ve Bakım (VACUUM)',
+                      icon: const Icon(Icons.cleaning_services_rounded, size: 20),
+                      onPressed: _loading ? null : _cleanupDatabase,
+                    ),
+                    IconButton(
+                      tooltip: 'Yenile',
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      onPressed: _loading ? null : loadData,
+                    ),
+                  ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
@@ -259,6 +282,35 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                   ),
                 ],
               ),
+              if (widget.onNavigate != null) ...[
+                const SizedBox(height: AppSpace.xs),
+                Wrap(
+                  spacing: AppSpace.xs,
+                  runSpacing: AppSpace.xs,
+                  children: [
+                    ActionChip(
+                      avatar: const Icon(Icons.apartment_rounded, size: 16),
+                      label: const Text('Site Yönetimi'),
+                      onPressed: () => widget.onNavigate!(SirketMenuItem.siteler),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.people_alt_rounded, size: 16),
+                      label: const Text('Kullanıcı Yönetimi'),
+                      onPressed: () => widget.onNavigate!(SirketMenuItem.kullaniciYonetimi),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.mark_email_unread_rounded, size: 16),
+                      label: const Text('Site Başvuruları'),
+                      onPressed: () => widget.onNavigate!(SirketMenuItem.siteOnayTalepleri),
+                    ),
+                    ActionChip(
+                      avatar: const Icon(Icons.memory_rounded, size: 16),
+                      label: const Text('Kayıtlı Cihazlar'),
+                      onPressed: () => widget.onNavigate!(SirketMenuItem.kayitliCihazlar),
+                    ),
+                  ],
+                ),
+              ],
               const SizedBox(height: AppSpace.sm),
               Wrap(
                 spacing: AppSpace.xs,
@@ -266,7 +318,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                 alignment: isNarrow ? WrapAlignment.center : WrapAlignment.start,
                 children: [
                   ChoiceChip(
-                    label: Text('Tümü (İkili Panel Görünümü)'),
+                    label: const Text('Tümü (İkili Panel Görünümü)'),
                     selected: _filterMode == ModuleFilterMode.all,
                     onSelected: (val) {
                       if (val) setState(() => _filterMode = ModuleFilterMode.all);

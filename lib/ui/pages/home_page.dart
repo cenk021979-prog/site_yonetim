@@ -390,6 +390,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       GlobalKey<PlatformModulesViewState>();
   final GlobalKey<PlatformModulesViewState> _passiveModulesViewKey =
       GlobalKey<PlatformModulesViewState>();
+  final GlobalKey<PlatformModulesViewState> _superModulePanelKey =
+      GlobalKey<PlatformModulesViewState>();
   final GlobalKey<ModuleRequestsViewState> _moduleRequestsViewKey =
       GlobalKey<ModuleRequestsViewState>();
   final GlobalKey<SiteApplicationsViewState> _siteApplicationsViewKey =
@@ -7476,6 +7478,20 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             onRefreshAll: _loadInitialData,
             applications: _siteApplications,
             onRefreshAccount: () => _refreshAccountAfterApproval(),
+          );
+        }
+        if (session.role == UserRole.superUser && !_isResidentMode) {
+          return PlatformModulesView(
+            key: _superModulePanelKey,
+            authService: widget.authService,
+            isEmbedded: true,
+            onNavigate: _openMenuItem,
+            onChanged: () {
+              unawaited(_moduleAccess.refresh());
+              unawaited(_loadSuperDoorModule());
+              _activeModulesViewKey.currentState?.loadData();
+              _passiveModulesViewKey.currentState?.loadData();
+            },
           );
         }
         return _buildShowcase(session);
