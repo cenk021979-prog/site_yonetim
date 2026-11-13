@@ -175,6 +175,7 @@ import 'package:site_kapi_kontrol/services/management_company_api.dart';
 import 'package:site_kapi_kontrol/ui/views/module_requests_view.dart';
 
 import 'package:site_kapi_kontrol/ui/views/modules_view.dart';
+import 'package:site_kapi_kontrol/ui/views/platform_modules_view.dart';
 import 'package:site_kapi_kontrol/ui/views/people_view.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/models/announcement.dart';
@@ -385,6 +386,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       );
   final GlobalKey<ModulesViewState> _modulesViewKey =
       GlobalKey<ModulesViewState>();
+  final GlobalKey<PlatformModulesViewState> _activeModulesViewKey =
+      GlobalKey<PlatformModulesViewState>();
+  final GlobalKey<PlatformModulesViewState> _passiveModulesViewKey =
+      GlobalKey<PlatformModulesViewState>();
   final GlobalKey<ModuleRequestsViewState> _moduleRequestsViewKey =
       GlobalKey<ModuleRequestsViewState>();
   final GlobalKey<SiteApplicationsViewState> _siteApplicationsViewKey =
@@ -6197,6 +6202,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       case SirketMenuItem.siteOnayTalepleri:
         await _loadPendingSiteApprovals(force: true);
         break;
+      case SirketMenuItem.devreyeAlinanModuller:
+        await _activeModulesViewKey.currentState?.loadData();
+        break;
+      case SirketMenuItem.pasifModuller:
+        await _passiveModulesViewKey.currentState?.loadData();
+        break;
       case SirketMenuItem.moduller:
         await _modulesViewKey.currentState?.reload();
         break;
@@ -7812,6 +7823,30 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
           onDeleteUser: (user) =>
               _deleteManagedUser(role: UserRole.siteManager, user: user),
+        );
+
+      case SirketMenuItem.devreyeAlinanModuller:
+        return PlatformModulesView(
+          key: _activeModulesViewKey,
+          authService: widget.authService,
+          showOnlyActive: true,
+          onChanged: () {
+            unawaited(_moduleAccess.refresh());
+            unawaited(_loadSuperDoorModule());
+            _passiveModulesViewKey.currentState?.loadData();
+          },
+        );
+
+      case SirketMenuItem.pasifModuller:
+        return PlatformModulesView(
+          key: _passiveModulesViewKey,
+          authService: widget.authService,
+          showOnlyActive: false,
+          onChanged: () {
+            unawaited(_moduleAccess.refresh());
+            unawaited(_loadSuperDoorModule());
+            _activeModulesViewKey.currentState?.loadData();
+          },
         );
 
       case SirketMenuItem.moduller:

@@ -1,14 +1,14 @@
 {
   "enabled": true,
   "target": "esp32-c3",
-  "version": "3.5.0",
+  "version": "4.4.0",
   "filename": "firmware.bin",
   "force": true,
   "usb_required": false,
   "partition_scheme": "ota_4mb_littlefs_v1",
   "interval_hours": 1,
   "allowed_uids": [],
-  "sha256": "fa925f36d012d9f254fe448095ab453106eead74ea459876dbccb300838e4ab6",
-  "md5": "23d222ac97766158d85dd5109ea1ac60",
-  "notes": "AHBU firmware v3.5.0 (esp32-c3)."
+  "sha256": "64abe0fbac68ff188e4658b4376d9358cae49790ccd40739ae29e11c60c2d596",
+  "md5": "2e6c4e423d72d8422f8f6d6ee68bee4e",
+  "notes": "SmartKeyPass firmware v4.4.0 (esp32-c3)."
 }

@@ -20,6 +20,7 @@ import {
 } from './catalog.js';
 import { PlatformError } from './errors.js';
 import { moduleLockKey } from './module_service.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 
 export const MODULE_REQUEST_NOTE_MAX = 500;
 export const MODULE_REQUEST_STATUSES = Object.freeze(['pending', 'approved', 'rejected', 'cancelled']);
@@ -212,6 +213,10 @@ export async function createModuleRequest({ siteCode, moduleCode, note, actor })
   }
   if (definition.status === MODULE_STATUS_COMING_SOON) {
     throw new PlatformError(409, 'MODULE_COMING_SOON', 'Bu modül yakında.');
+  }
+  const isPlatformActive = await isModuleActiveOnPlatform(code);
+  if (!isPlatformActive) {
+    throw new PlatformError(403, 'MODULE_NOT_REQUESTABLE', 'Bu modül platform genelinde kullanıma kapalıdır.');
   }
   const site = toPositiveInt(siteCode);
   if (site === null) {

@@ -32,10 +32,11 @@ const def = (code) => getModuleDefinition(code);
 describe('platform katalog: sozlesme tablosu', () => {
   it('21 modul, sozlesmedeki sirayla ve alanlarla (Kart Odemesi Aidat ve Finans a, Belgeler Dosya Deposu na katildi: 083, 084)', () => {
     assert.deepEqual(MODULE_CODES, [
-      'door_control',
       'people',
-      'announcements',
+      'door_control',
+      'plate_recognition',
       'finance',
+      'announcements',
       'reservation',
       'work_tracking',
       'metering',
@@ -50,7 +51,6 @@ describe('platform katalog: sozlesme tablosu', () => {
       'drive_storage',
       'neighbor_board',
       'annual_report',
-      'plate_recognition',
       'hgs_access',
       'equipment',
     ]);
@@ -111,7 +111,7 @@ describe('platform katalog: sozlesme tablosu', () => {
     const core = MODULE_CATALOG.filter((m) => m.core);
     assert.deepEqual(
       core.map((m) => m.code),
-      ['people', 'announcements', 'finance', 'reservation', 'work_tracking', 'survey', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment'],
+      ['people', 'finance', 'announcements', 'reservation', 'work_tracking', 'survey', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment'],
     );
     for (const m of core) {
       assert.equal(m.status, 'available', m.code);
@@ -131,7 +131,7 @@ describe('platform katalog: sozlesme tablosu', () => {
     for (const code of ['finance', 'survey', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment']) {
       assert.equal(expected.includes(code), false, `${code} temel modul: toggleable olamaz`);
     }
-    assert.deepEqual(expected, ['door_control', 'metering', 'card_access', 'plate_recognition']);
+    assert.deepEqual(expected, ['door_control', 'plate_recognition', 'metering', 'card_access']);
     assert.equal(isToggleable(null), false);
   });
 

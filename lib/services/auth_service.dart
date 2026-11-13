@@ -1242,6 +1242,20 @@ class AuthService extends ChangeNotifier {
     });
   }
 
+  /// Platform geneli modül listesi (yalnız süper kullanıcı).
+  Future<List<PlatformModule>> getPlatformModules() {
+    return _runAuthorized((token) => api.getPlatformModules(token: token));
+  }
+
+  /// Platform geneli modül aktif/pasif anahtarı (yalnız süper kullanıcı).
+  Future<void> setPlatformModuleActive(String moduleCode, bool isActive) {
+    return _runAuthorized((token) => api.setPlatformModuleActive(
+      token: token,
+      moduleCode: moduleCode,
+      isActive: isActive,
+    ));
+  }
+
   /// Modülü açar/kapatır; Geçiş Kontrol KAPATILIRKEN [confirm] true verilmelidir.
   Future<SiteModulesState> setSiteModule(
     int siteCode,

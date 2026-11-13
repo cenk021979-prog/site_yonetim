@@ -899,6 +899,41 @@ class AuthApi {
     );
   }
 
+  /// Platform geneli modül listesi (yalnız süper kullanıcı).
+  Future<List<PlatformModule>> getPlatformModules({
+    required String token,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'GET',
+      path: '/admin/platform-modules',
+      token: token,
+    );
+    _ensureStatus(response, 200);
+    final payload = _decodePayload(response);
+    return _parsePayload(
+      'Platform modülleri',
+      () => (payload['modules'] as List<dynamic>? ?? <dynamic>[])
+          .whereType<Map<String, dynamic>>()
+          .map(PlatformModule.fromJson)
+          .toList(growable: false),
+    );
+  }
+
+  /// Platform geneli modül aktif/pasif anahtarı (yalnız süper kullanıcı).
+  Future<void> setPlatformModuleActive({
+    required String token,
+    required String moduleCode,
+    required bool isActive,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'PUT',
+      path: '/admin/platform-modules/${Uri.encodeComponent(moduleCode)}',
+      token: token,
+      body: {'is_active': isActive},
+    );
+    _ensureStatus(response, 200);
+  }
+
   /// Denetim kaydı (yalnız süper kullanıcı). `id DESC`; sonraki sayfa için önceki yanıttaki
   /// `next_before_id` [beforeId] olarak verilir.
   Future<AuditLogPage> listAuditLog({

@@ -17,6 +17,7 @@ import {
   retiredModuleNotice,
   rowsByModuleCode,
 } from './catalog.js';
+import { getPlatformModulesMap, isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { PlatformError } from './errors.js';
 import { managementTypeLabel, normalizeManagementType } from './management_types.js';
@@ -80,14 +81,23 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
   const rows = await loadModuleRows(code, db);
   const pendingCodes = await loadPendingRequestCodes(code, db);
   const managementType = normalizeManagementType(site.management_type);
+  const platformMap = await getPlatformModulesMap(db);
+
+  const rawList = computeSiteModuleList(rows);
+  // Süper kullanıcı haricinde platformda pasif olan modülleri kesinlikle gösterme
+  const filteredList = canToggle
+    ? rawList
+    : rawList.filter((entry) => platformMap.get(entry.code) !== false);
+
   return {
     site_code: Number(site.site_code),
     site_name: site.name,
     management_type: managementType,
     management_type_label: managementTypeLabel(managementType),
-    modules: computeSiteModuleList(rows).map((entry) => ({
+    modules: filteredList.map((entry) => ({
       ...entry,
-      can_toggle: canToggle === true && entry.toggleable === true,
+      ...(canToggle ? { is_platform_active: platformMap.get(entry.code) !== false } : {}),
+      can_toggle: canToggle === true && entry.toggleable === true && platformMap.get(entry.code) !== false,
       request_status: pendingCodes.has(entry.code) ? 'pending' : null,
       // F9 (ekleyici): bu modül bu yönetim türü için önerilir mi?
       recommended: isRecommendedModule(managementType, entry.code),
@@ -98,9 +108,13 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
 }
 
 /**
- * Modül bu sitede açık mı? Bilinmeyen modül -> false. Satır yoksa katalog varsayılanı.
+ * Modül bu sitede açık mı? Bilinmeyen modül -> false. Platformda pasif -> false. Satır yoksa katalog varsayılanı.
  */
 export async function isModuleEnabled(siteCode, moduleCode, db = pool) {
+  const isPlatformActive = await isModuleActiveOnPlatform(moduleCode, db);
+  if (!isPlatformActive) {
+    return false;
+  }
   const definition = getModuleDefinition(moduleCode);
   const code = toPositiveInt(siteCode);
   if (!definition || code === null) {
@@ -437,12 +451,18 @@ export async function listMySiteModules(authUser, db = pool) {
   // K8 (P1-16): menü yerleşimi (kompakt menü kümesi) YETENEKTEN ayrı katmandır; yalnız menüde öne çıkacakları söyler, modül durumunu değiştirmez.
   // Okuma hatası bu uca yansımaz (varsayılan türetilmiş küme kullanılır).
   const storedLayouts = await loadStoredMenuLayoutsSafe(siteCodes, db);
+  const platformMap = await getPlatformModulesMap(db);
 
   return {
     scope: 'sites',
     sites: siteRows.map((row) => {
       const siteCode = Number(row.site_code);
-      const modules = computeEnabledMap(rowsByModuleCode(rowsBySite.get(siteCode) ?? []));
+      const rawModules = computeEnabledMap(rowsByModuleCode(rowsBySite.get(siteCode) ?? []));
+      const modules = {};
+      for (const [key, val] of Object.entries(rawModules)) {
+        // Platformda pasif olan modül sakin ve yöneticiler için kapalı sayılır
+        modules[key] = platformMap.get(key) === false ? false : val;
+      }
       return {
         site_code: siteCode,
         site_name: row.site_name,

@@ -264,3 +264,18 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - Bağsız kullanıcılar için `_isUnaffiliated` kontrolünü kaldırma veya bypass etme.
       - Yetkisi ve dairesi olmayan kullanıcılara `Kapılar`, `Acil durum` veya `Dairem` kartlarını tekrar gösterme.
       - Bağsız kullanıcıların ekranına gereksiz sol ve sağ çekmeceleri geri koyma.
+
+33. **Modül Terminolojisi ve Yaşam Döngüsü Tanımları (Temel, Ek, Devreye Alınmış, Devreye Alınmamış, Aktif, Pasif):**
+    - **Temel Tanımlar ve Kavramsal Ayrım (MUTLAKA VE İSTİSNASIZ UYULACAKTIR):**
+      1. **Temel Modül:** Site oluşturan herkese tanımlanan modülü ifade eder. Platformda devreye alınmışsa kurulan her sitede otomatik olarak tanımlanır ve açık gelir (Kural 25).
+      2. **Ek Modül:** Kullanıcının (site yöneticisinin) sitesinde ihtiyaç duyması halinde Süper User'dan talep ederek açabileceği modülü ifade eder.
+      3. **Devreye Alınmış Modül:** Tasarımı devam etse de kullanıcıların hizmetine sunulmuş modülü ifade eder (Platform seviyesinde `is_active = TRUE`). Temel olanlar sitelerde otomatik açılır, Ek olanlar site yöneticilerinin talep listesine girer.
+      4. **Devreye Alınmamış Modül:** Tasarımına başlanmış, tasarımı devam eden, kullanıcıların hizmetine sunulmamış modülü ifade eder (Platform seviyesinde `is_active = FALSE`). YALNIZCA Süper User görebilir; diğer hiçbir rolde görünmez, talep edilemez, hiçbir menüde yer almaz.
+      5. **Aktif Modül:** Kullanıcının talebiyle (Ek modül ise) veya temel modül olduğu için açılmış, kullanıcının o sitede fiilen kullanabildiği modülü ifade eder (Site seviyesinde `is_enabled = TRUE`).
+      6. **Pasif Modül:** Ek modüllerden kullanıcının talep edip açtırmadığı, o sitedeki kullanıcıya görünmeyen modülü ifade eder (Site seviyesinde kapalı / talep edilmemiş).
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Platform düzeyi durumlar (**Devreye Alınmış** / **Devreye Alınmamış**) ile Site düzeyi durumları (**Aktif** / **Pasif**) birbirine asla karıştırma.
+      - Modül tiplerini (**Temel** / **Ek**) kullanıcının belirlediği bu tanımların dışında yorumlama veya değiştirme.
+      - Devreye alınmamış hiçbir modülü süper kullanıcı dışındaki kullanıcılara veya site yöneticilerine gösterme veya talep edilebilir kılma.
+      - Tüm kodlama, mimari geliştirmeler, etiketler ve iş mantığında bu 6 temel tanıma sadık kal.
+

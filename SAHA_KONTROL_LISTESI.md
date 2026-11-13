@@ -5052,6 +5052,41 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
   - **Nasıl Test Edilir:** `GET /app/my-modules` ve Menü Düzeni ekranını açın.
   - **Beklenen Sonuç:** Modül listesi `people` (#1), `door_control` (#2), `plate_recognition` (#3), `finance` (#4) öncelik sırasını korumalı; mükerrer `plate_recognition` tanımı olmamalıdır.
 
+---
+
+## 172. 🛡️ Platform Geneli Modül Yönetimi (Katman 1 Master Anahtarı & Süper Kullanıcı Kontrolü)
+*İşletme Projesi, Talepler, Rezervasyonlar, Ziyaretçi/Kargo, Sözleşmeler, Karar Defteri, Anket/Oylama, Ekipman/Bakım, HGS Geçişi, Faaliyet Raporu, Komşu Panosu, Kartlı Geçiş, Online Ödeme ve Sayaç Okuma (metering) modüllerinin platform düzeyinde pasife alınması ve Süper Kullanıcı için "Devreye Alınan Modüller" ile "Pasif Modüller" olarak iki ayrı menüde yönetilmesi.*
+
+- [ ] **172.1. Süper Kullanıcı Çekmecesinde İki Ayrı Menü:**
+  - **Nasıl Test Edilir:** `cenkgude@gmail.com` veya süper kullanıcı hesabıyla giriş yapıp Ayarlar / Yönetim çekmecesini açın.
+  - **Beklenen Sonuç:** "Devreye Alınan Modüller" (onay ikonu) ve "Pasif Modüller" (yasak/blok ikonu) olmak üzere iki ayrı net menü başlığı görünmelidir.
+- [ ] **172.2. "Devreye Alınan Modüller" Ekranı:**
+  - **Nasıl Test Edilir:** "Devreye Alınan Modüller" menüsüne tıklayın.
+  - **Beklenen Sonuç:** Yalnızca canlıda kullanımda olan 7 aktif modül (`people`, `door_control`, `plate_recognition`, `finance`, `announcements`, `directory`, `drive_storage`) listelenmeli; Temel ve Seçmeli etiketleri gösterilmelidir.
+- [ ] **172.3. "Pasif Modüller" Ekranı ve Sayaç Okuma:**
+  - **Nasıl Test Edilir:** "Pasif Modüller" menüsüne tıklayın.
+  - **Beklenen Sonuç:** Sayaç Okuma ve Faturalandırma (`metering`) dahil 14 pasif modül bu ekranda toplanmalıdır. Hiçbir sakin veya site yöneticisi menüsünde veya talep ekranında görünmemelidir.
+- [ ] **172.4. Süper Kullanıcının Platformda Modül Aktifleştirmesi:**
+  - **Nasıl Test Edilir:** Süper kullanıcı olarak "Pasif Modüller" ekranında herhangi bir modülü (örneğin Sayaç Okuma veya Anket) Aktif yapın.
+  - **Beklenen Sonuç:** Modül anında "Devreye Alınan Modüller" ekranına taşınır; Temel modülse sitelerde otomatik açılır, Seçmeliyse site yöneticilerinin talep listesine düşer.
+- [ ] **172.5. Modülün Tekrar Pasife Alınması:**
+  - **Nasıl Test Edilir:** "Devreye Alınan Modüller" ekranındaki bir modülün switch'ini kapatın.
+  - **Beklenen Sonuç:** Modül anında "Pasif Modüller" listesine geri döner ve platform genelindeki tüm kullanıcı/yönetici arayüzlerinden silinir/gizlenir.
+
+---
+
+## 173. 🏷️ SmartKeyPass Cihaz Etiketleyici — SSH Şifresiyle Otomatik API Anahtarı ve Sunucu Kaydı
+
+- [ ] **173.1. Sunucu Anahtarı Eksikliğinde Otomatik SSH Şifresi İstemi:**
+  - **Nasıl Test Edilir:** `company_qr_tool` uygulamasını açın. Sol alttaki "Sunucu anahtarı yok" rozetine tıklayın veya bir cihaz seçip "Sunucuya kaydet" butonuna basın.
+  - **Beklenen Sonuç:** Uygulama karmaşık teknik hata vermek yerine modal bir diyalog penceresi açarak `salihceylan@178.210.161.55` için VPS SSH şifresini sormalıdır.
+- [ ] **173.2. SSH ile Anahtarın Otomatik Çekilmesi ve Kalıcı Kaydedilmesi:**
+  - **Nasıl Test Edilir:** Açılan diyalogda sunucu şifresini girin ve Tamam'a basın.
+  - **Beklenen Sonuç:** Sunucudaki `.env` dosyasından `COMPANY_API_KEY` değeri SSH üzerinden otomatik okunup yerel `.env` dosyasına yazılmalı, sol alt durum rozeti yeşil renkte "Sunucu anahtarı hazır" olarak güncellenmelidir.
+- [ ] **173.3. Hazır Anahtar ile Sunucuya Kayıt:**
+  - **Nasıl Test Edilir:** Cihaz seçiliyken "Sunucuya kaydet" butonuna basın.
+  - **Beklenen Sonuç:** Cihaz kaydı ve QR kodu başarıyla sunucu API'sine iletilmeli ve "Sunucuya kaydedildi" bildirimi gösterilmelidir.
+
 ## Birleşim kabul kontrolü — 12 Kasım 2026
 
 - [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.

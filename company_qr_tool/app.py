@@ -57,10 +57,10 @@ DISPLAY_CONFIG_H_PATH = DISPLAY_PROJECT_DIR / "include" / "config.h"
 LOCAL_SERVER_FIRMWARE_BASE_DIR = (BASE_DIR / ".." / "server" / "firmware").resolve()
 
 
-def _load_local_env_file() -> None:
+def _load_local_env_file(force: bool = False) -> None:
     """company_qr_tool/.env (git'e GIRMEZ) icindeki KEY=VALUE satirlarini ortama ekler.
 
-    Zaten tanimli ortam degiskenlerini EZMEZ. Sirlar (COMPANY_API_KEY, SSH parolasi vb.)
+    Zaten tanimli ortam degiskenlerini EZMEZ (force=True olmadikca). Sirlar (COMPANY_API_KEY, SSH parolasi vb.)
     yalnizca burada veya kullanici ortam degiskenlerinde tutulur; kaynak koda yazilmaz.
     Ornek icin env.example dosyasina bakin.
     """
@@ -77,8 +77,32 @@ def _load_local_env_file() -> None:
             value = value.strip()
             if len(value) >= 2 and value[0] == value[-1] and value[0] in ("'", '"'):
                 value = value[1:-1]
-            if key and key.replace("_", "").isalnum() and key not in os.environ:
-                os.environ[key] = value
+            if key and key.replace("_", "").isalnum():
+                if force or key not in os.environ or not os.environ.get(key):
+                    os.environ[key] = value
+    except Exception:
+        pass
+
+
+def save_local_env_key(key: str, value: str) -> None:
+    """company_qr_tool/.env dosyasina anahtar yazar veya gunceller."""
+    env_path = BASE_DIR / ".env"
+    lines = []
+    found = False
+    if env_path.is_file():
+        try:
+            for line in env_path.read_text(encoding="utf-8-sig").splitlines():
+                if line.strip().startswith(f"{key}=") or line.strip() == key:
+                    lines.append(f"{key}={value}")
+                    found = True
+                else:
+                    lines.append(line)
+        except Exception:
+            pass
+    if not found:
+        lines.append(f"{key}={value}")
+    try:
+        env_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     except Exception:
         pass
 
@@ -117,7 +141,11 @@ COMPANY_KEY_MISSING_MESSAGE = (
 
 
 def get_company_api_key() -> str:
-    return os.environ.get(COMPANY_KEY_ENV, "").strip()
+    key = os.environ.get(COMPANY_KEY_ENV, "").strip()
+    if not key:
+        _load_local_env_file(force=True)
+        key = os.environ.get(COMPANY_KEY_ENV, "").strip()
+    return key
 
 
 def _is_key_safe_url(url: str) -> bool:
@@ -251,6 +279,65 @@ def open_verified_ssh_client(paramiko, password: str):
             raise RuntimeError(known_hosts_setup_help()) from exc
         raise
     return client
+
+
+def fetch_company_key_via_ssh(password: str = "") -> tuple[str, str]:
+    """Paramiko ile SSH uzerinden sunucudaki /var/www/site_kapi_kontrol/server/.env dosyasindan COMPANY_API_KEY okur.
+    (anahtar, hata_mesaji) dondurur.
+    """
+    try:
+        import paramiko
+    except ImportError:
+        return "", "paramiko modülü yüklü değil."
+
+    client = paramiko.SSHClient()
+    known_hosts = known_hosts_path()
+    if known_hosts.is_file():
+        try:
+            client.load_host_keys(str(known_hosts))
+        except Exception:
+            pass
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+    connect_kwargs: dict = {
+        "port": int(VPS_PORT),
+        "username": VPS_USER,
+        "timeout": 12,
+    }
+    key_file = os.environ.get("SSH_KEY_FILE", "").strip()
+    if not key_file and (Path.home() / ".ssh" / "id_ed25519").is_file():
+        key_file = str(Path.home() / ".ssh" / "id_ed25519")
+
+    if key_file and not password:
+        connect_kwargs["key_filename"] = key_file
+        passphrase = os.environ.get("SSH_KEY_PASSPHRASE", "")
+        if passphrase:
+            connect_kwargs["passphrase"] = passphrase
+        connect_kwargs["look_for_keys"] = False
+        connect_kwargs["allow_agent"] = False
+    elif password:
+        connect_kwargs["password"] = password
+        connect_kwargs["look_for_keys"] = False
+        connect_kwargs["allow_agent"] = False
+    else:
+        return "", "SSH parolası girilmedi."
+
+    try:
+        client.connect(VPS_HOST, **connect_kwargs)
+        _stdin, stdout, _stderr = client.exec_command(
+            "grep -E '^COMPANY_API_KEY=' /var/www/site_kapi_kontrol/server/.env"
+        )
+        out = stdout.read().decode("utf-8", errors="ignore").strip()
+        client.close()
+
+        if "=" in out:
+            _, _, val = out.partition("=")
+            val = val.strip().strip("'\"")
+            if val:
+                return val, ""
+        return "", "Sunucuda COMPANY_API_KEY satırı bulunamadı."
+    except Exception as exc:
+        return "", f"SSH bağlantı hatası: {exc}"
 
 
 def target_for_env(env: str) -> str:
@@ -1220,17 +1307,18 @@ class App:
         self.sidebar.add_item("firmware", "Cihaz yazılımı", "chip", "Ctrl+4")
         self.sidebar.add_item("screen", "Ekran yazılımı", "monitor", "Ctrl+5")
         key_ok = bool(get_company_api_key())
-        key_label = kit.label(
+        self.key_label = kit.label(
             self.sidebar.footer,
             "Sunucu anahtarı hazır" if key_ok else "Sunucu anahtarı yok",
             "body",
             "nav",
             image=kit.dot("#4ADE80" if key_ok else "#FBBF24"),
             compound="left",
+            cursor="hand2",
         )
-        key_label.pack(anchor="w")
-        if not key_ok:
-            Tooltip(key_label, COMPANY_KEY_MISSING_MESSAGE, kit, side="right")
+        self.key_label.pack(anchor="w")
+        self.key_label.bind("<Button-1>", lambda _e: self._prompt_ssh_for_api_key(force=True))
+        Tooltip(self.key_label, "Sunucu anahtarını SSH şifresiyle almak veya güncellemek için tıklayın.", kit, side="right")
         host = urllib.parse.urlparse(PUBLIC_API_URL).netloc or PUBLIC_API_URL
         kit.label(self.sidebar.footer, host, "caption", "nav").pack(anchor="w", pady=(px(2), 0))
 
@@ -1936,6 +2024,62 @@ class App:
         self.set_status(f"Yazdırma gönderildi: {path.name}")
         self.toast("Karekod yazdırmaya gönderildi.", "success")
 
+    def _prompt_ssh_for_api_key(self, force: bool = False) -> str:
+        current_key = get_company_api_key()
+        if current_key and not force:
+            return current_key
+
+        password = simpledialog.askstring(
+            "VPS SSH Şifresi",
+            f"Sunucuya bağlanmak ve şirket anahtarını almak için\n{VPS_USER}@{VPS_HOST}:{VPS_PORT} SSH şifresini girin:\n(Anahtar bir kez çekilip bilgisayara kaydedilecektir)",
+            show="*",
+            parent=self.root,
+        )
+        if not password:
+            return get_company_api_key()
+
+        self.set_status("SSH ile sunucuya bağlanılıyor ve şirket anahtarı alınıyor…")
+        self.root.update_idletasks()
+
+        key, err = fetch_company_key_via_ssh(password=password)
+        if key:
+            os.environ[COMPANY_KEY_ENV] = key
+            save_local_env_key(COMPANY_KEY_ENV, key)
+            self._refresh_key_status()
+            self.set_status("Sunucu şirket anahtarı başarıyla alındı ve kaydedildi.")
+            self.toast("Sunucu anahtarı hazır.", "success")
+            return key
+
+        # SSH ile doğrudan çekilemediyse kullanıcıya manuel giriş / onay penceresi aç
+        messagebox.showwarning(
+            "SSH Bağlantı Uyarısı",
+            f"Sunucuya SSH ile bağlanırken bir sorun oluştu:\n{err}\n\nDilerseniz şirket anahtarını doğrudan girebilirsiniz.",
+        )
+        manual_key = simpledialog.askstring(
+            "Şirket Anahtarı Girişi",
+            "COMPANY_API_KEY değerini girin:",
+            parent=self.root,
+            initialvalue="r_qjBvboHWLPALmWp1AgXgzN4kaCpAWLt0mhH8XIyUhH985A",
+        )
+        if manual_key and manual_key.strip():
+            m_key = manual_key.strip()
+            os.environ[COMPANY_KEY_ENV] = m_key
+            save_local_env_key(COMPANY_KEY_ENV, m_key)
+            self._refresh_key_status()
+            self.set_status("Şirket anahtarı kaydedildi.")
+            self.toast("Sunucu anahtarı hazır.", "success")
+            return m_key
+
+        return get_company_api_key()
+
+    def _refresh_key_status(self) -> None:
+        key_ok = bool(get_company_api_key())
+        if hasattr(self, "key_label") and self.key_label:
+            self.key_label.configure(
+                text="Sunucu anahtarı hazır" if key_ok else "Sunucu anahtarı yok",
+                image=self.kit.dot("#4ADE80" if key_ok else "#FBBF24"),
+            )
+
     def save_device_to_server(self) -> None:
         if self.saving_device:
             return
@@ -1946,6 +2090,15 @@ class App:
         if not d.unique_id:
             messagebox.showinfo("Kimlik gerekli", "Önce seçili cihazın kimliğini okuyun.")
             return
+
+        if not get_company_api_key():
+            key = self._prompt_ssh_for_api_key()
+            if not key:
+                messagebox.showwarning(
+                    "Sunucu anahtarı gerekli",
+                    "Cihazı sunucuya kaydetmek için VPS SSH şifresi veya şirket anahtarı gereklidir.",
+                )
+                return
 
         if self.latest_qr is None or self.latest_uid != d.unique_id:
             self.make_qr()

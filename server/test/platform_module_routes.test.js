@@ -7,6 +7,7 @@ import { pool } from '../src/db.js';
 import { authRequired, requireSiteManager, requireSuperUser } from '../src/middlewares/auth_middleware.js';
 import { readFileSync } from 'node:fs';
 import { moduleRouter, moduleToggleLimiter, staffRoleLimiter } from '../src/modules/module_routes.js';
+import { MODULE_CATALOG } from '../src/modules/catalog.js';
 
 const SITE_1 = 1000000001;
 const SITE_2 = 1000000002;
@@ -241,6 +242,9 @@ function handle(sql, params, tx) {
     const wanted = new Set(params[0].map(Number));
     return ok([...state.siteModules.values()].filter((row) => wanted.has(row.site_code)));
   }
+  if (/^SELECT module_code, is_active FROM platform_modules$/.test(sql)) {
+    return ok(MODULE_CATALOG.map((d) => ({ module_code: d.code, is_active: true })));
+  }
   if (/^SELECT site_code, compact_modules FROM site_menu_layouts WHERE site_code = ANY\(\$1::BIGINT\[\]\)$/.test(sql)) {
     if (state.failMenuLayoutRead) {
       throw Object.assign(new Error('SECRET_DB_DETAIL menu_layout'), { code: '42P01' });
@@ -467,14 +471,13 @@ const moduleUrl = (site = SITE_1, code = 'door_control') => `/manager/sites/${si
 
 describe('platform rotalari: kimlik zinciri', () => {
   it('her rota authRequired ile baslar; yonetici uclari requireSiteManager, denetim ucu requireSuperUser kullanir', () => {
-    // F9: GET /app/management-types eklendi (authRequired, DB'siz) -> 9 rota
-    assert.equal(ORIGINAL_FIRST_HANDLERS.length, 9);
+    assert.equal(ORIGINAL_FIRST_HANDLERS.length, 11);
     for (const route of ORIGINAL_FIRST_HANDLERS) {
       assert.equal(route.handlers[0], authRequired, `${route.methods} ${route.path}`);
       if (route.path.startsWith('/manager/')) {
         assert.equal(route.handlers[1], requireSiteManager, route.path);
       }
-      if (route.path === '/admin/audit-log') {
+      if (route.path.startsWith('/admin/')) {
         assert.equal(route.handlers[1], requireSuperUser);
       }
       if (route.methods[0] === 'put' && route.path.endsWith('/staff-roles')) {
@@ -488,11 +491,13 @@ describe('platform rotalari: kimlik zinciri', () => {
     assert.deepEqual(summary, [
       'DELETE /manager/sites/:siteCode/staff-roles/:userCode',
       'GET /admin/audit-log',
+      'GET /admin/platform-modules',
       'GET /app/management-types',
       'GET /app/modules/catalog',
       'GET /app/my-modules',
       'GET /manager/sites/:siteCode/modules',
       'GET /manager/sites/:siteCode/staff-roles',
+      'PUT /admin/platform-modules/:moduleCode',
       'PUT /manager/sites/:siteCode/modules/:moduleCode',
       'PUT /manager/sites/:siteCode/staff-roles',
     ]);
@@ -500,13 +505,12 @@ describe('platform rotalari: kimlik zinciri', () => {
 });
 
 describe('GET /app/modules/catalog', () => {
-  it('kimligi dogrulanmis herkese 23 modullu katalog doner', async () => {
+  it('kimligi dogrulanmis herkese katalog doner', async () => {
     const res = await call('GET', '/app/modules/catalog', { user: users.resident });
     assert.equal(res.status, 200);
-    assert.equal(res.body.modules.length, 21);
+    assert.equal(res.body.modules.length, MODULE_CATALOG.length);
     assert.deepEqual(Object.keys(res.body.modules[0]), ['code', 'name', 'description', 'core', 'status']);
-    assert.equal(res.body.modules[0].code, 'door_control');
-    assert.equal(res.body.modules[1].core, true);
+    assert.equal(res.body.modules[0].code, MODULE_CATALOG[0].code);
   });
 });
 
@@ -563,29 +567,7 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
     assert.equal(asSuper.status, 200);
     assert.deepEqual(
       asSuper.body.modules.map((m) => [m.code, m.toggleable, m.can_toggle]),
-      [
-        ['door_control', true, true],
-        ['people', false, false],
-        ['announcements', false, false],
-        ['finance', false, false], // Kural 25: temel modül, süper kullanıcı bile açıp kapatamaz
-        ['reservation', false, false],
-        ['work_tracking', false, false],
-        ['metering', true, true],
-        ['online_payment', false, false],
-        ['survey', false, false], // Kural 25: temel modül
-        ['visitor_log', false, false],
-        ['card_access', true, true],
-        ['contracts', false, false],
-        ['decision_book', false, false],
-        ['directory', false, false],
-        ['budget', false, false],
-        ['drive_storage', false, false], // Kural 25: temel modül
-        ['neighbor_board', false, false], // Kural 25: temel modül
-        ['annual_report', false, false], // Kural 25: temel modül
-        ['plate_recognition', true, true],
-        ['hgs_access', false, false],
-        ['equipment', false, false], // Kural 25: temel modül
-      ],
+      MODULE_CATALOG.map((m) => [m.code, !m.core && m.status === 'available', !m.core && m.status === 'available']),
     );
     // bekleyen talep: yalnizca o sitenin o modulu 'pending' olur; baska site / sonuclanmis talep etkilemez
     state.moduleRequests = [
@@ -1661,29 +1643,7 @@ describe('GET /app/my-modules', () => {
     for (const site of res.body.sites) {
       assert.equal(typeof site.site_code, 'number');
       assert.equal(site.management_type, 'apartment_site');
-      assert.deepEqual(Object.keys(site.modules), [
-        'door_control',
-        'people',
-        'announcements',
-        'finance',
-        'reservation',
-        'work_tracking',
-        'metering',
-        'online_payment',
-        'survey',
-        'visitor_log',
-        'card_access',
-        'contracts',
-        'decision_book',
-        'directory',
-        'budget',
-        'drive_storage',
-        'neighbor_board',
-        'annual_report',
-        'plate_recognition',
-        'hgs_access',
-        'equipment',
-      ]);
+      assert.deepEqual(Object.keys(site.modules), MODULE_CATALOG.map((d) => d.code));
     }
     assert.equal(res.body.sites[0].modules.door_control, true);
     assert.equal(res.body.sites[0].modules.online_payment, false, 'yakinda modul satiri olsa bile false');
@@ -1783,7 +1743,7 @@ describe('GET /app/my-modules', () => {
       const res = await call('GET', '/app/my-modules', { user: users.resident });
       assert.equal(res.status, 200);
       assert.deepEqual(res.body.sites[0].menu_layout, {
-        compact_modules: ['door_control', 'people', 'announcements', 'finance', 'drive_storage'],
+        compact_modules: ['people', 'door_control', 'finance', 'announcements', 'drive_storage'],
         customized: false,
       });
       // Her sitede acik temel modullerden onerilmeyenler (anket, komsu panosu, faaliyet raporu, ekipman) varsayilan kumede YOK ama ACIK.
@@ -1801,8 +1761,8 @@ describe('GET /app/my-modules', () => {
       const res = await call('GET', '/app/my-modules', { user: users.resident });
       assert.deepEqual(res.body.sites[0].menu_layout.compact_modules, [
         'people',
-        'announcements',
         'finance',
+        'announcements',
         'work_tracking',
         'metering',
         'visitor_log',

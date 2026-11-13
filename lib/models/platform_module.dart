@@ -73,6 +73,7 @@ class PlatformModule {
     this.updatedAt,
     this.updatedBy,
     this.recommended = false,
+    this.isPlatformActive = true,
   }) : canToggle = canToggle ?? toggleable;
 
   final String code;
@@ -106,6 +107,9 @@ class PlatformModule {
 
   /// Sitenin yönetim türü için ÖNERİLEN modül mü (`recommended`, F9)? Eski sunucuda alan yok = false.
   final bool recommended;
+
+  /// Platform genelinde modül aktif mi (yalnızca süper kullanıcı için yönetilir)?
+  final bool isPlatformActive;
 
   bool get isAvailable => status == 'available';
   bool get isComingSoon => status == 'coming_soon';
@@ -148,6 +152,7 @@ class PlatformModule {
       updatedAt: _parseDate(json['updated_at']),
       updatedBy: json['updated_by']?.toString(),
       recommended: json['recommended'] == true,
+      isPlatformActive: json['is_platform_active'] != false,
     );
   }
 
@@ -155,6 +160,7 @@ class PlatformModule {
     bool? enabled,
     String? requestStatus,
     bool clearRequestStatus = false,
+    bool? isPlatformActive,
   }) {
     return PlatformModule(
       code: code,
@@ -169,6 +175,7 @@ class PlatformModule {
       updatedAt: updatedAt,
       updatedBy: updatedBy,
       recommended: recommended,
+      isPlatformActive: isPlatformActive ?? this.isPlatformActive,
     );
   }
 

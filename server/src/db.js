@@ -51,6 +51,7 @@ import { ensureMessagingSchema } from './modules/messaging_schema.js';
 import { ensurePlateGatesSchema } from './modules/plate_gates_schema.js';
 import { ensurePlateAlertsSchema } from './modules/plate_alerts_schema.js';
 import { ensurePlateMovementPolicySchema } from './modules/plate_movement_policy_schema.js';
+import { ensurePlatformModulesSchema } from './modules/platform_modules_schema.js';
 import { ensurePlateCamerasSchema } from './modules/plate_cameras_schema.js';
 import { ensureSiteFreePeriodSchema } from './modules/site_free_period_schema.js';
 import { ensurePaymentConnectionSchema } from './modules/payment_connection_schema.js';
@@ -2124,6 +2125,8 @@ export async function ensureDbSchema() {
     await ensurePlateCamerasSchema(client);
     // 133 (plaka hareket bildirim politikasi): idempotent.
     await ensurePlateMovementPolicySchema(client);
+    // 134 (platform-geneli modul master anahtari): idempotent.
+    await ensurePlatformModulesSchema(client);
     // 130 (otopark politikasi ve atomik tahsis): idempotent.
     await ensureParkingAccessSchema(client);
 

@@ -46,6 +46,12 @@ enum SirketMenuItem {
   /// Platform modül sistemi: site başına modül açma/kapama (süper kullanıcı + site yöneticisi).
   moduller,
 
+  /// Platform geneli devreye alınan (aktif) modüller (Katman 1; yalnızca süper kullanıcı).
+  devreyeAlinanModuller,
+
+  /// Platform geneli pasif / geliştirme aşamasındaki modüller (Katman 1; yalnızca süper kullanıcı).
+  pasifModuller,
+
   /// Platform modül sistemi: denetim kaydı (yalnız süper kullanıcı).
   denetimKaydi,
 
@@ -312,6 +318,8 @@ SirketMenuGroup menuGroupOf(SirketMenuItem item) => switch (item) {
       SirketMenuItem.kayitliCihazlar ||
       SirketMenuItem.bluetoothWifiKur ||
       SirketMenuItem.moduller ||
+      SirketMenuItem.devreyeAlinanModuller ||
+      SirketMenuItem.pasifModuller ||
       SirketMenuItem.denetimKaydi ||
       SirketMenuItem.islemKayitlari ||
       SirketMenuItem.modulTalepleri ||
@@ -1494,6 +1502,8 @@ List<SirketMenuItem> _itemsForRole(
         SirketMenuItem.kullaniciYonetimi,
         SirketMenuItem.superUserYonetimi,
         SirketMenuItem.siteYoneticileriYonetimi,
+        SirketMenuItem.devreyeAlinanModuller,
+        SirketMenuItem.pasifModuller,
         SirketMenuItem.moduller,
         SirketMenuItem.modulTalepleri,
         SirketMenuItem.siteBasvurulari,
@@ -1582,6 +1592,10 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
         return l.menuBluetoothWifiSetup;
       case SirketMenuItem.moduller:
         return l.menuModules;
+      case SirketMenuItem.devreyeAlinanModuller:
+        return 'Devreye Alınmış Modüller';
+      case SirketMenuItem.pasifModuller:
+        return 'Devreye Alınmamış Modüller';
       case SirketMenuItem.denetimKaydi:
         return l.menuAuditLog;
       case SirketMenuItem.islemKayitlari:
@@ -1685,6 +1699,10 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
       return 'Bluetooth ile Wi-Fi Kur';
     case SirketMenuItem.moduller:
       return 'Modüller';
+    case SirketMenuItem.devreyeAlinanModuller:
+      return 'Devreye Alınmış Modüller';
+    case SirketMenuItem.pasifModuller:
+      return 'Devreye Alınmamış Modüller';
     case SirketMenuItem.denetimKaydi:
       return 'Denetim Kaydı';
     case SirketMenuItem.islemKayitlari:
@@ -1787,6 +1805,10 @@ IconData _iconForItem(SirketMenuItem item) {
       return PhosphorIconsRegular.bluetooth;
     case SirketMenuItem.moduller:
       return PhosphorIconsRegular.puzzlePiece;
+    case SirketMenuItem.devreyeAlinanModuller:
+      return PhosphorIconsRegular.checkCircle;
+    case SirketMenuItem.pasifModuller:
+      return PhosphorIconsRegular.prohibit;
     case SirketMenuItem.denetimKaydi:
       return PhosphorIconsRegular.clipboardText;
     case SirketMenuItem.islemKayitlari:

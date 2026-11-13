@@ -18,9 +18,10 @@ import express from 'express';
 import { authRequired, requireSiteManager, requireSuperUser } from '../middlewares/auth_middleware.js';
 import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { INT32_MAX, parseId } from '../utils/ids.js';
-import { clampAuditLimit, listAuditLog } from './audit_service.js';
-import { publicCatalog } from './catalog.js';
+import { clampAuditLimit, listAuditLog, recordAudit, actorFromAuthUser } from './audit_service.js';
+import { publicCatalog, MODULE_CATALOG, getModuleDefinition } from './catalog.js';
 import { getSiteModulesView, listMySiteModules, setSiteModuleEnabled } from './module_service.js';
+import { getPlatformModulesMap, updatePlatformModuleStatus } from './platform_modules_schema.js';
 import { listManagementTypesView } from './management_type_terms.js';
 import {
   HOUR_MS,
@@ -69,8 +70,18 @@ export const moduleToggleLimiter = createRuleLimiter({
 // Katalog ve "benim modüllerim"
 // ---------------------------------------------------------------------------
 
-moduleRouter.get('/app/modules/catalog', authRequired, (_req, res) => {
-  res.status(200).json({ modules: publicCatalog() });
+moduleRouter.get('/app/modules/catalog', authRequired, async (req, res) => {
+  try {
+    const isSuper = req.authUser?.role === 'super_user';
+    const platformMap = await getPlatformModulesMap();
+    const catalog = publicCatalog();
+    const modules = isSuper
+      ? catalog.map((m) => ({ ...m, is_platform_active: platformMap.get(m.code) !== false }))
+      : catalog.filter((m) => platformMap.get(m.code) !== false);
+    return res.status(200).json({ modules });
+  } catch (error) {
+    return respondError(res, 'public_catalog', error, 'Modül kataloğu yüklenemedi.');
+  }
 });
 
 moduleRouter.get('/app/my-modules', authRequired, async (req, res) => {
@@ -245,5 +256,51 @@ moduleRouter.get('/admin/audit-log', authRequired, requireSuperUser, async (req,
     return res.status(200).json(page);
   } catch (error) {
     return respondError(res, 'audit_log', error, 'Denetim kaydı yüklenemedi.');
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Platform Modülleri Master Yönetimi (Yalnızca Süper Kullanıcı)
+// ---------------------------------------------------------------------------
+
+moduleRouter.get('/admin/platform-modules', authRequired, requireSuperUser, async (_req, res) => {
+  try {
+    const platformMap = await getPlatformModulesMap();
+    const result = MODULE_CATALOG.map((def) => ({
+      code: def.code,
+      name: def.name,
+      description: def.description,
+      core: def.core,
+      status: def.status,
+      is_platform_active: platformMap.get(def.code) !== false,
+    }));
+    return res.status(200).json({ modules: result });
+  } catch (error) {
+    return respondError(res, 'get_platform_modules', error, 'Platform modülleri yüklenemedi.');
+  }
+});
+
+moduleRouter.put('/admin/platform-modules/:moduleCode', authRequired, requireSuperUser, async (req, res) => {
+  try {
+    const { moduleCode } = req.params;
+    const { is_active } = req.body ?? {};
+    if (typeof is_active !== 'boolean') {
+      return res.status(400).json({ error: 'is_active boolean olmalıdır.', code: 'INVALID_BODY' });
+    }
+    const def = getModuleDefinition(moduleCode);
+    if (!def) {
+      return res.status(404).json({ error: 'Modül bulunamadı.', code: 'MODULE_NOT_FOUND' });
+    }
+    await updatePlatformModuleStatus(moduleCode, is_active, req.authUser?.userCode);
+    await recordAudit({
+      siteCode: null,
+      action: is_active ? 'platform_module.enabled' : 'platform_module.disabled',
+      actor: actorFromAuthUser(req.authUser),
+      target: moduleCode,
+      details: { module_code: moduleCode, is_active },
+    });
+    return res.status(200).json({ ok: true, code: moduleCode, is_platform_active: is_active });
+  } catch (error) {
+    return respondError(res, 'update_platform_module', error, 'Platform modülü güncellenemedi.');
   }
 });
