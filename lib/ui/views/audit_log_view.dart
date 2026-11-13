@@ -347,7 +347,7 @@ class AuditLogViewState extends State<AuditLogView> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        const PageHeaderCard(title: 'Denetim Kaydı', icon: Icons.fact_check_rounded),
+        const PageHeaderCard(title: 'Sistem Logları', icon: Icons.fact_check_rounded),
         const SizedBox(height: AppSpace.sm),
         Text(
           'Yönetim işlemleri (modül açma/kapama, ek rol atama, hesap ve yönetici yetkileri, kapı izinleri) değiştirilemez bir kayıt olarak tutulur.',

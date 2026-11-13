@@ -629,7 +629,7 @@ abstract class AppLocalizations {
   /// No description provided for @menuModules.
   ///
   /// In tr, this message translates to:
-  /// **'Modüller'**
+  /// **'Modül Yönetimi(Siteye Göre)'**
   String get menuModules;
 
   /// No description provided for @menuAuditLog.

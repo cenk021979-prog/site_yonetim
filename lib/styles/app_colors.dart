@@ -25,12 +25,12 @@ class AppColors {
   static const Color bgDark = backgroundTop;
   static const Color bgLight = lightBackgroundTop;
 
-  // Koyu Tema Arka Plan ve Yüzeyler (Deep Luxury Slate)
-  static const Color backgroundTop = Color(0xFF0F172A);
-  static const Color backgroundBottom = Color(0xFF020617);
-  static const Color surface = Color(0xFF1E293B);
-  static const Color surfaceElevated = Color(0xFF27354A);
-  static const Color surfaceGlass = Color(0xCC1E293B);
+  // Koyu Tema Arka Plan ve Yüzeyler (Açık ve Yumuşak Modern Slate)
+  static const Color backgroundTop = Color(0xFF192333);
+  static const Color backgroundBottom = Color(0xFF131C2A);
+  static const Color surface = Color(0xFF243144);
+  static const Color surfaceElevated = Color(0xFF2D3C52);
+  static const Color surfaceGlass = Color(0xCC243144);
 
   // Açık Tema Arka Plan ve Yüzeyler (Luminous Fresh Slate & Pure White Glass)
   static const Color lightBackgroundTop = Color(0xFFF8FAFC);

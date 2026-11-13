@@ -1591,7 +1591,7 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
       case SirketMenuItem.bluetoothWifiKur:
         return l.menuBluetoothWifiSetup;
       case SirketMenuItem.moduller:
-        return l.menuModules;
+        return 'Modül Yönetimi(Siteye Göre)';
       case SirketMenuItem.devreyeAlinanModuller:
         return 'Devreye Alınmış Modüller';
       case SirketMenuItem.pasifModuller:
@@ -1698,13 +1698,13 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
     case SirketMenuItem.bluetoothWifiKur:
       return 'Bluetooth ile Wi-Fi Kur';
     case SirketMenuItem.moduller:
-      return 'Modüller';
+      return 'Modül Yönetimi(Siteye Göre)';
     case SirketMenuItem.devreyeAlinanModuller:
       return 'Devreye Alınmış Modüller';
     case SirketMenuItem.pasifModuller:
       return 'Devreye Alınmamış Modüller';
     case SirketMenuItem.denetimKaydi:
-      return 'Denetim Kaydı';
+      return 'Sistem Logları';
     case SirketMenuItem.islemKayitlari:
       return 'İşlem Kayıtları';
     case SirketMenuItem.modulTalepleri:

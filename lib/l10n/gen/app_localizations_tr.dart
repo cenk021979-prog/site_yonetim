@@ -279,10 +279,10 @@ class AppLocalizationsTr extends AppLocalizations {
   String get menuBluetoothWifiSetup => 'Bluetooth ile Wi-Fi Kur';
 
   @override
-  String get menuModules => 'Modüller';
+  String get menuModules => 'Modül Yönetimi(Siteye Göre)';
 
   @override
-  String get menuAuditLog => 'Denetim Kaydı';
+  String get menuAuditLog => 'Sistem Logları';
 
   @override
   String get menuOperationLogs => 'İşlem Kayıtları';
