@@ -10,10 +10,13 @@ import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 //    öğe KAYBOLMAZ: "Tüm işlemler" ekranı görünür öğelerin TAMAMINI listeler (kümeden bağımsız).
 //  - Hiçbir kural bir modülü açıp kapatmaz; kompakt menüyü yalnız site yöneticisi değiştirir (docs/PLATFORM_MENU_KATMANI.md).
 
-/// Menü öğesinin YETENEĞİ = sunucu modül kodu. Eşlemesi olmayan öğe (Panel, Kapılar, Dairem, Site Yönetimi, Daireye Katıl, Yeni Site ve
-/// bütün hesap / ayar öğeleri) modüle bağlı olmayan sabit öğedir: kompakt menüden ETKİLENMEZ, her zaman ana menüdedir.
-/// "Kapılar" bilerek eşlenmez: kapı açma ürünün ana eylemidir ve kompakt kümeye bağlı değildir.
+/// Menü öğesinin YETENEĞİ = sunucu modül kodu. Eşlemesi olmayan öğe (Panel, Dairem, Site Yönetimi, Daireye Katıl, Yeni Site ve
+/// bütün hesap / ayar öğeleri) modüle bağlı olmayan sabit öğedir.
 const Map<SirketMenuItem, String> menuModuleCodes = <SirketMenuItem, String>{
+  SirketMenuItem.kapilar: PlatformModuleCodes.doorControl,
+  SirketMenuItem.ellerSerbest: PlatformModuleCodes.doorControl,
+  SirketMenuItem.kayitliCihazlar: PlatformModuleCodes.doorControl,
+  SirketMenuItem.bluetoothWifiKur: PlatformModuleCodes.doorControl,
   SirketMenuItem.kisiler: PlatformModuleCodes.people,
   SirketMenuItem.plakaTanima: PlatformModuleCodes.plateRecognition,
   SirketMenuItem.odemeKamera: PlatformModuleCodes.plateCameras,

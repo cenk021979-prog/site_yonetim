@@ -635,7 +635,7 @@ abstract class AppLocalizations {
   /// No description provided for @menuAuditLog.
   ///
   /// In tr, this message translates to:
-  /// **'Denetim Kaydı'**
+  /// **'Sistem Logları'**
   String get menuAuditLog;
 
   /// No description provided for @menuOperationLogs.

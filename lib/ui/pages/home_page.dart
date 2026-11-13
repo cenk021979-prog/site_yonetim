@@ -1159,28 +1159,32 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     return off.join(',');
   }
 
-  /// Menüden gizlenecek öğeler: Geçiş Kontrol bağlı olunan TÜM sitelerde kapalıyken kapı öğeleri; daire sakini rolünde
-  /// kapı erişimi olan sitesi ve kapısı olmayan hesapta da (yalnız görevli / kurul / site üyeliği bağı). Kapı listesi
-  /// doluysa ([_hasResidentSignal]) kapı öğeleri kalır. Bkz. [hiddenMenuItemsFor].
+  /// Menüden gizlenecek öğeler: TÜM KULLANICILAR İÇİN (süper kullanıcı dahil):
+  /// Tanımsız veya aktif olmayan (kapalı) hiçbir modül sol menüde görünmez.
+  /// Bkz. [hiddenMenuItemsFor] ve [menuModuleCodes].
   Set<SirketMenuItem> _hiddenMenuItems(UserRole role) {
     final session = widget.authService.session;
-    if (session != null && _isUnaffiliated(session)) {
-      return <SirketMenuItem>{
-        ...hiddenMenuItemsFor(
-          role,
-          _moduleAccess,
-          hasDoors: _hasResidentSignal,
-        ),
-        ...doorControlMenuItems,
-        SirketMenuItem.dairem,
-        SirketMenuItem.acilDurum,
-      };
+    final hidden = <SirketMenuItem>{
+      ...hiddenMenuItemsFor(
+        role,
+        _moduleAccess,
+        hasDoors: _hasResidentSignal,
+      ),
+    };
+    if (session != null && _isDoorControlClosed(session)) {
+      hidden.addAll(doorControlMenuItems);
     }
-    return hiddenMenuItemsFor(
-      role,
-      _moduleAccess,
-      hasDoors: _hasResidentSignal,
-    );
+    for (final entry in menuModuleCodes.entries) {
+      if (!_isModuleEnabledForCurrentSite(entry.value)) {
+        hidden.add(entry.key);
+      }
+    }
+    if (session != null && _isUnaffiliated(session)) {
+      hidden.addAll(doorControlMenuItems);
+      hidden.add(SirketMenuItem.dairem);
+      hidden.add(SirketMenuItem.acilDurum);
+    }
+    return hidden;
   }
 
   /// Çekmecede görünen öğeler (rol listesi + ek öğeler - gizlenenler). ÇEKMECE de Panel vitrini de bu listeyi kullanır:
@@ -1332,37 +1336,40 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// Rolün kendi menü listesinde olmayan ek öğeler: kurul üyesine "Kişiler"; alıcısı olabilecek rollere
   /// (daire sakini, yönetici / süper kullanıcı, kurul üyesi) "Duyurular".
-  Set<SirketMenuItem> _extraMenuItems(UserRole role) => <SirketMenuItem>{
-    // Kapı paneli ("Panel" artık vitrin): her rolde; Geçiş Kontrol kapalıyken ve daire sakini rolünde kapı erişimi /
-    // kapısı yokken [_hiddenMenuItems] gizler.
-    SirketMenuItem.kapilar,
-    if (_canAccessDairem(role)) SirketMenuItem.dairem,
-    if (_canAccessEmergency(role)) SirketMenuItem.acilDurum,
-    if (_moduleAccess.boardMemberSites.isNotEmpty) SirketMenuItem.kisiler,
-    if (_canAccessAnnouncements(role)) SirketMenuItem.duyurular,
-    if (_canAccessFinance(role)) SirketMenuItem.finans,
-    if (_hasFinanceInbox(role)) SirketMenuItem.borcum,
-    if (_canAccessDocuments(role)) SirketMenuItem.belgeler,
-    if (_canAccessWorkManage(role)) SirketMenuItem.talepler,
-    if (_workResidentSites(role).isNotEmpty) SirketMenuItem.taleplerim,
-    if (_canAccessReservationManage(role)) SirketMenuItem.rezervasyonlar,
-    if (_reservationResidentSites(role).isNotEmpty) SirketMenuItem.rezervasyon,
-    if (_canAccessSurveyManage(role)) SirketMenuItem.anketler,
-    if (_surveyResidentSites(role).isNotEmpty) SirketMenuItem.anket,
-    if (_canAccessDecisionManage(role)) SirketMenuItem.kararDefteri,
-    if (_decisionResidentSites(role).isNotEmpty) SirketMenuItem.kararlar,
-    if (_directoryResidentSites(role).isNotEmpty) SirketMenuItem.rehber,
-    if (_canAccessBudget(role)) SirketMenuItem.isletmeProjesi,
-    if (_neighborBoardSites(role).isNotEmpty) SirketMenuItem.komsuPanosu,
-    if (_annualReportSites(role).isNotEmpty) SirketMenuItem.faaliyetRaporu,
-    if (_plateRecognitionSites(role).isNotEmpty) SirketMenuItem.plakaTanima,
-    if (_equipmentSites(role).isNotEmpty) SirketMenuItem.ekipmanBakim,
-    if (_siteAuditLogSites(role).isNotEmpty) SirketMenuItem.islemKayitlari,
-    if (_canAccessVisitorManage(role)) SirketMenuItem.ziyaretciKayitlari,
-    if (_visitorResidentSites(role).isNotEmpty) SirketMenuItem.ziyaretcilerim,
-    if (_canAccessContracts(role)) SirketMenuItem.sozlesmeler,
-    if (_canAccessMeters(role)) SirketMenuItem.sayaclar,
-  };
+  /// KURAL: Tanımsız veya aktif olmayan (kapalı) hiçbir modül sol menüye eklenmez.
+  Set<SirketMenuItem> _extraMenuItems(UserRole role) {
+    final session = widget.authService.session;
+    return <SirketMenuItem>{
+      // Kapı paneli: Geçiş Kontrol açıkken görünür; kapalıyken tüm kullanıcılar için gizlenir.
+      if (session == null || !_isDoorControlClosed(session)) SirketMenuItem.kapilar,
+      if (_canAccessDairem(role)) SirketMenuItem.dairem,
+      if (_canAccessEmergency(role)) SirketMenuItem.acilDurum,
+      if (_moduleAccess.boardMemberSites.isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.people)) SirketMenuItem.kisiler,
+      if (_canAccessAnnouncements(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.announcements)) SirketMenuItem.duyurular,
+      if (_canAccessFinance(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.finance)) SirketMenuItem.finans,
+      if (_hasFinanceInbox(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.finance)) SirketMenuItem.borcum,
+      if (_canAccessDocuments(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.driveStorage)) SirketMenuItem.belgeler,
+      if (_canAccessWorkManage(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.workTracking)) SirketMenuItem.talepler,
+      if (_workResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.workTracking)) SirketMenuItem.taleplerim,
+      if (_canAccessReservationManage(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.reservation)) SirketMenuItem.rezervasyonlar,
+      if (_reservationResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.reservation)) SirketMenuItem.rezervasyon,
+      if (_canAccessSurveyManage(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.survey)) SirketMenuItem.anketler,
+      if (_surveyResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.survey)) SirketMenuItem.anket,
+      if (_canAccessDecisionManage(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.decisionBook)) SirketMenuItem.kararDefteri,
+      if (_decisionResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.decisionBook)) SirketMenuItem.kararlar,
+      if (_directoryResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.directory)) SirketMenuItem.rehber,
+      if (_canAccessBudget(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.budget)) SirketMenuItem.isletmeProjesi,
+      if (_neighborBoardSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.neighborBoard)) SirketMenuItem.komsuPanosu,
+      if (_annualReportSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.annualReport)) SirketMenuItem.faaliyetRaporu,
+      if (_plateRecognitionSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.plateRecognition)) SirketMenuItem.plakaTanima,
+      if (_equipmentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.equipment)) SirketMenuItem.ekipmanBakim,
+      if (_siteAuditLogSites(role).isNotEmpty) SirketMenuItem.islemKayitlari,
+      if (_canAccessVisitorManage(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.visitorLog)) SirketMenuItem.ziyaretciKayitlari,
+      if (_visitorResidentSites(role).isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.visitorLog)) SirketMenuItem.ziyaretcilerim,
+      if (_canAccessContracts(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.contracts)) SirketMenuItem.sozlesmeler,
+      if (_canAccessMeters(role) && _isModuleEnabledForCurrentSite(PlatformModuleCodes.metering)) SirketMenuItem.sayaclar,
+    };
+  }
 
   /// Dairem: daire sakini, bireysel sakin ve sakin modundaki yönetici (modül gerektirmez). Ekran, bağlı daire yoksa bunu açıkça söyler.
   bool _canAccessDairem(UserRole role) =>
@@ -2493,35 +2500,91 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         .toList(growable: false);
   }
 
-  /// Süper kullanıcının Panel'de gördüğü sitelerin Geçiş Kontrol durumu (site kodu -> açık mı).
-  /// Yalnız bilinen siteler vardır; bilinmeyen site "açık" sayılır (fail-open).
+  /// Süper kullanıcının gördüğü sitelerin modül durumları (site kodu -> state).
+  final Map<int, SiteModulesState> _superSiteModules = <int, SiteModulesState>{};
+  /// Süper kullanıcının gördüğü sitelerin Geçiş Kontrol durumu (site kodu -> açık mı).
   final Map<int, bool> _superDoorEnabled = <int, bool>{};
 
   /// Süper kullanıcı için seçili (ya da [siteId]) sitenin Geçiş Kontrol durumunu çeker.
-  Future<void> _loadSuperDoorModule([int? siteId]) async {
+  Future<void> _loadSuperDoorModule([int? siteId]) => _loadSuperSiteModules(siteId);
+
+  /// Süper kullanıcı için seçili sitenin tüm modül durumlarını çeker ve önbelleğe alır.
+  Future<void> _loadSuperSiteModules([int? siteId]) async {
     if (widget.authService.session?.role != UserRole.superUser) return;
-    final id = siteId ?? _doorControlSite?.id;
+    final id = siteId ?? _doorControlSite?.id ?? _selectedSite?.id;
     if (id == null) return;
     try {
       final state = await widget.authService.getSiteModules(id);
       if (!mounted) return;
+      _superSiteModules[id] = state;
       final enabled = state.module(PlatformModuleCodes.doorControl)?.enabled;
-      if (enabled != null && _superDoorEnabled[id] != enabled) {
-        setState(() => _superDoorEnabled[id] = enabled);
+      if (enabled != null) {
+        _superDoorEnabled[id] = enabled;
       }
+      setState(() {});
     } catch (_) {
-      // Durum öğrenilemedi: kapı kartları gösterilmeye devam eder (sunucu zaten reddeder).
+      // Durum öğrenilemedi: mevcut durum korunur.
     }
   }
 
   /// Geçiş Kontrol kapalı mı? Süper olmayan kullanıcıda: bağlı olduğu ve gerçek kapı erişimi olan
-  /// TÜM sitelerde kapalı. Süper kullanıcıda: Panel'de seçili sitede kapalı.
+  /// TÜM sitelerde (veya seçili kapsamda) kapalı. Süper kullanıcıda: seçili sitede kapalı.
   bool _isDoorControlClosed(UserSession session) {
     if (session.role == UserRole.superUser) {
-      final site = _doorControlSite;
-      return site != null && _superDoorEnabled[site.id] == false;
+      final site = _doorControlSite ?? _selectedSite;
+      if (site != null) {
+        if (_superDoorEnabled[site.id] != null) {
+          return !_superDoorEnabled[site.id]!;
+        }
+        if (widget.authService.isDoorControlClosed(site.id)) {
+          return true;
+        }
+      }
+      return false;
+    }
+    final scope = _moduleAccess.scopeSiteCode;
+    if (scope != null) {
+      return !_moduleAccess.isEnabled(scope, PlatformModuleCodes.doorControl) ||
+          widget.authService.isDoorControlClosed(scope);
     }
     return _moduleAccess.isDisabledEverywhere(PlatformModuleCodes.doorControl);
+  }
+
+  /// Geçerli sitede veya kullanıcı kapsamında ilgili modül aktif / açık mı?
+  /// TÜM KULLANICILAR İÇİN: Tanımsız veya aktif olmayan hiçbir modül sol menüde görünmez.
+  bool _isModuleEnabledForCurrentSite(String moduleCode) {
+    final session = widget.authService.session;
+    if (session == null) return true;
+
+    if (session.role == UserRole.superUser) {
+      final siteId = _doorControlSite?.id ?? _selectedSite?.id;
+      if (siteId != null) {
+        if (moduleCode == PlatformModuleCodes.doorControl) {
+          if (_superDoorEnabled[siteId] != null) {
+            return _superDoorEnabled[siteId]!;
+          }
+          if (widget.authService.isDoorControlClosed(siteId)) {
+            return false;
+          }
+        }
+        final state = _superSiteModules[siteId];
+        if (state != null) {
+          final m = state.module(moduleCode);
+          if (m != null) {
+            return m.enabled && m.isPlatformActive;
+          }
+        }
+      }
+      return PlatformModule.defaultEnabled(moduleCode);
+    }
+
+    if (_moduleAccess.scopeSiteCode != null) {
+      return _moduleAccess.isEnabled(_moduleAccess.scopeSiteCode!, moduleCode);
+    }
+    if (_moduleAccess.isDisabledEverywhere(moduleCode)) {
+      return false;
+    }
+    return _moduleAccess.anyEnabled(moduleCode);
   }
 
   // --- Navigasyon & Menü ---
@@ -3290,6 +3353,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     unawaited(_loadSiteManagers(site.id));
+    unawaited(_loadSuperSiteModules(site.id));
 
     final (structure, error) = await widget.authService.getSiteStructure(
       siteCode: site.id,

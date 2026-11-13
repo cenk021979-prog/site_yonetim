@@ -1228,6 +1228,9 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Sitede Geçiş Kontrol (`door_control`) modülü kapalı mı?
+  bool isDoorControlClosed(int siteCode) => _doorControlClosedSites.contains(siteCode);
+
   MyModulesResult? _lastMyModules;
 
   /// Son başarılı `getMyModules` yanıtı; hiç alınmadıysa ya da çıkıştan sonra null.

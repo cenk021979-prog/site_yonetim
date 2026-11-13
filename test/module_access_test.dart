@@ -650,7 +650,7 @@ void main() {
       access.dispose();
     });
 
-    test('bir sitede bile açıksa, veri yoksa ya da süper kullanıcıysa hiçbir şey gizlenmez', () async {
+    test('bir sitede bile açıksa ya da veri yoksa hiçbir şey gizlenmez; kapalıysa süper kullanıcı dahil gizlenir', () async {
       final mixed = await loaded(<MySiteModules>[_site(1, door: false), _site(2)]);
       expect(hiddenMenuItemsFor(UserRole.siteManager, mixed), isEmpty);
       mixed.dispose();
@@ -660,8 +660,8 @@ void main() {
       empty.dispose();
 
       final closed = await loaded(<MySiteModules>[_site(1, door: false)]);
-      expect(hiddenMenuItemsFor(UserRole.superUser, closed), isEmpty,
-          reason: 'süper kullanıcı modüllerden etkilenmez');
+      expect(hiddenMenuItemsFor(UserRole.superUser, closed), doorControlMenuItems,
+          reason: 'tüm kullanıcılar için: modül kapalıysa menüde görünmez');
       closed.dispose();
 
       final noSites = await loaded(const <MySiteModules>[]);
