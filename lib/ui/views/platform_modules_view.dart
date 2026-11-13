@@ -190,28 +190,25 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     final deployedList = modules.where((m) => m.isPlatformActive).toList();
     final undeployedList = modules.where((m) => !m.isPlatformActive).toList();
 
-    final content = RefreshIndicator(
-      onRefresh: loadData,
-      child: ListView(
-        padding: const EdgeInsets.all(AppSpace.md),
-        children: [
-          _buildViewFilterHeader(deployedList.length, undeployedList.length),
-          const SizedBox(height: AppSpace.md),
-          if (_loading && _modules == null)
-            const ListSkeleton(rows: 5)
-          else if (_error != null && _modules == null)
-            InlineNotice(
-              message: _error!,
-              onRetry: loadData,
-            )
-          else if (_modules != null)
-            _buildMainContent(deployedList, undeployedList),
-        ],
-      ),
-    );
+    final mainChildren = <Widget>[
+      _buildViewFilterHeader(deployedList.length, undeployedList.length),
+      const SizedBox(height: AppSpace.md),
+      if (_loading && _modules == null)
+        const ListSkeleton(rows: 5)
+      else if (_error != null && _modules == null)
+        InlineNotice(
+          message: _error!,
+          onRetry: loadData,
+        )
+      else if (_modules != null)
+        _buildMainContent(deployedList, undeployedList),
+    ];
 
     if (widget.isEmbedded) {
-      return content;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: mainChildren,
+      );
     }
 
     return Scaffold(
@@ -230,7 +227,13 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
           ),
         ],
       ),
-      body: content,
+      body: RefreshIndicator(
+        onRefresh: loadData,
+        child: ListView(
+          padding: const EdgeInsets.all(AppSpace.md),
+          children: mainChildren,
+        ),
+      ),
     );
   }
 
@@ -537,69 +540,76 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     required bool isDeployed,
     required Color badgeColor,
   }) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Text(
-              subTitle,
-              style: const TextStyle(
-                fontWeight: FontWeight.w700,
-                fontSize: 14.5,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-              decoration: BoxDecoration(
-                color: badgeColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '${modules.length} Adet',
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: badgeColor,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 2),
-        Text(
-          infoText,
-          style: TextStyle(fontSize: 11, color: AppColors.textMuted),
-        ),
-        const SizedBox(height: AppSpace.sm),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final cardWidth = availableWidth < 480 ? availableWidth : 230.0;
 
-        if (modules.isEmpty)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.03),
-              borderRadius: BorderRadius.circular(10),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  subTitle,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: badgeColor.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '${modules.length} Adet',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: badgeColor,
+                    ),
+                  ),
+                ),
+              ],
             ),
-            child: Text(
-              'Bu grupta modül bulunmuyor.',
-              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            const SizedBox(height: 2),
+            Text(
+              infoText,
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
             ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.sm,
-            children: modules.map((m) => _buildModuleCard(m)).toList(),
-          ),
-      ],
+            const SizedBox(height: AppSpace.sm),
+
+            if (modules.isEmpty)
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.03),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  'Bu grupta modül bulunmuyor.',
+                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: modules.map((m) => _buildModuleCard(m, cardWidth)).toList(),
+              ),
+          ],
+        );
+      },
     );
   }
 
   /// Görseldeki modül kutusu: Altında switch button ile birlikte
-  Widget _buildModuleCard(PlatformModule module) {
+  Widget _buildModuleCard(PlatformModule module, double cardWidth) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     final isBusy = _busyCodes.contains(module.code);
@@ -620,154 +630,145 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
         ? const Color(0xFF202630)
         : const Color(0xFFF7F8FA);
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        // Kart genişliği: responsive (mobil dar ekranda tam genişlik, geniş ekranda 210-250px)
-        final cardWidth = constraints.maxWidth > 520
-            ? 230.0
-            : (constraints.maxWidth > 240 ? constraints.maxWidth : 230.0);
-
-        return Container(
-          width: cardWidth,
-          decoration: BoxDecoration(
-            color: cardBg,
-            borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: cardBorderColor, width: 1.5),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
-              ),
-            ],
+    return Container(
+      width: cardWidth,
+      decoration: BoxDecoration(
+        color: cardBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: cardBorderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Üst Kısım: İkon + Modül Başlığı + Tür Rozeti
-              Padding(
-                padding: const EdgeInsets.all(AppSpace.sm),
-                child: Column(
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Üst Kısım: İkon + Modül Başlığı + Tür Rozeti
+          Padding(
+            padding: const EdgeInsets.all(AppSpace.sm),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: (isActive ? AppColors.success : AppColors.primary)
-                                .withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            icon,
-                            color: isActive ? AppColors.success : AppColors.primary,
-                            size: 22,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                module.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 13,
-                                  height: 1.2,
-                                ),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                module.code,
-                                style: TextStyle(
-                                  fontSize: 10.5,
-                                  color: AppColors.textMuted,
-                                ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    // Açıklama metni
-                    Text(
-                      module.description.isNotEmpty
-                          ? module.description
-                          : 'Modül açıklaması bulunmuyor.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textMuted,
-                        height: 1.25,
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: (isActive ? AppColors.success : AppColors.primary)
+                            .withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(10),
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
+                      child: Icon(
+                        icon,
+                        color: isActive ? AppColors.success : AppColors.primary,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            module.name,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.w700,
+                              fontSize: 13,
+                              height: 1.2,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            module.code,
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: AppColors.textMuted,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ],
                 ),
+                const SizedBox(height: 6),
+                // Açıklama metni
+                Text(
+                  module.description.isNotEmpty
+                      ? module.description
+                      : 'Modül açıklaması bulunmuyor.',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textMuted,
+                    height: 1.25,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 4),
+
+          // ALT KISIM: Switch Button ve Durum Bildirimi
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: footerBg,
+              borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
+              border: Border(
+                top: BorderSide(
+                  color: isDark ? Colors.white10 : Colors.black12,
+                ),
               ),
-
-              const SizedBox(height: 4),
-
-              // ALT KISIM: Switch Button ve Durum Bildirimi
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: footerBg,
-                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
-                  border: Border(
-                    top: BorderSide(
-                      color: isDark ? Colors.white10 : Colors.black12,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(
+                  child: Text(
+                    isActive ? 'Devrede' : 'Devre Dışı',
+                    style: TextStyle(
+                      fontSize: 11.5,
+                      fontWeight: FontWeight.w700,
+                      color: isActive ? AppColors.success : AppColors.textMuted,
                     ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        isActive ? 'Devrede' : 'Devre Dışı',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w700,
-                          color: isActive ? AppColors.success : AppColors.textMuted,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                if (isBusy)
+                  const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: Padding(
+                      padding: EdgeInsets.all(3),
+                      child: CircularProgressIndicator(strokeWidth: 2),
                     ),
-                    if (isBusy)
-                      const SizedBox(
-                        width: 22,
-                        height: 22,
-                        child: Padding(
-                          padding: EdgeInsets.all(3),
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else
-                      Transform.scale(
-                        scale: 0.85,
-                        child: Switch(
-                          value: isActive,
-                          activeThumbColor: AppColors.success,
-                          onChanged: (val) => _toggleModule(module, val),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ],
+                  )
+                else
+                  Transform.scale(
+                    scale: 0.85,
+                    child: Switch(
+                      value: isActive,
+                      activeThumbColor: AppColors.success,
+                      onChanged: (val) => _toggleModule(module, val),
+                    ),
+                  ),
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
