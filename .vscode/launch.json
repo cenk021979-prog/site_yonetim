@@ -13,6 +13,15 @@
             "request": "launch",
             "type": "dart",
             "program": "lib/main.dart"
+        },
+        {
+            "name": "SmartKeyPass Cihaz Etiketleyici (company_qr_tool)",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${workspaceFolder}/company_qr_tool/app.py",
+            "console": "integratedTerminal",
+            "python": "${workspaceFolder}/company_qr_tool/.venv/Scripts/python.exe",
+            "cwd": "${workspaceFolder}/company_qr_tool"
         }
     ]
 }

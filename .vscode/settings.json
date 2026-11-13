@@ -2,7 +2,8 @@
   "C_Cpp.default.configurationProvider": "platformio.platformio-ide",
   "C_Cpp.intelliSenseEngine": "disabled",
   "platformio-ide.autoRebuildAutocompleteIndex": false,
-  "python.defaultInterpreterPath": "python",
+  "python.defaultInterpreterPath": "${workspaceFolder}\\company_qr_tool\\.venv\\Scripts\\python.exe",
+  "python.terminal.activateEnvironment": true,
   "dart.flutterSdkPath": "C:\\Users\\fingonancalime\\SDK\\flutter",
   "python.analysis.typeCheckingMode": "off",
   "dart.analysisExcludedFolders": [

@@ -25,6 +25,19 @@ from typing import Callable, cast
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 
+# --- Otomatik sanal ortam (venv) algılama ve yönlendirme ---
+# Herhangi bir Python yorumlayıcısında paketler eksikse otomatik olarak .venv içine yönlendirir:
+_APP_DIR = Path(__file__).resolve().parent
+_VENV_PY = _APP_DIR / ".venv" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+if _VENV_PY.is_file() and Path(sys.executable).resolve() != _VENV_PY.resolve():
+    try:
+        import qrcode  # noqa: F401
+        import serial  # noqa: F401
+        import PIL  # noqa: F401
+    except ImportError:
+        res = subprocess.run([str(_VENV_PY)] + sys.argv, cwd=str(_APP_DIR))
+        sys.exit(res.returncode)
+
 import qrcode
 from qrcode.constants import ERROR_CORRECT_H
 from PIL import Image, ImageDraw, ImageFont, ImageOps, ImageTk
