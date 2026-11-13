@@ -26,7 +26,7 @@ class AppColors {
   static const Color bgLight = lightBackgroundTop;
 
   // Koyu Tema Arka Plan ve Yüzeyler (Açık ve Yumuşak Modern Slate)
-  static const Color backgroundTop = Color(0xFF192333);
+  static const Color backgroundTop = Color(0xFF0F172A);
   static const Color backgroundBottom = Color(0xFF131C2A);
   static const Color surface = Color(0xFF243144);
   static const Color surfaceElevated = Color(0xFF2D3C52);

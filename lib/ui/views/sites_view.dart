@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/models/site_record.dart';
 import 'package:site_kapi_kontrol/models/site_structure_record.dart';
 import 'package:site_kapi_kontrol/models/site_manager_record.dart';
 import 'package:site_kapi_kontrol/services/finance_4b_api.dart' show Finance4bService;
+import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/empty_state.dart';
@@ -180,12 +181,13 @@ class SitesView extends StatelessWidget {
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(
-                    width: (constraints.maxWidth * 0.38).clamp(340.0, 440.0),
+                  Expanded(
+                    flex: 5,
                     child: leftPane,
                   ),
-                  const SizedBox(width: AppSpace.lg),
+                  const SizedBox(width: AppSpace.md),
                   Expanded(
+                    flex: 6,
                     child: rightPane,
                   ),
                 ],
@@ -201,30 +203,30 @@ class SitesView extends StatelessWidget {
     );
   }
 
-  /// "Site Listesi" çerçeveli görsel blok: başlık, sayaç, yenileme ve site kartları.
+  /// "Site Listesi" çerçeveli görsel blok: kırmızı/mercan çerçeve, koyu zemin, başlık ve alt gruplar.
   Widget _buildSiteListPane(BuildContext context, {required bool isWide}) {
     final page = pageData;
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     final containerBorderColor = isDark
-        ? const Color(0x33FFFFFF)
-        : const Color(0xFFE2E8F0);
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
 
     final containerBg = isDark
-        ? const Color(0xFF1E2638)
-        : const Color(0xFFF8FAFC);
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
 
     return Container(
       decoration: BoxDecoration(
         color: containerBg,
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: containerBorderColor, width: 1.5),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
@@ -232,16 +234,100 @@ class SitesView extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SectionHeader(
-            icon: Icons.domain_rounded,
-            title: page == null ? 'Site Listesi' : 'Site Listesi (${page.total})',
-            trailing: IconButton(
-              onPressed: isLoadingSites ? null : onRefreshSites,
-              icon: const Icon(Icons.refresh),
-              tooltip: 'Listeyi Yenile',
-            ),
+          // Ana Başlık
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.success.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.verified_rounded,
+                  color: AppColors.success,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      page == null
+                          ? 'Site Listesi'
+                          : 'Site Listesi (${page.total})',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Text(
+                      'Sistemde kayıtlı ve yönetilen siteler.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: isLoadingSites ? null : onRefreshSites,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Listeyi Yenile',
+              ),
+            ],
           ),
           const SizedBox(height: AppSpace.md),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Alt Grup: Kayıtlı Siteler
+          Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              Text(
+                'Kayıtlı Siteler',
+                style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 14.5,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${sites.length} Adet',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: isDark ? Colors.blue.shade200 : AppColors.primary,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            'Detaylarını ve ayarlarını sağda incelemek için bir site seçin.',
+            style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+          ),
+          const SizedBox(height: AppSpace.md),
+
           if (isLoadingSites && page == null)
             const ListSkeleton()
           else if (sites.isEmpty)
@@ -253,7 +339,7 @@ class SitesView extends StatelessWidget {
             for (var i = 0; i < sites.length; i++)
               Padding(
                 padding: EdgeInsets.only(
-                  bottom: i < sites.length - 1 ? AppSpace.md : 0,
+                  bottom: i < sites.length - 1 ? AppSpace.sm : 0,
                 ),
                 child: StaggeredEntry(
                   index: i,
@@ -284,29 +370,159 @@ class SitesView extends StatelessWidget {
     SiteStructureRecord? structure, {
     required bool isWide,
   }) {
-    if (isLoadingStructure && structure == null) {
-      return const ListSkeleton(rows: 2);
-    }
-    if (structure == null) {
-      if (isWide) {
-        return const EmptyCard(
-          icon: Icons.apartment_rounded,
-          title: 'İşlem yapmak için soldaki listeden bir site seçin.',
-        );
-      }
-      return const SizedBox.shrink();
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _buildStructureSummary(context, structure),
-        const SizedBox(height: AppSpace.lg),
-        _buildManagers(context),
-        const SizedBox(height: AppSpace.lg),
-        _buildApartments(context, structure),
-        const SizedBox(height: AppSpace.lg),
-        _buildDoors(context, structure),
-      ],
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerBorderColor = isDark
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    final siteName = structure?.site.name ?? 'Site';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Ana Başlık
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.tune_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      structure != null
+                          ? '$siteName Yönetimi'
+                          : 'Site Ayarları & Yönetimi',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      structure != null
+                          ? 'Seçili sitenin genel bilgileri, yöneticileri, daire ve kapıları.'
+                          : 'İşlem yapmak için soldaki listeden bir site seçin.',
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          if (isLoadingStructure && structure == null)
+            const ListSkeleton(rows: 3)
+          else if (structure == null)
+            const EmptyCard(
+              icon: Icons.apartment_rounded,
+              title: 'İşlem yapmak için soldaki listeden bir site seçin.',
+            )
+          else ...[
+            // Alt Grup 1: Genel Bilgiler
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 8,
+              runSpacing: 4,
+              children: [
+                Text(
+                  'Genel Bilgiler',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14.5,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    'Site Kodu: ${structure.site.id}',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      color: isDark ? Colors.blue.shade200 : AppColors.primary,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            const Text(
+              'Sitenin temel kimlik, adres ve hızlı yönetim eylemleri.',
+              style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            _buildStructureSummary(context, structure),
+
+            const SizedBox(height: AppSpace.lg),
+            const Divider(height: 1),
+            const SizedBox(height: AppSpace.md),
+
+            // Alt Grup 2: Site Yöneticileri
+            _buildManagers(context),
+
+            const SizedBox(height: AppSpace.lg),
+            const Divider(height: 1),
+            const SizedBox(height: AppSpace.md),
+
+            // Alt Grup 3: Daireler
+            _buildApartments(context, structure),
+
+            const SizedBox(height: AppSpace.lg),
+            const Divider(height: 1),
+            const SizedBox(height: AppSpace.md),
+
+            // Alt Grup 4: Kapılar
+            _buildDoors(context, structure),
+          ],
+        ],
+      ),
     );
   }
 
