@@ -1256,6 +1256,11 @@ class AuthService extends ChangeNotifier {
     ));
   }
 
+  /// Devreye alınmamış modülleri tüm sitelerden temizler ve veritabanı bakımı (VACUUM ANALYZE) yapar.
+  Future<Map<String, dynamic>> cleanupPlatformModules() {
+    return _runAuthorized((token) => api.cleanupPlatformModules(token: token));
+  }
+
   /// Modülü açar/kapatır; Geçiş Kontrol KAPATILIRKEN [confirm] true verilmelidir.
   Future<SiteModulesState> setSiteModule(
     int siteCode,

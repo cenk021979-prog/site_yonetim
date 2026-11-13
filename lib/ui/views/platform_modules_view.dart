@@ -93,6 +93,32 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     }
   }
 
+  Future<void> _cleanupDatabase() async {
+    setState(() => _loading = true);
+    try {
+      final res = await widget.authService.cleanupPlatformModules();
+      if (!mounted) return;
+      final sm = res['deletedSiteModulesCount'] ?? 0;
+      final mr = res['deletedModuleRequestsCount'] ?? 0;
+      final vac = res['vacuumExecuted'] == true ? ' ve VACUUM yapıldı.' : '.';
+      AppSnack.show(
+        context,
+        'Veritabanı temizlendi: $sm site modülü, $mr talep silindi$vac',
+        kind: AppSnackKind.success,
+      );
+      widget.onChanged?.call();
+      await loadData();
+    } catch (e) {
+      if (!mounted) return;
+      final msg = e is ApiException ? e.message : 'Veritabanı temizlenemedi.';
+      AppSnack.show(context, msg, kind: AppSnackKind.error);
+    } finally {
+      if (mounted) {
+        setState(() => _loading = false);
+      }
+    }
+  }
+
   String get _pageTitle {
     if (widget.showOnlyActive == true) {
       return 'Devreye Alınmış Modüller';
@@ -108,6 +134,11 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
       appBar: AppBar(
         title: Text(_pageTitle),
         actions: [
+          IconButton(
+            tooltip: 'Veritabanı Temizliği ve Bakım',
+            icon: const Icon(Icons.cleaning_services_rounded),
+            onPressed: _loading ? null : _cleanupDatabase,
+          ),
           IconButton(
             tooltip: 'Yenile',
             icon: const Icon(Icons.refresh_rounded),

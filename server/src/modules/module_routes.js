@@ -21,7 +21,7 @@ import { INT32_MAX, parseId } from '../utils/ids.js';
 import { clampAuditLimit, listAuditLog, recordAudit, actorFromAuthUser } from './audit_service.js';
 import { publicCatalog, MODULE_CATALOG, getModuleDefinition } from './catalog.js';
 import { getSiteModulesView, listMySiteModules, setSiteModuleEnabled } from './module_service.js';
-import { getPlatformModulesMap, updatePlatformModuleStatus } from './platform_modules_schema.js';
+import { getPlatformModulesMap, updatePlatformModuleStatus, cleanupUndeployedModulesFromDatabase } from './platform_modules_schema.js';
 import { listManagementTypesView } from './management_type_terms.js';
 import {
   HOUR_MS,
@@ -304,3 +304,20 @@ moduleRouter.put('/admin/platform-modules/:moduleCode', authRequired, requireSup
     return respondError(res, 'update_platform_module', error, 'Platform modülü güncellenemedi.');
   }
 });
+
+moduleRouter.post('/admin/platform-modules/cleanup', authRequired, requireSuperUser, async (req, res) => {
+  try {
+    const result = await cleanupUndeployedModulesFromDatabase();
+    await recordAudit({
+      siteCode: null,
+      action: 'platform_modules.cleanup',
+      actor: actorFromAuthUser(req.authUser),
+      target: 'system',
+      details: result,
+    });
+    return res.status(200).json(result);
+  } catch (error) {
+    return respondError(res, 'cleanup_platform_modules', error, 'Devreye alınmamış modüller temizlenemedi.');
+  }
+});
+

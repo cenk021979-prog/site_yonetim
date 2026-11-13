@@ -934,6 +934,19 @@ class AuthApi {
     _ensureStatus(response, 200);
   }
 
+  /// Devreye alınmamış modülleri tüm sitelerden temizler ve VACUUM ANALYZE çalıştırır (yalnız süper kullanıcı).
+  Future<Map<String, dynamic>> cleanupPlatformModules({
+    required String token,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'POST',
+      path: '/admin/platform-modules/cleanup',
+      token: token,
+    );
+    _ensureStatus(response, 200);
+    return _decodePayload(response);
+  }
+
   /// Denetim kaydı (yalnız süper kullanıcı). `id DESC`; sonraki sayfa için önceki yanıttaki
   /// `next_before_id` [beforeId] olarak verilir.
   Future<AuditLogPage> listAuditLog({

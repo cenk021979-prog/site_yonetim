@@ -1,4 +1,5 @@
 // 134: Platform-geneli Modül Yönetimi (Platform Master Switch) Şeması ve Veri Erişimi.
+// 135: Devreye alınmamış modüllerin site_modules temizliği ve VACUUM bakımı.
 import { pool } from '../db.js';
 import { MODULE_CATALOG } from './catalog.js';
 
@@ -33,8 +34,20 @@ VALUES
   ('announcements', TRUE, NOW()),
   ('door_control', TRUE, NOW()),
   ('directory', TRUE, NOW()),
-  ('plate_recognition', TRUE, NOW())
+  ('plate_recognition', TRUE, NOW()),
+  ('drive_storage', TRUE, NOW())
 ON CONFLICT (module_code) DO NOTHING;
+
+-- 135: Devreye alınmamış modüllerin hiçbir sitede bulunmamasını garanti et
+DELETE FROM site_modules
+WHERE module_code IN (
+  SELECT module_code FROM platform_modules WHERE is_active = FALSE
+);
+
+DELETE FROM module_requests
+WHERE module_code IN (
+  SELECT module_code FROM platform_modules WHERE is_active = FALSE
+);
 `;
 
 export async function ensurePlatformModulesSchema(client) {
@@ -94,6 +107,10 @@ export async function isModuleActiveOnPlatform(moduleCode, db = pool) {
 
 /**
  * Süper kullanıcının modülü platform genelinde açıp kapatması.
+ * Devre dışı bırakıldığında (isActive === false):
+ * - İlgili modül tüm sitelerin site_modules ve module_requests tablolarından anında silinir.
+ * Devreye alındığında (isActive === true) ve modül temel (core) ise:
+ * - Tüm sitelere otomatik olarak tanımlanır (site_modules içine eklenir).
  */
 export async function updatePlatformModuleStatus(moduleCode, isActive, updatedByUserCode = null, db = pool) {
   await db.query(
@@ -107,5 +124,69 @@ export async function updatePlatformModuleStatus(moduleCode, isActive, updatedBy
     `,
     [moduleCode, Boolean(isActive), updatedByUserCode],
   );
+
+  if (!isActive) {
+    await db.query('DELETE FROM site_modules WHERE module_code = $1', [moduleCode]);
+    await db.query('DELETE FROM module_requests WHERE module_code = $1', [moduleCode]);
+  } else {
+    const def = MODULE_CATALOG.find((m) => m.code === moduleCode);
+    if (def?.core) {
+      await db.query(
+        `
+        INSERT INTO site_modules (site_code, module_code, enabled, updated_at)
+        SELECT s.site_code, $1, TRUE, NOW()
+        FROM sites s
+        ON CONFLICT (site_code, module_code) DO UPDATE SET enabled = TRUE, updated_at = NOW()
+        WHERE site_modules.enabled IS DISTINCT FROM TRUE
+        `,
+        [moduleCode],
+      );
+    }
+  }
+
   invalidatePlatformModulesCache();
+}
+
+/**
+ * Devreye alınmamış (platform_modules.is_active = FALSE) modülleri tüm sitelerin
+ * site_modules ve module_requests tablolarından temizler ve veritabanı çöplüğünü (dead tuples)
+ * temizlemek için VACUUM ANALYZE çalıştırır.
+ */
+export async function cleanupUndeployedModulesFromDatabase(db = pool) {
+  const deleteSiteModulesRes = await db.query(`
+    DELETE FROM site_modules
+    WHERE module_code IN (
+      SELECT module_code FROM platform_modules WHERE is_active = FALSE
+    )
+    RETURNING module_code;
+  `);
+
+  const deleteRequestsRes = await db.query(`
+    DELETE FROM module_requests
+    WHERE module_code IN (
+      SELECT module_code FROM platform_modules WHERE is_active = FALSE
+    )
+    RETURNING id;
+  `);
+
+  let vacuumExecuted = false;
+  try {
+    // VACUUM ANALYZE transaction blokları içinde çalıştırılamaz; pool üzerinden bağımsız çalıştırılır
+    await db.query('VACUUM ANALYZE site_modules;');
+    await db.query('VACUUM ANALYZE module_requests;');
+    await db.query('VACUUM ANALYZE platform_modules;');
+    vacuumExecuted = true;
+  } catch (_err) {
+    // Test ortamında veya transaction içindeyse vacuum hata verebilir, güvenle yutulur
+    vacuumExecuted = false;
+  }
+
+  invalidatePlatformModulesCache();
+
+  return {
+    ok: true,
+    deletedSiteModulesCount: deleteSiteModulesRes.rowCount ?? deleteSiteModulesRes.rows?.length ?? 0,
+    deletedModuleRequestsCount: deleteRequestsRes.rowCount ?? deleteRequestsRes.rows?.length ?? 0,
+    vacuumExecuted,
+  };
 }

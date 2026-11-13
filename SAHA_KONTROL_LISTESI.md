@@ -5087,6 +5087,20 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
   - **Nasıl Test Edilir:** Cihaz seçiliyken "Sunucuya kaydet" butonuna basın.
   - **Beklenen Sonuç:** Cihaz kaydı ve QR kodu başarıyla sunucu API'sine iletilmeli ve "Sunucuya kaydedildi" bildirimi gösterilmelidir.
 
+---
+
+## 174. 🧹 Devreye Alınmamış Modüllerin Sitelerden Temizlenmesi ve DB Bakımı (Rule 33)
+
+- [ ] **174.1. Devreye Alınmamış Modüllerin Sitelerden Tamamen Kaldırılması:**
+  - **Nasıl Test Edilir:** Süper kullanıcı olarak "Platform Modülleri" ekranında "Devreye Alınmamış Modüller" listesini inceleyin ve sağ üstteki "Veritabanı Temizliği ve Bakım" butonuna dokunun (veya sunucu açılışında otomatik temizliği gözlemleyin).
+  - **Beklenen Sonuç:** Devreye alınmamış 14 modül (bütçe, iş takibi, rezervasyon, ziyaretçi, sözleşmeler, karar defteri, anket, ekipman, HGS, faaliyet raporu, komşu panosu, kartlı geçiş, online ödeme, sayaç) hiçbir sitenin modül listesinde veya taleplerinde yer almamalıdır.
+- [ ] **174.2. Pasife Alındığında Otomatik Temizlik:**
+  - **Nasıl Test Edilir:** Devreye alınmış bir modülü süper kullanıcı ekranında pasife çekin.
+  - **Beklenen Sonuç:** Modül tüm sitelerin `site_modules` ve `module_requests` kayıtlarından anında silinmeli, hiçbir sitede kalıntı bırakmamalıdır.
+- [ ] **174.3. Veritabanı Çöplüğünün Temizlenmesi (VACUUM ANALYZE):**
+  - **Nasıl Test Edilir:** Veritabanı temizliği butonuna basıldığında gelen bildirimi kontrol edin.
+  - **Beklenen Sonuç:** Başarı bildirimi gösterilmeli (`site_modules`, `module_requests` ve `platform_modules` tabloları üzerinde `VACUUM ANALYZE` icra edilmiş olmalıdır).
+
 ## Birleşim kabul kontrolü — 12 Kasım 2026
 
 - [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.

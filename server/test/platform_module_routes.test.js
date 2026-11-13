@@ -371,6 +371,16 @@ function handle(sql, params, tx) {
     return ok([{ role: row.role }]);
   }
 
+  if (/^DELETE FROM site_modules WHERE module_code IN/.test(sql)) {
+    return ok([{ module_code: 'survey' }]);
+  }
+  if (/^DELETE FROM module_requests WHERE module_code IN/.test(sql)) {
+    return ok([{ id: 101 }]);
+  }
+  if (/^VACUUM ANALYZE/.test(sql)) {
+    return ok();
+  }
+
   throw new Error(`sahte veritabani: beklenmeyen sorgu: ${sql}`);
 }
 
@@ -471,7 +481,7 @@ const moduleUrl = (site = SITE_1, code = 'door_control') => `/manager/sites/${si
 
 describe('platform rotalari: kimlik zinciri', () => {
   it('her rota authRequired ile baslar; yonetici uclari requireSiteManager, denetim ucu requireSuperUser kullanir', () => {
-    assert.equal(ORIGINAL_FIRST_HANDLERS.length, 11);
+    assert.equal(ORIGINAL_FIRST_HANDLERS.length, 12);
     for (const route of ORIGINAL_FIRST_HANDLERS) {
       assert.equal(route.handlers[0], authRequired, `${route.methods} ${route.path}`);
       if (route.path.startsWith('/manager/')) {
@@ -497,6 +507,7 @@ describe('platform rotalari: kimlik zinciri', () => {
       'GET /app/my-modules',
       'GET /manager/sites/:siteCode/modules',
       'GET /manager/sites/:siteCode/staff-roles',
+      'POST /admin/platform-modules/cleanup',
       'PUT /admin/platform-modules/:moduleCode',
       'PUT /manager/sites/:siteCode/modules/:moduleCode',
       'PUT /manager/sites/:siteCode/staff-roles',
@@ -1952,5 +1963,20 @@ describe('F9: yonetim turu terimleri', () => {
     const asManager = await call('GET', '/app/management-types', { user: users.mgrA });
     assert.equal(asSuper.status, 200);
     assert.deepEqual(asSuper.body, asManager.body);
+  });
+});
+
+describe('POST /admin/platform-modules/cleanup', () => {
+  it('yalnızca süper kullanıcı çalıştırabilir; yönetici 403 alır', async () => {
+    const res = await call('POST', '/admin/platform-modules/cleanup', { user: users.mgrA });
+    assert.equal(res.status, 403);
+  });
+
+  it('süper kullanıcı çalıştırdığında temizlik sonucunu döner', async () => {
+    const res = await call('POST', '/admin/platform-modules/cleanup', { user: users.superUser });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.ok, true);
+    assert.equal(typeof res.body.deletedSiteModulesCount, 'number');
+    assert.equal(typeof res.body.deletedModuleRequestsCount, 'number');
   });
 });
