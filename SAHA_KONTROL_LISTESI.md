@@ -5101,6 +5101,23 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
   - **Nasıl Test Edilir:** Veritabanı temizliği butonuna basıldığında gelen bildirimi kontrol edin.
   - **Beklenen Sonuç:** Başarı bildirimi gösterilmeli (`site_modules`, `module_requests` ve `platform_modules` tabloları üzerinde `VACUUM ANALYZE` icra edilmiş olmalıdır).
 
+---
+
+## 175. 🎛️ Süper User Modül Paneli — İkili Grup ve Kart Altı Switch Düzeni
+
+- [ ] **175.1. İkili Grup Panel Görünümü (Tasarım Şeması Doğrulaması):**
+  - **Nasıl Test Edilir:** Süper kullanıcı olarak "Platform Modülleri" ekranına girin ve üstteki "Tümü (İkili Panel Görünümü)" seçeneğini seçin.
+  - **Beklenen Sonuç:** Ekran görseldeki çizime uygun olarak kırmızı çerçeveli iki ana bölüme ayrılmalıdır:
+    1. "Devreye Alınan Modüller (X Adet)"
+    2. "Devreye Alınmayan Modüller (Y Adet)"
+    Geniş ekranda yan yana, dar ekranda dikey sıralı görüntülenmelidir.
+- [ ] **175.2. Temel ve Ek Modüller Alt Grupları:**
+  - **Nasıl Test Edilir:** Her iki ana kutunun içini inceleyin.
+  - **Beklenen Sonuç:** Her kutu içinde ayrı ayrı "Temel Modüller" ve "Ek Modüller" başlıkları, modül adet rozetleri ve açıklama metinleri yer almalıdır.
+- [ ] **175.3. Kart Altı Switch Butonu ile Devreye Alma / Çıkarma:**
+  - **Nasıl Test Edilir:** Herhangi bir modül kartının en altındaki switch butonunu açıp kapatın.
+  - **Beklenen Sonuç:** Switch tıklandığında bekleme çemberi görünmeli, anında devreye alınıp devreden çıkarılmalı ve modül ilgili gruba otomatik taşınmalıdır. Hiçbir taşma (overflow) hatası yaşanmamalıdır.
+
 ## Birleşim kabul kontrolü — 12 Kasım 2026
 
 - [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.

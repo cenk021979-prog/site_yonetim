@@ -7,14 +7,17 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
-import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 
+enum ModuleFilterMode { all, deployed, undeployed }
+
 /// Platform geneli modül yönetimi (Katman 1 Master Anahtarı).
 /// Yalnızca Süper Kullanıcı tarafından görülebilir ve yönetilebilir.
-/// [showOnlyActive] true ise yalnız Devreye Alınan (Aktif) modülleri gösterir,
-/// false ise Pasif Modülleri gösterir, null ise tümünü gösterir.
+/// Görseldeki ikili modern panel mimarisine göre gruplandırılmıştır:
+/// 1. Devreye Alınan Modüller (Temel ve Ek modüller)
+/// 2. Devreye Alınmayan Modüller (Temel ve Ek modüller)
+/// Her modülün altında anında "Devreye al / Devreden çıkar" switch butonu yer alır.
 class PlatformModulesView extends StatefulWidget {
   const PlatformModulesView({
     super.key,
@@ -36,10 +39,18 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   bool _loading = false;
   String? _error;
   final Set<String> _busyCodes = <String>{};
+  late ModuleFilterMode _filterMode;
 
   @override
   void initState() {
     super.initState();
+    if (widget.showOnlyActive == true) {
+      _filterMode = ModuleFilterMode.deployed;
+    } else if (widget.showOnlyActive == false) {
+      _filterMode = ModuleFilterMode.undeployed;
+    } else {
+      _filterMode = ModuleFilterMode.all;
+    }
     unawaited(loadData());
   }
 
@@ -76,8 +87,8 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
       AppSnack.show(
         context,
         isActive
-            ? '${module.name} platform genelinde AKTİF edildi.'
-            : '${module.name} platform genelinde PASİFE alındı.',
+            ? '${module.name} DEVREYE ALINDI (Platform genelinde aktif).'
+            : '${module.name} DEVREDEN ÇIKARILDI (Pasife alındı).',
         kind: AppSnackKind.success,
       );
       widget.onChanged?.call();
@@ -119,23 +130,67 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     }
   }
 
-  String get _pageTitle {
-    if (widget.showOnlyActive == true) {
-      return 'Devreye Alınmış Modüller';
-    } else if (widget.showOnlyActive == false) {
-      return 'Devreye Alınmamış Modüller';
+  IconData _getModuleIcon(String code) {
+    switch (code) {
+      case 'people':
+        return Icons.people_alt_rounded;
+      case 'door_control':
+        return Icons.door_sliding_rounded;
+      case 'plate_recognition':
+        return Icons.camera_alt_rounded;
+      case 'finance':
+        return Icons.account_balance_wallet_rounded;
+      case 'announcements':
+        return Icons.campaign_rounded;
+      case 'directory':
+        return Icons.contact_phone_rounded;
+      case 'drive_storage':
+        return Icons.folder_shared_rounded;
+      case 'reservation':
+        return Icons.event_seat_rounded;
+      case 'work_tracking':
+        return Icons.build_circle_rounded;
+      case 'metering':
+        return Icons.speed_rounded;
+      case 'online_payment':
+        return Icons.credit_card_rounded;
+      case 'survey':
+        return Icons.poll_rounded;
+      case 'visitor_log':
+        return Icons.badge_rounded;
+      case 'card_access':
+        return Icons.badge_outlined;
+      case 'contracts':
+        return Icons.handshake_rounded;
+      case 'decision_book':
+        return Icons.menu_book_rounded;
+      case 'budget':
+        return Icons.calculate_rounded;
+      case 'neighbor_board':
+        return Icons.dashboard_customize_rounded;
+      case 'annual_report':
+        return Icons.assessment_rounded;
+      case 'hgs_access':
+        return Icons.directions_car_rounded;
+      case 'equipment':
+        return Icons.inventory_2_rounded;
+      default:
+        return Icons.extension_rounded;
     }
-    return 'Platform Modül Havuzu (Global)';
   }
 
   @override
   Widget build(BuildContext context) {
+    final modules = _modules ?? <PlatformModule>[];
+    final deployedList = modules.where((m) => m.isPlatformActive).toList();
+    final undeployedList = modules.where((m) => !m.isPlatformActive).toList();
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(_pageTitle),
+        title: const Text('Platform Modül Yönetimi (Süper User)'),
         actions: [
           IconButton(
-            tooltip: 'Veritabanı Temizliği ve Bakım',
+            tooltip: 'Veritabanı Temizliği ve Bakım (VACUUM)',
             icon: const Icon(Icons.cleaning_services_rounded),
             onPressed: _loading ? null : _cleanupDatabase,
           ),
@@ -151,7 +206,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpace.md),
           children: [
-            _buildInfoCard(),
+            _buildViewFilterHeader(deployedList.length, undeployedList.length),
             const SizedBox(height: AppSpace.md),
             if (_loading && _modules == null)
               const ListSkeleton(rows: 5)
@@ -161,166 +216,506 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                 onRetry: loadData,
               )
             else if (_modules != null)
-              ..._buildModuleCards(),
+              _buildMainContent(deployedList, undeployedList),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildInfoCard() {
-    final title = widget.showOnlyActive == true
-        ? 'Devreye Alınmış Modüller'
-        : widget.showOnlyActive == false
-            ? 'Devreye Alınmamış Modüller'
-            : 'Katman 1: Platform Master Anahtarları';
-
-    final desc = widget.showOnlyActive == true
-        ? 'Tasarımı devam etse de kullanıcıların hizmetine sunulmuş modüllerdir.\n\n'
-            '• Temel Modüller: Site oluşturan herkese tanımlanan modüllerdir (her sitede otomatik aktif olur).\n'
-            '• Ek Modüller: Kullanıcının sitesine ihtiyaç duyması halinde Süper User\'dan talep ederek açabileceği modüllerdir.\n\n'
-            'Bir modülü kapatmak için anahtarı kapatabilirsiniz; anında Devreye Alınmamış Modüller altına taşınır.'
-        : widget.showOnlyActive == false
-            ? 'Tasarımına başlanmış veya devam eden, henüz kullanıcıların hizmetine sunulmamış modüllerdir.\n\n'
-                '• Yalnızca Süper Kullanıcı görebilir; diğer hiçbir kullanıcı, yönetici veya rolde kesinlikle görünmez.\n'
-                '• Menülerde, vitrinde ve modül talep listesinde yer almaz.\n\n'
-                'Geliştirmesi biten modülü aktif ettiğinizde: Temel modülse herkesin sitesinde otomatik aktif olur; Ek modülse site yöneticileri talep edebilir.'
-            : 'Burada pasife alınan modüller, Süper Kullanıcı dışındaki hiçbir kullanıcı ve rolde görünmez; menülerde ve talep listesinde yer almaz.\n\n'
-                '• Aktif Temel Modül: Tüm sitelerde otomatik tanımlanır.\n'
-                '• Aktif Ek Modül: Site yöneticileri tarafından talep edilebilir.';
-
+  Widget _buildViewFilterHeader(int deployedCount, int undeployedCount) {
     return AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isNarrow = constraints.maxWidth < 600;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  const Icon(Icons.dashboard_customize_outlined, size: 20, color: AppColors.primary),
+                  const SizedBox(width: AppSpace.xs),
+                  const Expanded(
+                    child: Text(
+                      'Süper User Modül Paneli',
+                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: AppColors.primary.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Toplam: ${_modules?.length ?? 0} Modül',
+                      style: const TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.primary,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.sm),
+              Wrap(
+                spacing: AppSpace.xs,
+                runSpacing: AppSpace.xs,
+                alignment: isNarrow ? WrapAlignment.center : WrapAlignment.start,
+                children: [
+                  ChoiceChip(
+                    label: Text('Tümü (İkili Panel Görünümü)'),
+                    selected: _filterMode == ModuleFilterMode.all,
+                    onSelected: (val) {
+                      if (val) setState(() => _filterMode = ModuleFilterMode.all);
+                    },
+                  ),
+                  ChoiceChip(
+                    avatar: const Icon(Icons.check_circle_outline, size: 16),
+                    label: Text('Devreye Alınanlar ($deployedCount Adet)'),
+                    selected: _filterMode == ModuleFilterMode.deployed,
+                    selectedColor: AppColors.success.withValues(alpha: 0.2),
+                    onSelected: (val) {
+                      if (val) setState(() => _filterMode = ModuleFilterMode.deployed);
+                    },
+                  ),
+                  ChoiceChip(
+                    avatar: const Icon(Icons.cancel_outlined, size: 16),
+                    label: Text('Devreye Alınmayanlar ($undeployedCount Adet)'),
+                    selected: _filterMode == ModuleFilterMode.undeployed,
+                    selectedColor: AppColors.error.withValues(alpha: 0.2),
+                    onSelected: (val) {
+                      if (val) setState(() => _filterMode = ModuleFilterMode.undeployed);
+                    },
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMainContent(List<PlatformModule> deployedList, List<PlatformModule> undeployedList) {
+    if (_filterMode == ModuleFilterMode.deployed) {
+      return _buildSectionContainer(
+        title: 'Devreye Alınan Modüller',
+        subtitle: 'Kullanıcıların ve sitelerin hizmetine sunulmuş modüller.',
+        modules: deployedList,
+        isDeployed: true,
+      );
+    }
+
+    if (_filterMode == ModuleFilterMode.undeployed) {
+      return _buildSectionContainer(
+        title: 'Devreye Alınmayan Modüller',
+        subtitle: 'Tasarımı devam eden, kullanıcılara ve menülere kapalı modüller.',
+        modules: undeployedList,
+        isDeployed: false,
+      );
+    }
+
+    // ModuleFilterMode.all: Görseldeki gibi iki büyük blok (Yan yana veya genişliğe göre alt alta)
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 960;
+        final leftBox = _buildSectionContainer(
+          title: 'Devreye Alınan Modüller',
+          subtitle: 'Hizmete sunulmuş modüller.',
+          modules: deployedList,
+          isDeployed: true,
+        );
+        final rightBox = _buildSectionContainer(
+          title: 'Devreye Alınmayan Modüller',
+          subtitle: 'Tasarımı devam eden pasif modüller.',
+          modules: undeployedList,
+          isDeployed: false,
+        );
+
+        if (isWide) {
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: leftBox),
+              const SizedBox(width: AppSpace.md),
+              Expanded(child: rightBox),
+            ],
+          );
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            leftBox,
+            const SizedBox(height: AppSpace.lg),
+            rightBox,
+          ],
+        );
+      },
+    );
+  }
+
+  /// Görseldeki büyük kırmızı çerçeveli modül grubu kutusu
+  Widget _buildSectionContainer({
+    required String title,
+    required String subtitle,
+    required List<PlatformModule> modules,
+    required bool isDeployed,
+  }) {
+    final temelModules = modules.where((m) => m.core).toList();
+    final ekModules = modules.where((m) => !m.core).toList();
+
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    // Görseldeki kırmızı çerçeveli modern hat
+    final containerBorderColor = isDeployed
+        ? (isDark ? Colors.redAccent.shade100.withValues(alpha: 0.6) : Colors.redAccent.shade700)
+        : (isDark ? Colors.redAccent.shade100.withValues(alpha: 0.6) : Colors.redAccent.shade700);
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Ana Başlık: Devreye alınan modüller .... Adet
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Icon(
-                widget.showOnlyActive == true
-                    ? Icons.check_circle_outline
-                    : widget.showOnlyActive == false
-                        ? Icons.pause_circle_outline
-                        : Icons.shield_outlined,
-                color: widget.showOnlyActive == false ? AppColors.warning : AppColors.primary,
-                size: 22,
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: isDeployed
+                      ? AppColors.success.withValues(alpha: 0.15)
+                      : AppColors.error.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  isDeployed ? Icons.verified_rounded : Icons.pause_circle_filled_rounded,
+                  color: isDeployed ? AppColors.success : AppColors.error,
+                  size: 22,
+                ),
               ),
-              const SizedBox(width: AppSpace.sm),
+              const SizedBox(width: 8),
               Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$title (${modules.length} Adet)',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
-          const SizedBox(height: AppSpace.xs),
-          Text(
-            desc,
-            style: const TextStyle(fontSize: 13, color: AppColors.textMuted),
+          const SizedBox(height: AppSpace.md),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Alt Grup 1: Temel Modüller
+          _buildSubGroup(
+            subTitle: 'Temel Modüller',
+            infoText: isDeployed
+                ? 'Site oluşturan her sitede otomatik aktif olur.'
+                : 'Tasarımı devam eden temel modüller (Aktif edilince tüm sitelere otomatik açılır).',
+            modules: temelModules,
+            isDeployed: isDeployed,
+            badgeColor: AppColors.primary,
+          ),
+
+          const SizedBox(height: AppSpace.lg),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Alt Grup 2: Ek Modüller
+          _buildSubGroup(
+            subTitle: 'Ek Modüller',
+            infoText: isDeployed
+                ? 'İhtiyaç halinde yöneticilerin talep edebileceği modüller.'
+                : 'Tasarımı devam eden ek modüller (Aktif edilince yöneticiler talep edebilir).',
+            modules: ekModules,
+            isDeployed: isDeployed,
+            badgeColor: Colors.orange.shade700,
           ),
         ],
       ),
     );
   }
 
-  List<Widget> _buildModuleCards() {
-    var list = _modules ?? <PlatformModule>[];
-    if (widget.showOnlyActive == true) {
-      list = list.where((m) => m.isPlatformActive).toList();
-    } else if (widget.showOnlyActive == false) {
-      list = list.where((m) => !m.isPlatformActive).toList();
-    }
-
-    if (list.isEmpty) {
-      return [
-        Center(
-          child: Padding(
-            padding: const EdgeInsets.all(AppSpace.xl),
-            child: Text(
-              widget.showOnlyActive == true
-                  ? 'Devreye alınmış aktif modül bulunmuyor.'
-                  : widget.showOnlyActive == false
-                      ? 'Pasife alınmış modül bulunmuyor.'
-                      : 'Katalogda modül bulunamadı.',
-            ),
-          ),
-        ),
-      ];
-    }
-
-    return list.map((m) {
-      final isBusy = _busyCodes.contains(m.code);
-      final isActive = m.isPlatformActive;
-
-      return Padding(
-        padding: const EdgeInsets.only(bottom: AppSpace.sm),
-        child: AppCard(
-          padding: const EdgeInsets.all(AppSpace.md),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          m.name,
-                          style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          m.code,
-                          style: TextStyle(fontSize: 12, color: AppColors.textMuted),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: AppSpace.sm),
-                  Switch(
-                    value: isActive,
-                    onChanged: isBusy ? null : (val) => _toggleModule(m, val),
-                  ),
-                ],
+  Widget _buildSubGroup({
+    required String subTitle,
+    required String infoText,
+    required List<PlatformModule> modules,
+    required bool isDeployed,
+    required Color badgeColor,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(
+              subTitle,
+              style: const TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 14.5,
               ),
-              if (m.description.trim().isNotEmpty) ...[
-                const SizedBox(height: AppSpace.xs),
-                Text(
-                  m.description,
-                  style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: badgeColor.withValues(alpha: 0.15),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '${modules.length} Adet',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  color: badgeColor,
                 ),
-              ],
-              const SizedBox(height: AppSpace.sm),
-              Wrap(
-                spacing: AppSpace.xs,
-                runSpacing: AppSpace.xs,
-                children: [
-                  StatusChip(
-                    label: isActive ? 'Devreye Alınmış' : 'Devreye Alınmamış',
-                    tone: isActive ? AppTone.success : AppTone.neutral,
-                    icon: isActive ? Icons.check_circle_outline : Icons.block,
-                  ),
-                  if (m.core)
-                    const StatusChip(
-                      label: 'Temel Modül (Herkese)',
-                      tone: AppTone.info,
-                      icon: Icons.star_border,
-                    )
-                  else
-                    const StatusChip(
-                      label: 'Ek Modül (Talep Edilebilir)',
-                      tone: AppTone.neutral,
-                      icon: Icons.tune,
-                    ),
-                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 2),
+        Text(
+          infoText,
+          style: TextStyle(fontSize: 11, color: AppColors.textMuted),
+        ),
+        const SizedBox(height: AppSpace.sm),
+
+        if (modules.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: Colors.black.withValues(alpha: 0.03),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              'Bu grupta modül bulunmuyor.',
+              style: TextStyle(fontSize: 12, color: AppColors.textMuted),
+            ),
+          )
+        else
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.sm,
+            children: modules.map((m) => _buildModuleCard(m)).toList(),
+          ),
+      ],
+    );
+  }
+
+  /// Görseldeki modül kutusu: Altında switch button ile birlikte
+  Widget _buildModuleCard(PlatformModule module) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final isBusy = _busyCodes.contains(module.code);
+    final isActive = module.isPlatformActive;
+
+    final icon = _getModuleIcon(module.code);
+
+    // Kırmızı/yeşil tonlu modern kart sınırları
+    final cardBorderColor = isActive
+        ? (isDark ? Colors.teal.shade700 : Colors.teal.shade300)
+        : (isDark ? Colors.grey.shade700 : Colors.grey.shade300);
+
+    final cardBg = isDark
+        ? const Color(0xFF282F3A)
+        : Colors.white;
+
+    final footerBg = isDark
+        ? const Color(0xFF202630)
+        : const Color(0xFFF7F8FA);
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Kart genişliği: responsive (mobil dar ekranda tam genişlik, geniş ekranda 210-250px)
+        final cardWidth = constraints.maxWidth > 520
+            ? 230.0
+            : (constraints.maxWidth > 240 ? constraints.maxWidth : 230.0);
+
+        return Container(
+          width: cardWidth,
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cardBorderColor, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
-        ),
-      );
-    }).toList(growable: false);
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Üst Kısım: İkon + Modül Başlığı + Tür Rozeti
+              Padding(
+                padding: const EdgeInsets.all(AppSpace.sm),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: (isActive ? AppColors.success : AppColors.primary)
+                                .withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            icon,
+                            color: isActive ? AppColors.success : AppColors.primary,
+                            size: 22,
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                module.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 13,
+                                  height: 1.2,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                module.code,
+                                style: TextStyle(
+                                  fontSize: 10.5,
+                                  color: AppColors.textMuted,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    // Açıklama metni
+                    Text(
+                      module.description.isNotEmpty
+                          ? module.description
+                          : 'Modül açıklaması bulunmuyor.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textMuted,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 4),
+
+              // ALT KISIM: Switch Button ve Durum Bildirimi
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: footerBg,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(13)),
+                  border: Border(
+                    top: BorderSide(
+                      color: isDark ? Colors.white10 : Colors.black12,
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isActive ? 'Devrede' : 'Devre Dışı',
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          fontWeight: FontWeight.w700,
+                          color: isActive ? AppColors.success : AppColors.textMuted,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isBusy)
+                      const SizedBox(
+                        width: 22,
+                        height: 22,
+                        child: Padding(
+                          padding: EdgeInsets.all(3),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    else
+                      Transform.scale(
+                        scale: 0.85,
+                        child: Switch(
+                          value: isActive,
+                          activeThumbColor: AppColors.success,
+                          onChanged: (val) => _toggleModule(module, val),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
