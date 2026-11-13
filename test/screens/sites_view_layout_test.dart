@@ -733,6 +733,49 @@ void main() {
         }
       },
     );
+
+    testWidgets(
+      'geniş ekranda (1200x800) site listesi ve site ayarları yan yana (master-detail); dar ekranda (360x640) alt alta',
+      (t) async {
+        // 1. Geniş Ekran (1200x800)
+        await pumpList(
+          t,
+          _view(),
+          width: 1200,
+          height: 800,
+          scale: 1.0,
+          dark: true,
+        );
+        expect(t.takeException(), isNull);
+
+        final listHeader = t.getRect(find.textContaining('Site Listesi'));
+        final summaryTitle = t.getRect(find.text('Yeşilvadi Sitesi').first);
+        // Geniş ekranda sağ paneldeki detaylar sol panelin sağında konumlanır
+        expect(
+          summaryTitle.left,
+          greaterThan(listHeader.left),
+          reason: 'Geniş ekranda detay paneli liste panelinin sağında olmalı',
+        );
+
+        // 2. Dar Ekran (360x640)
+        await pumpList(
+          t,
+          _view(),
+          width: 360,
+          height: 640,
+          scale: 1.0,
+          dark: false,
+        );
+        expect(t.takeException(), isNull);
+        final listHeaderNarrow = t.getRect(find.textContaining('Site Listesi'));
+        final summaryNarrow = t.getRect(find.text('Yeşilvadi Sitesi').first);
+        expect(
+          summaryNarrow.top,
+          greaterThan(listHeaderNarrow.top),
+          reason: 'Dar ekranda detay paneli liste panelinin altında olmalı',
+        );
+      },
+    );
   });
 
   group('SitesView görsel dil (ikon rozeti, durum, giriş, haptik)', () {

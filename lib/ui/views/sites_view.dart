@@ -152,79 +152,162 @@ class SitesView extends StatelessWidget {
   Widget build(BuildContext context) {
     final structure = selectedStructure;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: apartmentMode ? 'Site Daireleri' : 'Siteler',
-          icon: apartmentMode
-              ? Icons.home_work_rounded
-              : Icons.location_city_rounded,
-          action: canManageSites
-              ? ElevatedButton.icon(
-                  onPressed: onOpenAddSite,
-                  icon: const Icon(Icons.add_business_outlined),
-                  label: Text(addSiteLabel),
-                )
-              : null,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        ..._buildSiteList(context),
-        const SizedBox(height: AppSpace.lg),
-        if (isLoadingStructure && structure == null)
-          const ListSkeleton(rows: 2)
-        else if (structure != null) ...[
-          _buildStructureSummary(context, structure),
-          const SizedBox(height: AppSpace.lg),
-          _buildManagers(context),
-          const SizedBox(height: AppSpace.lg),
-          _buildApartments(context, structure),
-          const SizedBox(height: AppSpace.lg),
-          ..._buildDoors(context, structure),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 760;
+        final leftPane = _buildSiteListPane(context, isWide: isWide);
+        final rightPane =
+            _buildSiteDetailsPane(context, structure, isWide: isWide);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PageHeaderCard(
+              title: apartmentMode ? 'Site Daireleri' : 'Siteler',
+              icon: apartmentMode
+                  ? Icons.home_work_rounded
+                  : Icons.location_city_rounded,
+              action: canManageSites
+                  ? ElevatedButton.icon(
+                      onPressed: onOpenAddSite,
+                      icon: const Icon(Icons.add_business_outlined),
+                      label: Text(addSiteLabel),
+                    )
+                  : null,
+            ),
+            const SizedBox(height: AppSpace.lg),
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: (constraints.maxWidth * 0.38).clamp(340.0, 440.0),
+                    child: leftPane,
+                  ),
+                  const SizedBox(width: AppSpace.lg),
+                  Expanded(
+                    child: rightPane,
+                  ),
+                ],
+              )
+            else ...[
+              leftPane,
+              const SizedBox(height: AppSpace.lg),
+              rightPane,
+            ],
+          ],
+        );
+      },
     );
   }
 
-  /// "Site Listesi" bölümü: başlık sayfa zemininde, her site kendi AppCard'ı (tek yüzey).
-  List<Widget> _buildSiteList(BuildContext context) {
+  /// "Site Listesi" çerçeveli görsel blok: başlık, sayaç, yenileme ve site kartları.
+  Widget _buildSiteListPane(BuildContext context, {required bool isWide}) {
     final page = pageData;
-    return [
-      SectionHeader(
-        title: page == null ? 'Site Listesi' : 'Site Listesi (${page.total})',
-        trailing: IconButton(
-          onPressed: isLoadingSites ? null : onRefreshSites,
-          icon: const Icon(Icons.refresh),
-        ),
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerBorderColor = isDark
+        ? const Color(0x33FFFFFF)
+        : const Color(0xFFE2E8F0);
+
+    final containerBg = isDark
+        ? const Color(0xFF1E2638)
+        : const Color(0xFFF8FAFC);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: containerBorderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      const SizedBox(height: AppSpace.md),
-      if (isLoadingSites && page == null)
-        const ListSkeleton()
-      else if (sites.isEmpty)
-        const EmptyCard(
-          icon: Icons.apartment_rounded,
-          title: 'Kayıtlı site bulunamadı.',
-        )
-      else ...[
-        for (var i = 0; i < sites.length; i++)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: StaggeredEntry(
-              index: i,
-              child: _buildSiteCard(sites[i]),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(
+            icon: Icons.domain_rounded,
+            title: page == null ? 'Site Listesi' : 'Site Listesi (${page.total})',
+            trailing: IconButton(
+              onPressed: isLoadingSites ? null : onRefreshSites,
+              icon: const Icon(Icons.refresh),
+              tooltip: 'Listeyi Yenile',
             ),
           ),
-        if (page != null)
-          PaginationBar(
-            label:
-                'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
-            onPrevious: page.page > 1 ? () => onLoadPage(page.page - 1) : null,
-            onNext: page.page < page.totalPages
-                ? () => onLoadPage(page.page + 1)
-                : null,
-          ),
+          const SizedBox(height: AppSpace.md),
+          if (isLoadingSites && page == null)
+            const ListSkeleton()
+          else if (sites.isEmpty)
+            const EmptyCard(
+              icon: Icons.apartment_rounded,
+              title: 'Kayıtlı site bulunamadı.',
+            )
+          else ...[
+            for (var i = 0; i < sites.length; i++)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: i < sites.length - 1 ? AppSpace.md : 0,
+                ),
+                child: StaggeredEntry(
+                  index: i,
+                  child: _buildSiteCard(sites[i]),
+                ),
+              ),
+            if (page != null) ...[
+              const SizedBox(height: AppSpace.md),
+              PaginationBar(
+                label:
+                    'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
+                onPrevious:
+                    page.page > 1 ? () => onLoadPage(page.page - 1) : null,
+                onNext: page.page < page.totalPages
+                    ? () => onLoadPage(page.page + 1)
+                    : null,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Seçili sitenin detay, ayarlar, yöneticiler, daireler ve kapılar paneli.
+  Widget _buildSiteDetailsPane(
+    BuildContext context,
+    SiteStructureRecord? structure, {
+    required bool isWide,
+  }) {
+    if (isLoadingStructure && structure == null) {
+      return const ListSkeleton(rows: 2);
+    }
+    if (structure == null) {
+      if (isWide) {
+        return const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'İşlem yapmak için soldaki listeden bir site seçin.',
+        );
+      }
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildStructureSummary(context, structure),
+        const SizedBox(height: AppSpace.lg),
+        _buildManagers(context),
+        const SizedBox(height: AppSpace.lg),
+        _buildApartments(context, structure),
+        const SizedBox(height: AppSpace.lg),
+        _buildDoors(context, structure),
       ],
-    ];
+    );
   }
 
   Widget _buildSiteCard(SiteRecord site) {
@@ -294,7 +377,14 @@ class SitesView extends StatelessWidget {
                 size: 48,
                 gap: AppSpace.md,
               ),
-              Expanded(child: Text(site.name, style: th.titleLarge)),
+              Expanded(
+                child: Text(
+                  site.name,
+                  style: th.titleLarge,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: AppSpace.sm),
@@ -315,12 +405,19 @@ class SitesView extends StatelessWidget {
               child: Text(
                 'Yönetici: ${site.managerName} (${site.managerUserCode ?? '-'})',
                 style: th.bodyMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           if ((site.address ?? '').isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AppSpace.xs),
-              child: Text('Adres: ${site.address}', style: th.bodyMedium),
+              child: Text(
+                'Adres: ${site.address}',
+                style: th.bodyMedium,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
           const SizedBox(height: AppSpace.md),
           Wrap(
@@ -674,58 +771,90 @@ class SitesView extends StatelessWidget {
     );
   }
 
-  /// "Kapılar": başlık sayfa zemininde, her kapı kendi AppCard'ı (cihazsız = uyarı tonlu).
-  List<Widget> _buildDoors(BuildContext context, SiteStructureRecord structure) {
-    return [
-      SectionHeader(
-        title: 'Kapılar',
-        count: structure.doors.length,
-        countSuffix: ' Kapı',
-        trailing: onOpenAddDoor != null
-            ? ElevatedButton.icon(
-                onPressed: onOpenAddDoor,
-                icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
-                label: const Text('Yeni Kapı'),
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: AppSpace.md,
-                    vertical: AppSpace.sm,
-                  ),
-                  minimumSize: const Size(0, 44),
-                ),
-              )
-            : null,
-      ),
-      const SizedBox(height: AppSpace.md),
-      if (structure.doors.isEmpty)
-        const EmptyCard(
-          icon: Icons.meeting_room_outlined,
-          title: 'Bu site için kapı kaydı bulunamadı.',
-        )
-      else
-        for (final (index, door) in structure.doors.indexed)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: StaggeredEntry(
-              index: index,
-              child: DoorCard(
-                door: door,
-                onAssignDevice: () => onAssignDoorDevice(door),
-                onReplaceDevice: onReplaceDevice != null
-                    ? () => onReplaceDevice!(door)
-                    : null,
-                onEditDoor: onEditDoor != null
-                    ? () => onEditDoor!(door)
-                    : null,
-                onDeleteDoor: onDeleteDoor != null
-                    ? () => onDeleteDoor!(door)
-                    : null,
-                onManagePermissions: onManageDoorPermissions != null
-                    ? () => onManageDoorPermissions!(door)
-                    : null,
-              ),
-            ),
+  /// "Kapılar" çerçeveli görsel blok: başlık, sayaç, yeni kapı düğmesi ve kapı kartları.
+  Widget _buildDoors(BuildContext context, SiteStructureRecord structure) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerBorderColor = isDark
+        ? const Color(0x33FFFFFF)
+        : const Color(0xFFE2E8F0);
+
+    final containerBg = isDark
+        ? const Color(0xFF1E2638)
+        : const Color(0xFFF8FAFC);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(AppRadius.lg),
+        border: Border.all(color: containerBorderColor, width: 1.5),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
           ),
-    ];
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          SectionHeader(
+            icon: Icons.meeting_room_rounded,
+            title: 'Kapılar',
+            count: structure.doors.length,
+            countSuffix: ' Kapı',
+            trailing: onOpenAddDoor != null
+                ? ElevatedButton.icon(
+                    onPressed: onOpenAddDoor,
+                    icon: const Icon(Icons.add_circle_outline_rounded, size: 16),
+                    label: const Text('Yeni Kapı'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AppSpace.md,
+                        vertical: AppSpace.sm,
+                      ),
+                      minimumSize: const Size(0, 44),
+                    ),
+                  )
+                : null,
+          ),
+          const SizedBox(height: AppSpace.md),
+          if (structure.doors.isEmpty)
+            const EmptyCard(
+              icon: Icons.meeting_room_outlined,
+              title: 'Bu site için kapı kaydı bulunamadı.',
+            )
+          else
+            for (final (index, door) in structure.doors.indexed)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index < structure.doors.length - 1 ? AppSpace.md : 0,
+                ),
+                child: StaggeredEntry(
+                  index: index,
+                  child: DoorCard(
+                    door: door,
+                    onAssignDevice: () => onAssignDoorDevice(door),
+                    onReplaceDevice: onReplaceDevice != null
+                        ? () => onReplaceDevice!(door)
+                        : null,
+                    onEditDoor: onEditDoor != null
+                        ? () => onEditDoor!(door)
+                        : null,
+                    onDeleteDoor: onDeleteDoor != null
+                        ? () => onDeleteDoor!(door)
+                        : null,
+                    onManagePermissions: onManageDoorPermissions != null
+                        ? () => onManageDoorPermissions!(door)
+                        : null,
+                  ),
+                ),
+              ),
+        ],
+      ),
+    );
   }
 }

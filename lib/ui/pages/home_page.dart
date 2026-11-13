@@ -7200,7 +7200,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  maxWidth: _interfaceMode.mode == InterfaceMode.simple
+                  maxWidth: (_interfaceMode.mode == InterfaceMode.simple ||
+                             _selectedMenu == SirketMenuItem.siteler ||
+                             _selectedMenu == SirketMenuItem.daireKullanicilariYonetimi)
                       ? 1440
                       : 1100,
                 ),

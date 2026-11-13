@@ -192,7 +192,12 @@ class DoorOpenButton extends StatefulWidget {
   static LinearGradient neutralGradient(AppPalette p) => LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [p.surfaceMuted, Color.alphaBlend(p.border, p.surface)],
+    colors: p.isDark
+        ? [
+            const Color(0xFF0F172A),
+            Color.alphaBlend(const Color(0x24FFFFFF), const Color(0xFF1E293B)),
+          ]
+        : [p.surfaceMuted, Color.alphaBlend(p.border, p.surface)],
   );
 
   @override
