@@ -5,13 +5,10 @@ import 'package:site_kapi_kontrol/models/platform_module.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/styles/app_colors.dart';
-import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/app_card.dart' show InlineNotice;
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
-import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
-
-enum ModuleFilterMode { all, deployed, undeployed }
 
 /// Platform geneli modül yönetimi (Katman 1 Master Anahtarı).
 /// Yalnızca Süper Kullanıcı tarafından görülebilir ve yönetilebilir.
@@ -25,15 +22,11 @@ class PlatformModulesView extends StatefulWidget {
     required this.authService,
     this.showOnlyActive,
     this.onChanged,
-    this.isEmbedded = false,
-    this.onNavigate,
   });
 
   final AuthService authService;
   final bool? showOnlyActive;
   final VoidCallback? onChanged;
-  final bool isEmbedded;
-  final ValueChanged<SirketMenuItem>? onNavigate;
 
   @override
   State<PlatformModulesView> createState() => PlatformModulesViewState();
@@ -44,18 +37,10 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   bool _loading = false;
   String? _error;
   final Set<String> _busyCodes = <String>{};
-  late ModuleFilterMode _filterMode;
 
   @override
   void initState() {
     super.initState();
-    if (widget.showOnlyActive == true) {
-      _filterMode = ModuleFilterMode.deployed;
-    } else if (widget.showOnlyActive == false) {
-      _filterMode = ModuleFilterMode.undeployed;
-    } else {
-      _filterMode = ModuleFilterMode.all;
-    }
     unawaited(loadData());
   }
 
@@ -109,7 +94,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     }
   }
 
-  Future<void> _cleanupDatabase() async {
+  Future<void> cleanupDatabase() async {
     setState(() => _loading = true);
     try {
       final res = await widget.authService.cleanupPlatformModules();
@@ -190,172 +175,24 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     final deployedList = modules.where((m) => m.isPlatformActive).toList();
     final undeployedList = modules.where((m) => !m.isPlatformActive).toList();
 
-    final mainChildren = <Widget>[
-      _buildViewFilterHeader(deployedList.length, undeployedList.length),
-      const SizedBox(height: AppSpace.md),
-      if (_loading && _modules == null)
-        const ListSkeleton(rows: 5)
-      else if (_error != null && _modules == null)
-        InlineNotice(
-          message: _error!,
-          onRetry: loadData,
-        )
-      else if (_modules != null)
-        _buildMainContent(deployedList, undeployedList),
-    ];
-
-    if (widget.isEmbedded) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: mainChildren,
-      );
-    }
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Platform Modül Yönetimi (Süper User)'),
-        actions: [
-          IconButton(
-            tooltip: 'Veritabanı Temizliği ve Bakım (VACUUM)',
-            icon: const Icon(Icons.cleaning_services_rounded),
-            onPressed: _loading ? null : _cleanupDatabase,
-          ),
-          IconButton(
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _loading ? null : loadData,
-          ),
-        ],
-      ),
-      body: RefreshIndicator(
-        onRefresh: loadData,
-        child: ListView(
-          padding: const EdgeInsets.all(AppSpace.md),
-          children: mainChildren,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildViewFilterHeader(int deployedCount, int undeployedCount) {
-    return AppCard(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final isNarrow = constraints.maxWidth < 600;
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.dashboard_customize_outlined, size: 20, color: AppColors.primary),
-                  const SizedBox(width: AppSpace.xs),
-                  const Expanded(
-                    child: Text(
-                      'Süper User Modül Paneli',
-                      style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
-                    ),
-                  ),
-                  if (widget.isEmbedded) ...[
-                    IconButton(
-                      tooltip: 'Veritabanı Temizliği ve Bakım (VACUUM)',
-                      icon: const Icon(Icons.cleaning_services_rounded, size: 20),
-                      onPressed: _loading ? null : _cleanupDatabase,
-                    ),
-                    IconButton(
-                      tooltip: 'Yenile',
-                      icon: const Icon(Icons.refresh_rounded, size: 20),
-                      onPressed: _loading ? null : loadData,
-                    ),
-                  ],
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: AppColors.primary.withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Toplam: ${_modules?.length ?? 0} Modül',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              if (widget.onNavigate != null) ...[
-                const SizedBox(height: AppSpace.xs),
-                Wrap(
-                  spacing: AppSpace.xs,
-                  runSpacing: AppSpace.xs,
-                  children: [
-                    ActionChip(
-                      avatar: const Icon(Icons.apartment_rounded, size: 16),
-                      label: const Text('Site Yönetimi'),
-                      onPressed: () => widget.onNavigate!(SirketMenuItem.siteler),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.people_alt_rounded, size: 16),
-                      label: const Text('Kullanıcı Yönetimi'),
-                      onPressed: () => widget.onNavigate!(SirketMenuItem.kullaniciYonetimi),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.mark_email_unread_rounded, size: 16),
-                      label: const Text('Site Başvuruları'),
-                      onPressed: () => widget.onNavigate!(SirketMenuItem.siteOnayTalepleri),
-                    ),
-                    ActionChip(
-                      avatar: const Icon(Icons.memory_rounded, size: 16),
-                      label: const Text('Kayıtlı Cihazlar'),
-                      onPressed: () => widget.onNavigate!(SirketMenuItem.kayitliCihazlar),
-                    ),
-                  ],
-                ),
-              ],
-              const SizedBox(height: AppSpace.sm),
-              Wrap(
-                spacing: AppSpace.xs,
-                runSpacing: AppSpace.xs,
-                alignment: isNarrow ? WrapAlignment.center : WrapAlignment.start,
-                children: [
-                  ChoiceChip(
-                    label: const Text('Tümü (İkili Panel Görünümü)'),
-                    selected: _filterMode == ModuleFilterMode.all,
-                    onSelected: (val) {
-                      if (val) setState(() => _filterMode = ModuleFilterMode.all);
-                    },
-                  ),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.check_circle_outline, size: 16),
-                    label: Text('Devreye Alınanlar ($deployedCount Adet)'),
-                    selected: _filterMode == ModuleFilterMode.deployed,
-                    selectedColor: AppColors.success.withValues(alpha: 0.2),
-                    onSelected: (val) {
-                      if (val) setState(() => _filterMode = ModuleFilterMode.deployed);
-                    },
-                  ),
-                  ChoiceChip(
-                    avatar: const Icon(Icons.cancel_outlined, size: 16),
-                    label: Text('Devreye Alınmayanlar ($undeployedCount Adet)'),
-                    selected: _filterMode == ModuleFilterMode.undeployed,
-                    selectedColor: AppColors.error.withValues(alpha: 0.2),
-                    onSelected: (val) {
-                      if (val) setState(() => _filterMode = ModuleFilterMode.undeployed);
-                    },
-                  ),
-                ],
-              ),
-            ],
-          );
-        },
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_loading && _modules == null)
+          const ListSkeleton(rows: 5)
+        else if (_error != null && _modules == null)
+          InlineNotice(
+            message: _error!,
+            onRetry: loadData,
+          )
+        else if (_modules != null)
+          _buildMainContent(deployedList, undeployedList),
+      ],
     );
   }
 
   Widget _buildMainContent(List<PlatformModule> deployedList, List<PlatformModule> undeployedList) {
-    if (_filterMode == ModuleFilterMode.deployed) {
+    if (widget.showOnlyActive == true) {
       return _buildSectionContainer(
         title: 'Devreye Alınan Modüller',
         subtitle: 'Kullanıcıların ve sitelerin hizmetine sunulmuş modüller.',
@@ -364,7 +201,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
       );
     }
 
-    if (_filterMode == ModuleFilterMode.undeployed) {
+    if (widget.showOnlyActive == false) {
       return _buildSectionContainer(
         title: 'Devreye Alınmayan Modüller',
         subtitle: 'Tasarımı devam eden, kullanıcılara ve menülere kapalı modüller.',
@@ -373,7 +210,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
       );
     }
 
-    // ModuleFilterMode.all: Görseldeki gibi iki büyük blok (Yan yana veya genişliğe göre alt alta)
+    // Görseldeki gibi iki büyük blok (Yan yana veya genişliğe göre alt alta)
     return LayoutBuilder(
       builder: (context, constraints) {
         final isWide = constraints.maxWidth >= 960;

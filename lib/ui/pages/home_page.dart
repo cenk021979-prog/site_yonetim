@@ -7484,8 +7484,6 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           return PlatformModulesView(
             key: _superModulePanelKey,
             authService: widget.authService,
-            isEmbedded: true,
-            onNavigate: _openMenuItem,
             onChanged: () {
               unawaited(_moduleAccess.refresh());
               unawaited(_loadSuperDoorModule());
