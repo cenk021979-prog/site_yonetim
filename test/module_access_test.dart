@@ -757,4 +757,62 @@ void main() {
       superAccess.dispose();
     });
   });
+
+  group('Tüm roller için kapalı modül süzgeci (YanMenu.visibleItems)', () {
+    const roles = <UserRole>[
+      UserRole.superUser,
+      UserRole.siteManager,
+      UserRole.apartmentOwner,
+      UserRole.individual,
+    ];
+
+    for (final role in roles) {
+      test('$role: doorControlMenuItems gizlendiğinde menüde kapı öğeleri asla görünmez', () {
+        final visible = YanMenu.visibleItems(
+          role: role,
+          additionalItems: const <SirketMenuItem>{
+            SirketMenuItem.kapilar,
+            SirketMenuItem.finans,
+            SirketMenuItem.talepler,
+          },
+          hiddenItems: doorControlMenuItems,
+        );
+
+        for (final item in doorControlMenuItems) {
+          expect(visible.contains(item), isFalse, reason: '$role için $item gizlenmiş olmalı');
+        }
+      });
+
+      test('$role: bir modül (örn. finans) gizlendiğinde menüde asla görünmez', () {
+        final visible = YanMenu.visibleItems(
+          role: role,
+          additionalItems: const <SirketMenuItem>{
+            SirketMenuItem.kapilar,
+            SirketMenuItem.finans,
+            SirketMenuItem.talepler,
+          },
+          hiddenItems: const <SirketMenuItem>{
+            SirketMenuItem.finans,
+          },
+        );
+
+        expect(visible.contains(SirketMenuItem.finans), isFalse, reason: '$role için finans gizlenmiş olmalı');
+      });
+    }
+
+    test('siteManager resident modunda da kapı öğeleri gizlenir', () {
+      final visible = YanMenu.visibleItems(
+        role: UserRole.siteManager,
+        isResidentMode: true,
+        additionalItems: const <SirketMenuItem>{
+          SirketMenuItem.kapilar,
+        },
+        hiddenItems: doorControlMenuItems,
+      );
+
+      for (final item in doorControlMenuItems) {
+        expect(visible.contains(item), isFalse);
+      }
+    });
+  });
 }

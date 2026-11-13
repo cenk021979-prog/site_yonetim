@@ -3040,14 +3040,18 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// [target] menüsüne korumalı geçiş (yalnız menü seçimi değişir).
   void _goToMenu(SirketMenuItem target) {
-    _requestMenuChange(target, () {
+    final session = widget.authService.session;
+    final item = (session != null && !_canAccessMenu(target, session.role))
+        ? SirketMenuItem.dashboard
+        : target;
+    _requestMenuChange(item, () {
       if (!mounted) return;
-      if (target == SirketMenuItem.dashboard) _simpleTopic = SimpleTopic.today;
-      if (_selectedMenu != target) {
-        if (target == SirketMenuItem.kapilar) _armDoorEntryGuard();
+      if (item == SirketMenuItem.dashboard) _simpleTopic = SimpleTopic.today;
+      if (_selectedMenu != item) {
+        if (item == SirketMenuItem.kapilar) _armDoorEntryGuard();
         _jumpBodyToTop();
       }
-      setState(() => _selectedMenu = target);
+      setState(() => _selectedMenu = item);
     });
   }
 
@@ -3165,6 +3169,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Menü öğesini açar: çekmeceden seçmeyle de Panel vitrinindeki karta dokunmayla da AYNI gezinme (çekmeceyi kapatmak
   /// çağıranın işidir: [_selectMenu]).
   void _openMenuItem(SirketMenuItem item) {
+    final session = widget.authService.session;
+    if (session != null && !_canAccessMenu(item, session.role)) {
+      return;
+    }
     // Çekmeceden seçim: şeritten gelen "doğrudan gelen kutusu" isteği biter.
     _forceAnnouncementInbox = false;
 
@@ -7344,17 +7352,22 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// eski kuralıyla durur). Tam ayrım (kapı izni olan dairesiz kullanıcı) için sunucuda ayrı bir "dairesi var" alanı
   /// gerekir.
   Set<SirketMenuItem> _quickActionItems() {
+    final session = widget.authService.session;
     bool apartmentSite(String code) =>
         _moduleAccess.isFiltering &&
         _moduleAccess.result!.sites.any(
           (site) => site.doorAccess && site.isEnabled(code),
         );
     return <SirketMenuItem>{
-      SirketMenuItem.kapilar,
-      SirketMenuItem.belgeler,
-      if (apartmentSite(PlatformModuleCodes.workTracking))
+      if (session == null || !_isDoorControlClosed(session))
+        SirketMenuItem.kapilar,
+      if (_isModuleEnabledForCurrentSite(PlatformModuleCodes.driveStorage))
+        SirketMenuItem.belgeler,
+      if (apartmentSite(PlatformModuleCodes.workTracking) &&
+          _isModuleEnabledForCurrentSite(PlatformModuleCodes.workTracking))
         SirketMenuItem.taleplerim,
-      if (apartmentSite(PlatformModuleCodes.visitorLog))
+      if (apartmentSite(PlatformModuleCodes.visitorLog) &&
+          _isModuleEnabledForCurrentSite(PlatformModuleCodes.visitorLog))
         SirketMenuItem.ziyaretcilerim,
     };
   }
