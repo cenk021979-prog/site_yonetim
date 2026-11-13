@@ -426,7 +426,7 @@ class _AppGateState extends State<AppGate> with WidgetsBindingObserver {
       debugShowCheckedModeBanner: false,
       theme: AppTheme.light(),
       darkTheme: AppTheme.dark(),
-      themeMode: service?.mode ?? ThemeMode.system,
+      themeMode: service?.mode ?? ThemeMode.light,
       builder: (context, child) => MediaQuery.withClampedTextScaling(
         maxScaleFactor: 2.0,
         child: Container(

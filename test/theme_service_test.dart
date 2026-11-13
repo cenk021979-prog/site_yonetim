@@ -9,14 +9,14 @@ void main() {
     SharedPreferences.setMockInitialValues(<String, Object>{});
   });
 
-  test('varsayılan: sistem teması (mevcut davranış korunur)', () async {
+  test('varsayılan: aydınlık tema (ilk açılışta aydınlık mod)', () async {
     final service = ThemeService();
-    expect(service.mode, ThemeMode.system);
+    expect(service.mode, ThemeMode.light);
     await service.load();
-    expect(service.mode, ThemeMode.system);
+    expect(service.mode, ThemeMode.light);
   });
 
-  test('load: kayıtlı değerler okunur (dark / light)', () async {
+  test('load: kayıtlı değerler okunur (dark / light / system)', () async {
     SharedPreferences.setMockInitialValues(<String, Object>{
       ThemeService.storageKey: 'dark',
     });
@@ -30,16 +30,23 @@ void main() {
     final light = ThemeService();
     await light.load();
     expect(light.mode, ThemeMode.light);
+
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      ThemeService.storageKey: 'system',
+    });
+    final sys = ThemeService();
+    await sys.load();
+    expect(sys.mode, ThemeMode.system);
   });
 
-  test('load: bilinmeyen / bozuk değer sistem temasına döner (çökmez)', () async {
+  test('load: bilinmeyen / bozuk değer varsayılan aydınlık temaya döner (çökmez)', () async {
     for (final raw in <String>['', 'mavi', 'DARK ', '1']) {
       SharedPreferences.setMockInitialValues(<String, Object>{
         ThemeService.storageKey: raw,
       });
       final service = ThemeService();
       await service.load();
-      expect(service.mode, ThemeMode.system, reason: 'ham değer: "$raw"');
+      expect(service.mode, ThemeMode.light, reason: 'ham değer: "$raw"');
     }
   });
 
@@ -61,7 +68,7 @@ void main() {
     final first = ThemeService();
     await first.setMode(ThemeMode.light);
     final second = ThemeService();
-    expect(second.mode, ThemeMode.system, reason: 'load edilene dek varsayılan');
+    expect(second.mode, ThemeMode.light, reason: 'load edilene dek varsayılan');
     await second.load();
     expect(second.mode, ThemeMode.light);
   });
@@ -76,6 +83,7 @@ void main() {
 
   test('toggle: sistem modundayken de GÖRÜNEN temanın tersi seçilir', () async {
     final service = ThemeService();
+    await service.setMode(ThemeMode.system);
     expect(service.mode, ThemeMode.system);
     await service.toggle(Brightness.dark); // sistem koyu görünüyor
     expect(service.mode, ThemeMode.light);

@@ -1,29 +1,29 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Kullanıcının tema tercihi: sistem (varsayılan) / aydınlık / karanlık.
+/// Kullanıcının tema tercihi: aydınlık (varsayılan) / karanlık / sistem.
 ///
-/// - Varsayılan [ThemeMode.system]: tercih hiç yapılmadıysa uygulama önceki gibi cihaz temasını izler.
-/// - Tercih cihazda (SharedPreferences, [storageKey]) saklanır; bozuk/bilinmeyen değer sistem temasına döner.
+/// - Varsayılan [ThemeMode.light]: tercih hiç yapılmadıysa uygulama ilk açılışta aydınlık temada açılır.
+/// - Tercih cihazda (SharedPreferences, [storageKey]) saklanır; bozuk/bilinmeyen değer aydınlık temaya döner.
 /// - Depolama hatası uygulamayı bozmaz: tercih bellekte geçerli kalır, yalnız kalıcı olmaz.
 class ThemeService extends ChangeNotifier {
   ThemeService();
 
-  /// SharedPreferences anahtarı (değerler: `light`, `dark`; yok/başka = sistem).
+  /// SharedPreferences anahtarı (değerler: `light`, `dark`; yok/başka = aydınlık).
   static const String storageKey = 'app_theme_mode';
 
-  ThemeMode _mode = ThemeMode.system;
+  ThemeMode _mode = ThemeMode.light;
 
   ThemeMode get mode => _mode;
 
   /// Kayıtlı tercihi okur (uygulama açılışında bir kez). Değişiklik varsa dinleyicileri bilgilendirir.
   Future<void> load() async {
-    ThemeMode loaded = ThemeMode.system;
+    ThemeMode loaded = ThemeMode.light;
     try {
       final prefs = await SharedPreferences.getInstance();
       loaded = _parse(prefs.getString(storageKey));
     } catch (_) {
-      // Depolama okunamadı: sistem teması.
+      // Depolama okunamadı: aydınlık tema.
     }
     if (loaded != _mode) {
       _mode = loaded;
@@ -58,8 +58,10 @@ class ThemeService extends ChangeNotifier {
         return ThemeMode.dark;
       case 'light':
         return ThemeMode.light;
-      default:
+      case 'system':
         return ThemeMode.system;
+      default:
+        return ThemeMode.light;
     }
   }
 

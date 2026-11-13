@@ -87,7 +87,8 @@ void main() {
   testWidgets('sistem modu + sistem koyu: ikon aydınlık sembolü; dokununca AYDINLIĞA geçer', (t) async {
     t.platformDispatcher.platformBrightnessTestValue = Brightness.dark;
     addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
-    final service = ThemeService(); // varsayılan: sistem
+    final service = ThemeService();
+    await service.setMode(ThemeMode.system);
     await t.pumpWidget(_host(service));
 
     expect(_brightness(t), Brightness.dark);
