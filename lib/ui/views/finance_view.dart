@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/models/finance.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/expense_attachments.dart';
 import 'package:site_kapi_kontrol/services/payment_notice_api.dart';
+import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
@@ -612,70 +613,225 @@ class FinanceViewState extends State<FinanceView> {
   }
 
   Widget _buildSite(BuildContext context, PeopleSite site) {
-    final p = context.palette;
-    final th = Theme.of(context).textTheme;
     final scope = _scopeOf(site);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
+    if (_moduleOff) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_sitesError != null) ...[
+            InlineNotice(message: _sitesError!, onRetry: reload),
+            const SizedBox(height: AppSpace.md),
+          ],
+          _buildModuleOff(context),
         ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('finance_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    // Uzun ad satırda kısalır; tam ad uzun basınca / imleçle üzerine gelince tooltip'te görünür
-                    // (ekran okuyucu zaten tam metni okur).
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
+      );
+    }
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 760;
+        final leftPane = _buildMasterPane(context, site, scope, isWide: isWide);
+        final rightPane = _buildDetailPane(context, site, scope, isWide: isWide);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: 5,
+                    child: leftPane,
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    flex: 6,
+                    child: rightPane,
+                  ),
+                ],
+              )
+            else ...[
+              leftPane,
+              const SizedBox(height: AppSpace.lg),
+              rightPane,
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// Sol Blok (Master): Mali Durum, Hızlı Eylemler ve Modül Menüleri
+  Widget _buildMasterPane(
+    BuildContext context,
+    PeopleSite site,
+    PeopleScope scope, {
+    required bool isWide,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final th = theme.textTheme;
+    final p = context.palette;
+
+    final containerBorderColor = isDark
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-        const SizedBox(height: AppSpace.md),
-        if (!site.canWrite) ...[
-          const InlineNotice(
-            key: ValueKey<String>('finance_read_only_note'),
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak mali kayıtları yalnızca görüntüleyebilirsiniz.',
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sol Blok Başlığı (Süper kullanıcı paneli gibi)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.account_balance_wallet_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Mali Durum & İşlemler',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const Text(
+                      'Açık dönem mali özeti, hızlı işlemler ve menüler.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: reload,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Yenile',
+              ),
+            ],
           ),
           const SizedBox(height: AppSpace.md),
-        ],
-        if (_moduleOff)
-          _buildModuleOff(context)
-        else ...[
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Site seçici veya etiketi
+          if (_sites.length > 1)
+            AppCard(
+              child: DropdownButtonFormField<int>(
+                key: ValueKey<String>('finance_site_${site.code}_${_sites.length}'),
+                isExpanded: true,
+                initialValue: site.code,
+                dropdownColor: p.surface,
+                style: th.bodyMedium?.copyWith(color: p.text),
+                decoration: const InputDecoration(
+                  labelText: 'Site',
+                  prefixIcon: Icon(Icons.apartment_rounded),
+                ),
+                items: [
+                  for (final s in _sites)
+                    DropdownMenuItem<int>(
+                      value: s.code,
+                      child: Tooltip(
+                        message: _siteLabel(s),
+                        child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) _selectSite(value);
+                },
+              ),
+            )
+          else
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
+              children: [InfoChip(site.label)],
+            ),
+          const SizedBox(height: AppSpace.md),
+
+          // Salt okur uyarısı
+          if (!site.canWrite) ...[
+            const InlineNotice(
+              key: ValueKey<String>('finance_read_only_note'),
+              tone: AppTone.info,
+              icon: Icons.visibility_rounded,
+              message:
+                  'Yönetim kurulu üyesi olarak mali kayıtları yalnızca görüntüleyebilirsiniz.',
+            ),
+            const SizedBox(height: AppSpace.md),
+          ],
+
+          // Mali durum kartı (Kırmızı daire içindeki özet)
           _buildSummary(context),
           const SizedBox(height: AppSpace.md),
+
+          // Hızlı Eylemler (Sarı alan üst satır)
+          Text(
+            'Hızlı Eylemler',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: AppSpace.xs),
           _actions(site),
           const SizedBox(height: AppSpace.md),
-          // Sekme çubuğu: ekran okuyucu "sekme" rolünü ve seçili durumu okur.
+
+          // Menüler / Sekmeler (Sarı alan alt satır)
+          Text(
+            'Modül Menüleri',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: AppSpace.xs),
           Semantics(
             container: true,
             role: SemanticsRole.tabBar,
@@ -699,9 +855,133 @@ class FinanceViewState extends State<FinanceView> {
               ],
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// Sağ Blok (Detail): Sarı alandaki menülere göre değişen dinamik içerik alanı
+  Widget _buildDetailPane(
+    BuildContext context,
+    PeopleSite site,
+    PeopleScope scope, {
+    required bool isWide,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerBorderColor = isDark
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    final currentTabTuple = _tabs[_tab];
+    final currentTabName = currentTabTuple.$1;
+    final currentTabIcon = currentTabTuple.$2;
+
+    String tabSubtitle = 'Seçilen menünün detay ve işlem görünümü.';
+    switch (_tab) {
+      case 0:
+        tabSubtitle = 'Daire bazında borç, alacak ve devir bakiyeleri.';
+        break;
+      case 1:
+        tabSubtitle = 'Aidat, demirbaş ve ek bütçe borçlandırma tanımları.';
+        break;
+      case 2:
+        tabSubtitle = 'Mali dönemler, ay kapama ve gecikme tazminatı.';
+        break;
+      case 3:
+        tabSubtitle = 'Kasa ve banka hesap bakiyeleri ve hareketleri.';
+        break;
+      case 4:
+        tabSubtitle = 'Site harcamaları, faturalar ve gider belgeleri.';
+        break;
+      case 5:
+        tabSubtitle = 'Mali analizler, kasa ve işletme projesi raporları.';
+        break;
+      case 6:
+        tabSubtitle = 'Sakinlerden gelen ödeme dekontları ve bildirimleri.';
+        break;
+      case 7:
+        tabSubtitle = 'Gelir, gider ve tahsilat trend grafikleri.';
+        break;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sağ Blok Başlığı (Seçili menüye göre dinamik başlık)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  currentTabIcon,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentTabName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      tabSubtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _reloadVisibleTab,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Sekmeyi Yenile',
+              ),
+            ],
+          ),
           const SizedBox(height: AppSpace.md),
-          // Kurulu sekmeler durumunu korur; görünmeyenin animasyonları (iskelet) durur ve alanları klavye /
-          // ekran okuyucu odağına GİRMEZ (Offstage odağı kapatmaz, ExcludeFocus kapatır).
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Seçili sekmenin içeriği ("sarı alandaki menülere göre değişen alan")
           for (var i = 0; i < _tabs.length; i++)
             if (_visited.contains(i))
               Offstage(
@@ -712,7 +992,7 @@ class FinanceViewState extends State<FinanceView> {
                 ),
               ),
         ],
-      ],
+      ),
     );
   }
 
