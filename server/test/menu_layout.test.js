@@ -51,10 +51,10 @@ describe('menu yerlesimi: varsayilan kume (yonetim turu onerilerinden turetilir)
   it('apartman/site: gunluk isler + onerilenler; her sitede acik diger temel moduller (anket, panolar ...) kumede degil', () => {
     const enabled = enabledAllCore(['door_control']);
     assert.deepEqual(deriveDefaultCompactModules({ managementType: 'apartment_site', enabled }), [
-      'door_control',
       'people',
-      'announcements',
+      'door_control',
       'finance',
+      'announcements',
       'drive_storage',
     ]);
   });
@@ -67,7 +67,7 @@ describe('menu yerlesimi: varsayilan kume (yonetim turu onerilerinden turetilir)
       managementType: 'business_center',
       enabled: enabledAllCore(['work_tracking', 'visitor_log']),
     });
-    assert.deepEqual(business, ['people', 'announcements', 'finance', 'work_tracking', 'visitor_log', 'drive_storage']);
+    assert.deepEqual(business, ['people', 'finance', 'announcements', 'work_tracking', 'visitor_log', 'drive_storage']);
     const businessClosed = deriveDefaultCompactModules({ managementType: 'business_center', enabled: enabledAllCore() });
     assert.ok(businessClosed.includes('work_tracking'), 'temel öneri modülü her zaman açıktır');
     assert.ok(businessClosed.includes('visitor_log'));
@@ -421,7 +421,7 @@ describe('GET /manager/sites/:siteCode/menu-layout', () => {
     assert.equal(res.body.site_code, SITE_1);
     assert.equal(res.body.management_type, 'apartment_site');
     assert.equal(res.body.customized, false);
-    assert.deepEqual(res.body.compact_modules, ['door_control', 'people', 'announcements', 'finance', 'drive_storage']);
+    assert.deepEqual(res.body.compact_modules, ['people', 'door_control', 'finance', 'announcements', 'drive_storage']);
     assert.deepEqual(res.body.compact_modules, res.body.default_compact_modules);
     assert.equal(res.body.modules.length, MENU_MODULE_CODES.length);
     assert.deepEqual(Object.keys(res.body.modules[0]), ['code', 'name', 'description', 'core', 'enabled', 'compact', 'recommended']);

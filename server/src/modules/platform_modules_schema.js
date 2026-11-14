@@ -43,11 +43,6 @@ DELETE FROM site_modules
 WHERE module_code IN (
   SELECT module_code FROM platform_modules WHERE is_active = FALSE
 );
-
-DELETE FROM module_requests
-WHERE module_code IN (
-  SELECT module_code FROM platform_modules WHERE is_active = FALSE
-);
 `;
 
 export async function ensurePlatformModulesSchema(client) {
@@ -127,7 +122,6 @@ export async function updatePlatformModuleStatus(moduleCode, isActive, updatedBy
 
   if (!isActive) {
     await db.query('DELETE FROM site_modules WHERE module_code = $1', [moduleCode]);
-    await db.query('DELETE FROM module_requests WHERE module_code = $1', [moduleCode]);
   } else {
     const def = MODULE_CATALOG.find((m) => m.code === moduleCode);
     if (def?.core) {
@@ -161,19 +155,10 @@ export async function cleanupUndeployedModulesFromDatabase(db = pool) {
     RETURNING module_code;
   `);
 
-  const deleteRequestsRes = await db.query(`
-    DELETE FROM module_requests
-    WHERE module_code IN (
-      SELECT module_code FROM platform_modules WHERE is_active = FALSE
-    )
-    RETURNING id;
-  `);
-
   let vacuumExecuted = false;
   try {
     // VACUUM ANALYZE transaction blokları içinde çalıştırılamaz; pool üzerinden bağımsız çalıştırılır
     await db.query('VACUUM ANALYZE site_modules;');
-    await db.query('VACUUM ANALYZE module_requests;');
     await db.query('VACUUM ANALYZE platform_modules;');
     vacuumExecuted = true;
   } catch (_err) {
@@ -186,7 +171,7 @@ export async function cleanupUndeployedModulesFromDatabase(db = pool) {
   return {
     ok: true,
     deletedSiteModulesCount: deleteSiteModulesRes.rowCount ?? deleteSiteModulesRes.rows?.length ?? 0,
-    deletedModuleRequestsCount: deleteRequestsRes.rowCount ?? deleteRequestsRes.rows?.length ?? 0,
+    deletedModuleRequestsCount: 0,
     vacuumExecuted,
   };
 }

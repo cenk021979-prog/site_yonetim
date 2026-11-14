@@ -2174,19 +2174,6 @@ export async function ensureDbSchema() {
       console.error('[DB] 079/082 temel modul doldurma hatasi:', e?.code || e?.message);
     }
 
-    // 135: Devreye alınmamış (is_active = FALSE) modüllerin site_modules temizliği (AGENTS.md Kural 33)
-    try {
-      await client.query(`
-        DELETE FROM site_modules
-        WHERE module_code IN (SELECT module_code FROM platform_modules WHERE is_active = FALSE);
-        DELETE FROM module_requests
-        WHERE module_code IN (SELECT module_code FROM platform_modules WHERE is_active = FALSE);
-      `);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[DB] 135 devreye alinmamis modullerin temizligi hatasi:', e?.code || e?.message);
-    }
-
     // 083 Kart Odemesi (card_payments) Aidat ve Finans'in icine alindi: bekleyen talepler sonuclanir; kart odemesi AYARLARI (payment_provider_settings) ve eski card_payments site_modules satirlari korunur (katalog yok sayar; otomatik geri almada onceki surum okur). Hata acilisi durdurmaz.
     try {
       await client.query(CARD_PAYMENTS_INTO_FINANCE_SQL);

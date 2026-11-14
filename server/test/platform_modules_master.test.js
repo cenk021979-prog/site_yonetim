@@ -44,14 +44,10 @@ describe('platform_modules_master (Katman 1)', () => {
     assert.equal(queries[0].params[1], false);
     assert.equal(queries[0].params[2], 81793);
 
-    // Pasife alındığında site_modules ve module_requests silinmelidir
+    // Pasife alındığında site_modules silinmelidir; module_requests denetim izi olduğundan silinmez
     const siteModulesDelete = queries.find((q) => q.sql.includes('DELETE FROM site_modules'));
     assert.ok(siteModulesDelete);
     assert.equal(siteModulesDelete.params[0], 'survey');
-
-    const requestsDelete = queries.find((q) => q.sql.includes('DELETE FROM module_requests'));
-    assert.ok(requestsDelete);
-    assert.equal(requestsDelete.params[0], 'survey');
   });
 
   it('cleanupUndeployedModulesFromDatabase devreye alınmamış modülleri temizler ve vacuum çalıştırır', async () => {
@@ -62,21 +58,16 @@ describe('platform_modules_master (Katman 1)', () => {
         if (sql.includes('DELETE FROM site_modules')) {
           return { rows: [{ module_code: 'survey' }], rowCount: 1 };
         }
-        if (sql.includes('DELETE FROM module_requests')) {
-          return { rows: [{ id: 101 }], rowCount: 1 };
-        }
         return { rows: [] };
       },
     };
     const res = await cleanupUndeployedModulesFromDatabase(fakeDb);
     assert.equal(res.ok, true);
     assert.equal(res.deletedSiteModulesCount, 1);
-    assert.equal(res.deletedModuleRequestsCount, 1);
+    assert.equal(res.deletedModuleRequestsCount, 0);
     assert.equal(res.vacuumExecuted, true);
 
     assert.ok(queries.some((q) => q.sql.includes('DELETE FROM site_modules')));
-    assert.ok(queries.some((q) => q.sql.includes('DELETE FROM module_requests')));
     assert.ok(queries.some((q) => q.sql.includes('VACUUM ANALYZE site_modules')));
-    assert.ok(queries.some((q) => q.sql.includes('VACUUM ANALYZE module_requests')));
   });
 });
