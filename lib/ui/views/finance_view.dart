@@ -537,7 +537,9 @@ class FinanceViewState extends State<FinanceView> {
         // Küçük yazıda telefonda iki sütun; büyük yazıda etiketleri ezmeden
         // tek sütun. Masaüstünde eylemler içerik genişliğinde yan yana akar.
         final scale = MediaQuery.textScalerOf(context).scale(1);
-        final columns = constraints.maxWidth >= 680 ? 0 : (scale > 1.25 ? 1 : 2);
+        final columns = constraints.maxWidth >= 680
+            ? 0
+            : (constraints.maxWidth < 320 || scale > 1.25 ? 1 : 2);
         final width = columns == 0
             ? null
             : (constraints.maxWidth - AppSpace.sm * (columns - 1)) / columns;
@@ -629,7 +631,13 @@ class FinanceViewState extends State<FinanceView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 760;
+        final mq = MediaQuery.maybeOf(context);
+        final isLandscape = mq?.orientation == Orientation.landscape ||
+            (mq != null && mq.size.width > mq.size.height);
+        // Geniş ekranda (Windows/Web/Tablet >= 720) veya telefon/tablet yatay modunda (landscape >= 500)
+        // iki kart yan yana (master-detail) yerleşir; dikey mobil modda alt alta akar.
+        final isWide =
+            constraints.maxWidth >= 720 || (isLandscape && constraints.maxWidth >= 500);
         final leftPane = _buildMasterPane(context, site, scope, isWide: isWide);
         final rightPane = _buildDetailPane(context, site, scope, isWide: isWide);
 
@@ -645,12 +653,12 @@ class FinanceViewState extends State<FinanceView> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Expanded(
-                    flex: 5,
+                    flex: constraints.maxWidth >= 900 ? 5 : 1,
                     child: leftPane,
                   ),
                   const SizedBox(width: AppSpace.md),
                   Expanded(
-                    flex: 6,
+                    flex: constraints.maxWidth >= 900 ? 6 : 1,
                     child: rightPane,
                   ),
                 ],

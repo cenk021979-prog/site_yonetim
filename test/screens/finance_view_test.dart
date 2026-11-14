@@ -169,13 +169,19 @@ void main() {
   });
 
   group('özet ve eylemler', () {
-    testWidgets('genişte master-detail yan yana, dar ekranda dikey ve taşma yok', (t) async {
+    testWidgets('genişte ve mobilde yatay (landscape) modda master-detail yan yana, dikeyde tek sütun ve taşma yok', (t) async {
       final auth = FinanceFakeAuth.seeded();
+      // Geniş masaüstü (1400x1800) -> yan yana
       await _pump(t, auth, width: 1400, height: 1800);
       final payment = find.byKey(const ValueKey<String>('finance_add_payment'));
       final balanceCard = find.byType(BalanceRowCard).first;
       expect(t.getTopLeft(balanceCard).dx, greaterThan(t.getTopLeft(payment).dx));
 
+      // Telefon / tablet yatay mod (667x375 landscape) -> yan yana
+      await _pump(t, auth, width: 667, height: 375);
+      expect(t.getTopLeft(balanceCard).dx, greaterThan(t.getTopLeft(payment).dx));
+
+      // Dar dikey ekran (320x640 portrait x2) -> dikey (alt alta) ve taşma yok
       await _pump(t, auth, width: 320, height: 640, scale: 2);
       expect(t.getTopLeft(balanceCard).dy, greaterThan(t.getBottomLeft(payment).dy));
       expect(t.takeException(), isNull);

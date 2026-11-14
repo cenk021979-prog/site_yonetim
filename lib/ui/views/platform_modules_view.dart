@@ -204,7 +204,13 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   Widget _buildMainLayout(List<PlatformModule> modules) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final isWide = constraints.maxWidth >= 760;
+        final mq = MediaQuery.maybeOf(context);
+        final isLandscape = mq?.orientation == Orientation.landscape ||
+            (mq != null && mq.size.width > mq.size.height);
+        // Geniş ekranda (Windows/Web/Tablet >= 720) veya telefon/tablet yatay modunda (landscape >= 500)
+        // iki kart yan yana (master-detail) yerleşir; dikey mobil modda alt alta akar.
+        final isWide =
+            constraints.maxWidth >= 720 || (isLandscape && constraints.maxWidth >= 500);
         final leftPane = _buildModuleListPane(context, modules, isWide: isWide);
         final rightPane = _buildModuleDetailsPane(context, modules, isWide: isWide);
 
@@ -213,12 +219,12 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                flex: 5,
+                flex: constraints.maxWidth >= 900 ? 5 : 1,
                 child: leftPane,
               ),
               const SizedBox(width: AppSpace.md),
               Expanded(
-                flex: 6,
+                flex: constraints.maxWidth >= 900 ? 6 : 1,
                 child: rightPane,
               ),
             ],
