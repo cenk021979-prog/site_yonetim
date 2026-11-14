@@ -115,20 +115,16 @@ MyFinance _debt(int minor, {int? overdue, DateTime? due}) => MyFinance(
   ],
 );
 
-/// Ana sayfanın gövde yerleşimi (`HomePage._buildScrollBody`): ekran < 600 dp iken 16, değilse 20 dp yan boşluk,
-/// içerik en çok 1100 dp. Vitrin testlerde de GERÇEK sayfa genişliğiyle kurulur (320 dp ekranda vitrine 288 dp kalır).
+/// Ana sayfanın gövde yerleşimi (`HomePage._buildScrollBody`): ekran < 600 dp iken 16, < 1200 iken 20, >= 1200 iken
+/// 24 dp yan boşluk; içerik tam genişliğe yayılır. Vitrin testlerde de GERÇEK sayfa genişliğiyle kurulur.
 Widget _page(Widget child) => LayoutBuilder(
   builder: (context, constraints) {
-    final pad = constraints.maxWidth < 600 ? 16.0 : 20.0;
+    final pad = constraints.maxWidth >= 1200
+        ? 24.0
+        : (constraints.maxWidth < 600 ? 16.0 : 20.0);
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: pad),
-      child: Align(
-        alignment: Alignment.topCenter,
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
-          child: SizedBox(width: double.infinity, child: child),
-        ),
-      ),
+      child: SizedBox(width: double.infinity, child: child),
     );
   },
 );
@@ -891,7 +887,7 @@ void main() {
       expect(tops[0], tops[1], reason: '2 sütun: ilk iki kart aynı satırda');
       expect(tops[2], greaterThan(tops[0]), reason: '3. kart alt satırda');
 
-      await _pump(t, _view(role: UserRole.siteManager, audience: ShowcaseAudience.admin, items: menu, onOpen: (_) {}), width: 1100);
+      await _pump(t, _view(role: UserRole.siteManager, audience: ShowcaseAudience.admin, items: menu, onOpen: (_) {}), width: 1680);
       tops = await columnTops(t, first4);
       expect(tops.toSet().length, 1, reason: '4 sütun: ilk dört kart aynı satırda');
 
@@ -1291,9 +1287,11 @@ void main() {
             expect(t.takeException(), isNull, reason: cell);
             expect(t.getSize(find.byKey(const ValueKey<String>('panel_vitrin'))).width, 288, reason: '$cell: 320 - 2 x 16');
             expect(showcaseColumns(288, scale), columns, reason: cell);
+            final gridWidth = t.getSize(find.byKey(const ValueKey<String>('panel_vitrin_izgara'))).width;
+            final cols = showcaseColumns(gridWidth, scale);
             final a = t.getTopLeft(_card(first)).dy;
             final b = t.getTopLeft(_card(second)).dy;
-            if (columns == 2) {
+            if (cols == 2) {
               expect(b, a, reason: '$cell: iki sütun (ilk iki kart aynı satırda)');
             } else {
               expect(b, greaterThan(a), reason: '$cell: tek sütun');

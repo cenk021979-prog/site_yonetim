@@ -25,6 +25,7 @@ import 'package:site_kapi_kontrol/ui/helpers/site_application_flow.dart';
 import 'package:site_kapi_kontrol/ui/widgets/manager_call_tile.dart';
 import 'package:site_kapi_kontrol/ui/widgets/showcase_layouts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_application_status_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 
 // Vitrin renkleri tek kaynaktan ([AppShowcaseColors], tokens.dart): açık temada işverenin renk tablosu (zemin #F8FAFC,
@@ -446,8 +447,53 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
     final easy = EasyViewScope.isEnabled(context);
     final modulesMode = ViewModeScope.modeOf(context, ViewScreen.modules);
 
-    final children = <Widget>[
-      if (widget.applications != null && (!widget.simple || widget.simpleTopic == (audience == ShowcaseAudience.admin ? SimpleTopic.management : SimpleTopic.home)))
+    if (widget.simple) {
+      final children = <Widget>[
+        if (widget.applications != null &&
+            widget.simpleTopic == (audience == ShowcaseAudience.admin ? SimpleTopic.management : SimpleTopic.home))
+          SiteApplicationStatusCard(
+            tracker: widget.applications!,
+            onReapply: widget.onReapply!,
+            onRefreshAccount: widget.applicantRole && showsApprovedApplicationCard(role) ? widget.onRefreshAccount : null,
+            showApproved: widget.applicantRole && showsApprovedApplicationCard(role),
+            showLoadFailure: widget.applicantRole,
+          ),
+        if (widget.simpleTopic == SimpleTopic.finance) ?widget.simpleFinanceAttention,
+        if (widget.simpleTopic == SimpleTopic.management) ?widget.simpleManagementAttention,
+        if (audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.payments) ...[
+          _buildHero(context),
+          const SizedBox(height: AppSpace.lg),
+        ],
+        if (audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.home && widget.belowHero != null)
+          widget.belowHero!,
+        if (audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.site && widget.aboveHero != null)
+          widget.aboveHero!,
+        SimpleModuleList(
+          items: widget.menuItems,
+          audience: audience,
+          topic: widget.simpleTopic,
+          role: role,
+          badges: widget.badgeCounts,
+          onOpen: _open,
+          badgeNouns: widget.badgeNouns,
+          featuredItems: widget.featuredItems,
+          onHelp: widget.onOpenHelp,
+          onGuestPass: widget.onCreateGuestPass,
+          onAllActions: widget.onOpenAllActions,
+          todayOverview: widget.simpleTodayOverview,
+          focusEntries: focus,
+          onTopicSelected: widget.onSimpleTopicSelected,
+        ),
+      ];
+      return Column(
+        key: const ValueKey<String>('panel_vitrin'),
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: children,
+      );
+    }
+
+    final leftChildren = <Widget>[
+      if (widget.applications != null)
         SiteApplicationStatusCard(
           tracker: widget.applications!,
           onReapply: widget.onReapply!,
@@ -455,44 +501,63 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
           showApproved: widget.applicantRole && showsApprovedApplicationCard(role),
           showLoadFailure: widget.applicantRole,
         ),
-      if (!widget.simple && focus.isNotEmpty) ...[
+      if (focus.isNotEmpty) ...[
         _FocusBar(entries: focus, onOpen: _open),
         const SizedBox(height: AppSpace.lg),
       ],
-      if (!widget.simple && audience == ShowcaseAudience.admin && widget.attentionBar != null) widget.attentionBar!,
-      if (widget.simple && widget.simpleTopic == SimpleTopic.finance) ?widget.simpleFinanceAttention,
-      if (widget.simple && widget.simpleTopic == SimpleTopic.management) ?widget.simpleManagementAttention,
-      // Site yöneticisinin profilinde telefon yoksa sakinler onu arayamaz: ipucu (Profilim menüde yoksa düğmesiz).
-      if (!widget.simple && audience == ShowcaseAudience.admin && widget.managerPhoneMissing)
+      if (audience == ShowcaseAudience.admin && widget.attentionBar != null) widget.attentionBar!,
+      if (audience == ShowcaseAudience.admin && widget.managerPhoneMissing)
         ManagerPhoneHint(
-          compact: widget.simple,
+          compact: false,
           onOpenProfile: widget.menuItems.contains(SirketMenuItem.profilim) ? () => _open(SirketMenuItem.profilim) : null,
         ),
-      if (audience == ShowcaseAudience.resident && !widget.simple) ...[
+      if (audience == ShowcaseAudience.resident) ...[
         if (widget.aboveHero != null) widget.aboveHero!,
         _buildHero(context),
         const SizedBox(height: AppSpace.lg),
         if (widget.belowHero != null) widget.belowHero!,
-        // Kolay görünümde hızlı işlemler yoktur: aynı sayfalara büyük düğmelerle (aşağıda) gidilir.
         if (!easy) _buildQuickActions(context),
       ],
-      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.payments) ...[
-        _buildHero(context),
-        const SizedBox(height: AppSpace.lg),
+      if (!easy && (model.secondary.isNotEmpty || widget.onOpenHelp != null)) ...[
+        const SizedBox(height: AppSpace.xl),
+        const _SectionTitle(text: 'Hesap ve ayarlar'),
+        const SizedBox(height: AppSpace.sm),
+        Wrap(
+          key: const ValueKey<String>('panel_vitrin_ikincil'),
+          spacing: AppSpace.sm,
+          runSpacing: AppSpace.sm,
+          children: [
+            for (final entry in model.secondary)
+              _SecondaryChip(
+                label: entry.title,
+                semanticLabel: entry.semanticLabel,
+                icon: YanMenu.iconFor(entry.item),
+                chipKey: ValueKey<String>('panel_ikincil_${entry.item.name}'),
+                onTap: () => _open(entry.item),
+              ),
+            if (widget.onOpenHelp != null)
+              _SecondaryChip(
+                label: 'Yardım ve Destek',
+                semanticLabel: 'Yardım ve Destek',
+                icon: Icons.help_outline_rounded,
+                chipKey: const ValueKey<String>('panel_ikincil_yardim'),
+                onTap: widget.onOpenHelp!,
+              ),
+          ],
+        ),
       ],
-      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.home && widget.belowHero != null) widget.belowHero!,
-      if (widget.simple && audience == ShowcaseAudience.resident && widget.simpleTopic == SimpleTopic.site && widget.aboveHero != null) widget.aboveHero!,
-      if (widget.simple)
-        SimpleModuleList(
-          items: widget.menuItems, audience: audience, topic: widget.simpleTopic,
-          role: role, badges: widget.badgeCounts, onOpen: _open,
-          badgeNouns: widget.badgeNouns, featuredItems: widget.featuredItems,
-          onHelp: widget.onOpenHelp, onGuestPass: widget.onCreateGuestPass,
-          onAllActions: widget.onOpenAllActions,
-          todayOverview: widget.simpleTodayOverview, focusEntries: focus,
-          onTopicSelected: widget.onSimpleTopicSelected,
-        )
-      else if (easy)
+    ];
+    if (leftChildren.isEmpty) {
+      leftChildren.add(
+        Text(
+          'Modüllere ve yönetim işlemlerine yan panelden erişebilirsiniz.',
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      );
+    }
+
+    final rightChildren = <Widget>[
+      if (easy)
         ..._buildEasyModules(
           context,
           model,
@@ -547,41 +612,39 @@ class ModuleShowcaseViewState extends State<ModuleShowcaseView> {
               if (showAllActions) _allActionsRow(_allActionsEntry(beyondCompact), model.grid.length),
             ],
           ),
-      ],
-      if (!widget.simple && !easy && (model.secondary.isNotEmpty || widget.onOpenHelp != null)) ...[
-        const SizedBox(height: AppSpace.xl),
-        const _SectionTitle(text: 'Hesap ve ayarlar'),
-        const SizedBox(height: AppSpace.sm),
-        Wrap(
-          key: const ValueKey<String>('panel_vitrin_ikincil'),
-          spacing: AppSpace.sm,
-          runSpacing: AppSpace.sm,
-          children: [
-            for (final entry in model.secondary)
-              _SecondaryChip(
-                label: entry.title,
-                semanticLabel: entry.semanticLabel,
-                icon: YanMenu.iconFor(entry.item),
-                chipKey: ValueKey<String>('panel_ikincil_${entry.item.name}'),
-                onTap: () => _open(entry.item),
-              ),
-            if (widget.onOpenHelp != null)
-              _SecondaryChip(
-                label: 'Yardım ve Destek',
-                semanticLabel: 'Yardım ve Destek',
-                icon: Icons.help_outline_rounded,
-                chipKey: const ValueKey<String>('panel_ikincil_yardim'),
-                onTap: widget.onOpenHelp!,
-              ),
-          ],
+      ] else
+        Text(
+          'Görüntülenecek modül bulunmuyor.',
+          style: Theme.of(context).textTheme.bodyMedium,
         ),
-      ],
     ];
 
-    return Column(
+    return WorkspaceSplitShell(
       key: const ValueKey<String>('panel_vitrin'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: children,
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: audience == ShowcaseAudience.admin ? Icons.dashboard_customize_rounded : Icons.home_rounded,
+        title: audience == ShowcaseAudience.admin ? 'Yönetim Özeti' : 'Özet & Hızlı İşlemler',
+        subtitle: audience == ShowcaseAudience.admin
+            ? 'Bekleyen işler, hesap ve yönetim kısayolları.'
+            : 'Aidat özeti, hızlı işlemler ve hesap ayarları.',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: leftChildren,
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.grid_view_rounded,
+        title: 'Modül Vitrini',
+        subtitle: 'Yetkili olduğunuz tüm modüller ve işlemler.',
+        tone: AppTone.info,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: rightChildren,
+        ),
+      ),
     );
   }
 

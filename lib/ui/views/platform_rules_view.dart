@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/platform_rule_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/a11y_announce.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Kurallar" tam sayfası (karar G11; docs/PLATFORM_KURALLAR.md): gecikme tazminatı üst sınırı, işletme projesi süreleri, ısınma payı, tahmin ve
 /// saklama süreleri gibi koddan değil tablodan okunan değerler.
@@ -126,31 +127,78 @@ class PlatformRulesScreenState extends State<PlatformRulesScreen> {
   @override
   Widget build(BuildContext context) {
     final view = _view;
-    final Widget content;
+    final Widget body;
     if (view == null) {
-      content = _loading
+      final Widget state = _loading
           ? const ListSkeleton(rows: 4)
-          : InlineNotice(key: const ValueKey<String>('rules_load_error'), message: _error ?? 'Kurallar yüklenemedi.', onRetry: reload);
+          : InlineNotice(
+              key: const ValueKey<String>('rules_load_error'),
+              message: _error ?? 'Kurallar yüklenemedi.',
+              onRetry: reload,
+            );
+      body = WorkspaceSplitShell(
+        leftFlex: 4,
+        rightFlex: 8,
+        left: WorkspacePaneCard(
+          icon: Icons.rule_folder_rounded,
+          title: 'Kapsam',
+          subtitle: 'Kapsam bilgisi.',
+          tone: AppTone.primary,
+          child: Text(
+            'Platform ve site kuralları yükleniyor.',
+            style: Theme.of(context).textTheme.bodyMedium,
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.rule_rounded,
+          title: 'Kural Listesi',
+          tone: AppTone.info,
+          onRefresh: _loading ? null : reload,
+          child: state,
+        ),
+      );
     } else {
-      content = Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (_error != null) ...[
-            InlineNotice(message: _error!, onRetry: _loading ? null : reload),
-            const SizedBox(height: AppSpace.md),
-          ],
-          _ScopeCard(view: view, canEdit: widget.canEdit, fallbackSiteName: widget.siteName),
-          for (final group in view.groups)
-            if (view.itemsIn(group.code).isNotEmpty) ...[
-              const SizedBox(height: AppSpace.xl),
-              SectionHeader(title: group.label, icon: _groupIcon(group.code)),
-              const SizedBox(height: AppSpace.md),
-              for (final rule in view.itemsIn(group.code)) ...[
-                _RuleCard(rule: rule, siteScope: view.isSiteScope, canEdit: widget.canEdit && view.canEdit, onEdit: () => _edit(rule)),
+      body = WorkspaceSplitShell(
+        leftFlex: 4,
+        rightFlex: 8,
+        left: WorkspacePaneCard(
+          icon: Icons.policy_rounded,
+          title: 'Kapsam & Durum',
+          subtitle: 'Geçerli kural kapsamı ve etkinlik özeti.',
+          tone: AppTone.primary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_error != null) ...[
+                InlineNotice(message: _error!, onRetry: _loading ? null : reload),
                 const SizedBox(height: AppSpace.md),
               ],
+              _ScopeCard(view: view, canEdit: widget.canEdit, fallbackSiteName: widget.siteName),
             ],
-        ],
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.rule_rounded,
+          title: 'Kural Grupları',
+          subtitle: 'Modül ve işleyiş parametreleri.',
+          tone: AppTone.info,
+          onRefresh: _loading ? null : reload,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var gi = 0; gi < view.groups.length; gi++)
+                if (view.itemsIn(view.groups[gi].code).isNotEmpty) ...[
+                  if (gi > 0) const SizedBox(height: AppSpace.xl),
+                  SectionHeader(title: view.groups[gi].label, icon: _groupIcon(view.groups[gi].code)),
+                  const SizedBox(height: AppSpace.md),
+                  for (final rule in view.itemsIn(view.groups[gi].code)) ...[
+                    _RuleCard(rule: rule, siteScope: view.isSiteScope, canEdit: widget.canEdit && view.canEdit, onEdit: () => _edit(rule)),
+                    const SizedBox(height: AppSpace.md),
+                  ],
+                ],
+            ],
+          ),
+        ),
       );
     }
     return Scaffold(
@@ -171,7 +219,7 @@ class PlatformRulesScreenState extends State<PlatformRulesScreen> {
           child: ListView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.all(AppSpace.lg),
-            children: [content],
+            children: [body],
           ),
         ),
       ),

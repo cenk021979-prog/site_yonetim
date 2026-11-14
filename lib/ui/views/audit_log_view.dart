@@ -11,6 +11,7 @@ import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/audit_log_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Denetim Kaydı" ekranı (yalnız süper kullanıcı): yönetim işlemlerinin değiştirilemez listesi
 /// (tarih, kim, ne, site), site ve eylem filtresi, "Daha fazla yükle" ve aşağı çekip yenileme.
@@ -344,26 +345,26 @@ class AuditLogViewState extends State<AuditLogView> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'Sistem Logları', icon: Icons.fact_check_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Yönetim işlemleri (modül açma/kapama, ek rol atama, hesap ve yönetici yetkileri, kapı izinleri) değiştirilemez bir kayıt olarak tutulur.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        SectionHeader(
-          title: 'Kayıtlar',
-          trailing: IconButton(
-            onPressed: _loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'Sistem Logları', icon: Icons.fact_check_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Yönetim işlemleri (modül açma/kapama, ek rol atama, hesap ve yönetici yetkileri, kapı izinleri) değiştirilemez bir kayıt olarak tutulur.',
+            style: th.bodyMedium,
           ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        AppCard(
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.filter_alt_rounded,
+        title: 'Kayıt Filtreleri',
+        subtitle: 'Eylem türü ve site bazlı süzme.',
+        tone: AppTone.primary,
+        child: AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -423,9 +424,23 @@ class AuditLogViewState extends State<AuditLogView> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpace.md),
-        list,
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.history_rounded,
+        title: 'Denetim Kaydı',
+        subtitle: 'Değiştirilemez işlem geçmişi ve sayfalama.',
+        tone: AppTone.primary,
+        onRefresh: _loading ? null : reload,
+        refreshTooltip: 'Yenile',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SectionHeader(title: 'Kayıtlar'),
+            const SizedBox(height: AppSpace.md),
+            list,
+          ],
+        ),
+      ),
     );
   }
 }

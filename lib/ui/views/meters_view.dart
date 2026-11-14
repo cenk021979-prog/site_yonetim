@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/context_help.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 String _iso(DateTime d) => '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
@@ -85,7 +86,19 @@ class MetersViewState extends State<MetersView> with SingleTickerProviderStateMi
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
-      return const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: Text('Sayaç modülü açık bir site bulunamadı. Modüller ekranından açılmasını isteyin.')));
+      return const WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.speed_rounded,
+          title: 'Sayaç Modülü',
+          subtitle: 'Site ve yetki durumu',
+          child: Text('Sayaç modülü açık bir site seçildiğinde sayaç, okuma aktarımı ve faturalandırma araçları burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Bilgilendirme',
+          child: Text('Sayaç modülü açık bir site bulunamadı. Modüller ekranından açılmasını isteyin.'),
+        ),
+      );
     }
     if (site.fieldOnly) {
       return SizedBox(height: _bodyHeight(context), child: MeterFieldView(key: ValueKey<int>(site.code), authService: widget.authService, siteCode: site.code, siteName: site.label, service: _service));
@@ -210,27 +223,47 @@ class _MetersTabState extends State<_MetersTab> {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        Wrap(spacing: AppSpace.sm, children: <Widget>[
-          for (final k in kinds) ChoiceChip(label: Text(k.label), selected: _kind == k, onSelected: (_) => setState(() => _kind = k)),
-        ]),
-        const SizedBox(height: AppSpace.md),
-        if (widget.site.canWrite)
-          AppActionBar(actions: <AppBarAction>[
-            AppBarAction(label: 'Sayaç ekle', icon: Icons.add_rounded, primary: true, onPressed: _add),
-            AppBarAction(label: 'Fotoğrafla oku', icon: Icons.photo_camera_rounded, onPressed: _openField),
-          ]),
-        const SizedBox(height: AppSpace.md),
-        if (shown.isEmpty) const Text('Henüz sayaç kaydı yok.'),
-        for (final m in shown)
-          Card(
-            child: ListTile(
-              title: Text('${m.apartmentLabel} · ${m.kind.label}'),
-              subtitle: Text('Seri no: ${m.serialNo}\n${m.lastValue == null ? 'Okuma yok' : 'Son okuma: ${m.lastValue} (${m.lastDate})'}${m.isActive ? '' : '\nPasif'}'),
-              isThreeLine: !m.isActive,
-              onTap: () => showDialog<void>(context: context, builder: (_) => _ReadingsDialog(service: widget.service, site: widget.site, meter: m)).then((_) => _load()),
-              trailing: widget.site.canWrite ? Switch(value: m.isActive, onChanged: (_) => _toggle(m)) : null,
+        WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            icon: Icons.speed_rounded,
+            title: 'Sayaç Türü ve İşlemler',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                Wrap(spacing: AppSpace.sm, children: <Widget>[
+                  for (final k in kinds) ChoiceChip(label: Text(k.label), selected: _kind == k, onSelected: (_) => setState(() => _kind = k)),
+                ]),
+                if (widget.site.canWrite) ...<Widget>[
+                  const SizedBox(height: AppSpace.md),
+                  AppActionBar(actions: <AppBarAction>[
+                    AppBarAction(label: 'Sayaç ekle', icon: Icons.add_rounded, primary: true, onPressed: _add),
+                    AppBarAction(label: 'Fotoğrafla oku', icon: Icons.photo_camera_rounded, onPressed: _openField),
+                  ]),
+                ],
+              ],
             ),
           ),
+          right: WorkspacePaneCard(
+            icon: Icons.format_list_bulleted_rounded,
+            title: 'Sayaç Listesi',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (shown.isEmpty) const Text('Henüz sayaç kaydı yok.'),
+                for (final m in shown)
+                  Card(
+                    child: ListTile(
+                      title: Text('${m.apartmentLabel} · ${m.kind.label}'),
+                      subtitle: Text('Seri no: ${m.serialNo}\n${m.lastValue == null ? 'Okuma yok' : 'Son okuma: ${m.lastValue} (${m.lastDate})'}${m.isActive ? '' : '\nPasif'}'),
+                      isThreeLine: !m.isActive,
+                      onTap: () => showDialog<void>(context: context, builder: (_) => _ReadingsDialog(service: widget.service, site: widget.site, meter: m)).then((_) => _load()),
+                      trailing: widget.site.canWrite ? Switch(value: m.isActive, onChanged: (_) => _toggle(m)) : null,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
@@ -512,55 +545,81 @@ class _ImportTabState extends State<_ImportTab> {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        const SectionHeader(
-          title: 'Okuma aktar',
-          trailing: ContextHelp(
-            title: 'Dosya biçimi',
-            message: 'Uzaktan okuyan sayaçların dosyasını (CSV ya da Excel) yükleyin. İlk sütun daire kodu (ör. "A Blok - 5") ya da sayaç seri numarası, ikinci sütun okuma değeri olmalıdır.',
+        WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const SectionHeader(
+                  title: 'Okuma aktar',
+                  trailing: ContextHelp(
+                    title: 'Dosya biçimi',
+                    message: 'Uzaktan okuyan sayaçların dosyasını (CSV ya da Excel) yükleyin. İlk sütun daire kodu (ör. "A Blok - 5") ya da sayaç seri numarası, ikinci sütun okuma değeri olmalıdır.',
+                  ),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                DropdownButtonFormField<MeterKind>(
+                  initialValue: _kind,
+                  decoration: const InputDecoration(labelText: 'Sayaç türü'),
+                  items: <DropdownMenuItem<MeterKind>>[for (final k in MeterKind.values) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label))],
+                  onChanged: _busy ? null : (v) => setState(() {
+                    _kind = v ?? _kind;
+                    _invalidate();
+                  }),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : () async {
+                    final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: DateTime.now());
+                    if (picked == null) return;
+                    setState(() {
+                      _date = picked;
+                      _invalidate();
+                    });
+                  },
+                  icon: const Icon(Icons.event_rounded),
+                  label: Text('Okuma tarihi: ${_iso(_date)}'),
+                ),
+                const SizedBox(height: AppSpace.sm),
+                if (widget.site.canWrite) FilledButton.icon(onPressed: _busy ? null : _pick, icon: const Icon(Icons.upload_file_rounded), label: const Text('Dosya seç')),
+                if (_fileName != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text('$_fileName · ${_rows.length} satır')),
+                if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                if (_rows.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: AppSpace.md),
+                  FilledButton.tonal(onPressed: _busy ? null : () => _run(dryRun: true), child: const Text('Kontrol et')),
+                ],
+                // Fotoğrafla okuma çalışır; "Sayaçlar" sekmesindeki düğme yalnız yazma yetkisi olana çizildiği için ipucu da onadır.
+                if (widget.site.canWrite) ...<Widget>[
+                  const SizedBox(height: AppSpace.xl),
+                  const Text('Fotoğrafla okumak için Sayaçlar sekmesindeki “Fotoğrafla oku” düğmesini kullanın.', key: ValueKey<String>('meters_import_photo_hint')),
+                ],
+              ],
+            ),
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.fact_check_outlined,
+            title: 'Kontrol Sonucu',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (checked == null)
+                  const Text('Dosya seçip "Kontrol et" düğmesine bastığınızda aktarım özeti burada görünür.')
+                else ...<Widget>[
+                  Text('${checked.okCount} satır aktarılacak, ${checked.sameCount} satır zaten kayıtlı, ${checked.errorCount} satırda sorun var.', style: Theme.of(context).textTheme.titleSmall),
+                  for (final row in checked.rows.where((r) => r.isError).take(50))
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: const Icon(Icons.error_outline_rounded),
+                      title: Text('Satır ${row.n}: ${row.code}'),
+                      subtitle: Text(MeterImportRow.reasonText(row.reason)),
+                    ),
+                  if (checked.okCount > 0) FilledButton(onPressed: _busy ? null : () => _run(dryRun: false), child: Text('${checked.okCount} okumayı aktar')),
+                ],
+              ],
+            ),
           ),
         ),
-        const SizedBox(height: AppSpace.sm),
-        DropdownButtonFormField<MeterKind>(
-          initialValue: _kind,
-          decoration: const InputDecoration(labelText: 'Sayaç türü'),
-          items: <DropdownMenuItem<MeterKind>>[for (final k in MeterKind.values) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label))],
-          onChanged: _busy ? null : (v) => setState(() {
-            _kind = v ?? _kind;
-            _invalidate();
-          }),
-        ),
-        const SizedBox(height: AppSpace.sm),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : () async {
-            final picked = await showDatePicker(context: context, initialDate: _date, firstDate: DateTime(2000), lastDate: DateTime.now());
-            if (picked == null) return;
-            setState(() {
-              _date = picked;
-              _invalidate();
-            });
-          },
-          icon: const Icon(Icons.event_rounded),
-          label: Text('Okuma tarihi: ${_iso(_date)}'),
-        ),
-        const SizedBox(height: AppSpace.sm),
-        if (widget.site.canWrite) FilledButton.icon(onPressed: _busy ? null : _pick, icon: const Icon(Icons.upload_file_rounded), label: const Text('Dosya seç')),
-        if (_fileName != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text('$_fileName · ${_rows.length} satır')),
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-        if (_rows.isNotEmpty) ...<Widget>[
-          const SizedBox(height: AppSpace.md),
-          FilledButton.tonal(onPressed: _busy ? null : () => _run(dryRun: true), child: const Text('Kontrol et')),
-        ],
-        if (checked != null) ...<Widget>[
-          const SizedBox(height: AppSpace.md),
-          Text('${checked.okCount} satır aktarılacak, ${checked.sameCount} satır zaten kayıtlı, ${checked.errorCount} satırda sorun var.', style: Theme.of(context).textTheme.titleSmall),
-          for (final row in checked.rows.where((r) => r.isError).take(50)) ListTile(dense: true, contentPadding: EdgeInsets.zero, leading: const Icon(Icons.error_outline_rounded), title: Text('Satır ${row.n}: ${row.code}'), subtitle: Text(MeterImportRow.reasonText(row.reason))),
-          if (checked.okCount > 0) FilledButton(onPressed: _busy ? null : () => _run(dryRun: false), child: Text('${checked.okCount} okumayı aktar')),
-        ],
-        // Fotoğrafla okuma çalışır; "Sayaçlar" sekmesindeki düğme yalnız yazma yetkisi olana çizildiği için ipucu da onadır.
-        if (widget.site.canWrite) ...<Widget>[
-          const SizedBox(height: AppSpace.xl),
-          const Text('Fotoğrafla okumak için Sayaçlar sekmesindeki “Fotoğrafla oku” düğmesini kullanın.', key: ValueKey<String>('meters_import_photo_hint')),
-        ],
       ],
     );
   }
@@ -768,117 +827,143 @@ class _BillingTabState extends State<_BillingTab> {
     return ListView(
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        if (!widget.site.canWrite) const Text('Faturalandırmayı yalnızca site yöneticisi yapabilir.'),
-        if (widget.site.canWrite) ...<Widget>[
-          const Text('İki okuma tarihi arasındaki tüketim hesaplanır. Başlangıç tarihinde (ya da öncesinde) ve bitiş tarihinde (ya da öncesinde) okuma olmalıdır. Borçlandırdığınızda tutarlar, Aidat ve Finans’taki daire hesaplarına borç olarak yazılır.', key: ValueKey<String>('meters_billing_intro')),
-          const SizedBox(height: AppSpace.md),
-          _tariffSection(context),
-          const SizedBox(height: AppSpace.md),
-          DropdownButtonFormField<MeterKind>(
-            initialValue: _kind,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Sayaç türü'),
-            items: <DropdownMenuItem<MeterKind>>[
-              for (final k in MeterKind.values) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label, maxLines: 1, overflow: TextOverflow.ellipsis)),
-            ],
-            onChanged: _busy ? null : (v) => setState(() {
-              _kind = v ?? _kind;
-              if (!_methods.contains(_method)) _method = MeterMethod.unitPrice;
-              _dirty();
-            }),
-          ),
-          DropdownButtonFormField<MeterMethod>(
-            initialValue: _method,
-            // "Isı payı (ölçüm + alan payı)" dar ekranda ve büyük yazıda sığmaz: yöntem adı tek satırda kısalır (taşma yok).
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Dağıtım yöntemi'),
-            items: <DropdownMenuItem<MeterMethod>>[
-              for (final m in _methods) DropdownMenuItem<MeterMethod>(value: m, child: Text(m.label, maxLines: 1, overflow: TextOverflow.ellipsis)),
-            ],
-            onChanged: _busy ? null : (v) => setState(() {
-              _method = v ?? _method;
-              _dirty();
-            }),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Row(children: <Widget>[
-            Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _pickDate(true), child: Text(_from == null ? 'Başlangıç tarihi' : _iso(_from!)))),
-            const SizedBox(width: AppSpace.sm),
-            Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _pickDate(false), child: Text(_to == null ? 'Bitiş tarihi' : _iso(_to!)))),
-          ]),
-          if (_method == MeterMethod.unitPrice && _noTariffForKind)
-            Card(
-              key: const ValueKey<String>('billing_tariff_setup'),
-              child: Padding(
-                padding: const EdgeInsets.all(AppSpace.md),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-                  Text('Önce tarife girin', style: Theme.of(context).textTheme.titleSmall),
-                  const SizedBox(height: AppSpace.xs),
-                  Text('${_kind.label} için birim fiyat tarifesi yok. Birim fiyatla faturalandırmak için önce tarifeyi ekleyin${widget.site.canWrite ? '.' : '; bunu site yöneticisi yapar.'}'),
-                  if (widget.site.canWrite) ...<Widget>[
-                    const SizedBox(height: AppSpace.sm),
-                    FilledButton(key: const ValueKey<String>('billing_setup_tariff'), onPressed: _busy ? null : _addTariff, child: const Text('Tarife gir')),
+        WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            icon: Icons.receipt_long_rounded,
+            title: 'Faturalandırma Hesabı',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (!widget.site.canWrite) const Text('Faturalandırmayı yalnızca site yöneticisi yapabilir.'),
+                if (widget.site.canWrite) ...<Widget>[
+                  const Text('İki okuma tarihi arasındaki tüketim hesaplanır. Başlangıç tarihinde (ya da öncesinde) ve bitiş tarihinde (ya da öncesinde) okuma olmalıdır. Borçlandırdığınızda tutarlar, Aidat ve Finans’taki daire hesaplarına borç olarak yazılır.', key: ValueKey<String>('meters_billing_intro')),
+                  const SizedBox(height: AppSpace.md),
+                  _tariffSection(context),
+                  const SizedBox(height: AppSpace.md),
+                  DropdownButtonFormField<MeterKind>(
+                    initialValue: _kind,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Sayaç türü'),
+                    items: <DropdownMenuItem<MeterKind>>[
+                      for (final k in MeterKind.values) DropdownMenuItem<MeterKind>(value: k, child: Text(k.label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: _busy ? null : (v) => setState(() {
+                      _kind = v ?? _kind;
+                      if (!_methods.contains(_method)) _method = MeterMethod.unitPrice;
+                      _dirty();
+                    }),
+                  ),
+                  DropdownButtonFormField<MeterMethod>(
+                    initialValue: _method,
+                    // "Isı payı (ölçüm + alan payı)" dar ekranda ve büyük yazıda sığmaz: yöntem adı tek satırda kısalır (taşma yok).
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Dağıtım yöntemi'),
+                    items: <DropdownMenuItem<MeterMethod>>[
+                      for (final m in _methods) DropdownMenuItem<MeterMethod>(value: m, child: Text(m.label, maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    ],
+                    onChanged: _busy ? null : (v) => setState(() {
+                      _method = v ?? _method;
+                      _dirty();
+                    }),
+                  ),
+                  const SizedBox(height: AppSpace.sm),
+                  Row(children: <Widget>[
+                    Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _pickDate(true), child: Text(_from == null ? 'Başlangıç tarihi' : _iso(_from!)))),
+                    const SizedBox(width: AppSpace.sm),
+                    Expanded(child: OutlinedButton(onPressed: _busy ? null : () => _pickDate(false), child: Text(_to == null ? 'Bitiş tarihi' : _iso(_to!)))),
+                  ]),
+                  if (_method == MeterMethod.unitPrice && _noTariffForKind)
+                    Card(
+                      key: const ValueKey<String>('billing_tariff_setup'),
+                      child: Padding(
+                        padding: const EdgeInsets.all(AppSpace.md),
+                        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
+                          Text('Önce tarife girin', style: Theme.of(context).textTheme.titleSmall),
+                          const SizedBox(height: AppSpace.xs),
+                          Text('${_kind.label} için birim fiyat tarifesi yok. Birim fiyatla faturalandırmak için önce tarifeyi ekleyin${widget.site.canWrite ? '.' : '; bunu site yöneticisi yapar.'}'),
+                          if (widget.site.canWrite) ...<Widget>[
+                            const SizedBox(height: AppSpace.sm),
+                            FilledButton(key: const ValueKey<String>('billing_setup_tariff'), onPressed: _busy ? null : _addTariff, child: const Text('Tarife gir')),
+                          ],
+                        ]),
+                      ),
+                    )
+                  else if (_method == MeterMethod.unitPrice)
+                    const Padding(padding: EdgeInsets.only(top: AppSpace.xs), child: Text('Birim fiyat, dönem sonunda geçerli olan tarifeden alınır.', key: ValueKey<String>('billing_price_from_tariff')))
+                  else
+                    TextField(
+                      controller: _amount,
+                      enabled: !_busy,
+                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      onChanged: (_) => setState(_dirty),
+                      decoration: InputDecoration(labelText: _method == MeterMethod.invoice ? 'Fatura tutarı (TL)' : 'Toplam ısınma gideri (TL)'),
+                    ),
+                  if (_method == MeterMethod.heat) ...<Widget>[
+                    const Padding(padding: EdgeInsets.only(top: AppSpace.xs), child: Text('Gider; ölçüme göre ve alan payıyla, platform kuralındaki oranla (varsayılan %70 / %30) paylaştırılır. Alan payının dağıtım tabanını siz seçersiniz.')),
+                    DropdownButtonFormField<HeatAreaBasis>(
+                      key: const ValueKey<String>('billing_area_basis'),
+                      initialValue: _areaBasis,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Alan payı tabanı'),
+                      items: <DropdownMenuItem<HeatAreaBasis>>[
+                        for (final b in HeatAreaBasis.values)
+                          DropdownMenuItem<HeatAreaBasis>(
+                            value: b,
+                            child: Text(b.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                      ],
+                      onChanged: _busy ? null : (v) => setState(() {
+                        _areaBasis = v ?? _areaBasis;
+                        _dirty();
+                      }),
+                    ),
+                    Padding(padding: const EdgeInsets.only(top: AppSpace.xs), child: Text(_areaBasis.help, key: const ValueKey<String>('billing_area_basis_help'))),
                   ],
-                ]),
-              ),
-            )
-          else if (_method == MeterMethod.unitPrice)
-            const Padding(padding: EdgeInsets.only(top: AppSpace.xs), child: Text('Birim fiyat, dönem sonunda geçerli olan tarifeden alınır.', key: ValueKey<String>('billing_price_from_tariff')))
-          else
-            TextField(
-              controller: _amount,
-              enabled: !_busy,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              onChanged: (_) => setState(_dirty),
-              decoration: InputDecoration(labelText: _method == MeterMethod.invoice ? 'Fatura tutarı (TL)' : 'Toplam ısınma gideri (TL)'),
+                  SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Verisi eksik daireleri atla'), subtitle: const Text('Okuması ya da seçilen alan payı tabanının verisi (arsa payı, kişi sayısı) eksik daire bu faturalandırmaya hiç dahil edilmez; payı kalan dairelere dağılır.'), value: _skipMissing, onChanged: _busy ? null : (v) => setState(() {
+                    _skipMissing = v;
+                    _dirty();
+                  })),
+                  FilledButton(onPressed: _busy || (_method == MeterMethod.unitPrice && _noTariffForKind) ? null : _previewNow, child: const Text('Önizle')),
+                ],
+                if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text(_error!, style: TextStyle(color: error))),
+              ],
             ),
-          if (_method == MeterMethod.heat) ...<Widget>[
-            const Padding(padding: EdgeInsets.only(top: AppSpace.xs), child: Text('Gider; ölçüme göre ve alan payıyla, platform kuralındaki oranla (varsayılan %70 / %30) paylaştırılır. Alan payının dağıtım tabanını siz seçersiniz.')),
-            DropdownButtonFormField<HeatAreaBasis>(
-              key: const ValueKey<String>('billing_area_basis'),
-              initialValue: _areaBasis,
-              decoration: const InputDecoration(labelText: 'Alan payı tabanı'),
-              items: <DropdownMenuItem<HeatAreaBasis>>[for (final b in HeatAreaBasis.values) DropdownMenuItem<HeatAreaBasis>(value: b, child: Text(b.label))],
-              onChanged: _busy ? null : (v) => setState(() {
-                _areaBasis = v ?? _areaBasis;
-                _dirty();
-              }),
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.history_rounded,
+            title: 'Önizleme ve Geçmiş',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (preview != null) ...<Widget>[
+                  Text('${preview.apartmentCount} daire · toplam ${formatMinorTl(preview.totalMinor)}', style: Theme.of(context).textTheme.titleMedium),
+                  if (preview.areaBasis != null) Text('Alan payı tabanı: ${preview.areaBasis!.label}', key: const ValueKey<String>('billing_preview_area_basis')),
+                  if (preview.tariff != null) ...<Widget>[
+                    Text('Tarife: ${formatMinorTl(preview.tariff!.unitPriceMinor)} / birim (${preview.tariff!.validFrom} tarihinden itibaren)', key: const ValueKey<String>('billing_preview_tariff')),
+                    if (preview.tariff!.midPeriod)
+                      Text('Dönem içinde tarife değişti: dönemin tamamı bu fiyatla hesaplandı. İsterseniz dönemi tarife tarihinde ikiye bölüp ayrı faturalandırın.', key: const ValueKey<String>('billing_preview_tariff_mid'), style: TextStyle(color: error)),
+                  ],
+                  if (preview.missing.isNotEmpty) ...<Widget>[
+                    const SizedBox(height: AppSpace.sm),
+                    Text('Eksik olan ${preview.missing.length} daire:', style: TextStyle(color: error)),
+                    for (final m in preview.missing.take(30)) Text('• ${m.label}: ${m.reasonText}'),
+                  ],
+                  const SizedBox(height: AppSpace.sm),
+                  for (final l in preview.lines.take(300)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(l.label), subtitle: Text('Tüketim: ${l.consumption} · ${l.accountParty == 'tenant' ? 'kiracı hesabı' : 'ev sahibi hesabı'}'), trailing: Text(formatMinorTl(l.amountMinor))),
+                  if (preview.lines.length > 300) Text('… ve ${preview.lines.length - 300} daire daha'),
+                  const SizedBox(height: AppSpace.sm),
+                  if (widget.site.canWrite) FilledButton(onPressed: _busy || !preview.canPost ? null : _post, child: const Text('Borçlandır')),
+                  if (!preview.canPost && preview.missing.isNotEmpty) const Text('Eksikleri tamamlayın ya da "eksik daireleri atla" seçeneğini işaretleyip yeniden önizleyin.'),
+                  const SizedBox(height: AppSpace.xl),
+                ],
+                Text('Geçmiş faturalandırmalar', style: Theme.of(context).textTheme.titleSmall),
+                if (_history == null) const Padding(padding: EdgeInsets.all(AppSpace.md), child: Text('Yükleniyor…')),
+                if (_history != null && _history!.isEmpty) const Text('Henüz faturalandırma yapılmadı.'),
+                for (final b in _history ?? const <MeterBilling>[]) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${b.kind.label} · ${b.periodFrom} – ${b.periodTo}'), subtitle: Text('${b.apartmentCount} daire'), trailing: Text(formatMinorTl(b.totalMinor))),
+              ],
             ),
-            Padding(padding: const EdgeInsets.only(top: AppSpace.xs), child: Text(_areaBasis.help, key: const ValueKey<String>('billing_area_basis_help'))),
-          ],
-          SwitchListTile(contentPadding: EdgeInsets.zero, title: const Text('Verisi eksik daireleri atla'), subtitle: const Text('Okuması ya da seçilen alan payı tabanının verisi (arsa payı, kişi sayısı) eksik daire bu faturalandırmaya hiç dahil edilmez; payı kalan dairelere dağılır.'), value: _skipMissing, onChanged: _busy ? null : (v) => setState(() {
-            _skipMissing = v;
-            _dirty();
-          })),
-          FilledButton(onPressed: _busy || (_method == MeterMethod.unitPrice && _noTariffForKind) ? null : _previewNow, child: const Text('Önizle')),
-        ],
-        if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.sm), child: Text(_error!, style: TextStyle(color: error))),
-        if (preview != null) ...<Widget>[
-          const SizedBox(height: AppSpace.md),
-          Text('${preview.apartmentCount} daire · toplam ${formatMinorTl(preview.totalMinor)}', style: Theme.of(context).textTheme.titleMedium),
-          if (preview.areaBasis != null) Text('Alan payı tabanı: ${preview.areaBasis!.label}', key: const ValueKey<String>('billing_preview_area_basis')),
-          if (preview.tariff != null) ...<Widget>[
-            Text('Tarife: ${formatMinorTl(preview.tariff!.unitPriceMinor)} / birim (${preview.tariff!.validFrom} tarihinden itibaren)', key: const ValueKey<String>('billing_preview_tariff')),
-            if (preview.tariff!.midPeriod)
-              Text('Dönem içinde tarife değişti: dönemin tamamı bu fiyatla hesaplandı. İsterseniz dönemi tarife tarihinde ikiye bölüp ayrı faturalandırın.', key: const ValueKey<String>('billing_preview_tariff_mid'), style: TextStyle(color: error)),
-          ],
-          if (preview.missing.isNotEmpty) ...<Widget>[
-            const SizedBox(height: AppSpace.sm),
-            Text('Eksik olan ${preview.missing.length} daire:', style: TextStyle(color: error)),
-            for (final m in preview.missing.take(30)) Text('• ${m.label}: ${m.reasonText}'),
-          ],
-          const SizedBox(height: AppSpace.sm),
-          for (final l in preview.lines.take(300)) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text(l.label), subtitle: Text('Tüketim: ${l.consumption} · ${l.accountParty == 'tenant' ? 'kiracı hesabı' : 'ev sahibi hesabı'}'), trailing: Text(formatMinorTl(l.amountMinor))),
-          if (preview.lines.length > 300) Text('… ve ${preview.lines.length - 300} daire daha'),
-          const SizedBox(height: AppSpace.sm),
-          if (widget.site.canWrite) FilledButton(onPressed: _busy || !preview.canPost ? null : _post, child: const Text('Borçlandır')),
-          if (!preview.canPost && preview.missing.isNotEmpty) const Text('Eksikleri tamamlayın ya da "eksik daireleri atla" seçeneğini işaretleyip yeniden önizleyin.'),
-        ],
-        const SizedBox(height: AppSpace.xl),
-        Text('Geçmiş faturalandırmalar', style: Theme.of(context).textTheme.titleSmall),
-        if (_history == null) const Padding(padding: EdgeInsets.all(AppSpace.md), child: Text('Yükleniyor…')),
-        if (_history != null && _history!.isEmpty) const Text('Henüz faturalandırma yapılmadı.'),
-        for (final b in _history ?? const <MeterBilling>[]) ListTile(dense: true, contentPadding: EdgeInsets.zero, title: Text('${b.kind.label} · ${b.periodFrom} – ${b.periodTo}'), subtitle: Text('${b.apartmentCount} daire'), trailing: Text(formatMinorTl(b.totalMinor))),
+          ),
+        ),
       ],
     );
   }

@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/money.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/widgets/home_shortcut_button.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 String _isoDay(DateTime d) =>
     '${d.year.toString().padLeft(4, '0')}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
@@ -169,53 +170,107 @@ class BudgetViewState extends State<BudgetView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
-      if (_error != null) return _Notice(message: _error!, onRetry: _loadSites);
-      return const EmptyCard(icon: Icons.apartment_rounded, title: 'Kayıtlı site bulunamadı.');
+      final Widget stateBody = _error != null
+          ? _Notice(message: _error!, onRetry: _loadSites)
+          : const EmptyCard(icon: Icons.apartment_rounded, title: 'Kayıtlı site bulunamadı.');
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.account_balance_wallet_rounded,
+          title: 'İşletme Projesi',
+          child: Text('Bağlı siteler yüklendiğinde bütçe ve proje kontrolleri burada görünür.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.list_alt_rounded,
+          title: 'Projeler',
+          child: stateBody,
+        ),
+      );
     }
     final result = _result;
-    return ListView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
-      padding: const EdgeInsets.all(AppSpace.lg),
-      children: <Widget>[
-        if (_sites.length > 1)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: DropdownButtonFormField<int>(
-              initialValue: _siteCode,
-              decoration: const InputDecoration(labelText: 'Site'),
-              items: <DropdownMenuItem<int>>[for (final s in _sites) DropdownMenuItem<int>(value: s.code, child: Text(s.label))],
-              onChanged: (v) {
-                if (v == null || v == _siteCode) return;
-                setState(() {
-                  _siteCode = v;
-                  _result = null;
-                });
-                unawaited(_loadProjects());
-              },
-            ),
-          ),
-        Row(
-          children: <Widget>[
-            const Expanded(child: Text('İşletme Projesi', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700))),
-            if (site.canWrite) FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add_rounded), label: const Text('Yeni proje')),
-          ],
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_moduleDisabled)
-          EmptyCard(
-            icon: Icons.lock_outline_rounded,
-            title: 'İşletme Projesi modülü kapalı.',
-            message: 'Modüller ekranından açılabilir (yönetici talep eder, süper kullanıcı açar).',
-            child: widget.onOpenModules == null ? null : TextButton(onPressed: widget.onOpenModules, child: const Text('Modüllere git')),
-          )
-        else if (_error != null)
-          _Notice(message: _error!, onRetry: _loadProjects)
-        else if (_loading && result == null)
-          const ListSkeleton(rows: 3)
-        else if (result != null) ...<Widget>[
-          if (result.provisionalRemainingDays != null)
+    final Widget rightBody;
+    if (_moduleDisabled) {
+      rightBody = EmptyCard(
+        icon: Icons.lock_outline_rounded,
+        title: 'İşletme Projesi modülü kapalı.',
+        message: 'Modüller ekranından açılabilir (yönetici talep eder, süper kullanıcı açar).',
+        child: widget.onOpenModules == null ? null : TextButton(onPressed: widget.onOpenModules, child: const Text('Modüllere git')),
+      );
+    } else if (_error != null) {
+      rightBody = _Notice(message: _error!, onRetry: _loadProjects);
+    } else if (_loading && result == null) {
+      rightBody = const ListSkeleton(rows: 3);
+    } else if (result == null) {
+      rightBody = const SizedBox.shrink();
+    } else if (result.projects.isEmpty) {
+      rightBody = const EmptyCard(
+        icon: Icons.account_balance_wallet_outlined,
+        title: 'Henüz işletme projesi yok.',
+        message: 'Yeni proje ile yıllık gider bütçesini oluşturun.',
+      );
+    } else {
+      rightBody = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          for (final p in result.projects)
             Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
+              padding: const EdgeInsets.only(bottom: AppSpace.sm),
               child: AppCard(
+                onTap: () => _open(p.id),
+                child: Row(
+                  children: <Widget>[
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: <Widget>[
+                          Text('${p.year} - ${p.title}', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${p.status.label}${p.isProvisional ? ' (geçici)' : ''}  •  ${p.itemCount} kalem  •  ${formatMinor(p.totalMinor)}',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                          if (p.remainingDays != null) Text(budgetRemainingText(p.remainingDays!), style: Theme.of(context).textTheme.bodySmall),
+                        ],
+                      ),
+                    ),
+                    const Icon(Icons.chevron_right_rounded),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      );
+    }
+
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.account_balance_wallet_rounded,
+        title: 'İşletme Projesi',
+        subtitle: site.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (_sites.length > 1) ...[
+              DropdownButtonFormField<int>(
+                initialValue: _siteCode,
+                decoration: const InputDecoration(labelText: 'Site'),
+                items: <DropdownMenuItem<int>>[for (final s in _sites) DropdownMenuItem<int>(value: s.code, child: Text(s.label))],
+                onChanged: (v) {
+                  if (v == null || v == _siteCode) return;
+                  setState(() {
+                    _siteCode = v;
+                    _result = null;
+                  });
+                  unawaited(_loadProjects());
+                },
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (site.canWrite) ...[
+              FilledButton.icon(onPressed: _create, icon: const Icon(Icons.add_rounded), label: const Text('Yeni proje')),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (result != null && result.provisionalRemainingDays != null) ...[
+              AppCard(
                 child: Row(
                   children: <Widget>[
                     const Icon(Icons.timer_outlined),
@@ -224,44 +279,22 @@ class BudgetViewState extends State<BudgetView> {
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Text(
+              'Bilgi: İşletme projesinin tebliği, itiraz süresi ve kesinleşmesi Kat Mülkiyeti Kanunu\'na tabidir; süreler Kurallar tablosundan gelir. '
+              'Yasal adımları kendi karar defterinizle birlikte takip edin. [AVUKAT DOĞRULASIN]',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
-          if (result.projects.isEmpty)
-            const EmptyCard(icon: Icons.account_balance_wallet_outlined, title: 'Henüz işletme projesi yok.', message: 'Yeni proje ile yıllık gider bütçesini oluşturun.')
-          else
-            for (final p in result.projects)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpace.sm),
-                child: AppCard(
-                  onTap: () => _open(p.id),
-                  child: Row(
-                    children: <Widget>[
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Text('${p.year} - ${p.title}', style: const TextStyle(fontWeight: FontWeight.w600)),
-                            const SizedBox(height: 2),
-                            Text(
-                              '${p.status.label}${p.isProvisional ? ' (geçici)' : ''}  •  ${p.itemCount} kalem  •  ${formatMinor(p.totalMinor)}',
-                              style: Theme.of(context).textTheme.bodySmall,
-                            ),
-                            if (p.remainingDays != null) Text(budgetRemainingText(p.remainingDays!), style: Theme.of(context).textTheme.bodySmall),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right_rounded),
-                    ],
-                  ),
-                ),
-              ),
-        ],
-        const SizedBox(height: AppSpace.lg),
-        Text(
-          'Bilgi: İşletme projesinin tebliği, itiraz süresi ve kesinleşmesi Kat Mülkiyeti Kanunu\'na tabidir; süreler Kurallar tablosundan gelir. '
-          'Yasal adımları kendi karar defterinizle birlikte takip edin. [AVUKAT DOĞRULASIN]',
-          style: Theme.of(context).textTheme.bodySmall,
+          ],
         ),
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.list_alt_rounded,
+        title: 'Bütçe Projeleri',
+        subtitle: site.label,
+        child: rightBody,
+      ),
     );
   }
 }

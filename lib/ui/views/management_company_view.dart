@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/views/brand_theme_view.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Biçim yardımcıları (testler için açık).
 String companyMoney(num minor) {
@@ -180,9 +181,40 @@ class _ManagementCompanyScreenState extends State<ManagementCompanyScreen> {
     final th = Theme.of(context).textTheme;
     final Widget body;
     if (_loading || _detailLoading) {
-      body = const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator()));
+      body = WorkspaceSplitShell(
+        leftFlex: 5,
+        rightFlex: 7,
+        left: WorkspacePaneCard(
+          icon: Icons.business_center_rounded,
+          title: 'Firma Özeti',
+          tone: AppTone.primary,
+          child: Text('Yönetim firması verileri yükleniyor.', style: th.bodyMedium),
+        ),
+        right: const WorkspacePaneCard(
+          icon: Icons.list_alt_rounded,
+          title: 'Firmalar & Detay',
+          tone: AppTone.info,
+          child: Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator())),
+        ),
+      );
     } else if (_error != null) {
-      body = InlineNotice(message: _error!, onRetry: _selectedId == null ? _loadList : () => _openCompany(_selectedId!));
+      body = WorkspaceSplitShell(
+        leftFlex: 5,
+        rightFlex: 7,
+        left: WorkspacePaneCard(
+          icon: Icons.business_center_rounded,
+          title: 'Firma Özeti',
+          tone: AppTone.primary,
+          child: Text('Veriler yüklenirken bir sorun oluştu.', style: th.bodyMedium),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.list_alt_rounded,
+          title: 'Firmalar & Detay',
+          tone: AppTone.info,
+          onRefresh: _selectedId == null ? _loadList : () => _openCompany(_selectedId!),
+          child: InlineNotice(message: _error!, onRetry: _selectedId == null ? _loadList : () => _openCompany(_selectedId!)),
+        ),
+      );
     } else if (_selectedId != null && _detail != null) {
       body = _detailBody(th);
     } else {
@@ -207,66 +239,96 @@ class _ManagementCompanyScreenState extends State<ManagementCompanyScreen> {
   }
 
   Widget _listBody(TextTheme th) {
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (_isSuper) ...[
-        AppCard(
-          key: const ValueKey<String>('company_trial_card'),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('Deneme süresi', style: th.titleMedium),
-            const SizedBox(height: AppSpace.sm),
-            Text('Yeni açılan sitelere ${_trialDays ?? 60} gün deneme tanınır (0 = deneme yok). Mevcut sitelere dokunulmaz.', style: th.bodyMedium),
-            const SizedBox(height: AppSpace.sm),
-            OutlinedButton(
-              key: const ValueKey<String>('company_trial_edit'),
-              onPressed: () async {
-                final r = await _ask('Deneme süresi (gün)', ['Gün (0-365)'], initial: ['${_trialDays ?? 60}']);
-                final days = int.tryParse(r?.first ?? '');
-                if (r == null) return;
-                if (days == null || days < 0 || days > 365) {
-                  if (mounted) AppSnack.show(context, 'Gün 0-365 arasında olmalı.', kind: AppSnackKind.error);
-                  return;
-                }
-                await _run(() => _service.setTrialDays(days), ok: 'Deneme süresi kaydedildi.');
-              },
-              child: const Text('Süreyi Değiştir'),
-            ),
-          ]),
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: Icons.timer_outlined,
+        title: 'Deneme & Firma Oluşturma',
+        subtitle: _isSuper ? 'Varsayılan deneme süresi ve yeni firma tanımları.' : 'Bağlı yönetim firması özeti.',
+        tone: AppTone.primary,
+        onRefresh: _loadList,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_isSuper) ...[
+              AppCard(
+                key: const ValueKey<String>('company_trial_card'),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Deneme süresi', style: th.titleMedium),
+                  const SizedBox(height: AppSpace.sm),
+                  Text('Yeni açılan sitelere ${_trialDays ?? 60} gün deneme tanınır (0 = deneme yok). Mevcut sitelere dokunulmaz.', style: th.bodyMedium),
+                  const SizedBox(height: AppSpace.sm),
+                  OutlinedButton(
+                    key: const ValueKey<String>('company_trial_edit'),
+                    onPressed: () async {
+                      final r = await _ask('Deneme süresi (gün)', ['Gün (0-365)'], initial: ['${_trialDays ?? 60}']);
+                      final days = int.tryParse(r?.first ?? '');
+                      if (r == null) return;
+                      if (days == null || days < 0 || days > 365) {
+                        if (mounted) AppSnack.show(context, 'Gün 0-365 arasında olmalı.', kind: AppSnackKind.error);
+                        return;
+                      }
+                      await _run(() => _service.setTrialDays(days), ok: 'Deneme süresi kaydedildi.');
+                    },
+                    child: const Text('Süreyi Değiştir'),
+                  ),
+                ]),
+              ),
+              const SizedBox(height: AppSpace.md),
+              FilledButton.icon(
+                key: const ValueKey<String>('company_create'),
+                icon: const Icon(Icons.add_business_rounded),
+                label: const Text('Yeni Yönetim Firması'),
+                onPressed: () async {
+                  final r = await _ask('Yeni yönetim firması', ['Firma adı', 'Sahibin e-postası (kayıtlı kullanıcı)', 'Ortaklık payı (%)'], initial: ['', '', '0']);
+                  if (r == null) return;
+                  final bp = _percentToBp(r[2]);
+                  if (bp == null) {
+                    if (mounted) AppSnack.show(context, 'Ortaklık payı 0-100 arasında olmalı.', kind: AppSnackKind.error);
+                    return;
+                  }
+                  await _run(() => _service.createCompany(name: r[0], ownerEmail: r[1], shareBp: bp), ok: 'Firma oluşturuldu.');
+                },
+              ),
+            ] else
+              Text(
+                _companies.isEmpty
+                    ? 'Bir yönetim firmasına bağlı değilsiniz.'
+                    : 'Toplam ${_companies.length} yönetim firması listeleniyor.',
+                style: th.bodyMedium,
+              ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        FilledButton.icon(
-          key: const ValueKey<String>('company_create'),
-          icon: const Icon(Icons.add_business_rounded),
-          label: const Text('Yeni Yönetim Firması'),
-          onPressed: () async {
-            final r = await _ask('Yeni yönetim firması', ['Firma adı', 'Sahibin e-postası (kayıtlı kullanıcı)', 'Ortaklık payı (%)'], initial: ['', '', '0']);
-            if (r == null) return;
-            final bp = _percentToBp(r[2]);
-            if (bp == null) {
-              if (mounted) AppSnack.show(context, 'Ortaklık payı 0-100 arasında olmalı.', kind: AppSnackKind.error);
-              return;
-            }
-            await _run(() => _service.createCompany(name: r[0], ownerEmail: r[1], shareBp: bp), ok: 'Firma oluşturuldu.');
-          },
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.apartment_rounded,
+        title: 'Yönetim Firmaları',
+        subtitle: 'Detayları açmak için bir firma seçin.',
+        tone: AppTone.info,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_companies.isEmpty)
+              Text(_isSuper ? 'Henüz yönetim firması yok.' : 'Bir yönetim firmasına bağlı değilsiniz.', style: th.bodyMedium),
+            for (final c in _companies)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                child: AppCard(
+                  child: ListTile(
+                    key: ValueKey<String>('company_${c['id']}'),
+                    contentPadding: EdgeInsets.zero,
+                    title: Text('${c['name']}'),
+                    subtitle: Text(c['is_active'] == false ? 'Pasif' : 'Ortaklık payı ${companyRate(c['partner_share_bp'] as int?)}'),
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                    onTap: () => _openCompany(c['id'] as int),
+                  ),
+                ),
+              ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-      ],
-      if (_companies.isEmpty)
-        Text(_isSuper ? 'Henüz yönetim firması yok.' : 'Bir yönetim firmasına bağlı değilsiniz.', style: th.bodyMedium),
-      for (final c in _companies)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AppSpace.sm),
-          child: AppCard(
-            child: ListTile(
-              key: ValueKey<String>('company_${c['id']}'),
-              contentPadding: EdgeInsets.zero,
-              title: Text('${c['name']}'),
-              subtitle: Text(c['is_active'] == false ? 'Pasif' : 'Ortaklık payı ${companyRate(c['partner_share_bp'] as int?)}'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _openCompany(c['id'] as int),
-            ),
-          ),
-        ),
-    ]);
+      ),
+    );
   }
 
   Widget _detailBody(TextTheme th) {
@@ -277,34 +339,57 @@ class _ManagementCompanyScreenState extends State<ManagementCompanyScreen> {
     final canSeeAll = role != 'staff';
     final members = (detail['members'] as List<dynamic>).whereType<Map<String, dynamic>>().toList();
     final sites = (detail['sites'] as List<dynamic>).whereType<Map<String, dynamic>>().toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Text('${company['name']}', style: th.headlineSmall),
-      const SizedBox(height: AppSpace.xs),
-      if (canSeeAll) Text('Ortaklık payı: ${companyRate(company['partner_share_bp'] as int?)}', style: th.bodyMedium),
-      const SizedBox(height: AppSpace.lg),
-      Text('Tüm siteler', style: th.titleLarge),
-      const SizedBox(height: AppSpace.xs),
-      if (!canSeeAll)
-        Text('Tüm siteler tablosunu yalnızca firma sahibi görür.', style: th.bodyMedium)
-      else if (_table.isEmpty)
-        Text('Firmaya bağlı site yok.', style: th.bodyMedium)
-      else ...[
-        Text('En düşük tahsilat oranı en üstte. Oran bu ayın tahsilatının bu ayın borçlandırmasına bölümüdür.', style: th.bodySmall),
-        const SizedBox(height: AppSpace.sm),
-        for (final s in _table) _siteCard(th, s),
-      ],
-      if (canSeeAll) ...[
-        const SizedBox(height: AppSpace.lg),
-        _shareSection(th, id),
-      ],
-      if (canSeeAll) ...[
-        const SizedBox(height: AppSpace.lg),
-        BrandThemeSection(authService: widget.authService, companyId: id, sites: [for (final s in sites) {'site_code': s['site_code'], 'name': s['name']}]),
-      ],
-      const SizedBox(height: AppSpace.lg),
-      _membersSection(th, id, role, members),
-      if (_isSuper) ...[const SizedBox(height: AppSpace.lg), _adminSection(th, id, company, sites)],
-    ]);
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: Icons.business_center_rounded,
+        title: '${company['name']}',
+        subtitle: canSeeAll ? 'Ortaklık payı: ${companyRate(company['partner_share_bp'] as int?)}' : 'Firma özeti ve marka ayarları.',
+        tone: AppTone.primary,
+        onRefresh: () => _openCompany(id),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (canSeeAll) ...[
+              _shareSection(th, id),
+              const SizedBox(height: AppSpace.lg),
+              BrandThemeSection(
+                authService: widget.authService,
+                companyId: id,
+                sites: [for (final s in sites) {'site_code': s['site_code'], 'name': s['name']}],
+              ),
+            ] else
+              Text('Firma üye ve site bilgileri sağ panelde yer alır.', style: th.bodyMedium),
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.apartment_rounded,
+        title: 'Siteler & Üyeler',
+        subtitle: 'Bağlı siteler, ekip üyeleri ve yönetim işlemleri.',
+        tone: AppTone.info,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text('Tüm siteler', style: th.titleLarge),
+            const SizedBox(height: AppSpace.xs),
+            if (!canSeeAll)
+              Text('Tüm siteler tablosunu yalnızca firma sahibi görür.', style: th.bodyMedium)
+            else if (_table.isEmpty)
+              Text('Firmaya bağlı site yok.', style: th.bodyMedium)
+            else ...[
+              Text('En düşük tahsilat oranı en üstte. Oran bu ayın tahsilatının bu ayın borçlandırmasına bölümüdür.', style: th.bodySmall),
+              const SizedBox(height: AppSpace.sm),
+              for (final s in _table) _siteCard(th, s),
+            ],
+            const SizedBox(height: AppSpace.lg),
+            _membersSection(th, id, role, members),
+            if (_isSuper) ...[const SizedBox(height: AppSpace.lg), _adminSection(th, id, company, sites)],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _siteCard(TextTheme th, Map<String, dynamic> s) {

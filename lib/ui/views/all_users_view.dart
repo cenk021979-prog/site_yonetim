@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/managed_user_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/ui_helpers.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/managed_user_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class AllUsersView extends StatefulWidget {
   const AllUsersView({
@@ -646,220 +647,219 @@ class _AllUsersViewState extends State<AllUsersView> {
       ],
     );
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-          // 1. ÜST BAŞLIK KARTI (ekranın özet kartı: hero yükseltisi)
-          AppCard(
-            level: 2,
-            padding: listCardPadding(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SectionHeader(
-                  icon: Icons.manage_accounts_rounded,
-                  title: 'Kullanıcı Yönetimi',
-                  trailing: stackActions ? null : headerActions,
-                ),
-                // Büyük yazı / dar ekranda başlık ve eylemler yan yana sığmaz: eylemler başlığın altına
-                // iner (başlık sözcük ortasından bölünmez).
-                if (stackActions) ...[
-                  const SizedBox(height: AppSpace.sm),
-                  headerActions,
-                ],
-                const SizedBox(height: AppSpace.xs),
-                Text('Toplam $totalUsers kayıtlı kullanıcı', style: th.bodyMedium),
-                const SizedBox(height: AppSpace.lg),
-
-                // ARAMA ALANI (FİLTRE)
-                TextField(
-                  controller: _searchController,
-                  onChanged: (val) {
-                    setState(() {});
-                    _onSearchChanged(val);
-                  },
-                  decoration: InputDecoration(
-                    hintText: 'Kişi adı, e-posta, kullanıcı kodu veya kullanıcı adı...',
-                    prefixIcon: const Icon(Icons.search_rounded),
-                    suffixIcon: _searchController.text.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear_rounded),
-                            onPressed: _onClearSearch,
-                          )
-                        : null,
-                    filled: true,
-                    fillColor: p.surfaceMuted,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: AppSpace.lg,
-                      vertical: AppSpace.md,
-                    ),
-                    border: fieldBorder,
-                    enabledBorder: fieldBorder,
-                  ),
-                ),
-                const SizedBox(height: AppSpace.md),
-
-                // ROL FİLTRE ÇİPLERİ (yatay kaydırma yok: sığmayan çip alta iner)
-                Wrap(
-                  spacing: AppSpace.sm,
-                  runSpacing: AppSpace.sm,
-                  children: [
-                    _roleChip(context, 'Tüm Roller', null, AppTone.primary),
-                    _roleChip(context, 'Site Yöneticileri', UserRole.siteManager, UserRole.siteManager.tone),
-                    _roleChip(context, 'Daire Sakinleri', UserRole.apartmentOwner, UserRole.apartmentOwner.tone),
-                    _roleChip(context, 'Bireysel Kullanıcılar', UserRole.individual, UserRole.individual.tone),
-                  ],
-                ),
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: Icons.manage_search_rounded,
+        title: 'Arama & Filtreler',
+        subtitle: 'Kullanıcı arama, rol süzgeci ve özet.',
+        tone: AppTone.primary,
+        child: AppCard(
+          level: 2,
+          padding: listCardPadding(context),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SectionHeader(
+                icon: Icons.manage_accounts_rounded,
+                title: 'Kullanıcı Yönetimi',
+                trailing: stackActions ? null : headerActions,
+              ),
+              if (stackActions) ...[
+                const SizedBox(height: AppSpace.sm),
+                headerActions,
               ],
-            ),
-          ),
-          const SizedBox(height: AppSpace.lg),
-
-          // 2. KULLANICI LİSTESİ ALANI
-          if (widget.isLoading && displayUsers.isEmpty)
-            const ListSkeleton()
-          else if (displayUsers.isEmpty)
-            EmptyCard(
-              icon: Icons.person_search_rounded,
-              title: 'Kullanıcı Bulunamadı',
-              message: hasFilter
-                  ? 'Arama kriterlerinize veya filtreye uygun kullanıcı kaydı bulunamadı.'
-                  : 'Sistemde henüz kayıtlı kullanıcı bulunmuyor.',
-              child: hasFilter
-                  ? OutlinedButton.icon(
-                      onPressed: () {
-                        _searchController.clear();
-                        _onRoleFilterSelected(null);
-                      },
-                      icon: const Icon(Icons.clear_all_rounded),
-                      label: const Text('Filtreleri Temizle'),
-                    )
-                  : null,
-            )
-          else
-            for (var i = 0; i < displayUsers.length; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpace.sm),
-                child: StaggeredEntry(
-                  index: i,
-                  child: _buildUserRow(context, displayUsers[i]),
+              const SizedBox(height: AppSpace.xs),
+              Text('Toplam $totalUsers kayıtlı kullanıcı', style: th.bodyMedium),
+              const SizedBox(height: AppSpace.lg),
+              TextField(
+                controller: _searchController,
+                onChanged: (val) {
+                  setState(() {});
+                  _onSearchChanged(val);
+                },
+                decoration: InputDecoration(
+                  hintText: 'Kişi adı, e-posta, kullanıcı kodu veya kullanıcı adı...',
+                  prefixIcon: const Icon(Icons.search_rounded),
+                  suffixIcon: _searchController.text.isNotEmpty
+                      ? IconButton(
+                          icon: const Icon(Icons.clear_rounded),
+                          onPressed: _onClearSearch,
+                        )
+                      : null,
+                  filled: true,
+                  fillColor: p.surfaceMuted,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: AppSpace.lg,
+                    vertical: AppSpace.md,
+                  ),
+                  border: fieldBorder,
+                  enabledBorder: fieldBorder,
                 ),
               ),
-
-          // 3. SAYFALAMA KONTROLLERİ (PAGINATION)
-          if (displayUsers.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpace.sm),
-              child: AppCard(
-                padding: const EdgeInsets.all(AppSpace.md),
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Wrap(
-                  spacing: AppSpace.md,
-                  runSpacing: AppSpace.sm,
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    Wrap(
+              const SizedBox(height: AppSpace.md),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                children: [
+                  _roleChip(context, 'Tüm Roller', null, AppTone.primary),
+                  _roleChip(context, 'Site Yöneticileri', UserRole.siteManager, UserRole.siteManager.tone),
+                  _roleChip(context, 'Daire Sakinleri', UserRole.apartmentOwner, UserRole.apartmentOwner.tone),
+                  _roleChip(context, 'Bireysel Kullanıcılar', UserRole.individual, UserRole.individual.tone),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.people_alt_rounded,
+        title: 'Kullanıcı Listesi ($totalUsers)',
+        subtitle: 'Kayıtlı kullanıcı hesapları ve sayfalama.',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.isLoading && displayUsers.isEmpty)
+              const ListSkeleton()
+            else if (displayUsers.isEmpty)
+              EmptyCard(
+                icon: Icons.person_search_rounded,
+                title: 'Kullanıcı Bulunamadı',
+                message: hasFilter
+                    ? 'Arama kriterlerinize veya filtreye uygun kullanıcı kaydı bulunamadı.'
+                    : 'Sistemde henüz kayıtlı kullanıcı bulunmuyor.',
+                child: hasFilter
+                    ? OutlinedButton.icon(
+                        onPressed: () {
+                          _searchController.clear();
+                          _onRoleFilterSelected(null);
+                        },
+                        icon: const Icon(Icons.clear_all_rounded),
+                        label: const Text('Filtreleri Temizle'),
+                      )
+                    : null,
+              )
+            else
+              for (var i = 0; i < displayUsers.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                  child: StaggeredEntry(
+                    index: i,
+                    child: _buildUserRow(context, displayUsers[i]),
+                  ),
+                ),
+            if (displayUsers.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AppSpace.sm),
+                child: AppCard(
+                  padding: const EdgeInsets.all(AppSpace.md),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Wrap(
+                      spacing: AppSpace.md,
+                      runSpacing: AppSpace.sm,
+                      alignment: WrapAlignment.spaceBetween,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: AppSpace.sm,
                       children: [
-                        Text(
-                          'Sayfa $_currentPage / $totalPages (Toplam $totalUsers kişi)',
-                          style: th.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                            color: p.text,
-                          ),
-                        ),
-                        DropdownButton<int>(
-                          value: _pageSize,
-                          underline: const SizedBox.shrink(),
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          dropdownColor: p.surface,
-                          menuMaxHeight: 320,
-                          icon: const Icon(
-                            Icons.keyboard_arrow_down_rounded,
-                            size: 20,
-                          ),
-                          style: th.bodySmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: AppTone.primary.ink(p),
-                          ),
-                          items: const [
-                            DropdownMenuItem(value: 15, child: Text('15 / sf')),
-                            DropdownMenuItem(value: 25, child: Text('25 / sf')),
-                            DropdownMenuItem(value: 50, child: Text('50 / sf')),
-                          ],
-                          onChanged: (val) {
-                            if (val != null) _onPageSizeChanged(val);
-                          },
-                        ),
-                      ],
-                    ),
-                    Wrap(
-                      spacing: AppSpace.xs,
-                      runSpacing: AppSpace.xs,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        // İlk sayfa
-                        IconButton.outlined(
-                          constraints: buttonSize,
-                          onPressed: _currentPage > 1 ? () => _changePage(1) : null,
-                          icon: const Icon(Icons.first_page_rounded, size: 20),
-                          tooltip: 'İlk Sayfa',
-                        ),
-                        // Önceki sayfa
-                        IconButton.outlined(
-                          constraints: buttonSize,
-                          onPressed: _currentPage > 1 ? () => _changePage(_currentPage - 1) : null,
-                          icon: const Icon(Icons.chevron_left_rounded, size: 20),
-                          tooltip: 'Önceki Sayfa',
-                        ),
-                        // Sayfa göstergesi
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              color: AppTone.primary.tint(p),
-                              borderRadius: BorderRadius.circular(AppRadius.sm),
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: AppSpace.md,
-                                vertical: AppSpace.sm,
+                        Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: AppSpace.sm,
+                          children: [
+                            Text(
+                              'Sayfa $_currentPage / $totalPages (Toplam $totalUsers kişi)',
+                              style: th.bodyMedium?.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: p.text,
                               ),
-                              child: Text(
-                                '$_currentPage',
-                                style: th.bodyLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTone.primary.ink(p),
+                            ),
+                            DropdownButton<int>(
+                              value: _pageSize,
+                              underline: const SizedBox.shrink(),
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              dropdownColor: p.surface,
+                              menuMaxHeight: 320,
+                              icon: const Icon(
+                                Icons.keyboard_arrow_down_rounded,
+                                size: 20,
+                              ),
+                              style: th.bodySmall?.copyWith(
+                                fontWeight: FontWeight.bold,
+                                color: AppTone.primary.ink(p),
+                              ),
+                              items: const [
+                                DropdownMenuItem(value: 15, child: Text('15 / sf')),
+                                DropdownMenuItem(value: 25, child: Text('25 / sf')),
+                                DropdownMenuItem(value: 50, child: Text('50 / sf')),
+                              ],
+                              onChanged: (val) {
+                                if (val != null) _onPageSizeChanged(val);
+                              },
+                            ),
+                          ],
+                        ),
+                        Wrap(
+                          spacing: AppSpace.xs,
+                          runSpacing: AppSpace.xs,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            IconButton.outlined(
+                              constraints: buttonSize,
+                              onPressed: _currentPage > 1 ? () => _changePage(1) : null,
+                              icon: const Icon(Icons.first_page_rounded, size: 20),
+                              tooltip: 'İlk Sayfa',
+                            ),
+                            IconButton.outlined(
+                              constraints: buttonSize,
+                              onPressed: _currentPage > 1 ? () => _changePage(_currentPage - 1) : null,
+                              icon: const Icon(Icons.chevron_left_rounded, size: 20),
+                              tooltip: 'Önceki Sayfa',
+                            ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: AppSpace.xs),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  color: AppTone.primary.tint(p),
+                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: AppSpace.md,
+                                    vertical: AppSpace.sm,
+                                  ),
+                                  child: Text(
+                                    '$_currentPage',
+                                    style: th.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTone.primary.ink(p),
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                        ),
-                        // Sonraki sayfa
-                        IconButton.outlined(
-                          constraints: buttonSize,
-                          onPressed: _currentPage < totalPages ? () => _changePage(_currentPage + 1) : null,
-                          icon: const Icon(Icons.chevron_right_rounded, size: 20),
-                          tooltip: 'Sonraki Sayfa',
-                        ),
-                        // Son sayfa
-                        IconButton.outlined(
-                          constraints: buttonSize,
-                          onPressed: _currentPage < totalPages ? () => _changePage(totalPages) : null,
-                          icon: const Icon(Icons.last_page_rounded, size: 20),
-                          tooltip: 'Son Sayfa',
+                            IconButton.outlined(
+                              constraints: buttonSize,
+                              onPressed: _currentPage < totalPages ? () => _changePage(_currentPage + 1) : null,
+                              icon: const Icon(Icons.chevron_right_rounded, size: 20),
+                              tooltip: 'Sonraki Sayfa',
+                            ),
+                            IconButton.outlined(
+                              constraints: buttonSize,
+                              onPressed: _currentPage < totalPages ? () => _changePage(totalPages) : null,
+                              icon: const Icon(Icons.last_page_rounded, size: 20),
+                              tooltip: 'Son Sayfa',
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
+                  ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
+      ),
     );
   }
 

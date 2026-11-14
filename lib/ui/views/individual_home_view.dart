@@ -36,6 +36,7 @@ import 'package:site_kapi_kontrol/ui/widgets/individual_apartment_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/individual_door_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/join_request_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/setup_option_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class IndividualHomeView extends StatefulWidget {
   const IndividualHomeView({
@@ -213,7 +214,11 @@ class IndividualHomeViewState extends State<IndividualHomeView>
   }
 
   Future<void> _loadRequests() async {
-    await JoinRequestTracker.loadConsumed();
+    JoinRequestTracker.ensureLoaded(() {
+      if (mounted && _myRequests.isNotEmpty) {
+        setState(() => _myRequests = JoinRequestTracker.filterVisible(_myRequests));
+      }
+    });
     final (list, _) = await widget.authService.getMyJoinRequests();
     if (!mounted) return;
     if (list != null) {
@@ -744,28 +749,47 @@ class IndividualHomeViewState extends State<IndividualHomeView>
         _myRequests.isNotEmpty;
     final showSkeleton = _isLoading && !hasContent;
 
-    return ConstrainedBox(
-      constraints: const BoxConstraints(maxWidth: 800),
+    final quickActions = !showSkeleton ? _buildQuickActions() : const SizedBox.shrink();
+    final hasDoorsSection = displayedDoors.isNotEmpty ||
+        (_selectedSiteCode != null &&
+            displayedDoors.isEmpty &&
+            _myDoors.isNotEmpty);
+    final hasRightContent = displayedApartments.isNotEmpty ||
+        _myRequests.isNotEmpty ||
+        _claimedDevices.isNotEmpty ||
+        (!showSkeleton && quickActions is! SizedBox);
+
+    final headerWidget = (widget.applications != null ||
+            _availableSites.length >= 2 ||
+            showSkeleton)
+        ? Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Site başvurusu durumu (bekleyen / reddedildi / iptal / onaylandı): yalnız bireysel ve daire
+              // kullanıcısında; durum alınamazsa hata + "Tekrar Dene" (asla "başvuru yok" denmez).
+              if (widget.applications != null)
+                SiteApplicationStatusCard(
+                  tracker: widget.applications!,
+                  onReapply: _openApplicationForm,
+                  onRefreshAccount: widget.onRefreshAccount,
+                  // Onaylandı kartı yalnız henüz yöneticiye yükselmemiş rollerde; durum-alınamadı hatası her başvuran rolde.
+                  showApproved: showsApprovedApplicationCard(widget.session.role),
+                  showLoadFailure: canApplyForSite(widget.session.role),
+                ),
+
+              // Site Switcher / Filtre Çipleri
+              _buildSiteFilterBar(),
+
+              if (showSkeleton) const _HomeSkeleton(),
+            ],
+          )
+        : null;
+
+    final leftPane = WorkspacePaneCard(
+      tone: AppTone.primary,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Site başvurusu durumu (bekleyen / reddedildi / iptal / onaylandı): yalnız bireysel ve daire
-          // kullanıcısında; durum alınamazsa hata + "Tekrar Dene" (asla "başvuru yok" denmez).
-          if (widget.applications != null)
-            SiteApplicationStatusCard(
-              tracker: widget.applications!,
-              onReapply: _openApplicationForm,
-              onRefreshAccount: widget.onRefreshAccount,
-              // Onaylandı kartı yalnız henüz yöneticiye yükselmemiş rollerde; durum-alınamadı hatası her başvuran rolde.
-              showApproved: showsApprovedApplicationCard(widget.session.role),
-              showLoadFailure: canApplyForSite(widget.session.role),
-            ),
-
-          // Site Switcher / Filtre Çipleri
-          _buildSiteFilterBar(),
-
-          if (showSkeleton) const _HomeSkeleton(),
-
           // 0. Yetkili Kapılarım Bölümü (Aşama 10 & 13)
           if (displayedDoors.isNotEmpty) ...[
             SectionHeader(
@@ -793,25 +817,50 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                   onGuestPass: () => _openGuestPassDialog(door),
                 ),
               ),
-            const SizedBox(height: AppSpace.lg),
           ],
 
           // Seçili sitede kapı yoksa bilgilendirme
           if (_selectedSiteCode != null &&
               displayedDoors.isEmpty &&
-              _myDoors.isNotEmpty)
+              _myDoors.isNotEmpty) ...[
+            if (displayedDoors.isNotEmpty) const SizedBox(height: AppSpace.lg),
+            const AppCard(
+              padding: EdgeInsets.zero,
+              child: EmptyState.compact(
+                icon: Icons.info_outline_rounded,
+                title: 'Bu sitede size tanımlı aktif bir kapı bulunmuyor.',
+                tone: AppTone.neutral,
+              ),
+            ),
+          ],
+
+          if (!hasDoorsSection && !showSkeleton)
+            Text(
+              'Yetkili kapı erişiminiz tanımlandığında bu alanda görüntülenir.',
+              style: th.bodySmall?.copyWith(color: p.textMuted, height: 1.5),
+            ),
+
+          // Yükleniyor Göstergesi (yenileme: mevcut içerik varken)
+          if (_isLoading && !showSkeleton)
             const Padding(
-              padding: EdgeInsets.only(bottom: AppSpace.lg),
-              child: AppCard(
-                padding: EdgeInsets.zero,
-                child: EmptyState.compact(
-                  icon: Icons.info_outline_rounded,
-                  title: 'Bu sitede size tanımlı aktif bir kapı bulunmuyor.',
-                  tone: AppTone.neutral,
+              padding: EdgeInsets.only(top: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
                 ),
               ),
             ),
+        ],
+      ),
+    );
 
+    final rightPane = WorkspacePaneCard(
+      tone: AppTone.primary,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           // 1. Kayıtlı Dairelerim Bölümü
           if (displayedApartments.isNotEmpty) ...[
             SectionHeader(
@@ -834,28 +883,18 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                   onRemoveMember: (member) => _confirmRemoveMember(apt, member),
                 ),
               ),
-            const SizedBox(height: AppSpace.lg),
+            if (quickActions is! SizedBox ||
+                _myRequests.isNotEmpty ||
+                _claimedDevices.isNotEmpty)
+              const SizedBox(height: AppSpace.lg),
           ],
 
           // Hızlı İşlemler: Cihaz Ekle & Site Kur / Siteye Katıl (ilk yüklemede iskelet gösterilir)
-          if (!showSkeleton) _buildQuickActions(),
-
-          // Yükleniyor Göstergesi (yenileme: mevcut içerik varken)
-          if (_isLoading && !showSkeleton)
-            const Padding(
-              padding: EdgeInsets.only(top: 16),
-              child: Center(
-                child: SizedBox(
-                  width: 24,
-                  height: 24,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                ),
-              ),
-            ),
+          if (!showSkeleton) quickActions,
 
           // Katılım Başvurularım (Varsa)
           if (_myRequests.isNotEmpty) ...[
-            const SizedBox(height: AppSpace.xl),
+            if (quickActions is! SizedBox) const SizedBox(height: AppSpace.xl),
             SectionHeader(
               title: 'Katılım Başvurularım',
               trailing: IconButton(
@@ -913,7 +952,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
 
           // Sahiplenilen Cihazlar: Sadece kullanıcı cihaz sahiplenmişse görünür
           if (_claimedDevices.isNotEmpty) ...[
-            const SizedBox(height: AppSpace.xl),
+            if (quickActions is! SizedBox || _myRequests.isNotEmpty)
+              const SizedBox(height: AppSpace.xl),
             SectionHeader(
               title: 'Sahiplendiğim Cihazlar (${_claimedDevices.length})',
               trailing: Wrap(
@@ -958,7 +998,22 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                 ),
               ),
           ],
+
+          if (!hasRightContent && !showSkeleton)
+            Text(
+              'Kayıtlı daireleriniz, başvurularınız ve cihazlarınız bu bölümde yer alır.',
+              style: th.bodySmall?.copyWith(color: p.textMuted, height: 1.5),
+            ),
         ],
+      ),
+    );
+
+    return ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: double.infinity),
+      child: WorkspaceSplitShell(
+        header: headerWidget,
+        left: leftPane,
+        right: rightPane,
       ),
     );
   }

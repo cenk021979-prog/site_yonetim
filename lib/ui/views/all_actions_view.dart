@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/ui/helpers/menu_layout.dart';
 import 'package:site_kapi_kontrol/ui/helpers/module_showcase.dart' show showcaseDescription;
 import 'package:site_kapi_kontrol/ui/views/legal_parts.dart' show wrappedTitleStyle, wrappedTitleToolbarHeight;
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart' show EmptyCard;
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 
 /// "Tüm işlemler" (K8, P1-16): kullanıcının görebildiği BÜTÜN işlemlerin kategorili, aramalı tam listesi.
@@ -108,123 +109,135 @@ class AllActionsViewState extends State<AllActionsView> {
         child: _maybeRefreshable(
           refresh,
           SingleChildScrollView(
-          key: const ValueKey<String>('tum_islemler_kaydirma'),
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.xxl),
-          child: Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 720),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: <Widget>[
-                  AppCard(
-                    level: 2,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: <Widget>[
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            const IconOrb(icon: Icons.checklist_rounded, size: 48),
-                            const SizedBox(width: AppSpace.md),
-                            Expanded(
+            key: const ValueKey<String>('tum_islemler_kaydirma'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.xxl),
+            child: WorkspaceSplitShell(
+              leftFlex: 5,
+              rightFlex: 7,
+              left: WorkspacePaneCard(
+                icon: Icons.checklist_rounded,
+                title: 'Özet & Arama',
+                tone: AppTone.primary,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
+                    AppCard(
+                      level: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              const IconOrb(icon: Icons.checklist_rounded, size: 48),
+                              const SizedBox(width: AppSpace.md),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: <Widget>[
+                                    Semantics(
+                                      header: true,
+                                      child: Text('Tüm işlemler', style: th.titleLarge),
+                                    ),
+                                    const SizedBox(height: AppSpace.xs),
+                                    Text(
+                                      key: const ValueKey<String>('tum_islemler_ozet'),
+                                      _summary(total, beyond.length),
+                                      style: th.bodyMedium,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (widget.onEditMenuLayout != null) ...<Widget>[
+                            const SizedBox(height: AppSpace.md),
+                            PrimaryActionButton(
+                              key: const ValueKey<String>('tum_islemler_menu_duzenle'),
+                              label: 'Ana menüyü düzenle',
+                              icon: Icons.tune_rounded,
+                              variant: AppButtonVariant.tonal,
+                              onPressed: widget.onEditMenuLayout,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpace.lg),
+                    TextField(
+                      key: const ValueKey<String>('tum_islemler_arama'),
+                      controller: _search,
+                      textInputAction: TextInputAction.search,
+                      onChanged: _setQuery,
+                      decoration: InputDecoration(
+                        labelText: 'İşlem ara',
+                        hintText: 'Örn. aidat, duyuru, arıza',
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        suffixIcon: _query.isEmpty
+                            ? null
+                            : IconButton(
+                                key: const ValueKey<String>('tum_islemler_arama_temizle'),
+                                tooltip: 'Aramayı temizle',
+                                icon: const Icon(Icons.close_rounded),
+                                onPressed: _clear,
+                              ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              right: WorkspacePaneCard(
+                icon: Icons.apps_rounded,
+                title: 'İşlem Grupları',
+                tone: AppTone.info,
+                child: sections.isEmpty
+                    ? const EmptyCard(
+                        key: ValueKey<String>('tum_islemler_bos'),
+                        icon: Icons.search_off_rounded,
+                        title: 'Eşleşen işlem yok',
+                        message: 'Başka bir sözcükle aramayı deneyin.',
+                      )
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          for (final section in sections) ...<Widget>[
+                            SectionHeader(
+                              key: ValueKey<String>('tum_islemler_grup_${section.group.name}'),
+                              title: section.group.title,
+                              count: section.items.length,
+                            ),
+                            const SizedBox(height: AppSpace.sm),
+                            AppCard(
+                              padding: EdgeInsets.zero,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: <Widget>[
-                                  Semantics(
-                                    header: true,
-                                    child: Text('Tüm işlemler', style: th.titleLarge),
-                                  ),
-                                  const SizedBox(height: AppSpace.xs),
-                                  Text(
-                                    key: const ValueKey<String>('tum_islemler_ozet'),
-                                    _summary(total, beyond.length),
-                                    style: th.bodyMedium,
-                                  ),
+                                  for (final (index, item) in section.items.indexed) ...<Widget>[
+                                    if (index > 0) Divider(height: 1, color: context.palette.border),
+                                    _ActionRow(
+                                      key: ValueKey<String>('tum_islemler_${item.name}'),
+                                      title: YanMenu.titleFor(item, widget.role),
+                                      description: showcaseDescription(item, widget.role),
+                                      icon: YanMenu.iconFor(item),
+                                      badge: widget.badgeCounts[item] ?? 0,
+                                      badgeNoun: widget.badgeNouns[item] ?? 'bekleyen',
+                                      inMainMenu: widget.featured != null &&
+                                          item != SirketMenuItem.dashboard &&
+                                          menuGroupOf(item) != SirketMenuGroup.ayarlar &&
+                                          widget.featured!.contains(item),
+                                      onTap: () => _choose(item),
+                                    ),
+                                  ],
                                 ],
                               ),
                             ),
+                            const SizedBox(height: AppSpace.lg),
                           ],
-                        ),
-                        if (widget.onEditMenuLayout != null) ...<Widget>[
-                          const SizedBox(height: AppSpace.md),
-                          PrimaryActionButton(
-                            key: const ValueKey<String>('tum_islemler_menu_duzenle'),
-                            label: 'Ana menüyü düzenle',
-                            icon: Icons.tune_rounded,
-                            variant: AppButtonVariant.tonal,
-                            onPressed: widget.onEditMenuLayout,
-                          ),
                         ],
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-                  TextField(
-                    key: const ValueKey<String>('tum_islemler_arama'),
-                    controller: _search,
-                    textInputAction: TextInputAction.search,
-                    onChanged: _setQuery,
-                    decoration: InputDecoration(
-                      labelText: 'İşlem ara',
-                      hintText: 'Örn. aidat, duyuru, arıza',
-                      prefixIcon: const Icon(Icons.search_rounded),
-                      suffixIcon: _query.isEmpty
-                          ? null
-                          : IconButton(
-                              key: const ValueKey<String>('tum_islemler_arama_temizle'),
-                              tooltip: 'Aramayı temizle',
-                              icon: const Icon(Icons.close_rounded),
-                              onPressed: _clear,
-                            ),
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-                  if (sections.isEmpty)
-                    const EmptyCard(
-                      key: ValueKey<String>('tum_islemler_bos'),
-                      icon: Icons.search_off_rounded,
-                      title: 'Eşleşen işlem yok',
-                      message: 'Başka bir sözcükle aramayı deneyin.',
-                    )
-                  else
-                    for (final section in sections) ...<Widget>[
-                      SectionHeader(
-                        key: ValueKey<String>('tum_islemler_grup_${section.group.name}'),
-                        title: section.group.title,
-                        count: section.items.length,
                       ),
-                      const SizedBox(height: AppSpace.sm),
-                      AppCard(
-                        padding: EdgeInsets.zero,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: <Widget>[
-                            for (final (index, item) in section.items.indexed) ...<Widget>[
-                              if (index > 0) Divider(height: 1, color: context.palette.border),
-                              _ActionRow(
-                                key: ValueKey<String>('tum_islemler_${item.name}'),
-                                title: YanMenu.titleFor(item, widget.role),
-                                description: showcaseDescription(item, widget.role),
-                                icon: YanMenu.iconFor(item),
-                                badge: widget.badgeCounts[item] ?? 0,
-                                badgeNoun: widget.badgeNouns[item] ?? 'bekleyen',
-                                inMainMenu: widget.featured != null &&
-                                    item != SirketMenuItem.dashboard &&
-                                    menuGroupOf(item) != SirketMenuGroup.ayarlar &&
-                                    widget.featured!.contains(item),
-                                onTap: () => _choose(item),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: AppSpace.lg),
-                    ],
-                ],
               ),
             ),
-          ),
           ),
         ),
       ),

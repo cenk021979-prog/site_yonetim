@@ -16,6 +16,7 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/setup_option_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_application_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_application_status_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class JoinAndSetupView extends StatefulWidget {
   const JoinAndSetupView({
@@ -103,7 +104,13 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
   Future<void> _loadRequests() async {
     setState(() => _isLoadingRequests = true);
     try {
-      await JoinRequestTracker.loadConsumed();
+      JoinRequestTracker.ensureLoaded(() {
+        if (mounted && _myRequests.isNotEmpty) {
+          setState(() {
+            _myRequests = JoinRequestTracker.filterVisible(_myRequests);
+          });
+        }
+      });
       final (list, _) = await widget.authService.getMyJoinRequests();
       if (!mounted) return;
       setState(() {
@@ -140,10 +147,13 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
       child: SingleChildScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-        child: Center(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 720),
-            child: Column(
+        child: SizedBox(
+          width: double.infinity,
+          child: WorkspaceSplitShell(
+            breakpoint: 900,
+            leftFlex: 5,
+            rightFlex: 6,
+            header: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Başlık Bilgi Kartı: cilalı rozet (büyük yazıda gizlenir) + SectionHeader başlığı.
@@ -175,10 +185,9 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
                     ),
                   ),
                 ),
-                const SizedBox(height: AppSpace.lg),
-
                 // Site başvurusu durumu (bekleyen / reddedildi / iptal / onaylandı); durum alınamazsa hata.
-                if (widget.applications != null)
+                if (widget.applications != null) ...[
+                  const SizedBox(height: AppSpace.lg),
                   SiteApplicationStatusCard(
                     tracker: widget.applications!,
                     onReapply: _openApplicationForm,
@@ -189,110 +198,131 @@ class _JoinAndSetupViewState extends State<JoinAndSetupView> {
                     showLoadFailure: canApplyForSite(widget.session.role),
                     showReapplyOnRejected: widget.showReapplyOnRejected,
                   ),
-
-                // ==========================================
-                // 1. KART: SİTE SAKİNİ GİRİŞİ (DAİREYE KATIL)
-                // ==========================================
-                StaggeredEntry(
-                  index: 1,
-                  child: SetupOptionCard(
-                    tone: AppTone.success,
-                    icon: Icons.key_rounded,
-                    title: 'Site Sakini Girişi',
-                    badge: 'Hızlı Katılım',
-                    description:
-                        'Yöneticinizin paylaştığı site katılım QR kodunu okutarak veya katılım kodunu girerek dairenize katılım başvurusu gönderin.',
-                    action: ElevatedButton.icon(
-                      onPressed: () async {
-                        widget.onOpenJoinSite();
-                        await _loadRequests();
-                      },
-                      icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
-                      label: const Text(
-                        'QR / Kod ile Daireye Katıl',
-                        textAlign: TextAlign.center,
-                      ),
-                      // Beyaz etiket >= 4,5:1 için koyu zümrüt (success.a); eski #059669 3,8:1 idi.
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTone.success.a,
-                        foregroundColor: Colors.white,
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: AppSpace.lg),
-
-                // ==========================================
-                // 2. KART: SİTE KURULUMU (yalnız başvuru akışı açık rollerde)
-                // ==========================================
-                if (widget.applications != null)
-                  StaggeredEntry(
-                    index: 2,
-                    child: SetupOptionCard(
-                      tone: AppTone.primary,
-                      icon: Icons.domain_add_rounded,
-                      title: 'Site Kurulumu',
-                      badge: 'Başvuru',
-                      description:
-                          'Sitenizi tanımlayıp başvurun; süper kullanıcı onayladığında siteniz kurulur ve site yöneticisi olursunuz. Cihazı site kurulduktan sonra siz (site yöneticisi) eklersiniz.',
-                      action: _buildAdminAction(widget.applications!),
-                    ),
-                  ),
-
-                // ==========================================
-                // 3. BÖLÜM: KATILIM BAŞVURULARIM (VARSA)
-                // ==========================================
-                if (_myRequests.isNotEmpty) ...[
-                  const SizedBox(height: AppSpace.xl),
-                  SectionHeader(
-                    title: 'Katılım Başvurularım',
-                    trailing: IconButton(
-                      onPressed: _isLoadingRequests ? null : _loadRequests,
-                      icon: _isLoadingRequests
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Icon(Icons.refresh_rounded, size: 20),
-                      tooltip: 'Yenile',
-                    ),
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                  for (final (index, req) in _myRequests.indexed)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: AppSpace.md),
-                      child: StaggeredEntry(
-                        key: ValueKey<String>('request-${req.id}'),
-                        index: index,
-                        child: JoinRequestCard(
-                          title: req.siteName ?? 'Site #${req.siteCode}',
-                          status: JoinRequestCard.statusOf(req),
-                          onDismiss: (req.isApproved || req.isRejected)
-                              ? () => _dismissRequest(req)
-                              : null,
-                          details: [
-                            Text(
-                              '${req.blockName?.isNotEmpty == true ? '${req.blockName} • ' : ''}Daire ${req.unitLabel ?? '-'}',
-                              style: th.bodyMedium?.copyWith(
-                                color: p.text,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                            if (req.notes?.isNotEmpty == true)
-                              Text(
-                                'Not: "${req.notes}"',
-                                style: th.bodySmall?.copyWith(
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
                 ],
               ],
             ),
+            // 1. KART: SİTE SAKİNİ GİRİŞİ (DAİREYE KATIL)
+            left: WorkspacePaneCard(
+              tone: AppTone.success,
+              child: StaggeredEntry(
+                index: 1,
+                child: SetupOptionCard(
+                  tone: AppTone.success,
+                  icon: Icons.key_rounded,
+                  title: 'Site Sakini Girişi',
+                  badge: 'Hızlı Katılım',
+                  description:
+                      'Yöneticinizin paylaştığı site katılım QR kodunu okutarak veya katılım kodunu girerek dairenize katılım başvurusu gönderin.',
+                  action: ElevatedButton.icon(
+                    onPressed: () async {
+                      widget.onOpenJoinSite();
+                      await _loadRequests();
+                    },
+                    icon: const Icon(Icons.qr_code_scanner_rounded, size: 20),
+                    label: const Text(
+                      'QR / Kod ile Daireye Katıl',
+                      textAlign: TextAlign.center,
+                    ),
+                    // Beyaz etiket >= 4,5:1 için koyu zümrüt (success.a); eski #059669 3,8:1 idi.
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTone.success.a,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // 2. BÖLÜM: SİTE KURULUMU + KATILIM BAŞVURULARIM
+            right: (widget.applications == null && _myRequests.isEmpty)
+                ? WorkspacePaneCard(
+                    icon: Icons.info_outline_rounded,
+                    title: 'Katılım Süreci',
+                    tone: AppTone.info,
+                    child: Text(
+                      'Yöneticinizin paylaştığı QR kodunu okuttuktan veya katılım kodunu girdikten sonra gönderdiğiniz başvuruların onay durumu burada listelenir.',
+                      style: th.bodySmall?.copyWith(
+                        color: p.textMuted,
+                        height: 1.5,
+                      ),
+                    ),
+                  )
+                : WorkspacePaneCard(
+                    tone: AppTone.primary,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (widget.applications != null)
+                          StaggeredEntry(
+                            index: 2,
+                            child: SetupOptionCard(
+                              tone: AppTone.primary,
+                              icon: Icons.domain_add_rounded,
+                              title: 'Site Kurulumu',
+                              badge: 'Başvuru',
+                              description:
+                                  'Sitenizi tanımlayıp başvurun; süper kullanıcı onayladığında siteniz kurulur ve site yöneticisi olursunuz. Cihazı site kurulduktan sonra siz (site yöneticisi) eklersiniz.',
+                              action: _buildAdminAction(widget.applications!),
+                            ),
+                          ),
+                        if (widget.applications != null &&
+                            _myRequests.isNotEmpty)
+                          const SizedBox(height: AppSpace.xl),
+                        if (_myRequests.isNotEmpty) ...[
+                          SectionHeader(
+                            title: 'Katılım Başvurularım',
+                            trailing: IconButton(
+                              onPressed:
+                                  _isLoadingRequests ? null : _loadRequests,
+                              icon: _isLoadingRequests
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.refresh_rounded, size: 20),
+                              tooltip: 'Yenile',
+                            ),
+                          ),
+                          const SizedBox(height: AppSpace.md),
+                          for (final (index, req) in _myRequests.indexed)
+                            Padding(
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpace.md,
+                              ),
+                              child: StaggeredEntry(
+                                key: ValueKey<String>('request-${req.id}'),
+                                index: index,
+                                child: JoinRequestCard(
+                                  title: req.siteName ?? 'Site #${req.siteCode}',
+                                  status: JoinRequestCard.statusOf(req),
+                                  onDismiss: (req.isApproved || req.isRejected)
+                                      ? () => _dismissRequest(req)
+                                      : null,
+                                  details: [
+                                    Text(
+                                      '${req.blockName?.isNotEmpty == true ? '${req.blockName} • ' : ''}Daire ${req.unitLabel ?? '-'}',
+                                      style: th.bodyMedium?.copyWith(
+                                        color: p.text,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    if (req.notes?.isNotEmpty == true)
+                                      Text(
+                                        'Not: "${req.notes}"',
+                                        style: th.bodySmall?.copyWith(
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                      ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
           ),
         ),
       ),

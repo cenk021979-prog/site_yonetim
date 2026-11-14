@@ -10,6 +10,7 @@ import 'package:site_kapi_kontrol/services/brand_theme_api.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 // Beyaz etiket tema düzenleyicisi (G9, docs/PLATFORM_BEYAZ_ETIKET.md): 5 renk + logo + uygulamada görünen ad. Yalnız süper kullanıcı
 // ve firma sahibi açar (sunucu da denetler). Kaydedilen tema ilgili kullanıcılarda bir sonraki girişte (ya da uygulama açılışında) görünür.
@@ -328,47 +329,92 @@ class _BrandThemeScreenState extends State<BrandThemeScreen> {
     final theme = _current();
     final Widget body;
     if (_loading) {
-      body = const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator()));
+      body = WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.palette_outlined,
+          title: 'Önizleme & İşlemler',
+          tone: AppTone.primary,
+          child: Text('Marka adı, renk paleti ve logo ayarlarını buradan yönetebilirsiniz.', style: th.bodyMedium),
+        ),
+        right: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Marka Bilgileri & Renkler',
+          tone: AppTone.info,
+          child: Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator())),
+        ),
+      );
     } else if (_error != null) {
-      body = InlineNotice(message: _error!, onRetry: () {
-        setState(() {
-          _error = null;
-          _loading = true;
-        });
-        unawaited(_load());
-      });
+      body = WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.palette_outlined,
+          title: 'Önizleme & İşlemler',
+          tone: AppTone.primary,
+          child: Text('Marka bilgileri yüklenemedi. Sağ taraftan yeniden deneyebilirsiniz.', style: th.bodyMedium),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Marka Bilgileri & Renkler',
+          tone: AppTone.info,
+          child: InlineNotice(message: _error!, onRetry: () {
+            setState(() {
+              _error = null;
+              _loading = true;
+            });
+            unawaited(_load());
+          }),
+        ),
+      );
     } else {
       final unreadable = theme != null && !theme.isReadable;
-      body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: <Widget>[
-        TextField(
-          key: const ValueKey<String>('brand_name'),
-          controller: _name,
-          maxLength: 40,
-          decoration: const InputDecoration(labelText: 'Uygulamada görünen ad (boşsa Güde)'),
-        ),
-        for (final k in _labels.keys) _colorField(k),
-        if (unreadable)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.sm),
-            child: Text('Bu renklerle yazılar okunaklı olmaz: yazı ve vurgu rengi kart ve zemin üzerinde daha koyu/açık olmalı.', key: const ValueKey<String>('brand_low_contrast'), style: th.bodyMedium?.copyWith(color: context.palette.statusCrit)),
+      body = WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.palette_outlined,
+          title: 'Önizleme & İşlemler',
+          tone: AppTone.primary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (unreadable)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                  child: Text('Bu renklerle yazılar okunaklı olmaz: yazı ve vurgu rengi kart ve zemin üzerinde daha koyu/açık olmalı.', key: const ValueKey<String>('brand_low_contrast'), style: th.bodyMedium?.copyWith(color: context.palette.statusCrit)),
+                ),
+              if (theme != null) _preview(theme, th),
+              const SizedBox(height: AppSpace.md),
+              FilledButton(key: const ValueKey<String>('brand_save'), onPressed: _saving || theme == null || unreadable ? null : _save, child: const Text('Kaydet')),
+              const SizedBox(height: AppSpace.sm),
+              OutlinedButton(key: const ValueKey<String>('brand_reset'), onPressed: _saving ? null : _reset, child: const Text('Varsayılana dön')),
+            ],
           ),
-        Row(children: <Widget>[
-          OutlinedButton(key: const ValueKey<String>('brand_logo_pick'), onPressed: _pickLogo, child: Text(_logoData == null ? 'Logo seç' : 'Logoyu değiştir')),
-          if (_logoData != null) ...<Widget>[
-            const SizedBox(width: AppSpace.sm),
-            TextButton(key: const ValueKey<String>('brand_logo_remove'), onPressed: () => setState(() {
-                  _logoData = null;
-                  _logoChanged = true;
-                }), child: const Text('Logoyu kaldır')),
-          ],
-        ]),
-        const SizedBox(height: AppSpace.md),
-        if (theme != null) _preview(theme, th),
-        const SizedBox(height: AppSpace.md),
-        FilledButton(key: const ValueKey<String>('brand_save'), onPressed: _saving || theme == null || unreadable ? null : _save, child: const Text('Kaydet')),
-        const SizedBox(height: AppSpace.sm),
-        OutlinedButton(key: const ValueKey<String>('brand_reset'), onPressed: _saving ? null : _reset, child: const Text('Varsayılana dön')),
-      ]);
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Marka Bilgileri & Renkler',
+          tone: AppTone.info,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              TextField(
+                key: const ValueKey<String>('brand_name'),
+                controller: _name,
+                maxLength: 40,
+                decoration: const InputDecoration(labelText: 'Uygulamada görünen ad (boşsa Güde)'),
+              ),
+              for (final k in _labels.keys) _colorField(k),
+              Row(children: <Widget>[
+                OutlinedButton(key: const ValueKey<String>('brand_logo_pick'), onPressed: _pickLogo, child: Text(_logoData == null ? 'Logo seç' : 'Logoyu değiştir')),
+                if (_logoData != null) ...<Widget>[
+                  const SizedBox(width: AppSpace.sm),
+                  TextButton(key: const ValueKey<String>('brand_logo_remove'), onPressed: () => setState(() {
+                        _logoData = null;
+                        _logoChanged = true;
+                      }), child: const Text('Logoyu kaldır')),
+                ],
+              ]),
+            ],
+          ),
+        ),
+      );
     }
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),

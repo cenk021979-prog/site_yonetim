@@ -7,7 +7,6 @@ import 'package:site_kapi_kontrol/models/platform_module.dart' show MySiteModule
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/apartment_management_api.dart';
 import 'package:site_kapi_kontrol/services/bulk_api.dart' show BulkService;
-import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_admin_dialogs.dart';
 import 'package:site_kapi_kontrol/ui/design/action_bar.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
@@ -23,6 +22,7 @@ import 'package:site_kapi_kontrol/ui/widgets/bulk_export_sheet.dart';
 import 'package:site_kapi_kontrol/ui/widgets/bulk_export_sources.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/people_section_navigation.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Kişiler" ekranı (çekirdek `people` modülü): varsayılan kişi listesi,
 /// doğrudan Daireler/Kadro erişimi ve İşlemler menüsünde genel araç kayıtları.
@@ -389,27 +389,8 @@ class PeopleViewState extends State<PeopleView> {
     final th = theme.textTheme;
     final p = context.palette;
 
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
-
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -421,12 +402,12 @@ class PeopleViewState extends State<PeopleView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.people_alt_rounded,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -440,16 +421,16 @@ class PeopleViewState extends State<PeopleView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Text(
+                    Text(
                       'Site sakinleri, daire kayıtları, araçlar ve yönetim kadrosu.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -574,16 +555,7 @@ class PeopleViewState extends State<PeopleView> {
     PeopleScope scope, {
     required bool isWide,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
+    final p = context.palette;
 
     final IconData currentTabIcon;
     final String currentTabName;
@@ -614,18 +586,7 @@ class PeopleViewState extends State<PeopleView> {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -637,12 +598,12 @@ class PeopleViewState extends State<PeopleView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   currentTabIcon,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -656,16 +617,16 @@ class PeopleViewState extends State<PeopleView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       tabSubtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

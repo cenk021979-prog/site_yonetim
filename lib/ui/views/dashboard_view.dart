@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import '../../models/door_record.dart';
 import '../../models/door_runtime_status.dart';
 import '../../models/site_record.dart';
@@ -98,37 +99,60 @@ class DashboardView extends StatelessWidget {
     }
 
     // Süper Kullanıcı ve Site Yöneticisi için Klasik Yönetim Paneli
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        DigitalClockWidget(session: session),
-        const SizedBox(height: AppSpace.lg),
-        AdminDoorStatusCard(
-          session: session,
-          sites: sites,
-          doors: doors,
-          selectedSite: selectedSite,
-          selectedDoor: selectedDoor,
-          runtimeStatus: runtimeStatus,
-          isLoadingSites: isLoadingSites,
-          isLoadingStructure: isLoadingStructure,
-          isLoadingStatus: isLoadingStatus,
-          isOpeningDoor: isOpeningDoor,
-          doorStatusError: doorStatusError,
-          canTryLocalDoorOpen: canTryLocalDoorOpen,
-          isPhoneOnWifi: isPhoneOnWifi,
-          onSelectSite: onSelectSite,
-          onSelectDoor: onSelectDoor,
-          onOpenDoor: onOpenDoor,
-          onCreateGuestPass: onCreateGuestPass,
-          onDownloadCredentialsPdf: onDownloadCredentialsPdf,
-          onDownloadLogsPdf: onDownloadLogsPdf,
-          onOpenAddDoor: onOpenAddDoor,
-          voiceDoorService: voiceDoorService,
-          authService: authService,
-          successTick: successTick,
-        ),
-      ],
+    final clock = DigitalClockWidget(session: session);
+    final doorCard = AdminDoorStatusCard(
+      session: session,
+      sites: sites,
+      doors: doors,
+      selectedSite: selectedSite,
+      selectedDoor: selectedDoor,
+      runtimeStatus: runtimeStatus,
+      isLoadingSites: isLoadingSites,
+      isLoadingStructure: isLoadingStructure,
+      isLoadingStatus: isLoadingStatus,
+      isOpeningDoor: isOpeningDoor,
+      doorStatusError: doorStatusError,
+      canTryLocalDoorOpen: canTryLocalDoorOpen,
+      isPhoneOnWifi: isPhoneOnWifi,
+      onSelectSite: onSelectSite,
+      onSelectDoor: onSelectDoor,
+      onOpenDoor: onOpenDoor,
+      onCreateGuestPass: onCreateGuestPass,
+      onDownloadCredentialsPdf: onDownloadCredentialsPdf,
+      onDownloadLogsPdf: onDownloadLogsPdf,
+      onOpenAddDoor: onOpenAddDoor,
+      voiceDoorService: voiceDoorService,
+      authService: authService,
+      successTick: successTick,
+    );
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (!WorkspaceSplitShell.isSplitWide(context, constraints.maxWidth)) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              clock,
+              const SizedBox(height: AppSpace.lg),
+              doorCard,
+            ],
+          );
+        }
+        return WorkspaceSplitShell(
+          leftFlex: 4,
+          rightFlex: 8,
+          left: WorkspacePaneCard(
+            padding: const EdgeInsets.all(AppSpace.sm),
+            tone: AppTone.primary,
+            child: clock,
+          ),
+          right: WorkspacePaneCard(
+            padding: const EdgeInsets.all(AppSpace.sm),
+            tone: AppTone.primary,
+            child: doorCard,
+          ),
+        );
+      },
     );
   }
 }

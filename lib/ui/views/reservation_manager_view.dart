@@ -22,6 +22,7 @@ import 'package:site_kapi_kontrol/ui/views/reservation_areas_tab.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/reservation_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim "Rezervasyonlar" ekranı (`reservation` modülü): yönetici / süper kullanıcı (alan tanımlar, karar verir),
 /// görevli (karar verir, konsiyerj ilerletir; alan tanımlayamaz) ve yönetim kurulu (SALT OKUR).
@@ -198,17 +199,30 @@ class ReservationManagerViewState extends State<ReservationManagerView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
+      final Widget stateBody;
       if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
-        return const ListSkeleton(rows: 2);
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: _loadSites);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message:
+              'Rezervasyonlar, Rezervasyon ve Konsiyerj modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+        );
       }
-      if (_sitesError != null) {
-        return InlineNotice(message: _sitesError!, onRetry: _loadSites);
-      }
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message:
-            'Rezervasyonlar, Rezervasyon ve Konsiyerj modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Sekmeler',
+          child: Text('Bağlı site verisi geldiğinde sekme ve süzgeçler burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.event_note_rounded,
+          title: 'Takvim ve Talepler',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -217,87 +231,105 @@ class ReservationManagerViewState extends State<ReservationManagerView> {
   Widget _buildSite(BuildContext context, ReservationSite site) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Rezervasyonlar',
-          icon: Icons.event_note_rounded,
-          help: switch (site.access) {
-            ReservationSiteAccess.staff =>
-              'Sakinlerin rezervasyonlarını onaylar, reddeder ya da iptal eder; konsiyerj taleplerini ilerletirsiniz.',
-            ReservationSiteAccess.board =>
-              'Sitedeki ortak alan rezervasyonlarını ve konsiyerj taleplerini izleyin.',
-            ReservationSiteAccess.manager =>
-              'Ortak alanları tanımlayın, rezervasyonları onaylayın ve konsiyerj taleplerini yönetin.',
-          },
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: _loadSites),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('rezm_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(
-                        _siteLabel(s),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Rezervasyonlar',
+        icon: Icons.event_note_rounded,
+        help: switch (site.access) {
+          ReservationSiteAccess.staff =>
+            'Sakinlerin rezervasyonlarını onaylar, reddeder ya da iptal eder; konsiyerj taleplerini ilerletirsiniz.',
+          ReservationSiteAccess.board =>
+            'Sitedeki ortak alan rezervasyonlarını ve konsiyerj taleplerini izleyin.',
+          ReservationSiteAccess.manager =>
+            'Ortak alanları tanımlayın, rezervasyonları onaylayın ve konsiyerj taleplerini yönetin.',
+        },
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Sekmeler',
+        subtitle: site.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: _loadSites),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('rezm_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Tooltip(
+                          message: _siteLabel(s),
+                          child: Text(
+                            _siteLabel(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
-                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
+              ),
+            const SizedBox(height: AppSpace.md),
+            if (site.access == ReservationSiteAccess.board) ...[
+              const ReservationReadOnlyNote(),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final entry in const <(int, String, String)>[
+                  (0, 'rezm_tab_calendar', 'Rezervasyonlar'),
+                  (1, 'rezm_tab_concierge', 'Konsiyerj'),
+                  (2, 'rezm_tab_areas', 'Alanlar'),
+                ])
+                  ChoiceChip(
+                    key: ValueKey<String>(entry.$2),
+                    label: Text(entry.$3),
+                    selected: _tab == entry.$1,
+                    onSelected: (_) => _selectTab(entry.$1),
                   ),
               ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
             ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (site.access == ReservationSiteAccess.board) ...[
-          const ReservationReadOnlyNote(),
-          const SizedBox(height: AppSpace.md),
-        ],
-        Wrap(
-          spacing: AppSpace.sm,
-          runSpacing: AppSpace.sm,
-          children: [
-            for (final entry in const <(int, String, String)>[
-              (0, 'rezm_tab_calendar', 'Rezervasyonlar'),
-              (1, 'rezm_tab_concierge', 'Konsiyerj'),
-              (2, 'rezm_tab_areas', 'Alanlar'),
-            ])
-              ChoiceChip(
-                key: ValueKey<String>(entry.$2),
-                label: Text(entry.$3),
-                selected: _tab == entry.$1,
-                onSelected: (_) => _selectTab(entry.$1),
-              ),
           ],
         ),
-        const SizedBox(height: AppSpace.lg),
-        switch (_tab) {
+      ),
+      right: WorkspacePaneCard(
+        icon: switch (_tab) {
+          0 => Icons.calendar_month_rounded,
+          1 => Icons.room_service_rounded,
+          _ => Icons.meeting_room_rounded,
+        },
+        title: switch (_tab) {
+          0 => 'Takvim Görünümü',
+          1 => 'Konsiyerj Akışı',
+          _ => 'Alan Yönetimi',
+        },
+        subtitle: site.label,
+        child: switch (_tab) {
           0 => ReservationCalendarTab(
             key: _calendarKey,
             service: _service,
@@ -317,7 +349,7 @@ class ReservationManagerViewState extends State<ReservationManagerView> {
             onOpenModules: widget.onOpenModules,
           ),
         },
-      ],
+      ),
     );
   }
 }

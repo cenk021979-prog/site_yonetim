@@ -60,7 +60,9 @@ Future<void> _pumpApp(
   Brightness brightness = Brightness.light,
   EasyViewService? easy,
 }) async {
-  SharedPreferences.setMockInitialValues(<String, Object>{});
+  SharedPreferences.setMockInitialValues(<String, Object>{
+    'app_theme_mode': brightness == Brightness.dark ? 'dark' : 'light',
+  });
   FlutterSecureStorage.setMockInitialValues(<String, String>{});
   t.view.physicalSize = const Size(900, 2400);
   t.view.devicePixelRatio = 1.0;
@@ -69,6 +71,7 @@ Future<void> _pumpApp(
   addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
   t.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
+  await t.pumpWidget(const SizedBox.shrink());
   await t.pumpWidget(MyApp(networkCheckEnabled: false, easyViewService: easy));
   await t.pumpAndSettle();
 }

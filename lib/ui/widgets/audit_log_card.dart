@@ -256,21 +256,23 @@ class _AuditLogCardState extends State<AuditLogCard> {
                       children: [
                         Row(
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: toneColor.withValues(alpha: 0.12),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                entry.actionLabel,
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  color: toneColor,
+                            Flexible(
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: toneColor.withValues(alpha: 0.12),
+                                  borderRadius: BorderRadius.circular(6),
                                 ),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
+                                child: Text(
+                                  entry.actionLabel,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w700,
+                                    color: toneColor,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ),
                           ],
@@ -289,7 +291,7 @@ class _AuditLogCardState extends State<AuditLogCard> {
                         ],
                         const SizedBox(height: 2),
                         Text(
-                          site.isNotEmpty ? '$who • Site: $site' : who,
+                          who,
                           style: TextStyle(
                             fontSize: 11.5,
                             color: AppColors.textMuted,
@@ -297,6 +299,16 @@ class _AuditLogCardState extends State<AuditLogCard> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
+                        if (site.isNotEmpty)
+                          Text(
+                            'Site: $site',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textMuted,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                       ],
                     ),
                   ),
@@ -334,11 +346,8 @@ class _AuditLogCardState extends State<AuditLogCard> {
           ),
 
           // Akordiyon Şeklinde Aşağı Doğru Açılan Detay Bölümü
-          AnimatedCrossFade(
-            duration: const Duration(milliseconds: 220),
-            crossFadeState: _expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
-            firstChild: const SizedBox(width: double.infinity, height: 0),
-            secondChild: Container(
+          if (_expanded)
+            Container(
               width: double.infinity,
               decoration: BoxDecoration(
                 color: expandedBg,
@@ -429,7 +438,6 @@ class _AuditLogCardState extends State<AuditLogCard> {
                 ],
               ),
             ),
-          ),
         ],
       ),
     );

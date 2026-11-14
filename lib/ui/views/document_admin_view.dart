@@ -13,6 +13,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/document_admin_list.dart';
 import 'package:site_kapi_kontrol/ui/widgets/drive_storage_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetici "Dosya Deposu" ekranının gövdesi (Platform Faz 3b-A + D1, tek modül `drive_storage`): site seçici + (yazma
 /// yetkisi varsa) sitenin Google Drive bağlantısı ([DriveStorageCard], ÜSTTE) + Belgeler listesi ([DocumentAdminList];
@@ -228,85 +229,94 @@ class DocumentAdminViewState extends State<DocumentAdminView> {
       siteName: site.name,
       canWrite: site.canWrite,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>(
-                'documents_site_${site.code}_${_sites.length}',
-              ),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    // Uzun ad satırda kısalır; tam ad uzun basınca tooltip'te görünür (ekran okuyucu zaten tam
-                    // metni okur).
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(
-                        _siteLabel(s),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Google Drive',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>(
+                    'documents_site_${site.code}_${_sites.length}',
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (!site.canWrite) ...[
-          const InlineNotice(
-            key: ValueKey<String>('documents_read_only_note'),
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak belgeleri yalnızca görüntüleyebilirsiniz. Yalnız yöneticilere açık '
-                'belgeler görünmez.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        // Google Drive bağlantısı Belgeler ile aynı modülün parçasıdır: yalnız yönetim (yazma) yetkisinde; kurul üyesi görmez.
-        // Görünüş sırası: Drive kartı ÜSTTE, belge listesi ALTTA. Sunucu depolama kotası YOKTUR: dosyalar yalnız sitenin Drive'ındadır;
-        // Drive bağlı değilse "Belge Yükle" pasiftir.
-        if (site.canWrite) ...[
-          DriveStorageCard(
-            key: ValueKey<String>('documents_drive_${site.code}'),
-            authService: widget.authService,
-            siteCode: site.code,
-            onConnectedChanged: (connected) {
-              if (mounted &&
-                  _siteCode == site.code &&
-                  connected != _driveConnected) {
-                setState(() => _driveConnected = connected);
-              }
-            },
-          ),
-          const SizedBox(height: AppSpace.xl),
-        ],
-        DocumentAdminList(
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        // Uzun ad satırda kısalır; tam ad uzun basınca tooltip'te görünür (ekran okuyucu zaten tam
+                        // metni okur).
+                        child: Tooltip(
+                          message: _siteLabel(s),
+                          child: Text(
+                            _siteLabel(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
+              ),
+            if (!site.canWrite) ...[
+              const SizedBox(height: AppSpace.md),
+              const InlineNotice(
+                key: ValueKey<String>('documents_read_only_note'),
+                tone: AppTone.info,
+                icon: Icons.visibility_rounded,
+                message:
+                    'Yönetim kurulu üyesi olarak belgeleri yalnızca görüntüleyebilirsiniz. Yalnız yöneticilere açık '
+                    'belgeler görünmez.',
+              ),
+            ],
+            // Google Drive bağlantısı Belgeler ile aynı modülün parçasıdır: yalnız yönetim (yazma) yetkisinde; kurul üyesi görmez.
+            // Görünüş sırası: Drive kartı ÜSTTE (geniş ekranda solda), belge listesi ALTTA (sağda). Sunucu depolama kotası YOKTUR:
+            // dosyalar yalnız sitenin Drive'ındadır; Drive bağlı değilse "Belge Yükle" pasiftir.
+            if (site.canWrite) ...[
+              const SizedBox(height: AppSpace.md),
+              DriveStorageCard(
+                key: ValueKey<String>('documents_drive_${site.code}'),
+                authService: widget.authService,
+                siteCode: site.code,
+                onConnectedChanged: (connected) {
+                  if (mounted &&
+                      _siteCode == site.code &&
+                      connected != _driveConnected) {
+                    setState(() => _driveConnected = connected);
+                  }
+                },
+              ),
+            ],
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.folder_copy_outlined,
+        title: 'Belgeler',
+        child: DocumentAdminList(
           key: _listKey,
           scope: scope,
           service: _service,
@@ -315,7 +325,7 @@ class DocumentAdminViewState extends State<DocumentAdminView> {
           onOpenModules: widget.onOpenModules,
           driveConnected: site.canWrite ? _driveConnected : null,
         ),
-      ],
+      ),
     );
   }
 }

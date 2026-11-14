@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/helpers/text_length.dart';
 import 'package:site_kapi_kontrol/ui/widgets/crm_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_application_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Site Başvuruları" ekranı (yalnız süper kullanıcı, Platform: site başvurusu): bireysel kullanıcıların
 /// site kurma başvuruları; durum süzgeci (Bekleyen / Onaylanan / Reddedilen / İptal edilen / Tümü), arama
@@ -171,18 +172,27 @@ class SiteApplicationsViewState extends State<SiteApplicationsView> {
   Widget build(BuildContext context) {
     final th = Theme.of(context).textTheme;
     final pendingFilter = _status == SiteApplicationStatus.pending && _query.isEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'Site Başvuruları', icon: Icons.domain_add_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Bireysel kullanıcılar site kurmak için başvurur. Onayladığınızda site kurulur ve '
-          'başvuran site yöneticisi olur.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        AppCard(
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'Site Başvuruları', icon: Icons.domain_add_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Bireysel kullanıcılar site kurmak için başvurur. Onayladığınızda site kurulur ve '
+            'başvuran site yöneticisi olur.',
+            style: th.bodyMedium,
+          ),
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.manage_search_rounded,
+        title: 'Arama & Filtreler',
+        subtitle: 'Site başvurusu arama ve durum süzgeci.',
+        tone: AppTone.primary,
+        child: AppCard(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -195,7 +205,6 @@ class SiteApplicationsViewState extends State<SiteApplicationsView> {
                 decoration: InputDecoration(
                   labelText: 'Başvuru ara',
                   hintText: 'Site adı, şehir, başvuran adı veya e-postası',
-                  // Sessiz kırpma yok: sınır aşılırsa kullanıcıya söylenir.
                   helperText: trimmedCodePoints(_search.text) > SiteApplicationsView.searchMaxLength
                       ? 'Arama yalnız ilk ${SiteApplicationsView.searchMaxLength} karakterle yapılır.'
                       : null,
@@ -232,31 +241,38 @@ class SiteApplicationsViewState extends State<SiteApplicationsView> {
             ],
           ),
         ),
-        const SizedBox(height: AppSpace.md),
-        SectionHeader(
-          title: 'Başvurular',
-          count: _loader.loadedOnce ? _loader.total : null,
-          countSuffix: pendingFilter ? ' bekleyen' : '',
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.domain_verification_rounded,
+        title: 'Başvurular',
+        subtitle: 'Site kurulum başvuruları ve karar işlemleri.',
+        tone: AppTone.primary,
+        onRefresh: _loader.loading ? null : reload,
+        refreshTooltip: 'Yenile',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Başvurular',
+              count: _loader.loadedOnce ? _loader.total : null,
+              countSuffix: pendingFilter ? ' bekleyen' : '',
+            ),
+            const SizedBox(height: AppSpace.md),
+            CrmListBody<SiteApplication>(
+              loader: _loader,
+              emptyIcon: Icons.inbox_rounded,
+              emptyTitle: 'Bekleyen site başvurusu yok.',
+              emptyMessage: 'Bireysel kullanıcılar site kurmak için başvurduğunda burada görünür.',
+              filteredTitle: _emptyFilteredTitle,
+              filtered: _filtered,
+              itemBuilder: (context, application) => SiteApplicationAdminCard(
+                application: application,
+                onTap: () => _open(application),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        CrmListBody<SiteApplication>(
-          loader: _loader,
-          emptyIcon: Icons.inbox_rounded,
-          emptyTitle: 'Bekleyen site başvurusu yok.',
-          emptyMessage: 'Bireysel kullanıcılar site kurmak için başvurduğunda burada görünür.',
-          filteredTitle: _emptyFilteredTitle,
-          filtered: _filtered,
-          itemBuilder: (context, application) => SiteApplicationAdminCard(
-            application: application,
-            onTap: () => _open(application),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

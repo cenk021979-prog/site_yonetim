@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/neighbor_board_api.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart' show PeopleSite;
 import 'package:site_kapi_kontrol/ui/widgets/neighbor_form_dialog.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Komşu Panosu" (`neighbor_board` modülü). Sakin: yayındaki ilanları görür, ilan yazar (yönetici onayına gider),
 /// başkasının ilanını şikayet eder, kendi ilanını geri çeker. Yönetici ([PeopleSite.canWrite]): bekleyen ilanı
@@ -230,10 +231,27 @@ class NeighborBoardViewState extends State<NeighborBoardView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('Komşu Panosu bu sitede açık değil.'),
+      return Padding(
+        padding: const EdgeInsets.all(16),
+        child: WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            icon: Icons.forum_outlined,
+            title: 'Komşu Panosu',
+            child: Text(
+              'Komşular arası duyuru ve ilanlar modül açık olduğunda burada paylaşılır.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          right: const WorkspacePaneCard(
+            icon: Icons.info_outline_rounded,
+            title: 'Durum',
+            child: Center(
+              child: Padding(
+                padding: EdgeInsets.all(24),
+                child: Text('Komşu Panosu bu sitede açık değil.'),
+              ),
+            ),
+          ),
         ),
       );
     }
@@ -242,72 +260,100 @@ class NeighborBoardViewState extends State<NeighborBoardView> {
       child: ListView(
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(12),
         children: <Widget>[
-          if (widget.sites.length > 1)
-            DropdownButton<int>(
-              isExpanded: true,
-              value: site.code,
-              items: <DropdownMenuItem<int>>[
-                for (final s in widget.sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      s.name.trim().isEmpty ? 'İsimsiz site' : s.name,
+          WorkspaceSplitShell(
+            left: WorkspacePaneCard(
+              padding: const EdgeInsets.all(12),
+              icon: Icons.tune_rounded,
+              title: 'Komşu Panosu',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (widget.sites.length > 1) ...[
+                    DropdownButton<int>(
+                      isExpanded: true,
+                      value: site.code,
+                      items: <DropdownMenuItem<int>>[
+                        for (final s in widget.sites)
+                          DropdownMenuItem<int>(
+                            value: s.code,
+                            child: Text(
+                              s.name.trim().isEmpty ? 'İsimsiz site' : s.name,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                      ],
+                      onChanged: (code) {
+                        setState(
+                          () => _site = widget.sites.firstWhere(
+                            (s) => s.code == code,
+                          ),
+                        );
+                        unawaited(reload());
+                      },
                     ),
-                  ),
-              ],
-              onChanged: (code) {
-                setState(
-                  () => _site = widget.sites.firstWhere((s) => s.code == code),
-                );
-                unawaited(reload());
-              },
-            ),
-          if (_manager)
-            Wrap(
-              spacing: 8,
-              children: <Widget>[
-                for (final (code, label) in _managerTabs)
-                  ChoiceChip(
-                    label: Text(label),
-                    selected: _tab == code,
-                    onSelected: (_) {
-                      setState(() => _tab = code);
-                      unawaited(reload());
-                    },
-                  ),
-              ],
-            )
-          else
-            Align(
-              alignment: Alignment.centerLeft,
-              child: FilledButton.icon(
-                onPressed: _newPost,
-                icon: const Icon(Icons.add_rounded),
-                label: const Text('Yeni ilan'),
+                    const SizedBox(height: 8),
+                  ],
+                  if (_manager)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: <Widget>[
+                        for (final (code, label) in _managerTabs)
+                          ChoiceChip(
+                            label: Text(label),
+                            selected: _tab == code,
+                            onSelected: (_) {
+                              setState(() => _tab = code);
+                              unawaited(reload());
+                            },
+                          ),
+                      ],
+                    )
+                  else
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: FilledButton.icon(
+                        onPressed: _newPost,
+                        icon: const Icon(Icons.add_rounded),
+                        label: const Text('Yeni ilan'),
+                      ),
+                    ),
+                ],
               ),
             ),
-          const SizedBox(height: 8),
-          if (_loading) const LinearProgressIndicator(),
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
+            right: WorkspacePaneCard(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: <Widget>[
+                  if (_loading) const LinearProgressIndicator(),
+                  if (_error != null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      child: Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                    )
+                  else if (!_loading && _items.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Text('Henüz ilan yok.'),
+                    ),
+                  for (final post in _items) _card(post),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Yakında: telefon bildirimi, fotoğraf ve yorum.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
               ),
-            )
-          else if (!_loading && _items.isEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 24),
-              child: Text('Henüz ilan yok.'),
             ),
-          for (final post in _items) _card(post),
-          const SizedBox(height: 8),
-          Text(
-            'Yakında: telefon bildirimi, fotoğraf ve yorum.',
-            style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
       ),

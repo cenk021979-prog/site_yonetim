@@ -97,8 +97,8 @@ List<String> _titles(WidgetTester t) {
 
 void main() {
   group('yeni öğeler ve sayılar', () {
-    testWidgets('süper kullanıcı: 19 öğe = çekmecede 6 + Ayarlar panelinde 13; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
-      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(19));
+    testWidgets('süper kullanıcı: 21 öğe = çekmecede 6 + Ayarlar panelinde 15; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
+      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(21));
       await _pumpMenu(t, UserRole.superUser, height: 1200);
       final drawer = _titles(t);
       expect(drawer, <String>[
@@ -114,11 +114,11 @@ void main() {
 
       await _pumpSettings(t, UserRole.superUser, height: 1200);
       final settings = _titles(t);
-      expect(settings, hasLength(13));
+      expect(settings, hasLength(15));
       expect(settings.first, 'Profilim');
-      expect(settings.indexOf('Modül Talepleri'), settings.indexOf('Modüller') + 1);
+      expect(settings.indexOf('Modül Talepleri'), settings.indexOf('Modül Yönetimi(Siteye Göre)') + 1);
       expect(settings.indexOf('Site Başvuruları'), settings.indexOf('Modül Talepleri') + 1);
-      expect(settings[settings.length - 3], 'Denetim Kaydı');
+      expect(settings[settings.length - 3], 'Sistem Logları');
       expect(settings[settings.length - 2], 'Platform Ayarları');
       expect(settings.last, 'İstemci Hataları');
     });
@@ -131,7 +131,7 @@ void main() {
       expect(titles, hasLength(1 + 5 + 1), reason: 'mod geçişi + çekmecedeki 5 öğe + çıkış');
       await _pumpSettings(t, UserRole.siteManager, toggle: true, height: 1200);
       final settings = _titles(t);
-      expect(settings, <String>['Profilim', 'Modüller', 'Kayıtlı Cihazlar', 'Bluetooth ile Wi-Fi Kur']);
+      expect(settings, <String>['Profilim', 'Modül Yönetimi(Siteye Göre)', 'Kayıtlı Cihazlar', 'Bluetooth ile Wi-Fi Kur']);
       expect(settings, isNot(contains('Denetim Kaydı')));
       expect(settings, isNot(contains('Modül Talepleri')));
       expect(titles.length - 2 + settings.length, 9, reason: 'toplam 9 öğe');
@@ -263,7 +263,7 @@ void main() {
         'Panel',
         'Profilim',
         'Site Yönetimi',
-        'Modüller',
+        'Modül Yönetimi(Siteye Göre)',
         'Daireye Katıl',
         'Çıkış Yap',
       ]));

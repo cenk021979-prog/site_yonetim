@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/views/contract_vendors_tab.dart';
 import 'package:site_kapi_kontrol/ui/widgets/contract_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim "Sözleşmeler" ekranı (`contracts` modülü: Firma ve Sözleşme Takibi). Yönetici / süper kullanıcı firma ve
 /// sözleşme ekler, düzenler, fesheder; yönetim kurulu ve görevli SALT OKUR (hiçbir yazma düğmesi çizilmez).
@@ -190,17 +191,30 @@ class ContractsViewState extends State<ContractsView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
+      final Widget stateBody;
       if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
-        return const ListSkeleton(rows: 2);
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: _loadSites);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message:
+              'Sözleşmeler, Firma ve Sözleşme Takibi modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+        );
       }
-      if (_sitesError != null) {
-        return InlineNotice(message: _sitesError!, onRetry: _loadSites);
-      }
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message:
-            'Sözleşmeler, Firma ve Sözleşme Takibi modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Sekmeler',
+          child: Text('Bağlı site verisi geldiğinde firma ve sözleşme kontrolleri burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.handshake_rounded,
+          title: 'Sözleşmeler',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -210,99 +224,105 @@ class ContractsViewState extends State<ContractsView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final canWrite = widget.manageAllSites || site.canWrite;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Sözleşmeler',
-          icon: Icons.handshake_rounded,
-          help: canWrite
-              ? 'Hizmet aldığınız firmaları ve sözleşmeleri kaydedin; bitişi yaklaşan sözleşmeleri zamanında görün.'
-              : 'Sitenin hizmet aldığı firmaları ve sözleşmelerin bitiş tarihlerini izleyin.',
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: _loadSites),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('contract_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(
-                        _siteLabel(s),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Sözleşmeler',
+        icon: Icons.handshake_rounded,
+        help: canWrite
+            ? 'Hizmet aldığınız firmaları ve sözleşmeleri kaydedin; bitişi yaklaşan sözleşmeleri zamanında görün.'
+            : 'Sitenin hizmet aldığı firmaları ve sözleşmelerin bitiş tarihlerini izleyin.',
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Sekmeler',
+        subtitle: site.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: _loadSites),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('contract_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Tooltip(
+                          message: _siteLabel(s),
+                          child: Text(
+                            _siteLabel(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
-                    ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
+              ),
+            const SizedBox(height: AppSpace.md),
+            if (!canWrite) ...[
+              ContractReadOnlyNote(access: site.access),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final entry in const <(int, String, String, IconData)>[
+                  (0, 'contracts_tab_list', 'Sözleşmeler', Icons.description_rounded),
+                  (1, 'contracts_tab_vendors', 'Firmalar', Icons.business_rounded),
+                ])
+                  ChoiceChip(
+                    key: ValueKey<String>(entry.$2),
+                    avatar: Icon(entry.$4, size: 18),
+                    label: Text(entry.$3),
+                    selected: _tab == entry.$1,
+                    onSelected: (_) => _selectTab(entry.$1),
                   ),
               ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
             ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (!canWrite) ...[
-          ContractReadOnlyNote(access: site.access),
-          const SizedBox(height: AppSpace.md),
-        ],
-        Wrap(
-          spacing: AppSpace.sm,
-          runSpacing: AppSpace.sm,
-          children: [
-            for (final entry in const <(int, String, String, IconData)>[
-              (0, 'contracts_tab_list', 'Sözleşmeler', Icons.description_rounded),
-              (1, 'contracts_tab_vendors', 'Firmalar', Icons.business_rounded),
-            ])
-              ChoiceChip(
-                key: ValueKey<String>(entry.$2),
-                avatar: Icon(entry.$4, size: 18),
-                label: Text(entry.$3),
-                selected: _tab == entry.$1,
-                onSelected: (_) => _selectTab(entry.$1),
-              ),
           ],
         ),
-        const SizedBox(height: AppSpace.lg),
-        if (_tab == 0)
-          ContractListTab(
-            key: _listKey,
-            service: _service,
-            site: site,
-            canWrite: canWrite,
-            onOpenModules: widget.onOpenModules,
-          )
-        else
-          ContractVendorsTab(
-            key: _vendorsKey,
-            service: _service,
-            site: site,
-            canWrite: canWrite,
-            onOpenModules: widget.onOpenModules,
-            launcher: widget.launcher,
-          ),
-      ],
+      ),
+      right: WorkspacePaneCard(
+        child: _tab == 0
+            ? ContractListTab(
+                key: _listKey,
+                service: _service,
+                site: site,
+                canWrite: canWrite,
+                onOpenModules: widget.onOpenModules,
+              )
+            : ContractVendorsTab(
+                key: _vendorsKey,
+                service: _service,
+                site: site,
+                canWrite: canWrite,
+                onOpenModules: widget.onOpenModules,
+                launcher: widget.launcher,
+              ),
+      ),
     );
   }
 }

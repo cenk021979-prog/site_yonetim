@@ -25,6 +25,7 @@ import 'package:site_kapi_kontrol/ui/widgets/plate_camera_live_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/plate_gates_panel.dart';
 import 'package:site_kapi_kontrol/ui/widgets/plate_live_feed_panel.dart';
 import 'package:site_kapi_kontrol/ui/widgets/parking_access_panel.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Plaka Tanıma" ekranı (`plate_recognition` modülü, varsayılan KAPALI).
 ///
@@ -1606,140 +1607,211 @@ class PlateRecognitionViewState extends State<PlateRecognitionView> {
     );
   }
 
-  List<Widget> _managerBody(PlateSite site) => <Widget>[
-    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
-      _buildWindowsEngineBanner(site)
-    else
-      _buildNonWindowsInfoBanner(site),
-    _buildColoredTabs(site),
-    Align(
-      alignment: Alignment.centerRight,
-      child: TextButton.icon(
-        icon: const Icon(Icons.bar_chart_rounded),
-        label: const Text('Raporlar'),
-        onPressed: () => showPlateStatisticsDialog(
-          context,
-          service: _service,
-          siteCode: site.code,
+  Widget _buildSiteDropdown(PlateSite? site) => DropdownButtonFormField<PlateSite>(
+    initialValue: site,
+    isExpanded: true,
+    decoration: const InputDecoration(labelText: 'Site'),
+    items: <DropdownMenuItem<PlateSite>>[
+      for (final s in widget.sites)
+        DropdownMenuItem<PlateSite>(
+          value: s,
+          child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-      ),
-    ),
-    const SizedBox(height: AppSpace.md),
-    if (_loading)
-      const Center(
-        child: Padding(
-          padding: EdgeInsets.all(AppSpace.lg),
-          child: CircularProgressIndicator(),
-        ),
-      )
-    else if (_error != null)
-      AppCard(child: Text(_error!))
-    else
-      ...switch (_tab) {
-        0 => _gatesTab(site),
-        1 => _eventsTab(),
-        2 => _liveFeedTab(site),
-        _ => _settingsTab(site),
-      },
-  ];
+    ],
+    onChanged: (v) {
+      setState(() {
+        _site = v;
+        _error = null;
+      });
+      unawaited(reload());
+    },
+  );
 
-  List<Widget> _residentBody(PlateSite site) {
-    final data = _resident;
-    return <Widget>[
-      _note(
-        'Kendi aracınızı Dairem → Araçlarım bölümünden kaydedebilirsiniz. Araç giriş yetkisi, yönetimin daireniz için verdiği onaya bağlıdır.',
-      ),
-      if (widget.onOpenVehicles != null)
-        Align(
-          alignment: Alignment.centerLeft,
-          child: FilledButton.icon(
-            key: const ValueKey('resident_open_own_vehicles'),
-            onPressed: widget.onOpenVehicles,
-            icon: const Icon(Icons.directions_car_outlined),
-            label: const Text('Araçlarıma git'),
-          ),
-        ),
-      if (_loading)
-        const Center(
-          child: Padding(
-            padding: EdgeInsets.all(AppSpace.lg),
-            child: CircularProgressIndicator(),
-          ),
-        )
-      else if (_error != null)
-        AppCard(child: Text(_error!))
-      else if (data != null) ...<Widget>[
-        if (data.movementNotifyAvailable)
-          SwitchListTile(
-            key: const ValueKey('resident_movement_notifications'),
-            contentPadding: EdgeInsets.zero,
-            title: const Text('Aracım giriş / çıkış yapınca bildir'),
-            subtitle: const Text(
-              'Kayıtlı aracınız siteye girdiğinde ya da çıktığında saatiyle birlikte bildirim alırsınız. Varsayılan kapalıdır.',
-            ),
-            value: data.movementNotify,
-            onChanged: (value) => unawaited(_setMovementNotify(site, value)),
-          ),
-        if (data.permits.isNotEmpty)
-          ExpansionTile(
-            key: const ValueKey('resident_previous_guest_permits'),
-            tilePadding: EdgeInsets.zero,
-            title: const Text('Önceki geçici izinler'),
-            subtitle: const Text(
-              'Önceden verilen izinleri görüntüleyebilir ve iptal edebilirsiniz.',
-            ),
-            children: [
-              for (final p in data.permits)
-                _permitTile(site, p, showApartment: data.apartments.length > 1),
-            ],
-          ),
-      ],
-    ];
-  }
+  List<Widget> _managerTabContent(PlateSite site) => switch (_tab) {
+    0 => _gatesTab(site),
+    1 => _eventsTab(),
+    2 => _liveFeedTab(site),
+    _ => _settingsTab(site),
+  };
 
   @override
   Widget build(BuildContext context) {
     final site = _site;
     final resident = site?.isResident ?? false;
+    final title = Text(
+      resident ? 'Araçlarım ve bildirimler' : 'Plaka Tanıma',
+      style: Theme.of(context).textTheme.headlineSmall,
+    );
+    final Widget split;
+    if (site == null) {
+      split = WorkspaceSplitShell(
+        header: title,
+        left: WorkspacePaneCard(
+          icon: Icons.directions_car_rounded,
+          title: 'Site Seçimi',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (widget.sites.length > 1)
+                _buildSiteDropdown(site)
+              else
+                Text(
+                  'Modül durumu ve site ayarları sağda gösterilir.',
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+            ],
+          ),
+        ),
+        right: const WorkspacePaneCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Bilgilendirme',
+          child: Text('Bu özellik için açık bir siteniz yok.'),
+        ),
+      );
+    } else if (resident) {
+      final data = _resident;
+      split = WorkspaceSplitShell(
+        header: title,
+        left: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Bilgi ve Tercihler',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (widget.sites.length > 1) ...<Widget>[
+                _buildSiteDropdown(site),
+                const SizedBox(height: AppSpace.md),
+              ],
+              _note(
+                'Kendi aracınızı Dairem → Araçlarım bölümünden kaydedebilirsiniz. Araç giriş yetkisi, yönetimin daireniz için verdiği onaya bağlıdır.',
+              ),
+              if (widget.onOpenVehicles != null)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    key: const ValueKey('resident_open_own_vehicles'),
+                    onPressed: widget.onOpenVehicles,
+                    icon: const Icon(Icons.directions_car_outlined),
+                    label: const Text('Araçlarıma git'),
+                  ),
+                ),
+              if (!_loading &&
+                  _error == null &&
+                  data != null &&
+                  data.movementNotifyAvailable)
+                SwitchListTile(
+                  key: const ValueKey('resident_movement_notifications'),
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Aracım giriş / çıkış yapınca bildir'),
+                  subtitle: const Text(
+                    'Kayıtlı aracınız siteye girdiğinde ya da çıktığında saatiyle birlikte bildirim alırsınız. Varsayılan kapalıdır.',
+                  ),
+                  value: data.movementNotify,
+                  onChanged: (value) =>
+                      unawaited(_setMovementNotify(site, value)),
+                ),
+            ],
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.directions_car_outlined,
+          title: 'Geçici İzinler ve Durum',
+          child: _loading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpace.lg),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : (_error != null
+                    ? AppCard(child: Text(_error!))
+                    : (data != null && data.permits.isNotEmpty
+                          ? ExpansionTile(
+                              key: const ValueKey(
+                                'resident_previous_guest_permits',
+                              ),
+                              tilePadding: EdgeInsets.zero,
+                              title: const Text('Önceki geçici izinler'),
+                              subtitle: const Text(
+                                'Önceden verilen izinleri görüntüleyebilir ve iptal edebilirsiniz.',
+                              ),
+                              children: [
+                                for (final p in data.permits)
+                                  _permitTile(
+                                    site,
+                                    p,
+                                    showApartment: data.apartments.length > 1,
+                                  ),
+                              ],
+                            )
+                          : Text(
+                              'Önceki geçici izin kaydı bulunmuyor.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ))),
+        ),
+      );
+    } else {
+      split = WorkspaceSplitShell(
+        header: title,
+        left: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Sekmeler',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: <Widget>[
+              if (widget.sites.length > 1) ...<Widget>[
+                _buildSiteDropdown(site),
+                const SizedBox(height: AppSpace.md),
+              ],
+              if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
+                _buildWindowsEngineBanner(site)
+              else
+                _buildNonWindowsInfoBanner(site),
+              _buildColoredTabs(site),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.bar_chart_rounded),
+                  label: const Text('Raporlar'),
+                  onPressed: () => showPlateStatisticsDialog(
+                    context,
+                    service: _service,
+                    siteCode: site.code,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.camera_alt_outlined,
+          title: switch (_tab) {
+            0 => 'Kapılar',
+            1 => 'Geçiş Olayları',
+            2 => 'Canlı Akış',
+            _ => 'Ayarlar',
+          },
+          child: _loading
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(AppSpace.lg),
+                    child: CircularProgressIndicator(),
+                  ),
+                )
+              : (_error != null
+                    ? AppCard(child: Text(_error!))
+                    : Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _managerTabContent(site),
+                      )),
+        ),
+      );
+    }
     return ListView(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpace.lg),
-      children: <Widget>[
-        Text(
-          resident ? 'Araçlarım ve bildirimler' : 'Plaka Tanıma',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.length > 1) ...<Widget>[
-          DropdownButtonFormField<PlateSite>(
-            initialValue: site,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Site'),
-            items: <DropdownMenuItem<PlateSite>>[
-              for (final s in widget.sites)
-                DropdownMenuItem<PlateSite>(
-                  value: s,
-                  child: Text(s.label, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-            onChanged: (v) {
-              setState(() {
-                _site = v;
-                _error = null;
-              });
-              unawaited(reload());
-            },
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (site == null)
-          const Text('Bu özellik için açık bir siteniz yok.')
-        else if (resident)
-          ..._residentBody(site)
-        else
-          ..._managerBody(site),
-      ],
+      children: <Widget>[split],
     );
   }
 }

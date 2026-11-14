@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
@@ -359,53 +360,77 @@ class DeviceIntegrationsViewState extends State<DeviceIntegrationsView> with Wid
   Widget _mainBody(BuildContext context, DeviceSite site, PlateCamerasOverview overview) {
     final theme = Theme.of(context).textTheme;
     final isLocalStation = !kIsWeb && defaultTargetPlatform == TargetPlatform.windows;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        _autoOpenCard(context, overview),
-        const SizedBox(height: AppSpace.md),
-        Text('Kameralar', style: theme.titleMedium),
-        const SizedBox(height: AppSpace.sm),
-        _actions(context, site, overview),
-        const SizedBox(height: AppSpace.md),
-        if (overview.cameras.isEmpty)
-          AppCard(
-            key: const ValueKey<String>('no_cameras'),
-            child: const Text('Henüz kamera eklenmemiş. "Ağda kamera ara" ile kameraları bulabilir ya da "Kamera ekle" ile IP adresiyle ekleyebilirsiniz.'),
-          )
-        else
-          PlateCameraGrid(
-            service: _cameras,
-            siteCode: site.code,
-            cameras: overview.cameras,
-            edgeOnline: isLocalStation || overview.edge.online,
-            refresh: Duration(seconds: overview.snapshot.intervalSeconds),
-            canWrite: site.canWrite,
-            onAction: (action, camera) => unawaited(_onCameraAction(action, camera)),
-          ),
-        if (!widget.embedded) ...<Widget>[
-          const SizedBox(height: AppSpace.lg),
-          Text('Canlı akış', style: theme.titleMedium),
-          const SizedBox(height: AppSpace.sm),
-          PlateLiveFeedPanel(key: ValueKey<String>('feed_${site.code}'), service: _plate, siteCode: site.code),
-        ],
-      ],
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Kamera Denetimi',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            _autoOpenCard(context, overview),
+            const SizedBox(height: AppSpace.md),
+            Text('Kameralar', style: theme.titleMedium),
+            const SizedBox(height: AppSpace.sm),
+            _actions(context, site, overview),
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.videocam_outlined,
+        title: 'Kameralar ve Akış',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: <Widget>[
+            if (overview.cameras.isEmpty)
+              AppCard(
+                key: const ValueKey<String>('no_cameras'),
+                child: const Text('Henüz kamera eklenmemiş. "Ağda kamera ara" ile kameraları bulabilir ya da "Kamera ekle" ile IP adresiyle ekleyebilirsiniz.'),
+              )
+            else
+              PlateCameraGrid(
+                service: _cameras,
+                siteCode: site.code,
+                cameras: overview.cameras,
+                edgeOnline: isLocalStation || overview.edge.online,
+                refresh: Duration(seconds: overview.snapshot.intervalSeconds),
+                canWrite: site.canWrite,
+                onAction: (action, camera) => unawaited(_onCameraAction(action, camera)),
+              ),
+            if (!widget.embedded) ...<Widget>[
+              const SizedBox(height: AppSpace.lg),
+              Text('Canlı akış', style: theme.titleMedium),
+              const SizedBox(height: AppSpace.sm),
+              PlateLiveFeedPanel(key: ValueKey<String>('feed_${site.code}'), service: _plate, siteCode: site.code),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
   /// Plaka Tanıma modülü kapalı: ızgara ve canlı akış yok; eski olay belirteçli kamera listesi çalışmaya devam eder.
   Widget _legacyBody(BuildContext context, DeviceSite site) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        const InlineNoticeText(
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.info_outline_rounded,
+        title: 'Modül Durumu',
+        tone: AppTone.warning,
+        child: const InlineNoticeText(
           key: ValueKey<String>('module_off_notice'),
           tone: AppTone.warning,
           text: 'Kamera ızgarası ve canlı akış için Plaka Tanıma modülünün bu site için açık olması gerekir. Modül açılana kadar yalnız eski (olay belirteçli) kamera kaydı kullanılabilir.',
         ),
-        const SizedBox(height: AppSpace.md),
-        _legacyCard(context, site),
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.videocam_outlined,
+        title: 'Eski Kamera Kaydı',
+        tone: AppTone.primary,
+        child: _legacyCard(context, site),
+      ),
     );
   }
 

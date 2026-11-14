@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageO
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart' show PeopleSite;
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_audit_log_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Dönem ön ayarı. "Tümü" tarih süzgeci YOKTUR.
 enum SiteAuditPeriod {
@@ -295,39 +296,48 @@ class SiteAuditLogViewState extends State<SiteAuditLogView> {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context).textTheme;
-    return Column(
+    return WorkspaceSplitShell(
       key: const ValueKey<String>('site_audit_view'),
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'İşlem Kayıtları', icon: Icons.fact_check_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Sitenizde yapılan yönetim işlemlerinin değiştirilemez kaydı: kim, ne zaman, ne yaptı. Parola ve iletişim bilgileri kayıtta yer almaz.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        SectionHeader(
-          title: 'Kayıtlar',
-          trailing: IconButton(
-            onPressed: (_loading || _site == null) ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+      leftFlex: 5,
+      rightFlex: 7,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'İşlem Kayıtları', icon: Icons.fact_check_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Sitenizde yapılan yönetim işlemlerinin değiştirilemez kaydı: kim, ne zaman, ne yaptı. Parola ve iletişim bilgileri kayıtta yer almaz.',
+            style: th.bodyMedium,
           ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.isEmpty)
-          const EmptyCard(
-            key: ValueKey<String>('site_audit_no_site'),
-            icon: Icons.apartment_rounded,
-            title: 'Yönettiğiniz bir site yok.',
-            message: 'İşlem kayıtları, yöneticisi olduğunuz sitelerde listelenir.',
-          )
-        else ...[
-          _filterCard(context),
-          const SizedBox(height: AppSpace.md),
-          _list(context),
         ],
-      ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.filter_alt_rounded,
+        title: 'Site & Filtreler',
+        subtitle: 'Site seçimi ve eylem türüne göre kayıtları daraltın.',
+        tone: AppTone.primary,
+        child: widget.sites.isEmpty
+            ? Text(
+                'İşlem kayıtları, yöneticisi olduğunuz sitelerde listelenir.',
+                style: th.bodyMedium,
+              )
+            : _filterCard(context),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.fact_check_rounded,
+        title: 'Kayıtlar',
+        subtitle: 'Değiştirilemez yönetim işlem geçmişi.',
+        tone: AppTone.info,
+        onRefresh: (_loading || _site == null) ? null : reload,
+        child: widget.sites.isEmpty
+            ? const EmptyCard(
+                key: ValueKey<String>('site_audit_no_site'),
+                icon: Icons.apartment_rounded,
+                title: 'Yönettiğiniz bir site yok.',
+                message: 'İşlem kayıtları, yöneticisi olduğunuz sitelerde listelenir.',
+              )
+            : _list(context),
+      ),
     );
   }
 

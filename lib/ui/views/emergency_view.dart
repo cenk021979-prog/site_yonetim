@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/emergency_alarm_history_dialog.dart
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
     show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakinlerin site içi alarm başlatması. Telefon rehberi diğer destek ekranları
 /// için korunur; burada alarm kaydı ve gerçek alıcı durumu gösterilir.
@@ -320,244 +321,283 @@ class EmergencyViewState extends State<EmergencyView> {
   Widget build(BuildContext context) {
     final disabled =
         _siteCode == null || _loading || _sending || _pending != null;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          'Site içi acil bildirim',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          _elevators.isEmpty
-              ? 'Yangın ekibe ve ilgili dairelere bildirilir.'
-              : 'Asansör ekibe; yangın ekibe ve ilgili dairelere bildirilir.',
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sites.length > 1) ...[
-          DropdownButtonFormField<int>(
-            key: ValueKey('emergency_site_$_siteCode'),
-            initialValue: _siteCode,
-            isExpanded: true,
-            decoration: const InputDecoration(labelText: 'Site'),
-            items: [
-              for (final site in _sites)
-                DropdownMenuItem(
-                  value: site.siteCode,
+    return WorkspaceSplitShell(
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            'Site içi acil bildirim',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            _elevators.isEmpty
+                ? 'Yangın ekibe ve ilgili dairelere bildirilir.'
+                : 'Asansör ekibe; yangın ekibe ve ilgili dairelere bildirilir.',
+          ),
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.warning_amber_rounded,
+        title: 'Acil Bildirim Başlat',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sites.length > 1) ...[
+              DropdownButtonFormField<int>(
+                key: ValueKey('emergency_site_$_siteCode'),
+                initialValue: _siteCode,
+                isExpanded: true,
+                decoration: const InputDecoration(labelText: 'Site'),
+                items: [
+                  for (final site in _sites)
+                    DropdownMenuItem(
+                      value: site.siteCode,
+                      child: Text(
+                        site.label,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: _sending || _pending != null ? null : _selectSite,
+              ),
+              const SizedBox(height: AppSpace.md),
+            ] else if (_sites.isNotEmpty) ...[
+              Text(_sites.first.label),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_loading) const LinearProgressIndicator(),
+            if (_error != null) _notice(_error!, reload),
+            if (!_loading && _sites.isEmpty && _error == null)
+              const AppCard(
+                child: Text(
+                  'Alarm başlatmak için bu sitede aktif daire/sakin kaydınız bulunmalı.',
+                ),
+              ),
+            if (_elevatorLoading || _locationLoading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: AppSpace.sm),
+                child: LinearProgressIndicator(
+                  semanticsLabel: 'Acil seçenekleri güncelleniyor',
+                ),
+              ),
+            if (_elevatorError != null)
+              _notice(_elevatorError!, () => _loadElevators(reveal: false)),
+            if (_locationError != null)
+              _notice(
+                _locationError!,
+                () => _loadLocations(sendWhenSingle: true),
+              ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                // Henüz gelmemiş veriyi "asansör yok" diye göstermeyin.
+                if (_elevatorLoading && _elevators.isEmpty) {
+                  return const SizedBox.shrink();
+                }
+                final buttons = [
+                  if (_elevators.isNotEmpty)
+                    _button(
+                      'Asansör',
+                      Icons.elevator_rounded,
+                      'emergency_quick_elevator',
+                      disabled || _elevatorLoading
+                          ? null
+                          : () => unawaited(_loadElevators()),
+                    ),
+                  _button(
+                    'Yangın',
+                    Icons.local_fire_department_rounded,
+                    'emergency_quick_fire',
+                    disabled || _locationLoading
+                        ? null
+                        : () => unawaited(_loadLocations(sendWhenSingle: true)),
+                  ),
+                ];
+                if (constraints.maxWidth < 380 ||
+                    MediaQuery.textScalerOf(context).scale(16) > 20) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final (index, button) in buttons.indexed) ...[
+                        if (index > 0) const SizedBox(height: AppSpace.sm),
+                        button,
+                      ],
+                    ],
+                  );
+                }
+                return Row(
+                  children: [
+                    for (final (index, button) in buttons.indexed) ...[
+                      if (index > 0) const SizedBox(width: AppSpace.sm),
+                      Expanded(child: button),
+                    ],
+                  ],
+                );
+              },
+            ),
+            if (_showElevators) ...[
+              const SizedBox(height: AppSpace.md),
+              Text(
+                'Hangi asansör?',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const Text('Adına dokunduğunuzda alarm oluşturulur.'),
+              if (!_elevatorLoading &&
+                  _elevatorError == null &&
+                  _elevators.isEmpty)
+                const AppCard(
                   child: Text(
-                    site.label,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
+                    'Bu sitede kayıtlı aktif asansör yok. Yönetim Ekipman ve Bakım bölümünden ekleyebilir.',
+                  ),
+                ),
+              for (final elevator in _elevators)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.sm),
+                  child: OutlinedButton(
+                    key: ValueKey('emergency_elevator_${elevator.id}'),
+                    onPressed: disabled
+                        ? null
+                        : () => unawaited(
+                            _send('elevator', equipmentId: elevator.id),
+                          ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpace.md,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Text(elevator.name),
+                          if (elevator.blockName != null)
+                            Text(elevator.blockName!),
+                          if (elevator.location != null)
+                            Text(elevator.location!),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
             ],
-            onChanged: _sending || _pending != null ? null : _selectSite,
-          ),
-          const SizedBox(height: AppSpace.md),
-        ] else if (_sites.isNotEmpty) ...[
-          Text(_sites.first.label),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_loading) const LinearProgressIndicator(),
-        if (_error != null) _notice(_error!, reload),
-        if (!_loading && _sites.isEmpty && _error == null)
-          const AppCard(
-            child: Text(
-              'Alarm başlatmak için bu sitede aktif daire/sakin kaydınız bulunmalı.',
-            ),
-          ),
-        if (_elevatorLoading || _locationLoading)
-          const Padding(
-            padding: EdgeInsets.only(bottom: AppSpace.sm),
-            child: LinearProgressIndicator(
-              semanticsLabel: 'Acil seçenekleri güncelleniyor',
-            ),
-          ),
-        if (_elevatorError != null)
-          _notice(_elevatorError!, () => _loadElevators(reveal: false)),
-        if (_locationError != null)
-          _notice(_locationError!, () => _loadLocations(sendWhenSingle: true)),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            // Henüz gelmemiş veriyi "asansör yok" diye göstermeyin.
-            if (_elevatorLoading && _elevators.isEmpty) {
-              return const SizedBox.shrink();
-            }
-            final buttons = [
-              if (_elevators.isNotEmpty)
-                _button(
-                  'Asansör',
-                  Icons.elevator_rounded,
-                  'emergency_quick_elevator',
-                  disabled || _elevatorLoading
-                      ? null
-                      : () => unawaited(_loadElevators()),
-                ),
-              _button(
-                'Yangın',
-                Icons.local_fire_department_rounded,
-                'emergency_quick_fire',
-                disabled || _locationLoading
-                    ? null
-                    : () => unawaited(_loadLocations(sendWhenSingle: true)),
+            if (_showLocations) ...[
+              const SizedBox(height: AppSpace.md),
+              Text(
+                'Yangın nerede?',
+                style: Theme.of(context).textTheme.titleMedium,
               ),
-            ];
-            if (constraints.maxWidth < 380 ||
-                MediaQuery.textScalerOf(context).scale(16) > 20) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  for (final (index, button) in buttons.indexed) ...[
-                    if (index > 0) const SizedBox(height: AppSpace.sm),
-                    button,
-                  ],
-                ],
-              );
-            }
-            return Row(
-              children: [
-                for (final (index, button) in buttons.indexed) ...[
-                  if (index > 0) const SizedBox(width: AppSpace.sm),
-                  Expanded(child: button),
-                ],
-              ],
-            );
-          },
-        ),
-        if (_showElevators) ...[
-          const SizedBox(height: AppSpace.md),
-          Text(
-            'Hangi asansör?',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const Text('Adına dokunduğunuzda alarm oluşturulur.'),
-          if (!_elevatorLoading && _elevatorError == null && _elevators.isEmpty)
-            const AppCard(
-              child: Text(
-                'Bu sitede kayıtlı aktif asansör yok. Yönetim Ekipman ve Bakım bölümünden ekleyebilir.',
-              ),
-            ),
-          for (final elevator in _elevators)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpace.sm),
-              child: OutlinedButton(
-                key: ValueKey('emergency_elevator_${elevator.id}'),
-                onPressed: disabled
-                    ? null
-                    : () => unawaited(
-                        _send('elevator', equipmentId: elevator.id),
+              const Text('Bloğu seçin veya tüm siteyi bilgilendirin.'),
+              if (!_locationLoading &&
+                  _locationError == null &&
+                  _locations.isEmpty)
+                const Text('Konum listesi alınamadı; yenileyin.'),
+              for (final location in _locations)
+                Padding(
+                  padding: const EdgeInsets.only(top: AppSpace.sm),
+                  child: OutlinedButton(
+                    key: ValueKey('emergency_location_${location.id}'),
+                    onPressed: disabled
+                        ? null
+                        : () =>
+                              unawaited(_send('fire', locationId: location.id)),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: AppSpace.md,
                       ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(elevator.name),
-                      if (elevator.blockName != null) Text(elevator.blockName!),
-                      if (elevator.location != null) Text(elevator.location!),
-                    ],
+                      child: Text(location.name),
+                    ),
                   ),
                 ),
+            ],
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.history_rounded,
+        title: 'Alarm Durumu ve Kayıtlar',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sending)
+              const Padding(
+                padding: EdgeInsets.all(AppSpace.sm),
+                child: Text('Alarm kaydediliyor…'),
+              ),
+            if (_sendError != null)
+              _notice(
+                _sendError!,
+                () => _pending != null
+                    ? _send(
+                        _pending!.kind,
+                        equipmentId: _pending!.equipment,
+                        locationId: _pending!.location,
+                      )
+                    : _lastAlarmKind == 'fire'
+                    ? _loadLocations(sendWhenSingle: true)
+                    : _loadElevators(),
+              ),
+            if (_receipt case final receipt?) ...[
+              AppCard(
+                key: const ValueKey('emergency_receipt'),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      'Alarm #${receipt.alarm.id} kaydedildi.',
+                      style: Theme.of(context).textTheme.titleMedium,
+                    ),
+                    Text(
+                      'Atanan güvenlik: ${receipt.securityAssigned} • Asansör servisi: ${receipt.serviceAssigned}',
+                    ),
+                    Text('Yönetici bildirimi: ${receipt.managerNotified}'),
+                    if (receipt.alarm.kind == 'fire')
+                      Text('Daire hesabı alarmı: ${receipt.residentAssigned}'),
+                    if (receipt.alarm.createdByName != null)
+                      Text('Alarmı veren: ${receipt.alarm.createdByName}'),
+                    const Text(
+                      'Kayıt oluşması, alıcının alarmı gördüğü veya sesi duyduğu anlamına gelmez.',
+                    ),
+                    if (receipt.securityAssigned == 0 &&
+                        receipt.serviceAssigned == 0 &&
+                        receipt.residentAssigned == 0)
+                      const Text(
+                        'Sesli alarm alıcısı atanmamış. Yönetim Alarm alıcıları ayarını tamamlamalı.',
+                      ),
+                    for (final warning in receipt.warningMessages) Text(warning),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+            ] else if (!_sending && _sendError == null) ...[
+              Text(
+                'Başlatılan alarmların özeti ve geçmiş kayıtlar burada yer alır.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                key: const ValueKey('emergency_history'),
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) =>
+                      EmergencyAlarmHistoryDialog(service: _service),
+                ),
+                icon: const Icon(Icons.history),
+                label: const Text('Alarm kayıtları'),
               ),
             ),
-        ],
-        if (_showLocations) ...[
-          const SizedBox(height: AppSpace.md),
-          Text(
-            'Yangın nerede?',
-            style: Theme.of(context).textTheme.titleMedium,
-          ),
-          const Text('Bloğu seçin veya tüm siteyi bilgilendirin.'),
-          if (!_locationLoading && _locationError == null && _locations.isEmpty)
-            const Text('Konum listesi alınamadı; yenileyin.'),
-          for (final location in _locations)
-            Padding(
-              padding: const EdgeInsets.only(top: AppSpace.sm),
-              child: OutlinedButton(
-                key: ValueKey('emergency_location_${location.id}'),
-                onPressed: disabled
-                    ? null
-                    : () => unawaited(_send('fire', locationId: location.id)),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AppSpace.md),
-                  child: Text(location.name),
-                ),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(
+                onPressed: _sending ? null : () => unawaited(reload()),
+                icon: const Icon(Icons.refresh),
+                label: const Text('Yenile'),
               ),
             ),
-        ],
-        if (_sending)
-          const Padding(
-            padding: EdgeInsets.all(AppSpace.sm),
-            child: Text('Alarm kaydediliyor…'),
-          ),
-        if (_sendError != null)
-          _notice(
-            _sendError!,
-            () => _pending != null
-                ? _send(
-                    _pending!.kind,
-                    equipmentId: _pending!.equipment,
-                    locationId: _pending!.location,
-                  )
-                : _lastAlarmKind == 'fire'
-                ? _loadLocations(sendWhenSingle: true)
-                : _loadElevators(),
-          ),
-        if (_receipt case final receipt?) ...[
-          const SizedBox(height: AppSpace.md),
-          AppCard(
-            key: const ValueKey('emergency_receipt'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  'Alarm #${receipt.alarm.id} kaydedildi.',
-                  style: Theme.of(context).textTheme.titleMedium,
-                ),
-                Text(
-                  'Atanan güvenlik: ${receipt.securityAssigned} • Asansör servisi: ${receipt.serviceAssigned}',
-                ),
-                Text('Yönetici bildirimi: ${receipt.managerNotified}'),
-                if (receipt.alarm.kind == 'fire')
-                  Text('Daire hesabı alarmı: ${receipt.residentAssigned}'),
-                if (receipt.alarm.createdByName != null)
-                  Text('Alarmı veren: ${receipt.alarm.createdByName}'),
-                const Text(
-                  'Kayıt oluşması, alıcının alarmı gördüğü veya sesi duyduğu anlamına gelmez.',
-                ),
-                if (receipt.securityAssigned == 0 &&
-                    receipt.serviceAssigned == 0 &&
-                    receipt.residentAssigned == 0)
-                  const Text(
-                    'Sesli alarm alıcısı atanmamış. Yönetim Alarm alıcıları ayarını tamamlamalı.',
-                  ),
-                for (final warning in receipt.warningMessages) Text(warning),
-              ],
-            ),
-          ),
-        ],
-        const SizedBox(height: AppSpace.md),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TextButton.icon(
-            key: const ValueKey('emergency_history'),
-            onPressed: () => showDialog<void>(
-              context: context,
-              builder: (_) => EmergencyAlarmHistoryDialog(service: _service),
-            ),
-            icon: const Icon(Icons.history),
-            label: const Text('Alarm kayıtları'),
-          ),
+          ],
         ),
-        Align(
-          alignment: AlignmentDirectional.centerStart,
-          child: TextButton.icon(
-            onPressed: _sending ? null : () => unawaited(reload()),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Yenile'),
-          ),
-        ),
-      ],
+      ),
     );
   }
 

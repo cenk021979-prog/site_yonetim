@@ -2451,7 +2451,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       padding: EdgeInsets.fromLTRB(horizontal, AppSpace.sm, horizontal, 0),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 1100),
+          constraints: const BoxConstraints(maxWidth: double.infinity),
           child: UrgentAnnouncementBanner(
             count: _announcements.unreadUrgent,
             title: urgent?.title,
@@ -7184,7 +7184,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     _bodyScrollPage = pageKey;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final horizontalPadding = constraints.maxWidth < 600 ? 16.0 : 20.0;
+        final horizontalPadding = constraints.maxWidth >= 1200
+            ? 24.0
+            : (constraints.maxWidth < 600 ? 16.0 : 20.0);
         return RefreshIndicator(
           onRefresh: _refreshAll,
           child: SingleChildScrollView(
@@ -7199,12 +7201,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               key: _bodyContentKey,
               alignment: Alignment.topCenter,
               child: ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: (_interfaceMode.mode == InterfaceMode.simple ||
-                             _selectedMenu == SirketMenuItem.siteler ||
-                             _selectedMenu == SirketMenuItem.daireKullanicilariYonetimi)
-                      ? 1440
-                      : 1100,
+                constraints: const BoxConstraints(
+                  maxWidth: double.infinity,
                 ),
                 // RepaintBoundary: SingleChildScrollView içeriği her kaydırma karesinde baştan boyanır;
                 // yüzlerce daire/kullanıcı kartlı sayfalarda bu kare başına binlerce boyama demekti.

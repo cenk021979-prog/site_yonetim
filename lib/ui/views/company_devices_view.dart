@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/company_device_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class CompanyDevicesView extends StatelessWidget {
   const CompanyDevicesView({
@@ -78,121 +79,149 @@ class CompanyDevicesView extends StatelessWidget {
     final initialLoading = isLoading && devices.isEmpty;
     final refreshing = isLoading && devices.isNotEmpty;
     final page = pageData;
+    final p = context.palette;
+    final th = Theme.of(context).textTheme;
     var cardIndex = 0;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (isSuperUser) ...[
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: Wrap(
-              spacing: AppSpace.sm,
-              runSpacing: AppSpace.sm,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                ElevatedButton.icon(
-                  onPressed: isBroadcastingOta ||
-                          isLoading ||
-                          (pageData?.total ?? 0) == 0
-                      ? null
-                      : onBroadcastOta,
-                  icon: const Icon(Icons.system_update_alt),
-                  label: Text(
-                    isBroadcastingOta
-                        ? 'Gönderiliyor...'
-                        : 'Tümüne OTA Kontrolü',
+    return WorkspaceSplitShell(
+      leftFlex: 4,
+      rightFlex: 8,
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Envanter Özeti & İşlemler',
+        subtitle: 'Cihaz dağılımı ve toplu işlemler.',
+        tone: AppTone.primary,
+        onRefresh: isSuperUser ? null : (isLoading ? null : onRefresh),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              page == null
+                  ? 'Kayıtlı cihazlar listeleniyor.'
+                  : 'Toplam ${page.total} cihaz (${unassignedDevices.length} atama bekliyor, ${assignedDevices.length} kapıya atanmış).',
+              style: th.bodyMedium?.copyWith(color: p.text, fontWeight: FontWeight.w600),
+            ),
+            if (isSuperUser) ...[
+              const SizedBox(height: AppSpace.md),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.sm,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: isBroadcastingOta ||
+                            isLoading ||
+                            (pageData?.total ?? 0) == 0
+                        ? null
+                        : onBroadcastOta,
+                    icon: const Icon(Icons.system_update_alt),
+                    label: Text(
+                      isBroadcastingOta
+                          ? 'Gönderiliyor...'
+                          : 'Tümüne OTA Kontrolü',
+                    ),
                   ),
-                ),
-                OutlinedButton.icon(
-                  onPressed: (pageData?.total ?? 0) == 0
-                      ? null
-                      : onDownloadFirmwareReportPdf,
-                  style: tonalActionStyle(context),
-                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                  label: const Text('Sürüm Raporu (PDF)'),
-                ),
-                IconButton(
-                  tooltip: 'Yenile',
-                  onPressed: isLoading ? null : onRefresh,
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (refreshing)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(AppRadius.pill),
-              child: const LinearProgressIndicator(minHeight: 3),
-            ),
-          ),
-        if (initialLoading)
-          const ListSkeleton()
-        else if (devices.isEmpty)
-          EmptyCard(
-            icon: Icons.devices_other_rounded,
-            title: 'Şirket hesabına kayıtlı cihaz bulunamadı.',
-            message: isSuperUser
-                ? 'Yeni cihaz eklemek için sol menüdeki "Şirket Cihazı Kaydet" bölümünü kullanabilirsiniz.'
-                : null,
-            child: !isSuperUser && onRegisterNewDevice != null
-                ? ElevatedButton.icon(
-                    onPressed: onRegisterNewDevice,
-                    icon: const Icon(Icons.add_circle_outline_rounded),
-                    label: const Text('Yeni Cihaz Kaydet'),
-                  )
-                : null,
-          )
-        else ...[
-          if (unassignedDevices.isNotEmpty) ...[
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: _GroupLabel(
-                label: 'Atama Bekleyen Cihazlar (${unassignedDevices.length})',
-                tone: AppTone.warning,
-                icon: Icons.link_off_rounded,
+                  OutlinedButton.icon(
+                    onPressed: (pageData?.total ?? 0) == 0
+                        ? null
+                        : onDownloadFirmwareReportPdf,
+                    style: tonalActionStyle(context),
+                    icon: const Icon(Icons.picture_as_pdf_outlined),
+                    label: const Text('Sürüm Raporu (PDF)'),
+                  ),
+                  IconButton(
+                    tooltip: 'Yenile',
+                    onPressed: isLoading ? null : onRefresh,
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
               ),
-            ),
-            for (final device in unassignedDevices) _card(device, cardIndex++),
-            if (assignedDevices.isNotEmpty) const SizedBox(height: AppSpace.sm),
+            ],
+            if (!isSuperUser && onRegisterNewDevice != null && devices.isNotEmpty) ...[
+              const SizedBox(height: AppSpace.md),
+              ElevatedButton.icon(
+                onPressed: onRegisterNewDevice,
+                icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                label: const Text('Yeni Cihaz Kaydet (Kutu QR / Seri No)'),
+              ),
+            ],
           ],
-          if (assignedDevices.isNotEmpty) ...[
-            if (unassignedDevices.isNotEmpty)
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.memory_rounded,
+        title: 'Kayıtlı Cihazlar',
+        subtitle: 'Atama bekleyen ve kapılara atanmış cihazlar.',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (refreshing)
               Padding(
                 padding: const EdgeInsets.only(bottom: AppSpace.md),
-                child: _GroupLabel(
-                  label: 'Kapıya Atanmış Cihazlar (${assignedDevices.length})',
-                  tone: AppTone.neutral,
-                  icon: Icons.meeting_room_outlined,
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(AppRadius.pill),
+                  child: const LinearProgressIndicator(minHeight: 3),
                 ),
               ),
-            for (final device in assignedDevices) _card(device, cardIndex++),
+            if (initialLoading)
+              const ListSkeleton()
+            else if (devices.isEmpty)
+              EmptyCard(
+                icon: Icons.devices_other_rounded,
+                title: 'Şirket hesabına kayıtlı cihaz bulunamadı.',
+                message: isSuperUser
+                    ? 'Yeni cihaz eklemek için sol menüdeki "Şirket Cihazı Kaydet" bölümünü kullanabilirsiniz.'
+                    : null,
+                child: !isSuperUser && onRegisterNewDevice != null
+                    ? ElevatedButton.icon(
+                        onPressed: onRegisterNewDevice,
+                        icon: const Icon(Icons.add_circle_outline_rounded),
+                        label: const Text('Yeni Cihaz Kaydet'),
+                      )
+                    : null,
+              )
+            else ...[
+              if (unassignedDevices.isNotEmpty) ...[
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.md),
+                  child: _GroupLabel(
+                    label: 'Atama Bekleyen Cihazlar (${unassignedDevices.length})',
+                    tone: AppTone.warning,
+                    icon: Icons.link_off_rounded,
+                  ),
+                ),
+                for (final device in unassignedDevices) _card(device, cardIndex++),
+                if (assignedDevices.isNotEmpty) const SizedBox(height: AppSpace.sm),
+              ],
+              if (assignedDevices.isNotEmpty) ...[
+                if (unassignedDevices.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: AppSpace.md),
+                    child: _GroupLabel(
+                      label: 'Kapıya Atanmış Cihazlar (${assignedDevices.length})',
+                      tone: AppTone.neutral,
+                      icon: Icons.meeting_room_outlined,
+                    ),
+                  ),
+                for (final device in assignedDevices) _card(device, cardIndex++),
+              ],
+            ],
+            if (page != null && page.totalPages > 1) ...[
+              const SizedBox(height: AppSpace.md),
+              PaginationBar(
+                label: 'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
+                onPrevious: page.page > 1 && !isLoading
+                    ? () => onLoadPage(page.page - 1)
+                    : null,
+                onNext: page.page < page.totalPages && !isLoading
+                    ? () => onLoadPage(page.page + 1)
+                    : null,
+              ),
+            ],
           ],
-          if (!isSuperUser && onRegisterNewDevice != null) ...[
-            const SizedBox(height: AppSpace.lg),
-            ElevatedButton.icon(
-              onPressed: onRegisterNewDevice,
-              icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
-              label: const Text('Yeni Cihaz Kaydet (Kutu QR / Seri No)'),
-            ),
-          ],
-        ],
-        if (page != null && page.totalPages > 1) ...[
-          const SizedBox(height: AppSpace.md),
-          PaginationBar(
-            label: 'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
-            onPrevious: page.page > 1 && !isLoading
-                ? () => onLoadPage(page.page - 1)
-                : null,
-            onNext: page.page < page.totalPages && !isLoading
-                ? () => onLoadPage(page.page + 1)
-                : null,
-          ),
-        ],
-      ],
+        ),
+      ),
     );
   }
 }

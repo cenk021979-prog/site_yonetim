@@ -15,6 +15,7 @@ import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/menu_layout.dart';
 import 'package:site_kapi_kontrol/ui/views/legal_parts.dart' show wrappedTitleStyle, wrappedTitleToolbarHeight;
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart' show ListSkeleton;
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Ana menü düzeni" (K8, P1-16; site yöneticisi / süper kullanıcı): ana menüde (yan menü + Panel) hangi işlemlerin öne çıkacağını seçer.
 ///
@@ -313,23 +314,7 @@ class MenuLayoutViewState extends State<MenuLayoutView> {
               key: const ValueKey<String>('menu_duzeni_kaydirma'),
               physics: const AlwaysScrollableScrollPhysics(),
               padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.xxl),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 720),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: <Widget>[
-                      Text(
-                        'Yan menüde ve Panel\'de öne çıkacak işlemleri seçin. Seçmedikleriniz kaybolmaz: "Tüm işlemler" ekranından '
-                        'açılır. Modüllerin açık ya da kapalı olması bu ayardan etkilenmez; temel modüller her sitede açık kalır.',
-                        style: th.bodyMedium,
-                      ),
-                      const SizedBox(height: AppSpace.lg),
-                      ..._buildBody(context),
-                    ],
-                  ),
-                ),
-              ),
+              child: _buildSplitBody(context, th),
             ),
           ),
         ),
@@ -337,34 +322,106 @@ class MenuLayoutViewState extends State<MenuLayoutView> {
     );
   }
 
-  List<Widget> _buildBody(BuildContext context) {
-    if (_loadingSites && _sites.isEmpty) return const <Widget>[ListSkeleton(rows: 3)];
-    if (_sitesError != null && _sites.isEmpty) {
-      return <Widget>[InlineNotice(message: _sitesError!, onRetry: () => unawaited(reload()))];
+  Widget _buildSplitBody(BuildContext context, TextTheme th) {
+    final intro = Text(
+      'Yan menüde ve Panel\'de öne çıkacak işlemleri seçin. Seçmedikleriniz kaybolmaz: "Tüm işlemler" ekranından '
+      'açılır. Modüllerin açık ya da kapalı olması bu ayardan etkilenmez; temel modüller her sitede açık kalır.',
+      style: th.bodyMedium,
+    );
+
+    final Widget leftContent;
+    final Widget rightContent;
+    if (_loadingSites && _sites.isEmpty) {
+      leftContent = intro;
+      rightContent = const ListSkeleton(rows: 3);
+    } else if (_sitesError != null && _sites.isEmpty) {
+      leftContent = intro;
+      rightContent = InlineNotice(message: _sitesError!, onRetry: () => unawaited(reload()));
+    } else if (_sites.isEmpty) {
+      leftContent = intro;
+      rightContent = const EmptyHint(
+        icon: Icons.apartment_rounded,
+        title: 'Düzenlenecek onaylı site bulunamadı.',
+        message: 'Ana menüyü düzenlemek için onaylanmış bir site gerekir.',
+      );
+    } else {
+      final state = _state;
+      final listed = state != null ? _listed(state) : const <MenuLayoutModule>[];
+      leftContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          intro,
+          const SizedBox(height: AppSpace.lg),
+          if (_sitesError != null) ...<Widget>[
+            InlineNotice(message: _sitesError!, onRetry: () => unawaited(reload())),
+            const SizedBox(height: AppSpace.md),
+          ],
+          _siteSelector(context),
+          if (state != null) ...<Widget>[
+            const SizedBox(height: AppSpace.lg),
+            PrimaryActionButton(
+              key: const ValueKey<String>('menu_duzeni_kaydet'),
+              label: 'Kaydet',
+              icon: Icons.check_rounded,
+              loading: _busy,
+              onPressed: _dirty && !_busy ? () => unawaited(_save()) : null,
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: <Widget>[
+                PrimaryActionButton(
+                  key: const ValueKey<String>('menu_duzeni_hepsi'),
+                  label: 'Hepsini göster',
+                  icon: Icons.select_all_rounded,
+                  variant: AppButtonVariant.tonal,
+                  expand: false,
+                  onPressed: _busy || listed.isEmpty ? null : _selectAll,
+                ),
+                PrimaryActionButton(
+                  key: const ValueKey<String>('menu_duzeni_varsayilan'),
+                  label: 'Önerilen düzene dön',
+                  icon: Icons.restart_alt_rounded,
+                  variant: AppButtonVariant.tonal,
+                  expand: false,
+                  onPressed: _busy || !state.customized ? null : () => unawaited(_reset()),
+                ),
+              ],
+            ),
+          ],
+        ],
+      );
+      if (_loadingState && state == null) {
+        rightContent = const ListSkeleton(rows: 4);
+      } else if (_stateError != null && state == null) {
+        rightContent = InlineNotice(message: _stateError!, onRetry: () => unawaited(_loadState(_siteCode!)));
+      } else if (state != null) {
+        rightContent = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: _buildModulesList(context, state),
+        );
+      } else {
+        rightContent = const SizedBox.shrink();
+      }
     }
-    if (_sites.isEmpty) {
-      return const <Widget>[
-        EmptyHint(
-          icon: Icons.apartment_rounded,
-          title: 'Düzenlenecek onaylı site bulunamadı.',
-          message: 'Ana menüyü düzenlemek için onaylanmış bir site gerekir.',
-        ),
-      ];
-    }
-    final state = _state;
-    return <Widget>[
-      if (_sitesError != null) ...<Widget>[
-        InlineNotice(message: _sitesError!, onRetry: () => unawaited(reload())),
-        const SizedBox(height: AppSpace.md),
-      ],
-      _siteSelector(context),
-      const SizedBox(height: AppSpace.lg),
-      if (_loadingState && state == null)
-        const ListSkeleton(rows: 4)
-      else if (_stateError != null && state == null)
-        InlineNotice(message: _stateError!, onRetry: () => unawaited(_loadState(_siteCode!)))
-      else if (state != null) ..._buildModules(context, state),
-    ];
+
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site Seçimi & İşlemler',
+        tone: AppTone.primary,
+        child: leftContent,
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.view_list_rounded,
+        title: 'Menü Öğeleri',
+        tone: AppTone.info,
+        child: rightContent,
+      ),
+    );
   }
 
   Widget _siteSelector(BuildContext context) {
@@ -417,10 +474,9 @@ class MenuLayoutViewState extends State<MenuLayoutView> {
     );
   }
 
-  List<Widget> _buildModules(BuildContext context, SiteMenuLayoutState state) {
+  List<Widget> _buildModulesList(BuildContext context, SiteMenuLayoutState state) {
     final th = Theme.of(context).textTheme;
     final listed = _listed(state);
-    final dirty = _dirty;
     return <Widget>[
       const SectionHeader(title: 'Ana menüde öne çıkanlar'),
       const SizedBox(height: AppSpace.sm),
@@ -454,37 +510,6 @@ class MenuLayoutViewState extends State<MenuLayoutView> {
             ],
           ),
         ),
-      const SizedBox(height: AppSpace.lg),
-      PrimaryActionButton(
-        key: const ValueKey<String>('menu_duzeni_kaydet'),
-        label: 'Kaydet',
-        icon: Icons.check_rounded,
-        loading: _busy,
-        onPressed: dirty && !_busy ? () => unawaited(_save()) : null,
-      ),
-      const SizedBox(height: AppSpace.sm),
-      Wrap(
-        spacing: AppSpace.sm,
-        runSpacing: AppSpace.sm,
-        children: <Widget>[
-          PrimaryActionButton(
-            key: const ValueKey<String>('menu_duzeni_hepsi'),
-            label: 'Hepsini göster',
-            icon: Icons.select_all_rounded,
-            variant: AppButtonVariant.tonal,
-            expand: false,
-            onPressed: _busy || listed.isEmpty ? null : _selectAll,
-          ),
-          PrimaryActionButton(
-            key: const ValueKey<String>('menu_duzeni_varsayilan'),
-            label: 'Önerilen düzene dön',
-            icon: Icons.restart_alt_rounded,
-            variant: AppButtonVariant.tonal,
-            expand: false,
-            onPressed: _busy || !state.customized ? null : () => unawaited(_reset()),
-          ),
-        ],
-      ),
     ];
   }
 }

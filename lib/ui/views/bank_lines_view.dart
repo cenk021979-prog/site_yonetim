@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/bank_line_review_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/money.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/home_shortcut_button.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class BankLinesView extends StatefulWidget {
   const BankLinesView({super.key, required this.scope});
@@ -230,48 +231,70 @@ class _BankLinesViewState extends State<BankLinesView> {
         child: ListView(
           padding: const EdgeInsets.all(AppSpace.lg),
           children: [
-            SegmentedButton<bool>(
-              segments: const <ButtonSegment<bool>>[
-                ButtonSegment<bool>(value: false, label: Text('Bekleyenler')),
-                ButtonSegment<bool>(value: true, label: Text('Gelir/gider olarak ayrılanlar')),
-              ],
-              selected: <bool>{_done},
-              onSelectionChanged: (s) {
-                setState(() => _done = s.first);
-                unawaited(_load());
-              },
-            ),
-            const SizedBox(height: AppSpace.md),
-            if (canConfirmAll)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpace.md),
-                child: Wrap(
-                  spacing: AppSpace.sm,
-                  runSpacing: AppSpace.sm,
+            WorkspaceSplitShell(
+              left: WorkspacePaneCard(
+                icon: Icons.filter_list_rounded,
+                title: 'Görünüm ve Toplu İşlem',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    if (canReviewEach)
-                      FilledButton.icon(
-                        key: const ValueKey<String>('bank_review_each'),
-                        onPressed: _busy ? null : _reviewEach,
-                        icon: const Icon(Icons.fact_check_rounded),
-                        label: const Text('Tek tek gözden geçir'),
-                      ),
-                    OutlinedButton.icon(
-                      key: const ValueKey<String>('bank_confirm_all'),
-                      onPressed: _busy ? null : _confirmAll,
-                      icon: const Icon(Icons.done_all_rounded),
-                      label: const Text('Önerilen dairelerin hepsini onayla'),
+                    SegmentedButton<bool>(
+                      segments: const <ButtonSegment<bool>>[
+                        ButtonSegment<bool>(value: false, label: Text('Bekleyenler')),
+                        ButtonSegment<bool>(value: true, label: Text('Gelir/gider olarak ayrılanlar')),
+                      ],
+                      selected: <bool>{_done},
+                      onSelectionChanged: (s) {
+                        setState(() => _done = s.first);
+                        unawaited(_load());
+                      },
                     ),
+                    if (canConfirmAll) ...[
+                      const SizedBox(height: AppSpace.md),
+                      Wrap(
+                        spacing: AppSpace.sm,
+                        runSpacing: AppSpace.sm,
+                        children: [
+                          if (canReviewEach)
+                            FilledButton.icon(
+                              key: const ValueKey<String>('bank_review_each'),
+                              onPressed: _busy ? null : _reviewEach,
+                              icon: const Icon(Icons.fact_check_rounded),
+                              label: const Text('Tek tek gözden geçir'),
+                            ),
+                          OutlinedButton.icon(
+                            key: const ValueKey<String>('bank_confirm_all'),
+                            onPressed: _busy ? null : _confirmAll,
+                            icon: const Icon(Icons.done_all_rounded),
+                            label: const Text('Önerilen dairelerin hepsini onayla'),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
-            if (_loading) const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator())),
-            if (!_loading && _error != null) ...[
-              Text(_error!),
-              TextButton(onPressed: _load, child: const Text('Tekrar dene')),
-            ],
-            if (!_loading && _error == null && _lines.isEmpty) Padding(padding: const EdgeInsets.all(AppSpace.xl), child: Text(_done ? 'Henüz ayrılmış satır yok.' : 'Onay bekleyen banka hareketi bulunmuyor.', textAlign: TextAlign.center)),
-            if (!_loading && _error == null) for (final l in _lines) _tile(l),
+              right: WorkspacePaneCard(
+                icon: Icons.account_balance_rounded,
+                title: 'Banka Hareketleri',
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (_loading) const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator())),
+                    if (!_loading && _error != null) ...[
+                      Text(_error!),
+                      TextButton(onPressed: _load, child: const Text('Tekrar dene')),
+                    ],
+                    if (!_loading && _error == null && _lines.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(AppSpace.xl),
+                        child: Text(_done ? 'Henüz ayrılmış satır yok.' : 'Onay bekleyen banka hareketi bulunmuyor.', textAlign: TextAlign.center),
+                      ),
+                    if (!_loading && _error == null) for (final l in _lines) _tile(l),
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

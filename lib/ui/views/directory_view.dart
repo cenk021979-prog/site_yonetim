@@ -6,6 +6,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Telefon uygulamasında bir adres açar (`tel:`); açılamazsa false.
@@ -87,25 +88,59 @@ class DirectoryViewState extends State<DirectoryView> {
     if (_loading) return Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Text('Rehber yükleniyor...', style: secondary));
     if (_error != null) return InlineNotice(message: _error!, onRetry: reload);
     if (_sites.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.all(AppSpace.lg),
-        child: Text('Bir siteye bağlı olduğunuzda rehber burada görünür.', style: secondary),
+      return WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.contact_phone_outlined,
+          title: 'Rehber',
+          child: Text('Site yönetimi ve faydalı telefonlar bir siteye bağlandığınızda burada yer alır.', style: secondary),
+        ),
+        right: WorkspacePaneCard(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Text('Bir siteye bağlı olduğunuzda rehber burada görünür.', style: secondary),
+          ),
+        ),
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final site in _sites) ...[
-          if (_sites.length > 1) Text(site.siteName, style: th.titleLarge),
-          if (site.isEmpty) Text('Henüz kayıt eklenmedi.', style: secondary),
-          if (site.managers.isNotEmpty) _section(context, 'Yönetim', [for (final m in site.managers) _row(context, m, 'Site yöneticisi', null)]),
-          if (site.board.isNotEmpty) _section(context, 'Yönetim kurulu', [for (final p in site.board) _row(context, p.fullName, p.label, p.phone)]),
-          if (site.staff.isNotEmpty) _section(context, 'Görevliler', [for (final p in site.staff) _row(context, p.fullName, p.label, p.phone)]),
-          if (site.contacts.isNotEmpty)
-            _section(context, 'Faydalı telefonlar', [
-              for (final c in site.contacts) _row(context, c.label, kContactCategoryLabels[c.category] ?? '', c.phone, note: c.note),
-            ]),
-          const SizedBox(height: AppSpace.lg),
+        for (final (index, site) in _sites.indexed) ...[
+          if (index > 0) const SizedBox(height: AppSpace.lg),
+          WorkspaceSplitShell(
+            header: _sites.length > 1 ? Text(site.siteName, style: th.titleLarge) : null,
+            left: WorkspacePaneCard(
+              icon: Icons.badge_outlined,
+              title: 'Yönetim ve Kadro',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (site.managers.isNotEmpty) _section(context, 'Yönetim', [for (final m in site.managers) _row(context, m, 'Site yöneticisi', null)]),
+                  if (site.board.isNotEmpty) _section(context, 'Yönetim kurulu', [for (final p in site.board) _row(context, p.fullName, p.label, p.phone)]),
+                  if (site.staff.isNotEmpty) _section(context, 'Görevliler', [for (final p in site.staff) _row(context, p.fullName, p.label, p.phone)]),
+                  if (site.managers.isEmpty && site.board.isEmpty && site.staff.isEmpty)
+                    Text('Yönetim veya görevli iletişim kaydı yok.', style: secondary),
+                ],
+              ),
+            ),
+            right: WorkspacePaneCard(
+              icon: Icons.contact_phone_outlined,
+              title: 'Faydalı Telefonlar',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (site.isEmpty)
+                    Text('Henüz kayıt eklenmedi.', style: secondary)
+                  else if (site.contacts.isNotEmpty)
+                    _section(context, 'Faydalı telefonlar', [
+                      for (final c in site.contacts) _row(context, c.label, kContactCategoryLabels[c.category] ?? '', c.phone, note: c.note),
+                    ])
+                  else
+                    Text('Faydalı telefon kaydı eklenmedi.', style: secondary),
+                ],
+              ),
+            ),
+          ),
         ],
       ],
     );

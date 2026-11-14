@@ -11,6 +11,7 @@ import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Platform geneli modül yönetimi (Katman 1 Master Anahtarı).
 /// Yalnızca Süper Kullanıcı tarafından görülebilir ve yönetilebilir.
@@ -243,22 +244,14 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     );
   }
 
-  /// Sol Blok: Siteler ekranı gibi çerçeveli Modül Listesi
+  /// Sol Blok: Kurumsal tema çerçeveli Modül Listesi
   Widget _buildModuleListPane(
     BuildContext context,
     List<PlatformModule> modules, {
     required bool isWide,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
+    final p = context.palette;
+    final isDark = p.isDark;
 
     final activeCount = modules.where((m) => m.isPlatformActive).length;
     final inactiveCount = modules.where((m) => !m.isPlatformActive).length;
@@ -268,18 +261,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     final filtered = _applyFilter(modules, _filter);
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -291,12 +273,12 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.15),
+                  color: AppTone.success.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.verified_rounded,
-                  color: AppColors.success,
+                  color: AppTone.success.ink(p),
                   size: 22,
                 ),
               ),
@@ -310,16 +292,16 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Text(
+                    Text(
                       'Sistemdeki tüm platform modülleri ve durumları.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -651,32 +633,12 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     List<PlatformModule> modules, {
     required bool isWide,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
-
+    final p = context.palette;
+    final isDark = p.isDark;
     final selected = modules.where((m) => m.code == _selectedCode).firstOrNull;
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -688,12 +650,12 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.tune_rounded,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -709,7 +671,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -718,9 +680,9 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
                       selected != null
                           ? 'Modülün platform durumu, kullanım kapsamı ve ayarları.'
                           : 'İşlem yapmak için soldaki listeden bir modül seçin.',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

@@ -11,6 +11,7 @@ import 'package:site_kapi_kontrol/ui/views/announcements_admin_view.dart';
 import 'package:site_kapi_kontrol/ui/views/announcements_inbox_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/push_soft_prompt_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Duyurular" ekranı (Platform Faz 3a, çekirdek `announcements` modülü). Kullanıcının rolüne göre iki
 /// görünüm barındırır:
@@ -169,12 +170,33 @@ class AnnouncementsViewState extends State<AnnouncementsView> {
             've (isterseniz) e-postayla iletilir.',
       null => 'Sitenizin duyuruları burada görünür.',
     };
-    return Column(
+    final header = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         const PageHeaderCard(title: 'Duyurular', icon: Icons.campaign_rounded),
         const SizedBox(height: AppSpace.sm),
         Text(description, style: th.bodyMedium),
+      ],
+    );
+    if (!_hasInbox && !_hasManage) {
+      return WorkspaceSplitShell(
+        header: header,
+        left: const WorkspacePaneCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Duyuru Kanalları',
+          child: Text('Bir siteye bağlandığınızda duyuru akışı ve yönetim seçenekleri burada görünür.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.campaign_rounded,
+          title: 'Bilgilendirme',
+          child: content,
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        header,
         const SizedBox(height: AppSpace.lg),
         // Yalnız koşullar sağlanınca görünür; aksi hâlde yer kaplamaz.
         if (mode == _Mode.inbox)

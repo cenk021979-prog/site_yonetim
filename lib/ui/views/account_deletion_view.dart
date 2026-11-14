@@ -11,6 +11,7 @@ import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/a11y_announce.dart';
 import 'package:site_kapi_kontrol/ui/widgets/account_password_dialog.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Hesabımı Sil" sayfası (Profil -> Gizlilik ve Veri).
 ///
@@ -175,106 +176,117 @@ class AccountDeletionViewState extends State<AccountDeletionView> {
         ],
       ),
       body: SafeArea(
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.symmetric(horizontal: hPad, vertical: AppSpace.lg),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 560),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const InlineNotice(
-                    tone: AppTone.warning,
-                    message:
-                        'Hesabınızı silmek geri alınamaz. Devam etmeden önce aşağıda nelerin silineceğini '
-                        've nelerin saklanacağını okuyun.',
-                  ),
-                  const SizedBox(height: AppSpace.lg),
-                  _body(context, th),
-                ],
-              ),
-            ),
-          ),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.symmetric(horizontal: hPad, vertical: AppSpace.lg),
+          child: _buildSplitBody(context, th),
         ),
       ),
     );
   }
 
-  Widget _body(BuildContext context, TextTheme th) {
+  Widget _buildSplitBody(BuildContext context, TextTheme th) {
     final preview = _preview;
+    final blocked = preview != null && !preview.canDelete;
+    final leftPane = WorkspacePaneCard(
+      icon: Icons.shield_outlined,
+      title: 'Bilgilendirme & Engeller',
+      tone: AppTone.warning,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const InlineNotice(
+            tone: AppTone.warning,
+            message:
+                'Hesabınızı silmek geri alınamaz. Devam etmeden önce aşağıda nelerin silineceğini '
+                've nelerin saklanacağını okuyun.',
+          ),
+          if (preview != null && _error != null) ...[
+            const SizedBox(height: AppSpace.lg),
+            InlineNotice(message: _error!, onRetry: reload),
+          ],
+          if (blocked) ...[
+            const SizedBox(height: AppSpace.lg),
+            _BlockersCard(
+              blockers: preview.blockers,
+              onOpenDebt: widget.onOpenDebt == null
+                  ? null
+                  : () {
+                      Navigator.of(context).maybePop();
+                      widget.onOpenDebt!();
+                    },
+            ),
+            const SizedBox(height: AppSpace.lg),
+            Text(
+              'Yukarıdaki engeller kalkmadan hesabınız silinemez.',
+              style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ],
+        ],
+      ),
+    );
+
+    final Widget rightChild;
     if (_loading && preview == null) {
-      return const ListSkeleton(rows: 3);
+      rightChild = const ListSkeleton(rows: 3);
+    } else if (preview == null) {
+      rightChild = InlineNotice(message: _error ?? 'Silme bilgileri yüklenemedi.', onRetry: reload);
+    } else {
+      rightChild = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (preview.willRemove.isNotEmpty) ...[
+            _ListCard(
+              key: const ValueKey<String>('account_will_remove'),
+              title: 'Silinecekler',
+              icon: Icons.delete_outline_rounded,
+              tone: AppTone.danger,
+              items: preview.willRemove,
+            ),
+            const SizedBox(height: AppSpace.lg),
+          ],
+          if (preview.willKeep.isNotEmpty) ...[
+            _ListCard(
+              key: const ValueKey<String>('account_will_keep'),
+              title: 'Saklanacaklar',
+              icon: Icons.inventory_2_outlined,
+              tone: AppTone.info,
+              items: preview.willKeep,
+            ),
+            const SizedBox(height: AppSpace.lg),
+          ],
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              key: const ValueKey<String>('account_delete_continue'),
+              style: filledToneStyle(context, tone: AppTone.danger),
+              onPressed: (blocked || _confirming || _loading) ? null : _confirm,
+              icon: const Icon(Icons.delete_forever_rounded),
+              label: const Text('Silmeye Devam Et', textAlign: TextAlign.center),
+            ),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          SizedBox(
+            width: double.infinity,
+            child: TextButton(
+              key: const ValueKey<String>('account_delete_cancel'),
+              onPressed: _confirming ? null : () => Navigator.of(context).maybePop(),
+              child: const Text('Vazgeç', textAlign: TextAlign.center),
+            ),
+          ),
+        ],
+      );
     }
-    if (preview == null) {
-      return InlineNotice(message: _error ?? 'Silme bilgileri yüklenemedi.', onRetry: reload);
-    }
-    final blocked = !preview.canDelete;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_error != null) ...[
-          InlineNotice(message: _error!, onRetry: reload),
-          const SizedBox(height: AppSpace.lg),
-        ],
-        if (blocked) ...[
-          _BlockersCard(
-            blockers: preview.blockers,
-            onOpenDebt: widget.onOpenDebt == null
-                ? null
-                : () {
-                    Navigator.of(context).maybePop();
-                    widget.onOpenDebt!();
-                  },
-          ),
-          const SizedBox(height: AppSpace.lg),
-        ],
-        if (preview.willRemove.isNotEmpty) ...[
-          _ListCard(
-            key: const ValueKey<String>('account_will_remove'),
-            title: 'Silinecekler',
-            icon: Icons.delete_outline_rounded,
-            tone: AppTone.danger,
-            items: preview.willRemove,
-          ),
-          const SizedBox(height: AppSpace.lg),
-        ],
-        if (preview.willKeep.isNotEmpty) ...[
-          _ListCard(
-            key: const ValueKey<String>('account_will_keep'),
-            title: 'Saklanacaklar',
-            icon: Icons.inventory_2_outlined,
-            tone: AppTone.info,
-            items: preview.willKeep,
-          ),
-          const SizedBox(height: AppSpace.lg),
-        ],
-        if (blocked)
-          Text(
-            'Yukarıdaki engeller kalkmadan hesabınız silinemez.',
-            style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-          ),
-        if (blocked) const SizedBox(height: AppSpace.md),
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            key: const ValueKey<String>('account_delete_continue'),
-            style: filledToneStyle(context, tone: AppTone.danger),
-            onPressed: (blocked || _confirming || _loading) ? null : _confirm,
-            icon: const Icon(Icons.delete_forever_rounded),
-            label: const Text('Silmeye Devam Et', textAlign: TextAlign.center),
-          ),
-        ),
-        const SizedBox(height: AppSpace.sm),
-        SizedBox(
-          width: double.infinity,
-          child: TextButton(
-            key: const ValueKey<String>('account_delete_cancel'),
-            onPressed: _confirming ? null : () => Navigator.of(context).maybePop(),
-            child: const Text('Vazgeç', textAlign: TextAlign.center),
-          ),
-        ),
-      ],
+
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      left: leftPane,
+      right: WorkspacePaneCard(
+        icon: Icons.delete_sweep_outlined,
+        title: 'Veri Kapsamı & İşlemler',
+        tone: AppTone.danger,
+        child: rightChild,
+      ),
     );
   }
 }

@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Yönetim "Kamera (CCTV)" ekranı (`cctv_link` modülü): Kameralar | Olaylar.
@@ -310,46 +311,92 @@ class CctvViewState extends State<CctvView> {
       physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        Text('Kamera (CCTV)', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: AppSpace.md),
-        const InlineNotice(message: cctvKvkkNote, tone: AppTone.info, icon: Icons.privacy_tip_outlined),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.length > 1)
-          DropdownButtonFormField<CctvSite>(
-            initialValue: site,
-            decoration: const InputDecoration(labelText: 'Site'),
-            items: <DropdownMenuItem<CctvSite>>[for (final s in widget.sites) DropdownMenuItem<CctvSite>(value: s, child: Text(s.label))],
-            onChanged: (v) {
-              setState(() => _site = v);
-              reload();
-            },
+        WorkspaceSplitShell(
+          header: Text(
+            'Kamera (CCTV)',
+            style: Theme.of(context).textTheme.headlineSmall,
           ),
-        const SizedBox(height: AppSpace.md),
-        if (site == null)
-          const Text('Bu özellik için açık bir siteniz yok.')
-        else ...<Widget>[
-          Wrap(
-            spacing: AppSpace.sm,
-            children: <Widget>[
-              for (var i = 0; i < _tabs.length; i++) ChoiceChip(label: Text(_tabs[i]), selected: _tab == i, onSelected: (_) => setState(() => _tab = i)),
-            ],
-          ),
-          const SizedBox(height: AppSpace.md),
-          if (site.canWrite && _tab == 0)
-            Align(
-              alignment: Alignment.centerRight,
-              child: PrimaryActionButton(label: 'Kamera ekle', icon: Icons.add_rounded, expand: false, onPressed: () => _edit()),
+          left: WorkspacePaneCard(
+            icon: Icons.tune_rounded,
+            title: 'Bilgi ve Süzgeçler',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                const InlineNotice(
+                  message: cctvKvkkNote,
+                  tone: AppTone.info,
+                  icon: Icons.privacy_tip_outlined,
+                ),
+                if (widget.sites.length > 1) ...[
+                  const SizedBox(height: AppSpace.md),
+                  DropdownButtonFormField<CctvSite>(
+                    initialValue: site,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Site'),
+                    items: <DropdownMenuItem<CctvSite>>[
+                      for (final s in widget.sites)
+                        DropdownMenuItem<CctvSite>(
+                          value: s,
+                          child: Text(
+                            s.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      setState(() => _site = v);
+                      reload();
+                    },
+                  ),
+                ],
+                if (site != null) ...<Widget>[
+                  const SizedBox(height: AppSpace.md),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: <Widget>[
+                      for (var i = 0; i < _tabs.length; i++)
+                        ChoiceChip(
+                          label: Text(_tabs[i]),
+                          selected: _tab == i,
+                          onSelected: (_) => setState(() => _tab = i),
+                        ),
+                    ],
+                  ),
+                  if (site.canWrite && _tab == 0) ...[
+                    const SizedBox(height: AppSpace.md),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: PrimaryActionButton(
+                        label: 'Kamera ekle',
+                        icon: Icons.add_rounded,
+                        expand: false,
+                        onPressed: () => _edit(),
+                      ),
+                    ),
+                  ],
+                ],
+              ],
             ),
-          const SizedBox(height: AppSpace.sm),
-          if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(AppSpace.lg), child: CircularProgressIndicator()))
-          else if (_error != null)
-            InlineNotice(message: _error!, onRetry: reload)
-          else if (_tab == 0)
-            _camerasTab(site)
-          else
-            _eventsTab(),
-        ],
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.videocam_outlined,
+            title: site == null ? 'Bilgilendirme' : _tabs[_tab],
+            child: site == null
+                ? const Text('Bu özellik için açık bir siteniz yok.')
+                : (_loading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(AppSpace.lg),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : (_error != null
+                            ? InlineNotice(message: _error!, onRetry: reload)
+                            : (_tab == 0 ? _camerasTab(site) : _eventsTab()))),
+          ),
+        ),
       ],
     );
   }

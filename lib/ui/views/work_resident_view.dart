@@ -18,6 +18,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/work_tracking_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Taleplerim" ekranı (İş Takibi, `work_tracking` modülü): kendi arıza / bakım / talep kayıtları, durum
 /// rozeti, "yeni güncelleme" göstergesi, "Yeni Talep" formu ve ayrıntı (durum çizgisi, yorum, kendi `yeni`
@@ -203,144 +204,158 @@ class WorkResidentViewState extends State<WorkResidentView> {
     final th = Theme.of(context).textTheme;
     final multiSite = widget.sites.length > 1;
     final canCreate = widget.sites.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Taleplerim',
-          icon: Icons.assignment_rounded,
-          help: 'Arıza, bakım, şikayet ya da önerinizi yönetime iletin ve durumunu buradan izleyin.',
-          action: canCreate
-              ? ElevatedButton.icon(
-                  key: const ValueKey<String>('work_new_request'),
-                  onPressed: _create,
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Yeni Talep'),
-                )
-              : null,
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (multiSite) ...[
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('work_resident_site_${_siteFilter ?? 0}'),
-              isExpanded: true,
-              initialValue: _siteFilter ?? _allSites,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                const DropdownMenuItem<int>(
-                  value: _allSites,
-                  child: Text(
-                    'Tüm siteler',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Taleplerim',
+        icon: Icons.assignment_rounded,
+        help: 'Arıza, bakım, şikayet ya da önerinizi yönetime iletin ve durumunu buradan izleyin.',
+        action: canCreate
+            ? ElevatedButton.icon(
+                key: const ValueKey<String>('work_new_request'),
+                onPressed: _create,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Yeni Talep'),
+              )
+            : null,
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Süzgeç',
+        subtitle: multiSite ? 'Site seçimi ve talep durumu' : 'Talep durumu süzgeci',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multiSite) ...[
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('work_resident_site_${_siteFilter ?? 0}'),
+                  isExpanded: true,
+                  initialValue: _siteFilter ?? _allSites,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
                   ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: _allSites,
+                      child: Text(
+                        'Tüm siteler',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    for (final s in widget.sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(
+                          s.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final next = value == _allSites ? null : value;
+                    if (next == _siteFilter) return;
+                    setState(() => _siteFilter = next);
+                    _applyFilters();
+                  },
                 ),
-                for (final s in widget.sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      s.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                final next = value == _allSites ? null : value;
-                if (next == _siteFilter) return;
-                setState(() => _siteFilter = next);
-                _applyFilters();
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text('Durum', style: th.titleSmall),
-              const SizedBox(height: AppSpace.sm),
-              Wrap(
-                spacing: AppSpace.sm,
-                runSpacing: AppSpace.sm,
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final entry in const <(String, String)>[
-                    ('open', 'Açık'),
-                    ('closed', 'Kapanan'),
-                    ('all', 'Tümü'),
-                  ])
-                    ChoiceChip(
-                      key: ValueKey<String>('work_status_${entry.$1}'),
-                      label: Text(entry.$2),
-                      selected: _status == entry.$1,
-                      onSelected: (_) => _selectStatus(entry.$1),
-                    ),
+                  Text('Durum', style: th.titleSmall),
+                  const SizedBox(height: AppSpace.sm),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: [
+                      for (final entry in const <(String, String)>[
+                        ('open', 'Açık'),
+                        ('closed', 'Kapanan'),
+                        ('all', 'Tümü'),
+                      ])
+                        ChoiceChip(
+                          key: ValueKey<String>('work_status_${entry.$1}'),
+                          label: Text(entry.$2),
+                          selected: _status == entry.$1,
+                          onSelected: (_) => _selectStatus(entry.$1),
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_unreadUpdates > 0 && !_moduleOff) ...[
-          InlineNotice(
-            key: const ValueKey<String>('work_unread_notice'),
-            tone: AppTone.warning,
-            icon: Icons.notifications_active_rounded,
-            message: _unreadUpdates == 1
-                ? '1 talebinizde yeni güncelleme var.'
-                : '$_unreadUpdates talebinizde yeni güncelleme var.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        SectionHeader(
-          title: 'Talepler',
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_moduleOff)
-          const EmptyCard(
-            key: ValueKey<String>('work_module_off'),
-            icon: Icons.assignment_late_rounded,
-            tone: AppTone.warning,
-            title: 'İş takibi bu site için kapalı.',
-            message:
-                'Yönetim bu özelliği açtığında arıza, bakım ve taleplerinizi buradan iletebilirsiniz.',
-          )
-        else if (!canCreate)
-          const EmptyCard(
-            icon: Icons.assignment_rounded,
-            title: 'Talep açabileceğiniz site yok.',
-            message:
-                'İş takibi, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
-          )
-        else
-          CursorListBody<WorkResidentItem>(
-            loader: _loader,
-            showLastUpdated: true,
-            emptyIcon: Icons.assignment_turned_in_rounded,
-            emptyTitle: _emptyTitle,
-            emptyMessage: _filtered
-                ? null
-                : 'Bir arıza ya da isteğiniz olduğunda "Yeni Talep" ile yönetime iletebilirsiniz.',
-            itemBuilder: (context, item) => WorkResidentCard(
-              item: item,
-              showSite: multiSite,
-              onTap: () => unawaited(_open(item)),
             ),
-          ),
-      ],
+            if (_unreadUpdates > 0 && !_moduleOff) ...[
+              const SizedBox(height: AppSpace.md),
+              InlineNotice(
+                key: const ValueKey<String>('work_unread_notice'),
+                tone: AppTone.warning,
+                icon: Icons.notifications_active_rounded,
+                message: _unreadUpdates == 1
+                    ? '1 talebinizde yeni güncelleme var.'
+                    : '$_unreadUpdates talebinizde yeni güncelleme var.',
+              ),
+            ],
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: _moduleOff ? Icons.assignment_late_rounded : Icons.list_alt_rounded,
+        title: 'Talep Listesi',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Talepler',
+              trailing: IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            if (_moduleOff)
+              const EmptyCard(
+                key: ValueKey<String>('work_module_off'),
+                icon: Icons.assignment_late_rounded,
+                tone: AppTone.warning,
+                title: 'İş takibi bu site için kapalı.',
+                message:
+                    'Yönetim bu özelliği açtığında arıza, bakım ve taleplerinizi buradan iletebilirsiniz.',
+              )
+            else if (!canCreate)
+              const EmptyCard(
+                icon: Icons.assignment_rounded,
+                title: 'Talep açabileceğiniz site yok.',
+                message:
+                    'İş takibi, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
+              )
+            else
+              CursorListBody<WorkResidentItem>(
+                loader: _loader,
+                showLastUpdated: true,
+                emptyIcon: Icons.assignment_turned_in_rounded,
+                emptyTitle: _emptyTitle,
+                emptyMessage: _filtered
+                    ? null
+                    : 'Bir arıza ya da isteğiniz olduğunda "Yeni Talep" ile yönetime iletebilirsiniz.',
+                itemBuilder: (context, item) => WorkResidentCard(
+                  item: item,
+                  showSite: multiSite,
+                  onTap: () => unawaited(_open(item)),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

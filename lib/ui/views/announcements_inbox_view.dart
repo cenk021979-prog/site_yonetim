@@ -15,6 +15,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/helpers/retry_lock.dart';
 import 'package:site_kapi_kontrol/ui/widgets/announcement_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Duyurular" gelen kutusu (Platform Faz 3a): kronolojik liste (`published_at DESC`), okunmamış
 /// nokta + kalın başlık, acil rozeti, aşağı çek yenile ([AnnouncementsInboxViewState.reload]), "Daha fazla
@@ -295,90 +296,105 @@ class AnnouncementsInboxViewState extends State<AnnouncementsInboxView> {
     final multiSite = widget.sites.length > 1;
     // Okunmamış duyuru varsa (sunucu sayısı ya da yüklü liste) düğme etkindir.
     final hasUnread = unread > 0 || _unreadLoaded > 0;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (multiSite) ...[
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('announcements_inbox_site_${_siteFilter ?? 0}'),
-              isExpanded: true,
-              initialValue: _siteFilter ?? _allSites,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                const DropdownMenuItem<int>(
-                  value: _allSites,
-                  child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-                for (final s in widget.sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.inbox_rounded,
+        title: 'Süzgeç ve İşlemler',
+        subtitle: multiSite ? 'Site seçimi ve okuma durumu' : 'Okuma durumu ve toplu işlem',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multiSite) ...[
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('announcements_inbox_site_${_siteFilter ?? 0}'),
+                  isExpanded: true,
+                  initialValue: _siteFilter ?? _allSites,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
                   ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                final next = value == _allSites ? null : value;
-                if (next == _siteFilter) return;
-                _siteFilter = next;
-                _applyFilter();
-                setState(() {});
-              },
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: _allSites,
+                      child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    for (final s in widget.sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final next = value == _allSites ? null : value;
+                    if (next == _siteFilter) return;
+                    _siteFilter = next;
+                    _applyFilter();
+                    setState(() {});
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_retentionDays != null) ...[
+              Text(
+                'Duyurular son $_retentionDays gün gösterilir.',
+                key: const ValueKey<String>('announcements_retention_note'),
+                style: th.bodySmall?.copyWith(color: p.textSecondary),
+              ),
+              const SizedBox(height: AppSpace.sm),
+            ],
+            PrimaryActionButton(
+              key: const ValueKey<String>('announcements_mark_all'),
+              label: 'Tümünü okundu yap',
+              icon: Icons.done_all_rounded,
+              variant: AppButtonVariant.tonal,
+              loading: _markingAll,
+              onPressed: (_markingAll || _retry.locked || !hasUnread) ? null : _markAllRead,
             ),
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_retentionDays != null) ...[
-          Text(
-            'Duyurular son $_retentionDays gün gösterilir.',
-            key: const ValueKey<String>('announcements_retention_note'),
-            style: th.bodySmall?.copyWith(color: p.textSecondary),
-          ),
-          const SizedBox(height: AppSpace.sm),
-        ],
-        SectionHeader(
-          title: 'Gelen duyurular',
-          count: unread > 0 ? unread : null,
-          countSuffix: ' okunmamış',
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+            if (_actionError != null) ...[
+              const SizedBox(height: AppSpace.md),
+              InlineNotice(message: _actionError!),
+            ],
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        PrimaryActionButton(
-          key: const ValueKey<String>('announcements_mark_all'),
-          label: 'Tümünü okundu yap',
-          icon: Icons.done_all_rounded,
-          variant: AppButtonVariant.tonal,
-          loading: _markingAll,
-          onPressed: (_markingAll || _retry.locked || !hasUnread) ? null : _markAllRead,
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.campaign_rounded,
+        title: 'Duyuru Akışı',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Gelen duyurular',
+              count: unread > 0 ? unread : null,
+              countSuffix: ' okunmamış',
+              trailing: IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            CursorListBody<ResidentAnnouncement>(
+              loader: _loader,
+              showLastUpdated: true,
+              emptyIcon: Icons.campaign_rounded,
+              emptyTitle: 'Henüz duyuru yok.',
+              emptyMessage: 'Yönetimin size gönderdiği duyurular burada görünür.',
+              itemBuilder: (context, announcement) => AnnouncementInboxCard(
+                announcement: announcement,
+                showSite: multiSite,
+                onTap: () => _open(announcement),
+                onRemove: () => unawaited(_hide(announcement)),
+              ),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        if (_actionError != null) ...[
-          InlineNotice(message: _actionError!),
-          const SizedBox(height: AppSpace.md),
-        ],
-        CursorListBody<ResidentAnnouncement>(
-          loader: _loader,
-          showLastUpdated: true,
-          emptyIcon: Icons.campaign_rounded,
-          emptyTitle: 'Henüz duyuru yok.',
-          emptyMessage: 'Yönetimin size gönderdiği duyurular burada görünür.',
-          itemBuilder: (context, announcement) => AnnouncementInboxCard(
-            announcement: announcement,
-            showSite: multiSite,
-            onTap: () => _open(announcement),
-            onRemove: () => unawaited(_hide(announcement)),
-          ),
-        ),
-      ],
+      ),
     );
   }
 }

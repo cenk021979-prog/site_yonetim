@@ -25,6 +25,7 @@ import 'package:site_kapi_kontrol/ui/views/my_apartment_vehicles.dart';
 import 'package:site_kapi_kontrol/ui/views/my_apartment_layout.dart';
 import 'package:site_kapi_kontrol/ui/widgets/emergency_call_button.dart';
 import 'package:site_kapi_kontrol/ui/widgets/state_view.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class MyApartmentView extends StatefulWidget {
   const MyApartmentView({
@@ -316,6 +317,45 @@ class MyApartmentViewState extends State<MyApartmentView> {
       );
     }
     final data = _data ?? const MyApartmentsData();
+    if (data.apartments.isEmpty) {
+      return WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          icon: Icons.home_work_outlined,
+          title: 'Dairelerim',
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_error != null) ...[
+                StateView.failure(
+                  message: _error!,
+                  offline: _errorOffline,
+                  onRetry: reload,
+                ),
+                const SizedBox(height: AppSpace.md),
+              ],
+              for (final n in data.notices) _noticeCard(n),
+              for (final r in data.incoming) _incomingCard(r),
+              if (data.notices.isEmpty && data.incoming.isEmpty)
+                Text(
+                  'Bekleyen davet veya bildirim bulunmuyor.',
+                  style: secondary,
+                ),
+            ],
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Daire Bilgisi',
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpace.lg),
+            child: Text(
+              'Henüz bağlı olduğunuz bir daire yok. "Daireye Katıl" ekranından başvurabilirsiniz.',
+              style: secondary,
+            ),
+          ),
+        ),
+      );
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -329,14 +369,6 @@ class MyApartmentViewState extends State<MyApartmentView> {
         ],
         for (final n in data.notices) _noticeCard(n),
         for (final r in data.incoming) _incomingCard(r),
-        if (data.apartments.isEmpty)
-          Padding(
-            padding: const EdgeInsets.all(AppSpace.lg),
-            child: Text(
-              'Henüz bağlı olduğunuz bir daire yok. "Daireye Katıl" ekranından başvurabilirsiniz.',
-              style: secondary,
-            ),
-          ),
         for (final apt in data.apartments) _apartmentCard(apt, data.canSearch),
       ],
     );
@@ -455,50 +487,54 @@ class MyApartmentViewState extends State<MyApartmentView> {
     );
     return Padding(
       padding: const EdgeInsets.only(bottom: AppSpace.lg),
-      child: AppCard(
-        key: ValueKey<String>('apt_card_${apt.apartmentId}'),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(apt.label, style: th.titleLarge),
-            if (apt.siteName.isNotEmpty) Text(apt.siteName, style: secondary),
-            const SizedBox(height: AppSpace.sm),
-            Wrap(
-              spacing: AppSpace.sm,
-              runSpacing: AppSpace.xs,
-              children: [
-                StatusChip(label: apt.roleLabel, tone: AppTone.primary),
-                if (apt.isAdmin)
-                  const StatusChip(
-                    label: 'Daire yöneticisi',
-                    tone: AppTone.success,
-                  ),
-              ],
-            ),
-            ApartmentDetailsLayout(
-              key: ValueKey('apt_details_layout_${apt.apartmentId}'),
-              primary: [...summary, ...owner, ...family],
-              secondary: [vehicles, ...requests, ...proxy],
-              stacked: [
-                ...summary,
-                ...owner,
-                ...requests,
-                ...proxy,
-                ...family,
-                vehicles,
-              ],
-            ),
-            ..._tenantSection(apt),
-            const SizedBox(height: AppSpace.md),
-            _act(
-              'Bu daireden ayrıl',
-              Icons.logout_rounded,
-              _busy ? null : () => unawaited(_leave(apt)),
-              tone: AppTone.danger,
-            ),
-            _safetySection(apt),
-          ],
+      child: ApartmentDetailsLayout(
+        key: ValueKey('apt_details_layout_${apt.apartmentId}'),
+        header: AppCard(
+          key: ValueKey<String>('apt_card_${apt.apartmentId}'),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(apt.label, style: th.titleLarge),
+              if (apt.siteName.isNotEmpty) Text(apt.siteName, style: secondary),
+              const SizedBox(height: AppSpace.sm),
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [
+                  StatusChip(label: apt.roleLabel, tone: AppTone.primary),
+                  if (apt.isAdmin)
+                    const StatusChip(
+                      label: 'Daire yöneticisi',
+                      tone: AppTone.success,
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
+        primary: [
+          ...summary,
+          ...owner,
+          ...family,
+          ..._tenantSection(apt),
+          const SizedBox(height: AppSpace.md),
+          _act(
+            'Bu daireden ayrıl',
+            Icons.logout_rounded,
+            _busy ? null : () => unawaited(_leave(apt)),
+            tone: AppTone.danger,
+          ),
+          _safetySection(apt),
+        ],
+        secondary: [vehicles, ...requests, ...proxy],
+        stacked: [
+          ...summary,
+          ...owner,
+          ...requests,
+          ...proxy,
+          ...family,
+          vehicles,
+        ],
       ),
     );
   }

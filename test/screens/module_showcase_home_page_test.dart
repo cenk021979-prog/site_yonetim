@@ -17,7 +17,6 @@
 //   çekmece + Ayarlar panelinin BİRLEŞİMİYLE aynı kümedir. Sakin kitlesinde alt çubuk vardır: gövdenin kabı çubuğun
 //   üstünde biter.
 import 'dart:convert';
-import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -263,7 +262,12 @@ MySiteModules _my(
   siteCode: 1,
   siteName: 'Güneş Sitesi',
   role: role,
-  modules: <String, bool>{'door_control': doorOpen, ...modules},
+  modules: <String, bool>{
+    'door_control': doorOpen,
+    'people': true,
+    'announcements': true,
+    ...modules,
+  },
   doorAccess: doorAccess ?? !(role == 'staff' || role == 'board_member'),
 );
 
@@ -2075,12 +2079,15 @@ void main() {
           // Gerçek sayfa genişliği (16 / 20 dp kenar boşluğu, en çok 1100 dp) ve bu genişlikteki sütun kuralı: 320 dp'de
           // vitrin 288 dp, yazı 1,0 / 1,15 iki sütun, daha büyük yazı tek sütun.
           final width = t.getSize(find.byKey(const ValueKey<String>('panel_vitrin'))).width;
-          expect(width, math.min(w - 2 * (w < 600 ? 16 : 20), 1100.0), reason: 'vitrin genişliği');
+          final expectedPad = w >= 1200 ? 24.0 : (w < 600 ? 16.0 : 20.0);
+          expect(width, w - 2 * expectedPad, reason: 'vitrin genişliği');
           final grid = buildShowcaseModel(menuItems: t.widget<ModuleShowcaseView>(showcase).menuItems, role: role).grid;
           if (grid.length >= 2) {
+            final gridFinder = find.byKey(const ValueKey<String>('panel_vitrin_izgara'));
+            final gridWidth = gridFinder.evaluate().isNotEmpty ? t.getSize(gridFinder).width : width;
             final a = t.getTopLeft(_card(grid[0].item)).dy;
             final b = t.getTopLeft(_card(grid[1].item)).dy;
-            if (showcaseColumns(width, scale) >= 2) {
+            if (showcaseColumns(gridWidth, scale) >= 2) {
               expect(b, a, reason: 'ilk iki kart aynı satırda');
             } else {
               expect(b, greaterThan(a), reason: 'tek sütun');

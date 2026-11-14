@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/crm_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/visitor_log_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim / görevli "Ziyaretçi ve Kargo" ekranı (`visitor_log` modülü): yönetici / süper kullanıcı ve görevli
 /// (kapıcı / güvenlik) kayıt girer ve kapatır; yönetim kurulu SALT OKUR.
@@ -393,118 +394,166 @@ class VisitorManagerViewState extends State<VisitorManagerView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final canWrite = widget.manageAllSites || site.canWrite;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Ziyaretçi ve Kargo',
-          icon: Icons.door_front_door_rounded,
-          help: switch (site.access) {
-            VisitorSiteAccess.staff =>
-              'Gelen kargoyu ve ziyaretçiyi kaydedin; teslim ya da çıkışta kapatın. Sakin uygulama içinde görür.',
-            VisitorSiteAccess.board =>
-              'Sitedeki ziyaretçi ve kargo kayıtlarını izleyin.',
-            VisitorSiteAccess.manager =>
-              'Kapıdan giren kargo ve ziyaretçileri kaydedin; sakin uygulama içinde bildirim görür.',
-          },
-          action: canWrite && !_moduleOff
-              ? ElevatedButton.icon(
-                  key: const ValueKey<String>('visitor_new_entry'),
-                  onPressed: () => unawaited(_create(site)),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Yeni Kayıt'),
-                )
-              : null,
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('visitor_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(
-                        _siteLabel(s),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Ziyaretçi ve Kargo',
+        icon: Icons.door_front_door_rounded,
+        help: switch (site.access) {
+          VisitorSiteAccess.staff =>
+            'Gelen kargoyu ve ziyaretçiyi kaydedin; teslim ya da çıkışta kapatın. Sakin uygulama içinde görür.',
+          VisitorSiteAccess.board =>
+            'Sitedeki ziyaretçi ve kargo kayıtlarını izleyin.',
+          VisitorSiteAccess.manager =>
+            'Kapıdan giren kargo ve ziyaretçileri kaydedin; sakin uygulama içinde bildirim görür.',
+        },
+        action: canWrite && !_moduleOff
+            ? ElevatedButton.icon(
+                key: const ValueKey<String>('visitor_new_entry'),
+                onPressed: () => unawaited(_create(site)),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Yeni Kayıt'),
+              )
+            : null,
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Süzgeçler',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>(
+                    'visitor_site_${site.code}_${_sites.length}',
+                  ),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Tooltip(
+                          message: _siteLabel(s),
+                          child: Text(
+                            _siteLabel(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
                       ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
+              ),
+            if (!canWrite) ...[
+              const SizedBox(height: AppSpace.md),
+              const InlineNotice(
+                key: ValueKey<String>('visitor_read_only_note'),
+                tone: AppTone.info,
+                icon: Icons.visibility_rounded,
+                message:
+                    'Yönetim kurulu üyesi olarak kayıtları yalnızca görüntüleyebilirsiniz.',
+              ),
+            ],
+            if (!_moduleOff) ...[
+              const SizedBox(height: AppSpace.md),
+              _buildFilters(context),
+            ],
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        child: _moduleOff
+            ? _buildModuleOff(context)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionHeader(
+                    title: 'Kayıtlar',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        ListExportButton(
+                          enabled: _loader.items.isNotEmpty,
+                          source: localExportSource(
+                            label: 'Ziyaretçi ve kargo',
+                            filenameBase: 'ziyaretci_kargo',
+                            headers: <String>[
+                              'Tür',
+                              'Ad / firma',
+                              'Blok',
+                              'Daire',
+                              'Durum',
+                              'Geliş',
+                              'Tamamlanma',
+                              'Kaydeden',
+                            ],
+                            rows: () => <List<Object?>>[
+                              for (final v in _loader.items)
+                                [
+                                  v.kind.label,
+                                  v.visitorName,
+                                  v.blockName,
+                                  v.apartmentLabel,
+                                  v.status.label,
+                                  exportDateTime(v.arrivedAt),
+                                  exportDateTime(v.completedAt),
+                                  v.recordedByName,
+                                ],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _loader.loading ? null : reload,
+                          tooltip: 'Yenile',
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
                     ),
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (!canWrite) ...[
-          const InlineNotice(
-            key: ValueKey<String>('visitor_read_only_note'),
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak kayıtları yalnızca görüntüleyebilirsiniz.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_moduleOff)
-          _buildModuleOff(context)
-        else ...[
-          _buildFilters(context),
-          const SizedBox(height: AppSpace.md),
-          SectionHeader(
-            title: 'Kayıtlar',
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[ListExportButton(enabled: _loader.items.isNotEmpty, source: localExportSource(label: 'Ziyaretçi ve kargo', filenameBase: 'ziyaretci_kargo', headers: <String>['Tür', 'Ad / firma', 'Blok', 'Daire', 'Durum', 'Geliş', 'Tamamlanma', 'Kaydeden'], rows: () => <List<Object?>>[for (final v in _loader.items) [v.kind.label, v.visitorName, v.blockName, v.apartmentLabel, v.status.label, exportDateTime(v.arrivedAt), exportDateTime(v.completedAt), v.recordedByName]])), IconButton(
-              onPressed: _loader.loading ? null : reload,
-              tooltip: 'Yenile',
-              icon: const Icon(Icons.refresh_rounded),
-            )]),
-          ),
-          const SizedBox(height: AppSpace.md),
-          CrmListBody<VisitorEntry>(
-            loader: _loader,
-            showLastUpdated: true,
-            emptyIcon: Icons.door_front_door_outlined,
-            emptyTitle: _emptyTitle,
-            filtered: _filtered,
-            filteredTitle: 'Bu süzgeç için kayıt bulunamadı.',
-            emptyMessage: _filtered
-                ? null
-                : (canWrite
-                      ? 'Kapıya kargo ya da ziyaretçi geldiğinde "Yeni Kayıt" ile ekleyin.'
-                      : 'Görevli bir kayıt açtığında burada görünür.'),
-            itemBuilder: (context, item) => VisitorManagedCard(
-              key: ValueKey<String>('visitor_card_${item.id}'),
-              entry: item,
-              canWrite: canWrite,
-              busy: _busy.contains(item.id),
-              onAction: (next) => unawaited(_action(item, next)),
-            ),
-          ),
-        ],
-      ],
+                  const SizedBox(height: AppSpace.md),
+                  CrmListBody<VisitorEntry>(
+                    loader: _loader,
+                    showLastUpdated: true,
+                    emptyIcon: Icons.door_front_door_outlined,
+                    emptyTitle: _emptyTitle,
+                    filtered: _filtered,
+                    filteredTitle: 'Bu süzgeç için kayıt bulunamadı.',
+                    emptyMessage: _filtered
+                        ? null
+                        : (canWrite
+                              ? 'Kapıya kargo ya da ziyaretçi geldiğinde "Yeni Kayıt" ile ekleyin.'
+                              : 'Görevli bir kayıt açtığında burada görünür.'),
+                    itemBuilder: (context, item) => VisitorManagedCard(
+                      key: ValueKey<String>('visitor_card_${item.id}'),
+                      entry: item,
+                      canWrite: canWrite,
+                      busy: _busy.contains(item.id),
+                      onAction: (next) => unawaited(_action(item, next)),
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 

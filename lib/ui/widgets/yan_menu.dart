@@ -625,7 +625,11 @@ class YanMenu extends StatelessWidget {
       rows.add(
         entry(
           ValueKey<String>('yan_menu_grup_${section.group.name}'),
-          _GroupHeader(title: section.group.localizedTitle(context), first: s == 0),
+          _GroupHeader(
+            title: section.group.localizedTitle(context),
+            first: s == 0,
+            tone: tone,
+          ),
         ),
       );
       for (final item in section.items) {
@@ -710,14 +714,22 @@ class YanMenu extends StatelessWidget {
 
     // Alt Sürüm Bilgisi
     final version = Padding(
-      padding: const EdgeInsets.only(top: 8, bottom: 16),
+      padding: const EdgeInsets.fromLTRB(AppSpace.md, 6, AppSpace.md, 14),
       child: Center(
-        child: Text(
-          AppConfig.versionDisplay,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: p.textMuted,
-            fontWeight: FontWeight.w600,
-            letterSpacing: 0.5,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+          decoration: BoxDecoration(
+            color: p.surfaceMuted,
+            borderRadius: BorderRadius.circular(AppRadius.pill),
+            border: Border.all(color: p.border),
+          ),
+          child: Text(
+            AppConfig.versionDisplay,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: p.textMuted,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.5,
+            ),
           ),
         ),
       ),
@@ -902,7 +914,7 @@ class YanMenuAyarlar extends StatelessWidget {
   }
 }
 
-/// Ayarlar panelinin başlığı: dişli simgesi + "Ayarlar" (başlık düğümü). Durum çubuğunun altında başlar.
+/// Ayarlar panelinin başlığı: sol çekmece ile bütünleşik rol gradyanlı kurumsal başlık.
 class _SettingsHeader extends StatelessWidget {
   const _SettingsHeader({required this.tone, required this.compact});
 
@@ -911,15 +923,45 @@ class _SettingsHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final p = context.palette;
-    return SafeArea(
-      bottom: false,
-      left: false,
-      child: Padding(
-        padding: EdgeInsets.fromLTRB(AppSpace.xl, compact ? AppSpace.md : AppSpace.xl, AppSpace.lg, AppSpace.sm),
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.fromLTRB(
+        AppSpace.lg,
+        compact ? AppSpace.md : 44,
+        AppSpace.lg,
+        AppSpace.md,
+      ),
+      decoration: BoxDecoration(
+        gradient: tone.gradient,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(AppRadius.xl),
+        ),
+      ),
+      child: SafeArea(
+        bottom: false,
+        left: false,
+        right: false,
+        top: false,
         child: Row(
           children: [
-            ExcludeSemantics(child: Icon(PhosphorIconsRegular.gear, size: 24, color: tone.ink(p))),
+            ExcludeSemantics(
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(11),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: const Icon(
+                  PhosphorIconsRegular.gear,
+                  size: 20,
+                  color: Colors.white,
+                ),
+              ),
+            ),
             const SizedBox(width: AppSpace.md),
             Expanded(
               child: Semantics(
@@ -928,7 +970,10 @@ class _SettingsHeader extends StatelessWidget {
                   SirketMenuGroup.ayarlar.localizedTitle(context),
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(color: p.text),
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w800,
+                  ),
                 ),
               ),
             ),
@@ -939,29 +984,56 @@ class _SettingsHeader extends StatelessWidget {
   }
 }
 
-/// Çekmece bölüm başlığı (İP-1D / G2): küçük, kalın, sessiz renk (metin >= 4,5:1: palet sözleşmesi); başlık düğümü.
+/// Çekmece bölüm başlığı (İP-1D / G2): sol ton şeridi + sessiz renk (metin >= 4,5:1); başlık düğümü.
 class _GroupHeader extends StatelessWidget {
-  const _GroupHeader({required this.title, required this.first});
+  const _GroupHeader({
+    required this.title,
+    required this.first,
+    required this.tone,
+  });
 
   final String title;
 
   /// İlk başlığın üst boşluğu küçüktür.
   final bool first;
+  final AppTone tone;
 
   @override
   Widget build(BuildContext context) {
     final p = context.palette;
     final style = Theme.of(context).textTheme.labelLarge ?? Theme.of(context).textTheme.bodySmall;
     return Padding(
-      padding: EdgeInsets.fromLTRB(AppSpace.lg, first ? AppSpace.xs : AppSpace.md, AppSpace.lg, AppSpace.xs),
-      child: Semantics(
-        header: true,
-        child: Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: style?.copyWith(color: p.textMuted, fontWeight: FontWeight.w700, letterSpacing: 0.3),
-        ),
+      padding: EdgeInsets.fromLTRB(AppSpace.md, first ? AppSpace.xs : AppSpace.md, AppSpace.md, AppSpace.xs),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          ExcludeSemantics(
+            child: Container(
+              width: 3,
+              height: 12,
+              decoration: BoxDecoration(
+                color: tone.ink(p).withValues(alpha: 0.75),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(width: AppSpace.sm),
+          Expanded(
+            child: Semantics(
+              header: true,
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: style?.copyWith(
+                  color: p.textMuted,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 0.45,
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -999,11 +1071,27 @@ class _SiteRow extends StatelessWidget {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final interactive = site.canSelect;
+    final cardBg = Color.alphaBlend(
+      tone.hue.withValues(alpha: p.isDark ? 0.14 : 0.06),
+      p.surface,
+    );
+    final cardBorder = Color.alphaBlend(
+      tone.hue.withValues(alpha: p.isDark ? 0.34 : 0.24),
+      p.border,
+    );
     final content = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.sm),
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
       child: Row(
         children: [
-          Icon(PhosphorIconsRegular.buildings, size: 22, color: tone.ink(p)),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tone.tint(p),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(PhosphorIconsRegular.buildings, size: 19, color: tone.ink(p)),
+          ),
           const SizedBox(width: AppSpace.md),
           Expanded(
             child: Column(
@@ -1022,7 +1110,7 @@ class _SiteRow extends StatelessWidget {
           ),
           if (interactive) ...[
             const SizedBox(width: AppSpace.sm),
-            Icon(PhosphorIconsRegular.caretUpDown, size: 22, color: p.textSecondary),
+            Icon(PhosphorIconsRegular.caretUpDown, size: 20, color: p.textSecondary),
           ],
         ],
       ),
@@ -1035,18 +1123,28 @@ class _SiteRow extends StatelessWidget {
       hint: interactive ? 'Siteyi değiştirmek için dokunun' : null,
       onTap: interactive ? () => _pick(context) : null,
       excludeSemantics: true,
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(minHeight: 48),
-        child: interactive
-            ? Material(
-                type: MaterialType.transparency,
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                  onTap: () => _pick(context),
-                  child: content,
-                ),
-              )
-            : content,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: AppSpace.xs),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cardBg,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: cardBorder, width: 1.2),
+          ),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: interactive
+                ? Material(
+                    type: MaterialType.transparency,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(14),
+                      onTap: () => _pick(context),
+                      child: content,
+                    ),
+                  )
+                : content,
+          ),
+        ),
       ),
     );
   }
@@ -1990,6 +2088,12 @@ class _MenuTile extends StatelessWidget {
           // Seçili değilken aynı rengin saydamı: geçişte yalnız alfa değişir (siyaha kaymaz).
           color: selected ? tint : tint.withValues(alpha: 0),
           borderRadius: BorderRadius.circular(AppRadius.md),
+          border: Border.all(
+            color: selected
+                ? tone.hue.withValues(alpha: p.isDark ? 0.34 : 0.24)
+                : Colors.transparent,
+            width: 1,
+          ),
         ),
         child: Material(
           type: MaterialType.transparency,

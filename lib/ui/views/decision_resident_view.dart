@@ -13,6 +13,7 @@ import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageO
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/decision_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Kararlar" ekranı (`decision_book` modülü): yönetimin sakinlerle paylaştığı KESİN kararlar, yıl başlıklarıyla;
 /// ayrıntı salt okunur.
@@ -127,96 +128,108 @@ class DecisionResidentViewState extends State<DecisionResidentView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final multiSite = widget.sites.length > 1;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(
-          title: 'Kararlar',
-          icon: Icons.library_books_rounded,
-          help: 'Yönetimin sakinlerle paylaştığı kesinleşmiş kararlar.',
-        ),
-        const SizedBox(height: AppSpace.md),
-        const DecisionLegalNote(),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.isNotEmpty && !_moduleOff) ...[
-          AppCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (multiSite) ...[
-                  DropdownButtonFormField<int>(
-                    key: ValueKey<String>('decision_resident_site_${_siteFilter ?? 0}'),
-                    isExpanded: true,
-                    initialValue: _siteFilter ?? _allSites,
-                    dropdownColor: p.surface,
-                    style: th.bodyMedium?.copyWith(color: p.text),
-                    decoration: const InputDecoration(labelText: 'Site', prefixIcon: Icon(Icons.apartment_rounded)),
-                    items: [
-                      const DropdownMenuItem<int>(
-                        value: _allSites,
-                        child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
+    return WorkspaceSplitShell(
+      header: const PageHeaderCard(
+        title: 'Kararlar',
+        icon: Icons.library_books_rounded,
+        help: 'Yönetimin sakinlerle paylaştığı kesinleşmiş kararlar.',
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Bilgi ve Süzgeçler',
+        subtitle: multiSite ? '${widget.sites.length} site' : 'Yıl ve site seçimi',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const DecisionLegalNote(),
+            if (widget.sites.isNotEmpty && !_moduleOff) ...[
+              const SizedBox(height: AppSpace.md),
+              AppCard(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (multiSite) ...[
+                      DropdownButtonFormField<int>(
+                        key: ValueKey<String>('decision_resident_site_${_siteFilter ?? 0}'),
+                        isExpanded: true,
+                        initialValue: _siteFilter ?? _allSites,
+                        dropdownColor: p.surface,
+                        style: th.bodyMedium?.copyWith(color: p.text),
+                        decoration: const InputDecoration(labelText: 'Site', prefixIcon: Icon(Icons.apartment_rounded)),
+                        items: [
+                          const DropdownMenuItem<int>(
+                            value: _allSites,
+                            child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
+                          ),
+                          for (final s in widget.sites)
+                            DropdownMenuItem<int>(
+                              value: s.code,
+                              child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                            ),
+                        ],
+                        onChanged: (value) {
+                          if (value == null) return;
+                          final next = value == _allSites ? null : value;
+                          if (next == _siteFilter) return;
+                          _setFilter(() {
+                            _siteFilter = next;
+                            _year = null;
+                            _loader.years = <int>[];
+                          });
+                        },
                       ),
-                      for (final s in widget.sites)
-                        DropdownMenuItem<int>(
-                          value: s.code,
-                          child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                        ),
+                      const SizedBox(height: AppSpace.md),
                     ],
-                    onChanged: (value) {
-                      if (value == null) return;
-                      final next = value == _allSites ? null : value;
-                      if (next == _siteFilter) return;
-                      _setFilter(() {
-                        _siteFilter = next;
-                        _year = null;
-                        _loader.years = <int>[];
-                      });
-                    },
-                  ),
-                  const SizedBox(height: AppSpace.md),
-                ],
-                DecisionYearDropdown(
-                  fieldKey: 'decision_resident_year',
-                  years: _years,
-                  selected: _year,
-                  onChanged: (year) => _setFilter(() => _year = year),
+                    DecisionYearDropdown(
+                      fieldKey: 'decision_resident_year',
+                      years: _years,
+                      selected: _year,
+                      onChanged: (year) => _setFilter(() => _year = year),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        SectionHeader(
-          title: 'Kararlar',
-          trailing: IconButton(
-            onPressed: _loader.loading || widget.sites.isEmpty ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+              ),
+            ],
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        if (_moduleOff)
-          const DecisionModuleOffCard()
-        else if (widget.sites.isEmpty)
-          const EmptyCard(
-            icon: Icons.gavel_outlined,
-            title: 'Karar görebileceğiniz site yok.',
-            message: 'Kararlar, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
-          )
-        else
-          DecisionListBody(
-            loader: _loader,
-            emptyTitle: _year == null ? 'Paylaşılmış karar yok.' : '$_year yılında paylaşılmış karar yok.',
-            emptyMessage: 'Yönetim bir kararı kesinleştirip sakinlerle paylaştığında burada görünür.',
-            cardBuilder: (d) => DecisionCard(
-              key: ValueKey<String>('decision_card_${d.id}'),
-              decision: d,
-              showManagerMarkers: false,
-              siteLabel: _siteLabelOf(d),
-              onTap: () => unawaited(_openDetail(d)),
+      ),
+      right: WorkspacePaneCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Kararlar',
+              trailing: IconButton(
+                onPressed: _loader.loading || widget.sites.isEmpty ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
             ),
-          ),
-      ],
+            const SizedBox(height: AppSpace.md),
+            if (_moduleOff)
+              const DecisionModuleOffCard()
+            else if (widget.sites.isEmpty)
+              const EmptyCard(
+                icon: Icons.gavel_outlined,
+                title: 'Karar görebileceğiniz site yok.',
+                message: 'Kararlar, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
+              )
+            else
+              DecisionListBody(
+                loader: _loader,
+                emptyTitle: _year == null ? 'Paylaşılmış karar yok.' : '$_year yılında paylaşılmış karar yok.',
+                emptyMessage: 'Yönetim bir kararı kesinleştirip sakinlerle paylaştığında burada görünür.',
+                cardBuilder: (d) => DecisionCard(
+                  key: ValueKey<String>('decision_card_${d.id}'),
+                  decision: d,
+                  showManagerMarkers: false,
+                  siteLabel: _siteLabelOf(d),
+                  onTap: () => unawaited(_openDetail(d)),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

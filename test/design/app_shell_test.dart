@@ -28,6 +28,7 @@ Future<void> _pumpApp(
   addTearDown(t.platformDispatcher.clearTextScaleFactorTestValue);
   t.platformDispatcher.platformBrightnessTestValue = brightness;
   addTearDown(t.platformDispatcher.clearPlatformBrightnessTestValue);
+  await t.pumpWidget(const SizedBox.shrink());
   await t.pumpWidget(const MyApp(networkCheckEnabled: false));
   await t.pumpAndSettle();
 }
@@ -100,10 +101,12 @@ void main() {
       expect(_shellLayers(t).any((d) => _same(d, AppDecorations.pageBackgroundDark)), isTrue);
     });
 
-    testWidgets('kayıtlı tercih yoksa sistem teması izlenir (varsayılan davranış)', (t) async {
+    testWidgets('kayıtlı tercih yoksa aydınlık açılır; "system" tercihinde sistem teması izlenir', (t) async {
       await _pumpApp(t, textScale: 1.0, brightness: Brightness.dark);
+      expect(Theme.of(t.element(find.text('Site ve Toplu Yaşam Yönetim Sistemi'))).brightness, Brightness.light);
+      await _pumpApp(t, textScale: 1.0, brightness: Brightness.dark, savedTheme: 'system');
       expect(Theme.of(t.element(find.text('Site ve Toplu Yaşam Yönetim Sistemi'))).brightness, Brightness.dark);
-      await _pumpApp(t, textScale: 1.0, brightness: Brightness.light);
+      await _pumpApp(t, textScale: 1.0, brightness: Brightness.light, savedTheme: 'system');
       expect(Theme.of(t.element(find.text('Site ve Toplu Yaşam Yönetim Sistemi'))).brightness, Brightness.light);
     });
 
@@ -131,7 +134,12 @@ void main() {
       testWidgets('${dark ? 'koyu' : 'açık'} tema: kök zemin düz palet zemini, içeriği sarar; degrade / ışıma katmanı yok', (
         t,
       ) async {
-        await _pumpApp(t, textScale: 1.0, brightness: dark ? Brightness.dark : Brightness.light);
+        await _pumpApp(
+          t,
+          textScale: 1.0,
+          brightness: dark ? Brightness.dark : Brightness.light,
+          savedTheme: dark ? 'dark' : 'light',
+        );
         final expected = dark ? AppDecorations.pageBackgroundDark : AppDecorations.pageBackgroundLight;
         final layers = _shellLayers(t);
         expect(layers.where((d) => _same(d, expected)), hasLength(1), reason: 'kök zemin tek ve mevcut sabit');

@@ -13,6 +13,7 @@ import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/a11y_announce.dart';
 import 'package:site_kapi_kontrol/ui/helpers/istanbul_time.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "İstemci Hataları" ekranı (yalnız süper kullanıcı): uygulamalardan gelen hata raporları
 /// (`GET /admin/client-errors`). Aynı hata tek kayıtta toplanır (sayı, ilk / son görülme, örnek yığın).
@@ -201,28 +202,58 @@ class ClientErrorsViewState extends State<ClientErrorsView> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'İstemci Hataları', icon: Icons.bug_report_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Uygulamalardan gelen hata raporları. Aynı hata tek kayıtta toplanır; kişisel veriler sunucuda '
-          'maskelenir ve kayıtlar 90 gün sonra silinir.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        SectionHeader(
-          title: 'Hatalar',
-          trailing: IconButton(
-            onPressed: _loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+    final p = context.palette;
+    return WorkspaceSplitShell(
+      leftFlex: 4,
+      rightFlex: 8,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'İstemci Hataları', icon: Icons.bug_report_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Uygulamalardan gelen hata raporları. Aynı hata tek kayıtta toplanır; kişisel veriler sunucuda '
+            'maskelenir ve kayıtlar 90 gün sonra silinir.',
+            style: th.bodyMedium,
           ),
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.analytics_outlined,
+        title: 'Rapor Özeti',
+        subtitle: 'Hata gruplama ve saklama politikası.',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Görüntülenen benzersiz hata: ${_items.length}',
+              style: th.bodyMedium?.copyWith(color: p.text, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              'Aynı hata parmak izi altında birleştirilir; hassas veriler maskelenir ve 90 gün saklanır.',
+              style: th.bodySmall?.copyWith(color: p.textSecondary),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        list,
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.bug_report_rounded,
+        title: 'Hata Kayıtları',
+        subtitle: 'Uygulama hata raporları ve örnek yığınlar.',
+        tone: AppTone.primary,
+        onRefresh: _loading ? null : reload,
+        refreshTooltip: 'Yenile',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const SectionHeader(title: 'Hatalar'),
+            const SizedBox(height: AppSpace.md),
+            list,
+          ],
+        ),
+      ),
     );
   }
 }

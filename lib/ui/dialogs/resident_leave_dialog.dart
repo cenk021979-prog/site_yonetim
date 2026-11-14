@@ -302,7 +302,7 @@ class _ResidentLeaveDialogState extends State<ResidentLeaveDialog> {
           if (!_loading && _preview != null)
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: AppTone.danger.a,
                 foregroundColor: Colors.white,
               ),
               onPressed: _submitting ? null : _submit,

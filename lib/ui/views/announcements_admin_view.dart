@@ -10,6 +10,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/announcements_admin_list.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/messaging_connections_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetici "Duyurular" ekranı (Platform Faz 3a): site seçici + [AnnouncementsAdminList].
 ///
@@ -171,16 +172,30 @@ class AnnouncementsAdminViewState extends State<AnnouncementsAdminView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
+      final Widget stateBody;
       if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
-        return const ListSkeleton(rows: 2);
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: reload);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message: 'Duyurular, bir siteye bağlı olduğunuzda burada görünür.',
+        );
       }
-      if (_sitesError != null) {
-        return InlineNotice(message: _sitesError!, onRetry: reload);
-      }
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message: 'Duyurular, bir siteye bağlı olduğunuzda burada görünür.',
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Kanallar',
+          subtitle: 'Site seçimi ve bildirim kanalları',
+          child: Text('Bağlı site verisi geldiğinde site ve kanal ayarları burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.campaign_rounded,
+          title: 'Duyuru Listesi',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -195,67 +210,78 @@ class AnnouncementsAdminViewState extends State<AnnouncementsAdminView> {
       siteName: site.name,
       canWrite: site.canWrite,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('announcements_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      _siteLabel(s),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Kanallar',
+        subtitle: 'Site seçimi, yetki ve bildirim bağlantıları',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('announcements_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(
+                          _siteLabel(s),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
+              ),
+            const SizedBox(height: AppSpace.md),
+            if (!site.canWrite) ...[
+              const InlineNotice(
+                tone: AppTone.info,
+                icon: Icons.visibility_rounded,
+                message:
+                    'Yönetim kurulu üyesi olarak duyuruları yalnızca görüntüleyebilirsiniz. Alıcı adları görünmez.',
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            // Bildirim kanalları bölgesi: site başına SMS + WhatsApp bağlantısı (yönetici yazar, kurul okur).
+            MessagingConnectionsCard(
+              key: ValueKey<String>('announcements_messaging_${site.code}'),
+              authService: widget.authService,
+              siteCode: site.code,
+              canWrite: site.canWrite,
             ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (!site.canWrite) ...[
-          const InlineNotice(
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak duyuruları yalnızca görüntüleyebilirsiniz. Alıcı adları görünmez.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        AnnouncementsAdminList(key: _listKey, scope: scope),
-        // Bildirim kanalları bölgesi: site başına SMS + WhatsApp bağlantısı (yönetici yazar, kurul okur).
-        const SizedBox(height: AppSpace.xl),
-        MessagingConnectionsCard(
-          key: ValueKey<String>('announcements_messaging_${site.code}'),
-          authService: widget.authService,
-          siteCode: site.code,
-          canWrite: site.canWrite,
+          ],
         ),
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.campaign_rounded,
+        title: 'Yönetim Akışı',
+        subtitle: site.label,
+        child: AnnouncementsAdminList(key: _listKey, scope: scope),
+      ),
     );
   }
 }

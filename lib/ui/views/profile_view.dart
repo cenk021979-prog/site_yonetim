@@ -15,6 +15,7 @@ import 'package:site_kapi_kontrol/ui/widgets/managed_user_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/my_records_section.dart';
 import 'package:site_kapi_kontrol/ui/widgets/notification_prefs_section.dart';
 import 'package:site_kapi_kontrol/ui/widgets/search_visibility_section.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class ProfileView extends StatelessWidget {
   const ProfileView({
@@ -57,16 +58,10 @@ class ProfileView extends StatelessWidget {
     final l = context.l10n;
 
     // Üstte kimlik özeti (hero), altında düzenleme formu: iki kardeş kart (kart-içinde-kart yok).
-    return SizedBox(
-      width: double.infinity,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _ProfileHero(session: session),
-          const SizedBox(height: AppSpace.lg),
-          AppCard(
-            padding: const EdgeInsets.all(AppSpace.lg),
-            child: Form(
+    final hero = _ProfileHero(session: session);
+    final formCard = AppCard(
+      padding: const EdgeInsets.all(AppSpace.lg),
+      child: Form(
               key: formKey,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,24 +176,52 @@ class ProfileView extends StatelessWidget {
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: AppSpace.lg),
-          const LanguagePicker(),
-          if (authService != null) ...[
-            const SizedBox(height: AppSpace.lg),
-            MyRecordsSection(authService: authService!),
-            const SizedBox(height: AppSpace.lg),
-            SearchVisibilitySection(authService: authService!),
-          ],
-          if (authService != null && showNotificationPrefs) ...[
-            const SizedBox(height: AppSpace.lg),
-            NotificationPrefsSection(authService: authService!),
-          ],
-          if (authService != null) ...[
-            const SizedBox(height: AppSpace.lg),
-            AccountPrivacySection(authService: authService!),
-          ],
-        ],
+    );
+    final hasLocale = LocaleScope.maybeOf(context) != null;
+    final hasRightWidgets = hasLocale || authService != null;
+
+    return SizedBox(
+      width: double.infinity,
+      child: WorkspaceSplitShell(
+        header: hero,
+        left: WorkspacePaneCard(
+          tone: AppTone.primary,
+          child: formCard,
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Tercihler ve Gizlilik',
+          tone: AppTone.info,
+          child: hasRightWidgets
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (hasLocale) const LanguagePicker(),
+                    if (hasLocale && authService != null)
+                      const SizedBox(height: AppSpace.lg),
+                    if (authService != null) ...[
+                      MyRecordsSection(authService: authService!),
+                      const SizedBox(height: AppSpace.lg),
+                      SearchVisibilitySection(authService: authService!),
+                    ],
+                    if (authService != null && showNotificationPrefs) ...[
+                      const SizedBox(height: AppSpace.lg),
+                      NotificationPrefsSection(authService: authService!),
+                    ],
+                    if (authService != null) ...[
+                      const SizedBox(height: AppSpace.lg),
+                      AccountPrivacySection(authService: authService!),
+                    ],
+                  ],
+                )
+              : Text(
+                  'Dil, bildirim ve hesap gizliliği ayarlarınız oturum açıldığında burada yönetilir.',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: p.textMuted,
+                    height: 1.5,
+                  ),
+                ),
+        ),
       ),
     );
   }
@@ -353,35 +376,65 @@ class ResidentProfileView extends StatelessWidget {
       ),
     );
     final service = authService;
+    final hasLocale = LocaleScope.maybeOf(context) != null;
     if (service == null) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          card,
-          const SizedBox(height: AppSpace.lg),
-          const LanguagePicker(),
-        ],
+      return SizedBox(
+        width: double.infinity,
+        child: WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            tone: AppTone.primary,
+            child: card,
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.tune_rounded,
+            title: 'Tercihler ve Gizlilik',
+            tone: AppTone.info,
+            child: hasLocale
+                ? const LanguagePicker()
+                : Text(
+                    'Uygulama dili, şifre ve gizlilik ayarlarınız burada görüntülenir.',
+                    style: th.bodySmall?.copyWith(height: 1.5),
+                  ),
+          ),
+        ),
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        card,
-        const SizedBox(height: AppSpace.lg),
-        _ResidentPasswordSection(authService: service, session: session),
-        const SizedBox(height: AppSpace.lg),
-        const LanguagePicker(),
-        const SizedBox(height: AppSpace.lg),
-        MyRecordsSection(authService: service, showWhenEmpty: true),
-        const SizedBox(height: AppSpace.lg),
-        SearchVisibilitySection(authService: service),
-        if (showNotificationPrefs) ...[
-          const SizedBox(height: AppSpace.lg),
-          NotificationPrefsSection(authService: service),
-        ],
-        const SizedBox(height: AppSpace.lg),
-        AccountPrivacySection(authService: service, onOpenDebt: onOpenDebt),
-      ],
+    return SizedBox(
+      width: double.infinity,
+      child: WorkspaceSplitShell(
+        left: WorkspacePaneCard(
+          tone: AppTone.primary,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              card,
+              const SizedBox(height: AppSpace.lg),
+              _ResidentPasswordSection(authService: service, session: session),
+            ],
+          ),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Tercihler ve Gizlilik',
+          tone: AppTone.info,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const LanguagePicker(),
+              if (hasLocale) const SizedBox(height: AppSpace.lg),
+              MyRecordsSection(authService: service, showWhenEmpty: true),
+              const SizedBox(height: AppSpace.lg),
+              SearchVisibilitySection(authService: service),
+              if (showNotificationPrefs) ...[
+                const SizedBox(height: AppSpace.lg),
+                NotificationPrefsSection(authService: service),
+              ],
+              const SizedBox(height: AppSpace.lg),
+              AccountPrivacySection(authService: service, onOpenDebt: onOpenDebt),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

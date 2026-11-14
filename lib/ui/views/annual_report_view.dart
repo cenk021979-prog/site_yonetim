@@ -10,6 +10,8 @@ import 'package:site_kapi_kontrol/services/pdf_decision_service.dart' show Decis
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart' show PeopleSite;
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/context_help.dart';
+import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Faaliyet Raporu" (`annual_report` modülü, yönetici). Yıl seçilir; sistem kayıtlardan dokuz bölümü doldurur, yönetici her
 /// bölümü düzenler ("Taslağı kaydet" ile saklanır), "PDF" raporu verir. Düzenlenmeyen bölüm her açılışta güncel kayıtlardan gelir.
@@ -153,64 +155,142 @@ class AnnualReportViewState extends State<AnnualReportView> {
 
   @override
   Widget build(BuildContext context) {
-    if (_site == null) return const Center(child: Text('Faaliyet raporu için uygun site yok.'));
-    final years = <int>[for (var y = DateTime.now().year; y >= DateTime.now().year - 6; y--) y];
-    return ListView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
-      padding: const EdgeInsets.all(16),
-      children: <Widget>[
-        const SectionHeader(
-          title: 'Faaliyet Raporu',
-          trailing: ContextHelp(
+    if (_site == null) {
+      return Padding(
+        padding: const EdgeInsets.all(AppSpace.lg),
+        child: WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            icon: Icons.summarize_outlined,
             title: 'Faaliyet Raporu',
-            message: 'Sistem kayıtlardan taslağı hazırlar. Her bölümü düzenleyebilir, taslağı saklayıp PDF alabilirsiniz.',
+            child: Text(
+              'Site yöneticiliği veya kurul yetkisi olan hesaplarda rapor hazırlanabilir.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          right: const WorkspacePaneCard(
+            icon: Icons.description_outlined,
+            title: 'Rapor Bölümleri',
+            child: Center(child: Text('Faaliyet raporu için uygun site yok.')),
           ),
         ),
-        const SizedBox(height: 8),
-        if (widget.sites.length > 1)
-          DropdownButtonFormField<int>(
-            initialValue: _site!.code,
-            decoration: const InputDecoration(labelText: 'Site'),
-            items: <DropdownMenuItem<int>>[for (final s in widget.sites) DropdownMenuItem<int>(value: s.code, child: Text(s.name))],
-            onChanged: (code) {
-              if (code == null) return;
-              setState(() => _site = widget.sites.firstWhere((s) => s.code == code));
-              unawaited(reload());
-            },
+      );
+    }
+    final years = <int>[
+      for (var y = DateTime.now().year; y >= DateTime.now().year - 6; y--) y,
+    ];
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(AppSpace.lg),
+      children: <Widget>[
+        WorkspaceSplitShell(
+          header: const SectionHeader(
+            title: 'Faaliyet Raporu',
+            trailing: ContextHelp(
+              title: 'Faaliyet Raporu',
+              message:
+                  'Sistem kayıtlardan taslağı hazırlar. Her bölümü düzenleyebilir, taslağı saklayıp PDF alabilirsiniz.',
+            ),
           ),
-        DropdownButtonFormField<int>(
-          initialValue: _year,
-          decoration: const InputDecoration(labelText: 'Rapor yılı'),
-          items: <DropdownMenuItem<int>>[for (final y in years) DropdownMenuItem<int>(value: y, child: Text('$y'))],
-          onChanged: (y) {
-            if (y == null) return;
-            setState(() => _year = y);
-            unawaited(reload());
-          },
+          left: WorkspacePaneCard(
+            icon: Icons.tune_rounded,
+            title: 'Dönem ve İşlemler',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (widget.sites.length > 1) ...[
+                  DropdownButtonFormField<int>(
+                    initialValue: _site!.code,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Site'),
+                    items: <DropdownMenuItem<int>>[
+                      for (final s in widget.sites)
+                        DropdownMenuItem<int>(
+                          value: s.code,
+                          child: Text(
+                            s.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (code) {
+                      if (code == null) return;
+                      setState(
+                        () => _site = widget.sites.firstWhere(
+                          (s) => s.code == code,
+                        ),
+                      );
+                      unawaited(reload());
+                    },
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                ],
+                DropdownButtonFormField<int>(
+                  initialValue: _year,
+                  isExpanded: true,
+                  decoration: const InputDecoration(labelText: 'Rapor yılı'),
+                  items: <DropdownMenuItem<int>>[
+                    for (final y in years)
+                      DropdownMenuItem<int>(value: y, child: Text('$y')),
+                  ],
+                  onChanged: (y) {
+                    if (y == null) return;
+                    setState(() => _year = y);
+                    unawaited(reload());
+                  },
+                ),
+                if (_report != null) ...<Widget>[
+                  const SizedBox(height: AppSpace.md),
+                  Text(
+                    _report!.saved
+                        ? 'Kayıtlı taslak var.'
+                        : 'Henüz kaydedilmiş taslak yok; metinler sistemden geliyor.',
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 8,
+                    children: <Widget>[
+                      FilledButton.icon(
+                        onPressed: _busy ? null : _save,
+                        icon: const Icon(Icons.save_rounded),
+                        label: const Text('Taslağı kaydet'),
+                      ),
+                      OutlinedButton.icon(
+                        onPressed: _busy ? null : _pdf,
+                        icon: const Icon(Icons.picture_as_pdf_rounded),
+                        label: const Text('PDF'),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.article_outlined,
+            title: 'Rapor Bölümleri',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (_loading) const LinearProgressIndicator(),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ),
+                if (_report != null)
+                  for (final key in kAnnualReportSections) _sectionCard(key),
+              ],
+            ),
+          ),
         ),
-        const SizedBox(height: 12),
-        if (_loading) const LinearProgressIndicator(),
-        if (_error != null)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
-          ),
-        if (_report != null) ...<Widget>[
-          Text(_report!.saved ? 'Kayıtlı taslak var.' : 'Henüz kaydedilmiş taslak yok; metinler sistemden geliyor.'),
-          const SizedBox(height: 8),
-          for (final key in kAnnualReportSections) _sectionCard(key),
-          Row(
-            children: <Widget>[
-              Expanded(
-                child: FilledButton.icon(onPressed: _busy ? null : _save, icon: const Icon(Icons.save_rounded), label: const Text('Taslağı kaydet')),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(onPressed: _busy ? null : _pdf, icon: const Icon(Icons.picture_as_pdf_rounded), label: const Text('PDF')),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
-        ],
       ],
     );
   }

@@ -21,6 +21,7 @@ import 'package:site_kapi_kontrol/services/meter_ocr.dart';
 import 'package:site_kapi_kontrol/services/meter_photo_picker.dart';
 import 'package:site_kapi_kontrol/ui/design/status_dot.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class MeterFieldView extends StatefulWidget {
   const MeterFieldView({
@@ -584,13 +585,38 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
             if (_notice != null && _meters.isEmpty) Padding(padding: const EdgeInsets.all(AppSpace.lg), child: Text(_notice!)),
             if (!_loading && _loadError == null && _meters.isEmpty)
               const Padding(padding: EdgeInsets.all(AppSpace.lg), child: Text('Etkin sayaç yok. Yönetici önce bu siteye sayaç eklemelidir.')),
-            if (_meters.isNotEmpty) _blockBar(),
-            if (_meters.isNotEmpty) _nextBanner(context, meter, read, total),
-            if (_meters.isNotEmpty) ...[
-              if (_useCamera) SizedBox(height: MediaQuery.sizeOf(context).height < 500 ? 160 : 260, child: _cameraArea()),
-              _photoArea(),
-              _confirmPanel(context, meter),
-            ],
+            if (_meters.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.all(AppSpace.md),
+                child: WorkspaceSplitShell(
+                  left: WorkspacePaneCard(
+                    padding: EdgeInsets.zero,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: <Widget>[
+                          _blockBar(),
+                          _nextBanner(context, meter, read, total),
+                          if (_useCamera)
+                            SizedBox(
+                              height: MediaQuery.sizeOf(context).height < 500 ? 160 : 260,
+                              child: _cameraArea(),
+                            ),
+                          _photoArea(),
+                        ],
+                      ),
+                    ),
+                  ),
+                  right: WorkspacePaneCard(
+                    padding: EdgeInsets.zero,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: _confirmPanel(context, meter),
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),
@@ -602,30 +628,24 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
     final blocks = fieldBlocks(_meters);
     if (blocks.length < 2) return const SizedBox.shrink();
     String count(List<FieldMeter> list) => '${list.where(_isDone).length}/${list.length}';
-    return SizedBox(
-      height: 52,
-      child: ListView(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xs),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xs),
+      child: Wrap(
+        spacing: AppSpace.sm,
+        runSpacing: AppSpace.xs,
         children: <Widget>[
-          Padding(
-            padding: const EdgeInsets.only(right: AppSpace.sm),
-            child: ChoiceChip(
-              key: const ValueKey<String>('block_chip_all'),
-              label: Text('Tümü (${count(_meters)})'),
-              selected: _block == null,
-              onSelected: _busy ? null : (_) => _selectBlock(null),
-            ),
+          ChoiceChip(
+            key: const ValueKey<String>('block_chip_all'),
+            label: Text('Tümü (${count(_meters)})'),
+            selected: _block == null,
+            onSelected: _busy ? null : (_) => _selectBlock(null),
           ),
           for (final block in blocks)
-            Padding(
-              padding: const EdgeInsets.only(right: AppSpace.sm),
-              child: ChoiceChip(
-                key: ValueKey<String>('block_chip_$block'),
-                label: Text('$block (${count(<FieldMeter>[for (final m in _meters) if (m.block == block) m])})'),
-                selected: _block == block,
-                onSelected: _busy ? null : (_) => _selectBlock(block),
-              ),
+            ChoiceChip(
+              key: ValueKey<String>('block_chip_$block'),
+              label: Text('$block (${count(<FieldMeter>[for (final m in _meters) if (m.block == block) m])})'),
+              selected: _block == block,
+              onSelected: _busy ? null : (_) => _selectBlock(block),
             ),
         ],
       ),
@@ -726,7 +746,7 @@ class _MeterFieldViewState extends State<MeterFieldView> with WidgetsBindingObse
                     ? const AlertDialog(content: Text('Oturum değişti. Fotoğraf kapatıldı.'))
                     : Dialog(
                   child: ConstrainedBox(
-                    constraints: BoxConstraints(maxWidth: 800, maxHeight: MediaQuery.sizeOf(context).height * .8),
+                    constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * .8),
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Flexible(child: InteractiveViewer(child: Image.memory(photo, fit: BoxFit.contain))),
                       TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat')),

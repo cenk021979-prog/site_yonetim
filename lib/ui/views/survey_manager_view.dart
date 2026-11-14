@@ -20,6 +20,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/survey_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/survey_manager_toolbar.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim "Anket ve Oylama" ekranı (`survey` modülü): yönetici / süper kullanıcı (anket açar, yayınlar, kapatır,
 /// taslağı siler, anonim olmayan ankette oy verenleri görür) ve yönetim kurulu (SALT OKUR; oy verenleri göremez).
@@ -280,12 +281,29 @@ class SurveyManagerViewState extends State<SurveyManagerView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
-      if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) return const ListSkeleton(rows: 2);
-      if (_sitesError != null) return InlineNotice(message: _sitesError!, onRetry: _loadSites);
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message: 'Anketler, Anket ve Oylama modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+      final Widget stateBody;
+      if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: _loadSites);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message: 'Anketler, Anket ve Oylama modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+        );
+      }
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Araçlar',
+          child: Text('Bağlı site verisi geldiğinde anket araçları burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.poll_rounded,
+          title: 'Anketler',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -295,105 +313,136 @@ class SurveyManagerViewState extends State<SurveyManagerView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final error = _error;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        SectionHeader(
-          title: _loadedOnce ? 'Anketler ($_total)' : 'Anketler',
-          trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[
-            ListExportButton(enabled: _items.isNotEmpty, source: localExportSource(label: 'Anket sonuçları', filenameBase: 'anket_sonuclari', headers: <String>['Anket', 'Durum', 'Verilen oy', 'Oy hakkı olan', 'Açılış', 'Kapanış', 'Oluşturan'], rows: () => <List<Object?>>[for (final s in _items) [s.title, s.effectiveStatus.label, s.totalVotes, s.eligibleCount, exportDate(s.openedAt), exportDate(s.closedAt ?? s.closesAt), s.createdByName]])),
-            IconButton(onPressed: _loading ? null : () => unawaited(_load()), tooltip: 'Yenile', icon: const Icon(Icons.refresh_rounded)),
-            ContextHelp(title: 'Anket ve Oylama', message: site.canWrite ? 'Sakinlere anket açın, yayınlayın ve sonuçları izleyin.' : 'Sitedeki anketleri ve sonuçlarını izleyin.'),
-          ]),
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: _loadSites),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('svm_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(labelText: 'Site', isDense: true, prefixIcon: Icon(Icons.apartment_rounded)),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-            ),
-          )
-        else if (widget.scopedSiteCode == null)
-          Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.xs, children: [InfoChip(site.label)]),
-        if (widget.scopedSiteCode == null) const SizedBox(height: AppSpace.md),
-        if (!site.canWrite) ...[const SurveyReadOnlyNote(), const SizedBox(height: AppSpace.md)],
-        if (_moduleOff)
-          SurveyModuleOffCard(
-            message: 'Modül açılınca anketler burada görünür.',
-            onOpenModules: widget.onOpenModules,
-          )
-        else ...[
-          SurveyManagerToolbar(
-            statuses: _statusChips, status: _status,
-            onQuery: (value) => setState(() => _localQuery = value.trim().toLowerCase()),
-            onStatus: _selectStatus,
-            onCreate: site.canWrite ? () => unawaited(_create(site)) : null,
-          ),
-          const SizedBox(height: AppSpace.md),
-          if (_loading && !_loadedOnce)
-            const ListSkeleton(rows: 2)
-          else if (error != null && _items.isEmpty)
-            EmptyCard(
-              key: const ValueKey<String>('svm_error'),
-              icon: Icons.cloud_off_rounded,
-              tone: AppTone.danger,
-              title: error,
-              child: TextButton.icon(
-                onPressed: _loading ? null : () => unawaited(_load()),
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Tekrar Dene'),
-              ),
-            )
-          else if (_items.isEmpty)
-            EmptyCard(
-              key: const ValueKey<String>('svm_empty'),
-              icon: Icons.poll_outlined,
-              title: _status == 'all' ? 'Henüz anket yok.' : 'Bu durumda anket yok.',
-              message: site.canWrite && _status == 'all' ? '"Yeni Anket" ile ilk anketinizi açın.' : null,
-            )
-          else ...[
-            if (error != null) ...[InlineNotice(message: error, tone: AppTone.danger), const SizedBox(height: AppSpace.md)],
-            for (final item in _items.where(_matchesQuery)) ...[
-              SurveyManagedCard(
-                key: ValueKey<String>('svm_card_${item.id}'),
-                item: item,
-                onTap: () => unawaited(_openDetail(site, item)),
-              ),
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Araçlar',
+        subtitle: widget.scopedSiteCode == null ? site.label : null,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: _loadSites),
               const SizedBox(height: AppSpace.md),
             ],
-            if (_items.length < _total)
-              TextButton.icon(
-                key: const ValueKey<String>('svm_more'),
-                onPressed: _loadingMore ? null : () => unawaited(_load(more: true)),
-                icon: const Icon(Icons.expand_more_rounded),
-                label: const Text('Daha fazla'),
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('svm_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(labelText: 'Site', isDense: true, prefixIcon: Icon(Icons.apartment_rounded)),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else if (widget.scopedSiteCode == null)
+              Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.xs, children: [InfoChip(site.label)]),
+            if (widget.scopedSiteCode == null) const SizedBox(height: AppSpace.md),
+            if (!site.canWrite) ...[const SurveyReadOnlyNote(), const SizedBox(height: AppSpace.md)],
+            if (_moduleOff)
+              Text(
+                'Modül açılınca durum süzgeci ve oluşturma araçları burada görünür.',
+                style: th.bodySmall?.copyWith(color: p.textSecondary),
+              )
+            else
+              SurveyManagerToolbar(
+                statuses: _statusChips,
+                status: _status,
+                onQuery: (value) => setState(() => _localQuery = value.trim().toLowerCase()),
+                onStatus: _selectStatus,
+                onCreate: site.canWrite ? () => unawaited(_create(site)) : null,
               ),
           ],
-        ],
-      ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: _loadedOnce ? 'Anketler ($_total)' : 'Anketler',
+              trailing: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: <Widget>[
+                  ListExportButton(
+                    enabled: _items.isNotEmpty,
+                    source: localExportSource(
+                      label: 'Anket sonuçları',
+                      filenameBase: 'anket_sonuclari',
+                      headers: <String>['Anket', 'Durum', 'Verilen oy', 'Oy hakkı olan', 'Açılış', 'Kapanış', 'Oluşturan'],
+                      rows: () => <List<Object?>>[
+                        for (final s in _items)
+                          [s.title, s.effectiveStatus.label, s.totalVotes, s.eligibleCount, exportDate(s.openedAt), exportDate(s.closedAt ?? s.closesAt), s.createdByName],
+                      ],
+                    ),
+                  ),
+                  IconButton(onPressed: _loading ? null : () => unawaited(_load()), tooltip: 'Yenile', icon: const Icon(Icons.refresh_rounded)),
+                  ContextHelp(
+                    title: 'Anket ve Oylama',
+                    message: site.canWrite ? 'Sakinlere anket açın, yayınlayın ve sonuçları izleyin.' : 'Sitedeki anketleri ve sonuçlarını izleyin.',
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            if (_moduleOff)
+              SurveyModuleOffCard(
+                message: 'Modül açılınca anketler burada görünür.',
+                onOpenModules: widget.onOpenModules,
+              )
+            else if (_loading && !_loadedOnce)
+              const ListSkeleton(rows: 2)
+            else if (error != null && _items.isEmpty)
+              EmptyCard(
+                key: const ValueKey<String>('svm_error'),
+                icon: Icons.cloud_off_rounded,
+                tone: AppTone.danger,
+                title: error,
+                child: TextButton.icon(
+                  onPressed: _loading ? null : () => unawaited(_load()),
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: const Text('Tekrar Dene'),
+                ),
+              )
+            else if (_items.isEmpty)
+              EmptyCard(
+                key: const ValueKey<String>('svm_empty'),
+                icon: Icons.poll_outlined,
+                title: _status == 'all' ? 'Henüz anket yok.' : 'Bu durumda anket yok.',
+                message: site.canWrite && _status == 'all' ? '"Yeni Anket" ile ilk anketinizi açın.' : null,
+              )
+            else ...[
+              if (error != null) ...[InlineNotice(message: error, tone: AppTone.danger), const SizedBox(height: AppSpace.md)],
+              for (final item in _items.where(_matchesQuery)) ...[
+                SurveyManagedCard(
+                  key: ValueKey<String>('svm_card_${item.id}'),
+                  item: item,
+                  onTap: () => unawaited(_openDetail(site, item)),
+                ),
+                const SizedBox(height: AppSpace.md),
+              ],
+              if (_items.length < _total)
+                TextButton.icon(
+                  key: const ValueKey<String>('svm_more'),
+                  onPressed: _loadingMore ? null : () => unawaited(_load(more: true)),
+                  icon: const Icon(Icons.expand_more_rounded),
+                  label: const Text('Daha fazla'),
+                ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

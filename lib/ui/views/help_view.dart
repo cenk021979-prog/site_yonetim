@@ -21,6 +21,7 @@ import 'package:site_kapi_kontrol/ui/views/legal_document_view.dart';
 import 'package:site_kapi_kontrol/ui/views/legal_markdown.dart';
 import 'package:site_kapi_kontrol/ui/views/legal_parts.dart';
 import 'package:site_kapi_kontrol/ui/views/onboarding_tour.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Dış uygulamada bir adres açar (e-posta, telefon, https); açılamazsa false.
@@ -288,9 +289,13 @@ class _HelpViewState extends State<HelpView> {
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.fromLTRB(hPad, AppSpace.sm, hPad, AppSpace.xxl),
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 720),
+            child: WorkspaceSplitShell(
+              leftFlex: 5,
+              rightFlex: 7,
+              left: WorkspacePaneCard(
+                icon: Icons.support_agent_rounded,
+                title: 'Genel Bakış & Hesap',
+                tone: AppTone.primary,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: <Widget>[
@@ -322,7 +327,24 @@ class _HelpViewState extends State<HelpView> {
                     ),
                     const SizedBox(height: AppSpace.lg),
                     _tourCard(context),
+                    const SizedBox(height: AppSpace.lg),
+                    const SectionHeader(title: 'Destek', icon: Icons.headset_mic_rounded),
+                    const SizedBox(height: AppSpace.sm),
+                    _supportCard(context),
                     const SizedBox(height: AppSpace.xl),
+                    const SectionHeader(title: 'Hesabım ve verilerim', icon: Icons.privacy_tip_rounded),
+                    const SizedBox(height: AppSpace.sm),
+                    _accountCard(context),
+                  ],
+                ),
+              ),
+              right: WorkspacePaneCard(
+                icon: Icons.menu_book_rounded,
+                title: 'Kılavuz & SSS',
+                tone: AppTone.info,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: <Widget>[
                     const SectionHeader(title: 'Nasıl yapılır', icon: Icons.menu_book_rounded),
                     const SizedBox(height: AppSpace.sm),
                     for (final topic in topics) ...<Widget>[
@@ -336,14 +358,6 @@ class _HelpViewState extends State<HelpView> {
                       _FaqTile(faq: faq),
                       const SizedBox(height: AppSpace.sm),
                     ],
-                    const SizedBox(height: AppSpace.lg),
-                    const SectionHeader(title: 'Destek', icon: Icons.headset_mic_rounded),
-                    const SizedBox(height: AppSpace.sm),
-                    _supportCard(context),
-                    const SizedBox(height: AppSpace.xl),
-                    const SectionHeader(title: 'Hesabım ve verilerim', icon: Icons.privacy_tip_rounded),
-                    const SizedBox(height: AppSpace.sm),
-                    _accountCard(context),
                     const SizedBox(height: AppSpace.xl),
                     const SectionHeader(title: 'Yasal belgeler', icon: Icons.gavel_rounded),
                     const SizedBox(height: AppSpace.sm),

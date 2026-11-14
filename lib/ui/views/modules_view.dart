@@ -20,6 +20,7 @@ import 'package:site_kapi_kontrol/ui/widgets/module_request_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/platform_rules_entry_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/staff_roles_section.dart';
 import 'package:site_kapi_kontrol/ui/widgets/team_redirect_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Geçiş Kontrol kapatılırken gösterilen uyarı (sunucunun `MODULE_CONFIRM_REQUIRED` metniyle aynı).
 const String doorControlOffWarning =
@@ -424,23 +425,37 @@ class ModulesViewState extends State<ModulesView> {
 
   @override
   Widget build(BuildContext context) {
+    final p = context.palette;
     final th = Theme.of(context).textTheme;
     final code = _siteCode;
 
-    final Widget body;
+    final Widget leftContent;
+    final Widget rightContent;
     if (_loadingSites && _sites.isEmpty) {
-      // İlk yükleme ve hata sonrası "Tekrar Dene": iskelet (boş durum / hata kutusu yanıp sönmez).
-      body = const ListSkeleton(rows: 2);
+      // İlk yükleme ve hata sonrası "Tekrar Dene": tek iskelet (boş durum / hata kutusu yanıp sönmez).
+      leftContent = const ListSkeleton(rows: 2);
+      rightContent = Text(
+        'Siteler yükleniyor...',
+        style: th.bodyMedium?.copyWith(color: p.textSecondary),
+      );
     } else if (_sitesError != null && _sites.isEmpty) {
-      body = InlineNotice(message: _sitesError!, onRetry: reload);
+      leftContent = InlineNotice(message: _sitesError!, onRetry: reload);
+      rightContent = Text(
+        'Site bilgileri alınamadığı için modüller listelenemiyor.',
+        style: th.bodyMedium?.copyWith(color: p.textSecondary),
+      );
     } else if (_sites.isEmpty) {
-      body = const EmptyCard(
+      leftContent = const EmptyCard(
         icon: Icons.apartment_rounded,
         title: 'Yönetilecek onaylı site bulunamadı.',
         message: 'Modülleri yönetmek için onaylanmış bir site gerekir.',
       );
+      rightContent = Text(
+        'Onaylı bir site seçildiğinde modüller burada görünür.',
+        style: th.bodyMedium?.copyWith(color: p.textSecondary),
+      );
     } else {
-      body = Column(
+      leftContent = Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_sitesError != null) ...[
@@ -449,16 +464,10 @@ class ModulesViewState extends State<ModulesView> {
           ],
           _buildSiteSelector(context),
           const SizedBox(height: AppSpace.lg),
-          ..._buildModulesSection(context, code!),
-          if (!_isSuper) ...[
-            const SizedBox(height: AppSpace.xl),
-            ..._buildRequestsSection(context, code),
-          ],
-          const SizedBox(height: AppSpace.xl),
           // Ek roller 058'den beri Kişiler > Kadro sekmesinde ([StaffRolesSection] yalnız eski pencerede kalır).
           const TeamRedirectCard(),
           // Kurallar tablosu (G11): seçili sitede geçerli kurallar; yönetici salt okunur, süper kullanıcı siteye özel değer verir.
-          const SizedBox(height: AppSpace.xl),
+          const SizedBox(height: AppSpace.lg),
           PlatformRulesEntryCard(
             authService: widget.authService,
             canEdit: _isSuper,
@@ -467,33 +476,52 @@ class ModulesViewState extends State<ModulesView> {
           ),
         ],
       );
+      rightContent = Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          ..._buildModulesSection(context, code!),
+          if (!_isSuper) ...[
+            const SizedBox(height: AppSpace.xl),
+            ..._buildRequestsSection(context, code),
+          ],
+        ],
+      );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'Modüller', icon: Icons.extension_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          _isSuper
-              ? 'Sitenizde kullanacağınız modülleri açıp kapatabilirsiniz. '
-                  'Kapalı bir modülün ekranları ve işlemleri o sitede çalışmaz.'
-              : 'Sitenizde tanımlı modüller aşağıda görünür. Tanımlı olmayan bir modülü kullanmak '
-                  'için talep gönderebilirsiniz; talebiniz sistem yöneticisine iletilir.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        SectionHeader(
-          title: 'Site',
-          trailing: IconButton(
-            onPressed: _loadingSites ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'Modüller', icon: Icons.extension_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            _isSuper
+                ? 'Sitenizde kullanacağınız modülleri açıp kapatabilirsiniz. '
+                    'Kapalı bir modülün ekranları ve işlemleri o sitede çalışmaz.'
+                : 'Sitenizde tanımlı modüller aşağıda görünür. Tanımlı olmayan bir modülü kullanmak '
+                    'için talep gönderebilirsiniz; talebiniz sistem yöneticisine iletilir.',
+            style: th.bodyMedium,
           ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        body,
-      ],
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.apartment_rounded,
+        title: 'Site',
+        subtitle: 'Site seçimi, kadro ve platform kuralları.',
+        tone: AppTone.primary,
+        onRefresh: _loadingSites ? null : reload,
+        refreshTooltip: 'Yenile',
+        child: leftContent,
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.extension_rounded,
+        title: _isSuper ? 'Modül Durumu' : 'Modül Durumu & Talepler',
+        subtitle: 'Modül yönetimi ve talep durumu.',
+        tone: AppTone.primary,
+        child: rightContent,
+      ),
     );
   }
 

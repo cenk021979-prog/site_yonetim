@@ -24,6 +24,7 @@ import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
     show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/feedback_links.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class FeedbackInboxPage extends StatefulWidget {
   const FeedbackInboxPage({super.key, required this.service, this.siteCode, this.mine = false});
@@ -171,16 +172,30 @@ class _FeedbackInboxPageState extends State<FeedbackInboxPage> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loader.reload,
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 820),
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(AppSpace.lg),
-                children: [body],
+          child: ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(AppSpace.lg),
+            children: [
+              WorkspaceSplitShell(
+                left: WorkspacePaneCard(
+                  icon: Icons.feedback_outlined,
+                  title: widget.mine ? 'Gönderim Özeti' : 'Gelen Kutusu',
+                  tone: AppTone.primary,
+                  child: Text(
+                    widget.mine
+                        ? 'Gönderdiğiniz geri bildirimlerin durumunu sağ panelden izleyebilirsiniz.'
+                        : 'Kullanıcılardan gelen geri bildirimleri sağ panelden inceleyebilirsiniz.',
+                    style: Theme.of(context).textTheme.bodyMedium,
+                  ),
+                ),
+                right: WorkspacePaneCard(
+                  icon: Icons.inbox_rounded,
+                  title: 'Bildirim Listesi',
+                  tone: AppTone.info,
+                  child: body,
+                ),
               ),
-            ),
+            ],
           ),
         ),
       ),

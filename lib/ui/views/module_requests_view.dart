@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/module_request_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Modül Talepleri" ekranı (yalnız süper kullanıcı, Platform Faz 1.1): site yöneticilerinin
 /// gönderdiği modül talepleri; durum filtresi (Bekleyen / Onaylanan / Reddedilen / Tümü), kartlar,
@@ -294,29 +295,27 @@ class ModuleRequestsViewState extends State<ModuleRequestsView> {
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(title: 'Modül Talepleri', icon: Icons.inbox_rounded),
-        const SizedBox(height: AppSpace.sm),
-        Text(
-          'Site yöneticileri modülleri kendileri açamaz; talep gönderirler. Onayladığınız modül '
-          'ilgili siteye tanımlanır.',
-          style: th.bodyMedium,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        SectionHeader(
-          title: 'Talepler',
-          count: _pendingCount > 0 ? _pendingCount : null,
-          countSuffix: ' bekleyen',
-          trailing: IconButton(
-            onPressed: _loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+    return WorkspaceSplitShell(
+      leftFlex: 5,
+      rightFlex: 7,
+      header: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const PageHeaderCard(title: 'Modül Talepleri', icon: Icons.inbox_rounded),
+          const SizedBox(height: AppSpace.sm),
+          Text(
+            'Site yöneticileri modülleri kendileri açamaz; talep gönderirler. Onayladığınız modül '
+            'ilgili siteye tanımlanır.',
+            style: th.bodyMedium,
           ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        AppCard(
+        ],
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.filter_list_rounded,
+        title: 'Filtre & Özet',
+        subtitle: 'Modül talebi durum filtresi.',
+        tone: AppTone.primary,
+        child: AppCard(
           child: DropdownButtonFormField<String>(
             key: ValueKey<String>('module_requests_status_$_status'),
             isExpanded: true,
@@ -339,9 +338,27 @@ class ModuleRequestsViewState extends State<ModuleRequestsView> {
             },
           ),
         ),
-        const SizedBox(height: AppSpace.md),
-        list,
-      ],
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.inbox_rounded,
+        title: 'Talepler',
+        subtitle: 'Site yöneticilerinden gelen modül talepleri.',
+        tone: AppTone.primary,
+        onRefresh: _loading ? null : reload,
+        refreshTooltip: 'Yenile',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Talepler',
+              count: _pendingCount > 0 ? _pendingCount : null,
+              countSuffix: ' bekleyen',
+            ),
+            const SizedBox(height: AppSpace.md),
+            list,
+          ],
+        ),
+      ),
     );
   }
 }

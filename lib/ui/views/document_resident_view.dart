@@ -13,6 +13,7 @@ import 'package:site_kapi_kontrol/ui/helpers/cursor_loader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/document_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Dosya Deposu" ekranı (Platform Faz 3b-A; Belgelerim): yalnız KENDİ kitlesinde olduğu, `drive_storage` modülü açık
 /// sitelerdeki belgeler. Kategori süzgeci, arama, imleçli sayfalama (`before_id`), "Güncellendi" çipi ve
@@ -188,138 +189,150 @@ class DocumentResidentViewState extends State<DocumentResidentView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final multiSite = widget.sites.length > 1;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (multiSite) ...[
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>(
-                'documents_resident_site_${_siteFilter ?? 0}',
-              ),
-              isExpanded: true,
-              initialValue: _siteFilter ?? _allSites,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                const DropdownMenuItem<int>(
-                  value: _allSites,
-                  child: Text(
-                    'Tüm siteler',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Süzgeçler',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multiSite) ...[
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>(
+                    'documents_resident_site_${_siteFilter ?? 0}',
                   ),
-                ),
-                for (final s in widget.sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      s.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  isExpanded: true,
+                  initialValue: _siteFilter ?? _allSites,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: _allSites,
+                      child: Text(
+                        'Tüm siteler',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                final next = value == _allSites ? null : value;
-                if (next == _siteFilter) return;
-                _siteFilter = next;
-                _applyFilters();
-                setState(() {});
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        AppCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              TextField(
-                key: const ValueKey<String>('documents_search'),
-                controller: _search,
-                textInputAction: TextInputAction.search,
-                onChanged: _onSearchChanged,
-                onSubmitted: (_) => _applyFilters(),
-                decoration: InputDecoration(
-                  labelText: 'Belge ara',
-                  hintText: 'Başlık, açıklama veya dosya adı',
-                  prefixIcon: const Icon(Icons.search_rounded),
-                  suffixIcon: _search.text.isEmpty
-                      ? null
-                      : IconButton(
-                          tooltip: 'Aramayı temizle',
-                          icon: const Icon(Icons.close_rounded),
-                          onPressed: () {
-                            _search.clear();
-                            _applyFilters();
-                            setState(() {});
-                          },
+                    for (final s in widget.sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(
+                          s.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final next = value == _allSites ? null : value;
+                    if (next == _siteFilter) return;
+                    _siteFilter = next;
+                    _applyFilters();
+                    setState(() {});
+                  },
                 ),
               ),
               const SizedBox(height: AppSpace.md),
-              Text('Kategori', style: th.titleSmall),
-              const SizedBox(height: AppSpace.sm),
-              Wrap(
-                spacing: AppSpace.sm,
-                runSpacing: AppSpace.sm,
+            ],
+            AppCard(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ChoiceChip(
-                    key: const ValueKey<String>('document_category_all'),
-                    label: const Text('Hepsi'),
-                    selected: _category == null,
-                    onSelected: (_) => _selectCategory(null),
-                  ),
-                  for (final category in DocumentCategory.values)
-                    ChoiceChip(
-                      key: ValueKey<String>(
-                        'document_category_${category.apiValue}',
-                      ),
-                      label: Text(category.shortLabel),
-                      selected: _category == category.apiValue,
-                      onSelected: (_) => _selectCategory(category.apiValue),
+                  TextField(
+                    key: const ValueKey<String>('documents_search'),
+                    controller: _search,
+                    textInputAction: TextInputAction.search,
+                    onChanged: _onSearchChanged,
+                    onSubmitted: (_) => _applyFilters(),
+                    decoration: InputDecoration(
+                      labelText: 'Belge ara',
+                      hintText: 'Başlık, açıklama veya dosya adı',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      suffixIcon: _search.text.isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Aramayı temizle',
+                              icon: const Icon(Icons.close_rounded),
+                              onPressed: () {
+                                _search.clear();
+                                _applyFilters();
+                                setState(() {});
+                              },
+                            ),
                     ),
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                  Text('Kategori', style: th.titleSmall),
+                  const SizedBox(height: AppSpace.sm),
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: [
+                      ChoiceChip(
+                        key: const ValueKey<String>('document_category_all'),
+                        label: const Text('Hepsi'),
+                        selected: _category == null,
+                        onSelected: (_) => _selectCategory(null),
+                      ),
+                      for (final category in DocumentCategory.values)
+                        ChoiceChip(
+                          key: ValueKey<String>(
+                            'document_category_${category.apiValue}',
+                          ),
+                          label: Text(category.shortLabel),
+                          selected: _category == category.apiValue,
+                          onSelected: (_) => _selectCategory(category.apiValue),
+                        ),
+                    ],
+                  ),
                 ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        SectionHeader(
-          title: 'Belgeler',
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        CursorListBody<ResidentDocument>(
-          loader: _loader,
-          showLastUpdated: true,
-          emptyIcon: Icons.folder_open_rounded,
-          emptyTitle: _filtered
-              ? 'Bu arama ve süzgeç için belge bulunamadı.'
-              : 'Henüz belge yok.',
-          emptyMessage: _filtered
-              ? null
-              : 'Yönetimin sizinle paylaştığı belgeler burada görünür.',
-          itemBuilder: (context, document) => Builder(
-            builder: (cardContext) => DocumentResidentCard(
-              document: document,
-              showSite: multiSite,
-              busy: _busyId == document.id,
-              onOpen: () => unawaited(_open(document, cardContext)),
             ),
-          ),
+          ],
         ),
-      ],
+      ),
+      right: WorkspacePaneCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Belgeler',
+              trailing: IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            const SizedBox(height: AppSpace.md),
+            CursorListBody<ResidentDocument>(
+              loader: _loader,
+              showLastUpdated: true,
+              emptyIcon: Icons.folder_open_rounded,
+              emptyTitle: _filtered
+                  ? 'Bu arama ve süzgeç için belge bulunamadı.'
+                  : 'Henüz belge yok.',
+              emptyMessage: _filtered
+                  ? null
+                  : 'Yönetimin sizinle paylaştığı belgeler burada görünür.',
+              itemBuilder: (context, document) => Builder(
+                builder: (cardContext) => DocumentResidentCard(
+                  document: document,
+                  showSite: multiSite,
+                  busy: _busyId == document.id,
+                  onOpen: () => unawaited(_open(document, cardContext)),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

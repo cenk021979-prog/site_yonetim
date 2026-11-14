@@ -1185,10 +1185,12 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                           color: Color(0xFF3B82F6),
                         ),
                         const SizedBox(width: 4),
-                        Text(
-                          'SmartKeyPass: ${gate.deviceUid}',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: const Color(0xFF3B82F6),
+                        Flexible(
+                          child: Text(
+                            'SmartKeyPass: ${gate.deviceUid}',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: const Color(0xFF3B82F6),
+                            ),
                           ),
                         ),
                         if (gate.deviceStatus != null) ...<Widget>[
@@ -1249,32 +1251,34 @@ class _PlateGatesPanelState extends State<PlateGatesPanel> {
                           color: p.border.withValues(alpha: 0.5),
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: <Widget>[
-                          Icon(
-                            Icons.timer_outlined,
-                            size: 13,
-                            color: p.textSecondary,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Süreler: Sonraki: ${gate.consecutiveVehicleDelaySeconds}s • Giriş Arka: ${gate.entryRearSuppressSeconds}s • Çıkış Arka: ${gate.exitRearSuppressSeconds}s',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: p.textSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                          if (widget.canWrite) ...<Widget>[
-                            const SizedBox(width: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
                             Icon(
-                              Icons.edit_outlined,
-                              size: 12,
+                              Icons.timer_outlined,
+                              size: 13,
                               color: p.textSecondary,
                             ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                'Süreler: Sonraki: ${gate.consecutiveVehicleDelaySeconds}s • Giriş Arka: ${gate.entryRearSuppressSeconds}s • Çıkış Arka: ${gate.exitRearSuppressSeconds}s',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: p.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                            if (widget.canWrite) ...<Widget>[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.edit_outlined,
+                                size: 12,
+                                color: p.textSecondary,
+                              ),
+                            ],
                           ],
-                        ],
-                      ),
+                        ),
                     ),
                   ),
                 ),

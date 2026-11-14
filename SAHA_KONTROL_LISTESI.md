@@ -5118,6 +5118,23 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
   - **Nasıl Test Edilir:** Herhangi bir modül kartının en altındaki switch butonunu açıp kapatın.
   - **Beklenen Sonuç:** Switch tıklandığında bekleme çemberi görünmeli, anında devreye alınıp devreden çıkarılmalı ve modül ilgili gruba otomatik taşınmalıdır. Hiçbir taşma (overflow) hatası yaşanmamalıdır.
 
+---
+
+## 176. 🖥️ Tüm Modüllerde İki Kartlı (Master-Detail) Tam Genişlik Kurumsal Tasarım ve Modern Yan Menü
+
+- [ ] **176.1. Tüm Modüllerde Yatay İki Kartlı (Master-Detail) Tam Genişlik Düzeni:**
+  - **Nasıl Test Edilir:** Geniş ekran (Web/Windows/Tablet yatay mod veya telefonu landscape çevirerek) üzerinden Finans, Kişiler, Daireler, Duyurular, Yetkiler, Anket, İş Takibi, Karar Defteri, Rezervasyon, Sayaçlar, Ziyaretçi/Kargo, Ekipman, Plaka/HGS, CCTV, Dosya Deposu, Rehber, Acil Durum, Dairem, Finanslarım ve Yönetici/Kullanıcı Paneli ekranlarını açın.
+  - **Beklenen Sonuç:** Tüm modüller (devrede olsun ya da pasif/kapalı modda olsun) yatayda ekranın tamamına yayılan iki kurumsal kart (`WorkspacePaneCard`: sol kontrol/özet kartı + sağ detay/liste kartı) olarak yan yana yerleşmelidir; eski sabit genişlik (`maxWidth`) kısıtlaması veya geçici kırmızı çerçeve kalmamalıdır.
+- [ ] **176.2. Dikey (Portrait) ve Küçük Ekran Duyarlılığı:**
+  - **Nasıl Test Edilir:** Aynı modülleri dar dikey telefon görünümünde (`320 px` – `360 px`) ve `%150–%200` yazı boyutunda açık ve koyu temada inceleyin.
+  - **Beklenen Sonuç:** Kartlar dikey olarak temiz şekilde alt alta sıralanmalı ve hiçbir ekranda yatay veya dikey taşma (`RenderFlex overflow`) oluşmamalıdır.
+- [ ] **176.3. Kişiler Modülü Kart Düzeni ve Daireler Akordeonu:**
+  - **Nasıl Test Edilir:** Kişiler ve Daireler modülünü geniş/landscape ekranda açın; Daireler sekmesinde blok/daire akordeon başlıklarına dokunun.
+  - **Beklenen Sonuç:** Sol yönetim kartı ile sağ kişi/daire kartları yan yana tam genişlikte görünmeli; Daireler akordeonu sorunsuz açılıp kapanmalı, işlem sonrası `RefreshIndicator` ve otomatik yenileme anında güncellenmelidir.
+- [ ] **176.4. Modern Kurumsal Yan Menü (`YanMenu` / Drawer) Tasarımı:**
+  - **Nasıl Test Edilir:** Sol yan menüyü açık ve koyu temada açıp site seçici, rol grupları ve modül linklerini inceleyin.
+  - **Beklenen Sonuç:** Standart ham Flutter görünümünden arındırılmış modern kurumsal yan menü, tema paletiyle uyumlu vurgulu seçili öğe rozetleri, kompakt grup başlıkları ve taşmasız kaydırılabilir menü yapısıyla görünmelidir.
+
 ## Birleşim kabul kontrolü — 12 Kasım 2026
 
 - [ ] Sakin ve yöneticide Sade/Klasik geçişini deneyin: dört Sade bölüm ortada, eylemler tek bölümde ve liste/kutucuk seçimi çalışır. Çıkıp girildiğinde hesap tercihi korunur.

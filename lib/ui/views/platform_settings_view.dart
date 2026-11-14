@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/retry_lock.dart';
 import 'package:site_kapi_kontrol/ui/widgets/crm_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/platform_rules_entry_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Platform Ayarları" ekranı (yalnız süper kullanıcı): `GET/PUT /admin/platform-config`.
 ///
@@ -559,66 +560,94 @@ class PlatformSettingsViewState extends State<PlatformSettingsView> {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context).textTheme;
-    final Widget content;
+    const pageHeader = PageHeaderCard(
+      title: 'Platform Ayarları',
+      icon: Icons.tune_rounded,
+      help: 'Uygulama sürümü, bakım modu, destek iletişimi ve şirket / yasal bilgiler. Boş bıraktığınız alan '
+          '"ayarsız" sayılır.',
+    );
     if (_baseline == null) {
-      content = _loading
+      final Widget state = _loading
           ? const ListSkeleton(rows: 4)
           : InlineNotice(
               message: _loadError ?? 'Platform ayarları yüklenemedi.',
               onRetry: _load,
             );
-    } else {
-      content = _form(context, th);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(
-          title: 'Platform Ayarları',
-          icon: Icons.tune_rounded,
-          help: 'Uygulama sürümü, bakım modu, destek iletişimi ve şirket / yasal bilgiler. Boş bıraktığınız alan '
-          '"ayarsız" sayılır.',
+      return WorkspaceSplitShell(
+        leftFlex: 5,
+        rightFlex: 7,
+        header: pageHeader,
+        left: WorkspacePaneCard(
+          icon: Icons.rule_folder_outlined,
+          title: 'Platform Kuralları',
+          subtitle: 'Varsayılan davranış kuralları.',
+          tone: AppTone.info,
+          child: PlatformRulesEntryCard(authService: widget.authService, canEdit: true),
         ),
-        const SizedBox(height: AppSpace.md),
-        // Kurallar tablosu (G11; docs/PLATFORM_KURALLAR.md): platform geneli değerler ayrı sayfada değiştirilir (bu formun kaydından bağımsız).
-        PlatformRulesEntryCard(authService: widget.authService, canEdit: true),
-        const SizedBox(height: AppSpace.lg),
-        content,
-      ],
+        right: WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Yapılandırma Formu',
+          subtitle: 'Uygulama, destek ve şirket bilgileri.',
+          tone: AppTone.primary,
+          onRefresh: _loading ? null : reload,
+          child: state,
+        ),
+      );
+    }
+    return Form(
+      key: _formKey,
+      child: WorkspaceSplitShell(
+        leftFlex: 7,
+        rightFlex: 5,
+        header: pageHeader,
+        left: WorkspacePaneCard(
+          icon: Icons.settings_suggest_rounded,
+          title: 'Yapılandırma Alanları',
+          subtitle: 'Sürüm, bakım modu, destek ve şirket yasal bilgileri.',
+          tone: AppTone.primary,
+          onRefresh: _busy ? null : reload,
+          child: _formFields(context, th),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.rule_rounded,
+          title: 'Kurallar & Kayıt İşlemleri',
+          subtitle: 'Kurallar geçişi ve değişiklik kontrolü.',
+          tone: AppTone.info,
+          child: _formActions(context, th),
+        ),
+      ),
     );
   }
 
   /// Sabit yuva: [show] false iken boş kutu; içerik değişse de yuvanın listedeki sırası ve öğe sayısı DEĞİŞMEZ.
   Widget _slot(bool show, Widget Function() build) => show ? build() : const SizedBox.shrink();
 
-  Widget _form(BuildContext context, TextTheme th) {
-    return Form(
-      key: _formKey,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // SABİT YUVALAR: koşullu öğeler listeden eklenip çıkarılmaz, aynı sıradaki yuvanın içeriği değişir. Aksi
-          // hâlde üstten ekleme + alttan çıkarma birleşince Flutter alan kartlarını baştan kurar ve ilk tuş
-          // vuruşunda odak / klavye kaybolurdu.
-          _slot(
-            _loadError != null,
-            () => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              // Yenileme başarısız: eldeki ayarlar korunur, hata görünür kalır.
-              child: InlineNotice(message: _loadError!, onRetry: _loading ? null : reload),
+  Widget _formFields(BuildContext context, TextTheme th) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // SABİT YUVALAR: koşullu öğeler listeden eklenip çıkarılmaz, aynı sıradaki yuvanın içeriği değişir. Aksi
+        // hâlde üstten ekleme + alttan çıkarma birleşince Flutter alan kartlarını baştan kurar ve ilk tuş
+        // vuruşunda odak / klavye kaybolurdu.
+        _slot(
+          _loadError != null,
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.md),
+            // Yenileme başarısız: eldeki ayarlar korunur, hata görünür kalır.
+            child: InlineNotice(message: _loadError!, onRetry: _loading ? null : reload),
+          ),
+        ),
+        _slot(
+          _dirty,
+          () => const Padding(
+            padding: EdgeInsets.only(bottom: AppSpace.md),
+            child: InlineNotice(
+              key: ValueKey<String>('platform_dirty_notice'),
+              tone: AppTone.warning,
+              message: 'Kaydedilmemiş değişiklikleriniz var.',
             ),
           ),
-          _slot(
-            _dirty,
-            () => const Padding(
-              padding: EdgeInsets.only(bottom: AppSpace.md),
-              child: InlineNotice(
-                key: ValueKey<String>('platform_dirty_notice'),
-                tone: AppTone.warning,
-                message: 'Kaydedilmemiş değişiklikleriniz var.',
-              ),
-            ),
-          ),
+        ),
           AppCard(
             key: const ValueKey<String>('platform_section_app'),
             padding: listCardPadding(context),
@@ -828,60 +857,69 @@ class PlatformSettingsViewState extends State<PlatformSettingsView> {
               ],
             ),
           ),
-          const SizedBox(height: AppSpace.lg),
-          _slot(
-            _formError != null,
-            () => CrmFormError(message: _formError!, reveal: false, announce: true),
+      ],
+    );
+  }
+
+  Widget _formActions(BuildContext context, TextTheme th) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Kurallar tablosu (G11; docs/PLATFORM_KURALLAR.md): platform geneli değerler ayrı sayfada değiştirilir (bu formun kaydından bağımsız).
+        PlatformRulesEntryCard(authService: widget.authService, canEdit: true),
+        const SizedBox(height: AppSpace.lg),
+        _slot(
+          _formError != null,
+          () => CrmFormError(message: _formError!, reveal: false, announce: true),
+        ),
+        _slot(
+          _saveError != null,
+          () => Focus(
+            key: const ValueKey<String>('platform_save_error_focus'),
+            focusNode: _errorFocus,
+            child: CrmFormError(message: _saveError!, announce: true),
           ),
-          _slot(
-            _saveError != null,
-            () => Focus(
-              key: const ValueKey<String>('platform_save_error_focus'),
-              focusNode: _errorFocus,
-              child: CrmFormError(message: _saveError!, announce: true),
+        ),
+        _slot(
+          _savedNotice != null && !_dirty,
+          () => Padding(
+            padding: const EdgeInsets.only(bottom: AppSpace.md),
+            child: InlineNotice(
+              key: const ValueKey<String>('platform_saved_notice'),
+              tone: AppTone.success,
+              message: _savedNotice!,
             ),
           ),
-          _slot(
-            _savedNotice != null && !_dirty,
-            () => Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: InlineNotice(
-                key: const ValueKey<String>('platform_saved_notice'),
-                tone: AppTone.success,
-                message: _savedNotice!,
-              ),
+        ),
+        PrimaryActionButton(
+          key: const ValueKey<String>('platform_save'),
+          label: 'Değişiklikleri Kaydet',
+          icon: Icons.save_outlined,
+          loading: _saving,
+          onPressed: (!_dirty || _busy || _confirming || _retry.locked) ? null : _save,
+        ),
+        _slot(
+          !_dirty && !_busy,
+          () => Padding(
+            padding: const EdgeInsets.only(top: AppSpace.xs),
+            child: Text(
+              noChangesText,
+              key: const ValueKey<String>('platform_no_changes'),
+              style: th.bodySmall?.copyWith(color: context.palette.textSecondary),
             ),
           ),
-          PrimaryActionButton(
-            key: const ValueKey<String>('platform_save'),
-            label: 'Değişiklikleri Kaydet',
-            icon: Icons.save_outlined,
-            loading: _saving,
-            onPressed: (!_dirty || _busy || _confirming || _retry.locked) ? null : _save,
+        ),
+        const SizedBox(height: AppSpace.sm),
+        Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: TextButton.icon(
+            key: const ValueKey<String>('platform_revert'),
+            onPressed: (!_dirty || _busy) ? null : _revert,
+            icon: const Icon(Icons.undo_rounded),
+            label: const Text('Değişiklikleri Geri Al'),
           ),
-          _slot(
-            !_dirty && !_busy,
-            () => Padding(
-              padding: const EdgeInsets.only(top: AppSpace.xs),
-              child: Text(
-                noChangesText,
-                key: const ValueKey<String>('platform_no_changes'),
-                style: th.bodySmall?.copyWith(color: context.palette.textSecondary),
-              ),
-            ),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Align(
-            alignment: AlignmentDirectional.centerStart,
-            child: TextButton.icon(
-              key: const ValueKey<String>('platform_revert'),
-              onPressed: (!_dirty || _busy) ? null : _revert,
-              icon: const Icon(Icons.undo_rounded),
-              label: const Text('Değişiklikleri Geri Al'),
-            ),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

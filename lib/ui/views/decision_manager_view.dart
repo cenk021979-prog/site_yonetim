@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/helpers/decision_loader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart' show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/widgets/decision_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim "Karar Defteri" ekranı (`decision_book` modülü): yönetici / süper kullanıcı (taslak yazar, düzenler,
 /// siler, kesinleştirir, düzeltme kararı yazar) ve yönetim kurulu (taslaklar dahil SALT OKUR).
@@ -352,12 +353,29 @@ class DecisionManagerViewState extends State<DecisionManagerView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
-      if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) return const ListSkeleton(rows: 2);
-      if (_sitesError != null) return InlineNotice(message: _sitesError!, onRetry: reload);
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message: 'Kararlar, Karar Defteri modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+      final Widget stateBody;
+      if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: reload);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message: 'Kararlar, Karar Defteri modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+        );
+      }
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site, Süzgeç ve PDF',
+          child: Text('Bağlı site verisi geldiğinde süzgeçler ve PDF araçları burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.gavel_rounded,
+          title: 'Karar Defteri',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -367,89 +385,123 @@ class DecisionManagerViewState extends State<DecisionManagerView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final canWrite = site.canWrite;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Karar Defteri',
-          icon: Icons.gavel_rounded,
-          help: canWrite
-              ? 'Yönetim kurulu, genel kurul ve denetim kurulu kararlarını kaydedin; kesinleşen karar numara alır.'
-              : 'Sitedeki kararları ve taslakları izleyin.',
-          action: canWrite && !_moduleOff
-              ? ElevatedButton.icon(
-                  key: const ValueKey<String>('decision_new'),
-                  onPressed: () => unawaited(_create(site)),
-                  icon: const Icon(Icons.add_rounded),
-                  label: const Text('Yeni Karar'),
-                )
-              : null,
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Karar Defteri',
+        icon: Icons.gavel_rounded,
+        help: canWrite
+            ? 'Yönetim kurulu, genel kurul ve denetim kurulu kararlarını kaydedin; kesinleşen karar numara alır.'
+            : 'Sitedeki kararları ve taslakları izleyin.',
+        action: canWrite && !_moduleOff
+            ? ElevatedButton.icon(
+                key: const ValueKey<String>('decision_new'),
+                onPressed: () => unawaited(_create(site)),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Yeni Karar'),
+              )
+            : null,
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site, Süzgeçler ve PDF',
+        subtitle: site.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const DecisionLegalNote(),
+            const SizedBox(height: AppSpace.md),
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('decision_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(labelText: 'Site', prefixIcon: Icon(Icons.apartment_rounded)),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.xs, children: [InfoChip(site.label)]),
+            if (!canWrite) ...[
+              const SizedBox(height: AppSpace.md),
+              const DecisionReadOnlyNote(),
+            ],
+            if (!_moduleOff) ...[
+              const SizedBox(height: AppSpace.md),
+              _buildFilters(context),
+              const SizedBox(height: AppSpace.md),
+              _buildPdf(context, site),
+            ],
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        const DecisionLegalNote(),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('decision_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(labelText: 'Site', prefixIcon: Icon(Icons.apartment_rounded)),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(_siteLabel(s), maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      right: WorkspacePaneCard(
+        icon: _moduleOff ? Icons.gavel_outlined : null,
+        title: _moduleOff ? 'Modül Durumu' : null,
+        child: _moduleOff
+            ? DecisionModuleOffCard(
+                message: 'Modül açılınca kararlar burada kaydedilir.',
+                onOpenModules: widget.onOpenModules,
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SectionHeader(
+                    title: 'Kararlar',
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: <Widget>[
+                        ListExportButton(
+                          enabled: _loader.items.isNotEmpty,
+                          source: localExportSource(
+                            label: 'Kararlar',
+                            filenameBase: 'kararlar',
+                            headers: <String>['Karar no', 'Başlık', 'Toplantı türü', 'Toplantı tarihi', 'Oylama', 'Durum'],
+                            rows: () => <List<Object?>>[
+                              for (final d in _loader.items)
+                                [d.numberLabel ?? d.decisionNo, d.title, d.meetingType.label, exportDate(d.meetingDate), d.voteResult.label, d.status.label],
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _loader.loading ? null : reload,
+                          tooltip: 'Yenile',
+                          icon: const Icon(Icons.refresh_rounded),
+                        ),
+                      ],
+                    ),
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(spacing: AppSpace.sm, runSpacing: AppSpace.xs, children: [InfoChip(site.label)]),
-        const SizedBox(height: AppSpace.md),
-        if (!canWrite) ...[const DecisionReadOnlyNote(), const SizedBox(height: AppSpace.md)],
-        if (_moduleOff)
-          DecisionModuleOffCard(
-            message: 'Modül açılınca kararlar burada kaydedilir.',
-            onOpenModules: widget.onOpenModules,
-          )
-        else ...[
-          _buildFilters(context),
-          const SizedBox(height: AppSpace.md),
-          _buildPdf(context, site),
-          const SizedBox(height: AppSpace.md),
-          SectionHeader(
-            title: 'Kararlar',
-            trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[ListExportButton(enabled: _loader.items.isNotEmpty, source: localExportSource(label: 'Kararlar', filenameBase: 'kararlar', headers: <String>['Karar no', 'Başlık', 'Toplantı türü', 'Toplantı tarihi', 'Oylama', 'Durum'], rows: () => <List<Object?>>[for (final d in _loader.items) [d.numberLabel ?? d.decisionNo, d.title, d.meetingType.label, exportDate(d.meetingDate), d.voteResult.label, d.status.label]])), IconButton(
-              onPressed: _loader.loading ? null : reload,
-              tooltip: 'Yenile',
-              icon: const Icon(Icons.refresh_rounded),
-            )]),
-          ),
-          const SizedBox(height: AppSpace.md),
-          DecisionListBody(
-            loader: _loader,
-            emptyTitle: _filtered ? 'Bu süzgeç için karar bulunamadı.' : 'Henüz karar yok.',
-            emptyMessage: _filtered
-                ? null
-                : (canWrite ? '"Yeni Karar" ile ilk kararı taslak olarak yazın.' : 'Yönetim bir karar yazdığında burada görünür.'),
-            cardBuilder: (d) => DecisionCard(
-              key: ValueKey<String>('decision_card_${d.id}'),
-              decision: d,
-              onTap: () => unawaited(_openDetail(site, d)),
-            ),
-          ),
-        ],
-      ],
+                  const SizedBox(height: AppSpace.md),
+                  DecisionListBody(
+                    loader: _loader,
+                    emptyTitle: _filtered ? 'Bu süzgeç için karar bulunamadı.' : 'Henüz karar yok.',
+                    emptyMessage: _filtered
+                        ? null
+                        : (canWrite ? '"Yeni Karar" ile ilk kararı taslak olarak yazın.' : 'Yönetim bir karar yazdığında burada görünür.'),
+                    cardBuilder: (d) => DecisionCard(
+                      key: ValueKey<String>('decision_card_${d.id}'),
+                      decision: d,
+                      onTap: () => unawaited(_openDetail(site, d)),
+                    ),
+                  ),
+                ],
+              ),
+      ),
     );
   }
 

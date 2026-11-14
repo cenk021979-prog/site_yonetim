@@ -10,6 +10,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/document_admin_view.dart';
 import 'package:site_kapi_kontrol/ui/views/document_resident_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// "Dosya Deposu" ekranı (Platform Faz 3b-A + D1; Belgeler ve Google Drive TEK modülde: `drive_storage`). Kullanıcının rolüne göre iki görünüm barındırır:
 ///
@@ -144,10 +145,23 @@ class DocumentsViewState extends State<DocumentsView> {
           sharer: widget.sharer,
         );
       case null:
-        content = const EmptyCard(
-          icon: Icons.folder_open_rounded,
-          title: 'Belge bulunamadı.',
-          message: 'Belgeler, bir siteye bağlı olduğunuzda burada görünür.',
+        content = WorkspaceSplitShell(
+          left: WorkspacePaneCard(
+            icon: Icons.folder_rounded,
+            title: 'Bilgi',
+            child: Text(
+              'Site belgeleri, bir siteye bağlı olduğunuzda ve modül açık olduğunda iki sütunlu düzende burada listelenir.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          right: const WorkspacePaneCard(
+            child: EmptyCard(
+              icon: Icons.folder_open_rounded,
+              title: 'Belge bulunamadı.',
+              message:
+                  'Belgeler, bir siteye bağlı olduğunuzda burada görünür.',
+            ),
+          ),
         );
     }
     final description = switch (mode) {

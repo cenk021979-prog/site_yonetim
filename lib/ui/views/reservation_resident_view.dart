@@ -22,6 +22,7 @@ import 'package:site_kapi_kontrol/ui/views/concierge_resident_tab.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/reservation_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Rezervasyon" ekranı (`reservation` modülü): ortak alanlar (alan -> gün -> boş saat -> rezervasyon),
 /// "Rezervasyonlarım" (durum rozeti, yaklaşan / geçmiş, iptal süresi içinde iptal) ve "Konsiyerj" (talep aç / iptal).
@@ -187,100 +188,129 @@ class ReservationResidentViewState extends State<ReservationResidentView> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final multiSite = widget.sites.length > 1;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(
-          title: 'Rezervasyon',
-          icon: Icons.event_available_rounded,
-          help: 'Ortak alanları ayırtın, rezervasyonlarınızı izleyin ve konsiyerj taleplerinizi iletin.',
+    const header = PageHeaderCard(
+      title: 'Rezervasyon',
+      icon: Icons.event_available_rounded,
+      help: 'Ortak alanları ayırtın, rezervasyonlarınızı izleyin ve konsiyerj taleplerinizi iletin.',
+    );
+    if (widget.sites.isEmpty) {
+      return const WorkspaceSplitShell(
+        header: header,
+        left: WorkspacePaneCard(
+          icon: Icons.info_outline_rounded,
+          title: 'Site ve Sekmeler',
+          child: Text('Rezervasyon modülü açık bir daireye bağlandığınızda sekmeler burada açılır.'),
         ),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.isEmpty)
-          const EmptyCard(
+        right: WorkspacePaneCard(
+          icon: Icons.event_busy_rounded,
+          title: 'Rezervasyon Durumu',
+          child: EmptyCard(
             icon: Icons.event_busy_rounded,
             title: 'Rezervasyon yapabileceğiniz site yok.',
             message:
                 'Rezervasyon ve konsiyerj, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
-          )
-        else ...[
-          if (multiSite) ...[
-            AppCard(
-              child: DropdownButtonFormField<int>(
-                key: ValueKey<String>('rez_site_${_siteFilter ?? 0}'),
-                isExpanded: true,
-                initialValue: _siteFilter ?? _allSites,
-                dropdownColor: p.surface,
-                style: th.bodyMedium?.copyWith(color: p.text),
-                decoration: const InputDecoration(
-                  labelText: 'Site',
-                  prefixIcon: Icon(Icons.apartment_rounded),
-                ),
-                items: [
-                  const DropdownMenuItem<int>(
-                    value: _allSites,
-                    child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
-                  ),
-                  for (final s in widget.sites)
-                    DropdownMenuItem<int>(
-                      value: s.code,
-                      child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
-                    ),
-                ],
-                onChanged: (value) {
-                  if (value == null) return;
-                  final next = value == _allSites ? null : value;
-                  if (next == _siteFilter) return;
-                  setState(() => _siteFilter = next);
-                  unawaited(_refreshUnreadCounts());
-                },
-              ),
-            ),
-            const SizedBox(height: AppSpace.md),
-          ],
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.sm,
-            children: [
-              for (final entry in <(int, String, String, int)>[
-                (0, 'rez_tab_areas', 'Alanlar', 0),
-                (1, 'rez_tab_mine', 'Rezervasyonlarım', _unreadReservations),
-                (2, 'rez_tab_concierge', 'Konsiyerj', _unreadConcierge),
-              ])
-                ChoiceChip(
-                  key: ValueKey<String>(entry.$2),
-                  label: _tabLabel(entry.$3, entry.$4, '${entry.$2}_unread'),
-                  selected: _tab == entry.$1,
-                  onSelected: (_) => _selectTab(entry.$1),
-                ),
-            ],
           ),
-          const SizedBox(height: AppSpace.lg),
-          switch (_tab) {
-            0 => _AreasTab(
-              key: _areasKey,
-              service: _service,
-              siteFilter: _siteFilter,
-              multiSite: multiSite,
-              onBooked: _onBooked,
+        ),
+      );
+    }
+    return WorkspaceSplitShell(
+      header: header,
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Sekmeler',
+        subtitle: multiSite ? '${widget.sites.length} site' : widget.sites.first.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multiSite) ...[
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('rez_site_${_siteFilter ?? 0}'),
+                  isExpanded: true,
+                  initialValue: _siteFilter ?? _allSites,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: _allSites,
+                      child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
+                    ),
+                    for (final s in widget.sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(s.label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final next = value == _allSites ? null : value;
+                    if (next == _siteFilter) return;
+                    setState(() => _siteFilter = next);
+                    unawaited(_refreshUnreadCounts());
+                  },
+                ),
+              ),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.sm,
+              children: [
+                for (final entry in <(int, String, String, int)>[
+                  (0, 'rez_tab_areas', 'Alanlar', 0),
+                  (1, 'rez_tab_mine', 'Rezervasyonlarım', _unreadReservations),
+                  (2, 'rez_tab_concierge', 'Konsiyerj', _unreadConcierge),
+                ])
+                  ChoiceChip(
+                    key: ValueKey<String>(entry.$2),
+                    label: _tabLabel(entry.$3, entry.$4, '${entry.$2}_unread'),
+                    selected: _tab == entry.$1,
+                    onSelected: (_) => _selectTab(entry.$1),
+                  ),
+              ],
             ),
-            1 => _MineTab(
-              key: _mineKey,
-              service: _service,
-              siteFilter: _siteFilter,
-              multiSite: multiSite,
-              onUnreadCount: (count) => _setUnread(reservations: count),
-            ),
-            _ => ConciergeResidentTab(
-              key: _conciergeKey,
-              service: _service,
-              sites: widget.sites,
-              siteFilter: _siteFilter,
-              onUnreadCount: (count) => _setUnread(concierge: count),
-            ),
-          },
-        ],
-      ],
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: switch (_tab) {
+          0 => Icons.meeting_room_rounded,
+          1 => Icons.event_note_rounded,
+          _ => Icons.room_service_rounded,
+        },
+        title: switch (_tab) {
+          0 => 'Alan Seçimi',
+          1 => 'Kayıtlı Rezervasyonlar',
+          _ => 'Konsiyerj Akışı',
+        },
+        child: switch (_tab) {
+          0 => _AreasTab(
+            key: _areasKey,
+            service: _service,
+            siteFilter: _siteFilter,
+            multiSite: multiSite,
+            onBooked: _onBooked,
+          ),
+          1 => _MineTab(
+            key: _mineKey,
+            service: _service,
+            siteFilter: _siteFilter,
+            multiSite: multiSite,
+            onUnreadCount: (count) => _setUnread(reservations: count),
+          ),
+          _ => ConciergeResidentTab(
+            key: _conciergeKey,
+            service: _service,
+            sites: widget.sites,
+            siteFilter: _siteFilter,
+            onUnreadCount: (count) => _setUnread(concierge: count),
+          ),
+        },
+      ),
     );
   }
 }

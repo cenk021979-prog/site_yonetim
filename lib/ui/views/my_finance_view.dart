@@ -19,6 +19,7 @@ import 'package:site_kapi_kontrol/ui/widgets/my_finance_4b_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/my_refund_section.dart';
 import 'package:site_kapi_kontrol/ui/widgets/pay_sheet.dart';
 import 'package:site_kapi_kontrol/ui/widgets/payment_notice_status.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Borcum" ekranı (Platform Faz 4a, `finance` modülü): kendi dairelerinin toplam borcu / alacağı,
 /// vadesi geçen tutar, sıradaki vade ve son hareketler. YALNIZ GÖRÜNTÜLEME: hiçbir yazma eylemi yoktur,
@@ -105,46 +106,49 @@ class MyFinanceViewState extends State<MyFinanceView> {
   @override
   Widget build(BuildContext context) {
     final data = _data;
-    final Widget content;
-    if (_moduleOff) {
-      content = const EmptyCard(
-        key: ValueKey<String>('my_finance_module_off'),
-        icon: Icons.account_balance_wallet_rounded,
-        tone: AppTone.warning,
-        title: 'Borç takibi şu an kapalı.',
-        message: 'Site yönetimi Aidat ve Finans özelliğini açtığında borç durumunuz burada görünür.',
-      );
-    } else if (data == null) {
-      content = _loading || _error == null
-          ? const ListSkeleton(rows: 2)
-          : InlineNotice(message: _error!, onRetry: reload);
-    } else if (data.items.isEmpty) {
-      content = const EmptyCard(
-        key: ValueKey<String>('my_finance_none'),
-        icon: Icons.apartment_rounded,
-        title: 'Borç takibi yapılan bir daireniz görünmüyor.',
-        message:
-            'Hesabınıza bağlı ve borcu görüntülenebilir bir daire bulunamadı. Bir sorun olduğunu '
-            'düşünüyorsanız site yönetimiyle iletişime geçin.',
-      );
-    } else {
-      content = _buildItems(context, data);
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(
+    if (_moduleOff || data == null || data.items.isEmpty) {
+      final Widget content;
+      if (_moduleOff) {
+        content = const EmptyCard(
+          key: ValueKey<String>('my_finance_module_off'),
+          icon: Icons.account_balance_wallet_rounded,
+          tone: AppTone.warning,
+          title: 'Borç takibi şu an kapalı.',
+          message:
+              'Site yönetimi Aidat ve Finans özelliğini açtığında borç durumunuz burada görünür.',
+        );
+      } else if (data == null) {
+        content = _loading || _error == null
+            ? const ListSkeleton(rows: 2)
+            : InlineNotice(message: _error!, onRetry: reload);
+      } else {
+        content = const EmptyCard(
+          key: ValueKey<String>('my_finance_none'),
+          icon: Icons.apartment_rounded,
+          title: 'Borç takibi yapılan bir daireniz görünmüyor.',
+          message:
+              'Hesabınıza bağlı ve borcu görüntülenebilir bir daire bulunamadı. Bir sorun olduğunu '
+              'düşünüyorsanız site yönetimiyle iletişime geçin.',
+        );
+      }
+      return WorkspaceSplitShell(
+        header: const PageHeaderCard(
           title: 'Borcum',
           icon: Icons.account_balance_wallet_rounded,
-          help: 'Dairenizin güncel borç ve alacak durumunu, vadeleri ve son hareketleri buradan görebilirsiniz.',
+          help:
+              'Dairenizin güncel borç ve alacak durumunu, vadeleri ve son hareketleri buradan görebilirsiniz.',
         ),
-        const SizedBox(height: AppSpace.md),
-        content,
-      ],
-    );
-  }
-
-  Widget _buildItems(BuildContext context, MyFinance data) {
+        left: WorkspacePaneCard(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Özet',
+          child: Text(
+            'Daire bazlı bakiye, vade takvimi ve son hareketleriniz sağdaki alanda yer alır.',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        right: WorkspacePaneCard(child: content),
+      );
+    }
     final multi = data.items.length > 1;
     var debt = 0;
     var credit = 0;
@@ -152,25 +156,59 @@ class MyFinanceViewState extends State<MyFinanceView> {
       if (item.balanceMinor > 0) debt += item.balanceMinor;
       if (item.balanceMinor < 0) credit += -item.balanceMinor;
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (multi) ...[
-          _TotalsCard(debtMinor: debt, creditMinor: credit),
-          const SizedBox(height: AppSpace.md),
-        ],
-        for (final item in data.items)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AppSpace.md),
-            child: MyFinanceCard(
-              key: ValueKey<String>('my_finance_${item.siteCode}_${item.apartmentId}'),
-              item: item,
-              showSite: multi || item.siteName.trim().isNotEmpty,
-              authService: widget.authService,
-              now: widget.now,
+    return WorkspaceSplitShell(
+      header: const PageHeaderCard(
+        title: 'Borcum',
+        icon: Icons.account_balance_wallet_rounded,
+        help:
+            'Dairenizin güncel borç ve alacak durumunu, vadeleri ve son hareketleri buradan görebilirsiniz.',
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.summarize_outlined,
+        title: 'Özet',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multi) ...[
+              _TotalsCard(debtMinor: debt, creditMinor: credit),
+              const SizedBox(height: AppSpace.md),
+            ],
+            Text(
+              'Kayıtlı daire: ${data.items.length}',
+              style: Theme.of(context).textTheme.titleSmall,
             ),
-          ),
-      ],
+            const SizedBox(height: AppSpace.xs),
+            Text(
+              'Dairelerinizin bakiye ayrıntıları, vadeleri ve son hesap hareketleri sağdaki kartlarda listelenir.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.receipt_long_outlined,
+        title: 'Daire Bakiyeleri',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            for (final (index, item) in data.items.indexed)
+              Padding(
+                padding: EdgeInsets.only(
+                  bottom: index == data.items.length - 1 ? 0 : AppSpace.md,
+                ),
+                child: MyFinanceCard(
+                  key: ValueKey<String>(
+                    'my_finance_${item.siteCode}_${item.apartmentId}',
+                  ),
+                  item: item,
+                  showSite: multi || item.siteName.trim().isNotEmpty,
+                  authService: widget.authService,
+                  now: widget.now,
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

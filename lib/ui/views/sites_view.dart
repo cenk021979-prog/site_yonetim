@@ -20,6 +20,7 @@ import 'package:site_kapi_kontrol/ui/widgets/apartment_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/door_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class SitesView extends StatelessWidget {
   const SitesView({
@@ -209,33 +210,13 @@ class SitesView extends StatelessWidget {
     );
   }
 
-  /// "Site Listesi" çerçeveli görsel blok: kırmızı/mercan çerçeve, koyu zemin, başlık ve alt gruplar.
+  /// "Site Listesi" kurumsal tema çerçeveli sol blok.
   Widget _buildSiteListPane(BuildContext context, {required bool isWide}) {
     final page = pageData;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
+    final p = context.palette;
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -247,12 +228,12 @@ class SitesView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.success.withValues(alpha: 0.15),
+                  color: AppTone.success.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.verified_rounded,
-                  color: AppColors.success,
+                  color: AppTone.success.ink(p),
                   size: 22,
                 ),
               ),
@@ -268,16 +249,16 @@ class SitesView extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Text(
+                    Text(
                       'Sistemde kayıtlı ve yönetilen siteler.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -307,13 +288,13 @@ class SitesView extends StatelessWidget {
                 style: TextStyle(
                   fontWeight: FontWeight.w700,
                   fontSize: 14.5,
-                  color: isDark ? Colors.white : Colors.black87,
+                  color: p.text,
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
@@ -321,7 +302,7 @@ class SitesView extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: isDark ? Colors.blue.shade200 : AppColors.primary,
+                    color: AppTone.primary.ink(p),
                   ),
                 ),
               ),
@@ -376,32 +357,12 @@ class SitesView extends StatelessWidget {
     SiteStructureRecord? structure, {
     required bool isWide,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
-
+    final p = context.palette;
+    final isDark = p.isDark;
     final siteName = structure?.site.name ?? 'Site';
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -413,12 +374,12 @@ class SitesView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.tune_rounded,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -434,7 +395,7 @@ class SitesView extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -443,9 +404,9 @@ class SitesView extends StatelessWidget {
                       structure != null
                           ? 'Seçili sitenin genel bilgileri, yöneticileri, daire ve kapıları.'
                           : 'İşlem yapmak için soldaki listeden bir site seçin.',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,

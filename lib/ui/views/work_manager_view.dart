@@ -20,6 +20,7 @@ import 'package:site_kapi_kontrol/ui/views/work_report_tab.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/work_tracking_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim ekranının sekmeleri: talep listesi ve rapor.
 enum WorkManagerTab { list, report }
@@ -374,17 +375,30 @@ class WorkManagerViewState extends State<WorkManagerView> {
   Widget build(BuildContext context) {
     final site = _site;
     if (site == null) {
+      final Widget stateBody;
       if (_loadingSites || (!_sitesLoadedOnce && _sitesError == null)) {
-        return const ListSkeleton(rows: 2);
+        stateBody = const ListSkeleton(rows: 2);
+      } else if (_sitesError != null) {
+        stateBody = InlineNotice(message: _sitesError!, onRetry: reload);
+      } else {
+        stateBody = const EmptyCard(
+          icon: Icons.apartment_rounded,
+          title: 'Kayıtlı site bulunamadı.',
+          message:
+              'Talepler, İş Takibi modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+        );
       }
-      if (_sitesError != null) {
-        return InlineNotice(message: _sitesError!, onRetry: reload);
-      }
-      return const EmptyCard(
-        icon: Icons.apartment_rounded,
-        title: 'Kayıtlı site bulunamadı.',
-        message:
-            'Talepler, İş Takibi modülü açık bir siteye bağlı olduğunuzda burada görünür.',
+      return WorkspaceSplitShell(
+        left: const WorkspacePaneCard(
+          icon: Icons.tune_rounded,
+          title: 'Site ve Süzgeçler',
+          child: Text('Bağlı site verisi geldiğinde süzgeçler burada açılır.'),
+        ),
+        right: WorkspacePaneCard(
+          icon: Icons.assignment_rounded,
+          title: 'Talep Akışı',
+          child: stateBody,
+        ),
       );
     }
     return _buildSite(context, site);
@@ -393,113 +407,178 @@ class WorkManagerViewState extends State<WorkManagerView> {
   Widget _buildSite(BuildContext context, WorkTrackingSite site) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: 'Talepler',
-          icon: Icons.assignment_rounded,
-          help: switch (site.access) {
-            WorkSiteAccess.staff =>
-              'Size atanan ve henüz kimseye atanmamış talepleri görür, durumunu güncellersiniz.',
-            WorkSiteAccess.board =>
-              'Sitedeki arıza, bakım ve talepleri izleyin.',
-            WorkSiteAccess.manager =>
-              'Sakinlerin açtığı arıza, bakım ve talepleri izleyin; durum, öncelik ve atama yapın.',
-          },
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('work_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Tooltip(
-                      message: _siteLabel(s),
-                      child: Text(
-                        _siteLabel(s),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+    final showReport = !_moduleOff && _tab == WorkManagerTab.report && workReportAllowed(site.access);
+    return WorkspaceSplitShell(
+      header: PageHeaderCard(
+        title: 'Talepler',
+        icon: Icons.assignment_rounded,
+        help: switch (site.access) {
+          WorkSiteAccess.staff =>
+            'Size atanan ve henüz kimseye atanmamış talepleri görür, durumunu güncellersiniz.',
+          WorkSiteAccess.board =>
+            'Sitedeki arıza, bakım ve talepleri izleyin.',
+          WorkSiteAccess.manager =>
+            'Sakinlerin açtığı arıza, bakım ve talepleri izleyin; durum, öncelik ve atama yapın.',
+        },
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Süzgeçler',
+        subtitle: site.label,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (_sites.length > 1)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>('work_site_${site.code}_${_sites.length}'),
+                  isExpanded: true,
+                  initialValue: site.code,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
                   ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (site.access == WorkSiteAccess.board) ...[
-          const InlineNotice(
-            key: ValueKey<String>('work_read_only_note'),
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak talepleri yalnızca görüntüleyebilirsiniz. İç notlar ve sakinlerin iletişim bilgileri görünmez.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_moduleOff)
-          _buildModuleOff(context)
-        else ...[
-          if (workReportAllowed(site.access)) ...[
-            _buildTabs(context, site),
-            const SizedBox(height: AppSpace.md),
-          ],
-          if (_tab == WorkManagerTab.report && workReportAllowed(site.access))
-            WorkReportTab(key: _reportKey, service: _service, site: site)
-          else ...[
-            _buildFilters(context),
-            const SizedBox(height: AppSpace.md),
-            SectionHeader(
-              title: 'Talepler',
-              trailing: Row(mainAxisSize: MainAxisSize.min, children: <Widget>[if (site.access == WorkSiteAccess.manager) IconButton(key: const ValueKey<String>('work_categories_open'), onPressed: () => unawaited(_openCategories(site)), tooltip: 'Kategorileri düzenle', icon: const Icon(Icons.category_rounded)), ListExportButton(enabled: _loader.items.isNotEmpty, source: localExportSource(label: 'İş talepleri', filenameBase: 'is_talepleri', headers: <String>['No', 'Başlık', 'Kategori', 'Durum', 'Öncelik', 'Konum', 'Talep eden', 'Atanan', 'Açılış', 'Kapanış'], rows: () => <List<Object?>>[for (final w in _loader.items) [w.id, w.title, w.categoryText, w.status.label, w.priority.label, w.apartment?.label ?? w.block?.label, w.requester.name, w.assignedTo?.name, exportDate(w.createdAt), exportDate(w.closedAt)]])), IconButton(
-                onPressed: _loader.loading ? null : reload,
-                tooltip: 'Yenile',
-                icon: const Icon(Icons.refresh_rounded),
-              )]),
-            ),
-            const SizedBox(height: AppSpace.md),
-            CursorListBody<WorkManagedItem>(
-              loader: _loader,
-              showLastUpdated: true,
-              emptyIcon: Icons.assignment_turned_in_rounded,
-              emptyTitle: _filtered
-                  ? 'Bu süzgeç için talep bulunamadı.'
-                  : 'Açık talep yok.',
-              emptyMessage: _filtered
-                  ? null
-                  : 'Sakinler bir talep açtığında burada görünür.',
-              itemBuilder: (context, item) => WorkManagedCard(
-                item: item,
-                onTap: () => unawaited(_open(item, site)),
+                  items: [
+                    for (final s in _sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Tooltip(
+                          message: _siteLabel(s),
+                          child: Text(
+                            _siteLabel(s),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) _selectSite(value);
+                  },
+                ),
+              )
+            else
+              Wrap(
+                spacing: AppSpace.sm,
+                runSpacing: AppSpace.xs,
+                children: [InfoChip(site.label)],
               ),
-            ),
+            if (site.access == WorkSiteAccess.board) ...[
+              const SizedBox(height: AppSpace.md),
+              const InlineNotice(
+                key: ValueKey<String>('work_read_only_note'),
+                tone: AppTone.info,
+                icon: Icons.visibility_rounded,
+                message:
+                    'Yönetim kurulu üyesi olarak talepleri yalnızca görüntüleyebilirsiniz. İç notlar ve sakinlerin iletişim bilgileri görünmez.',
+              ),
+            ],
+            if (!_moduleOff) ...[
+              if (workReportAllowed(site.access)) ...[
+                const SizedBox(height: AppSpace.md),
+                _buildTabs(context, site),
+              ],
+              if (!showReport) ...[
+                const SizedBox(height: AppSpace.md),
+                _buildFilters(context),
+              ],
+            ],
           ],
-        ],
-      ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: _moduleOff
+            ? Icons.assignment_late_rounded
+            : (showReport ? Icons.insights_rounded : null),
+        title: _moduleOff
+            ? 'Modül Durumu'
+            : (showReport ? 'İş Takibi Raporu' : null),
+        child: _moduleOff
+            ? _buildModuleOff(context)
+            : showReport
+                ? WorkReportTab(key: _reportKey, service: _service, site: site)
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SectionHeader(
+                        title: 'Talepler',
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: <Widget>[
+                            if (site.access == WorkSiteAccess.manager)
+                              IconButton(
+                                key: const ValueKey<String>('work_categories_open'),
+                                onPressed: () => unawaited(_openCategories(site)),
+                                tooltip: 'Kategorileri düzenle',
+                                icon: const Icon(Icons.category_rounded),
+                              ),
+                            ListExportButton(
+                              enabled: _loader.items.isNotEmpty,
+                              source: localExportSource(
+                                label: 'İş talepleri',
+                                filenameBase: 'is_talepleri',
+                                headers: <String>[
+                                  'No',
+                                  'Başlık',
+                                  'Kategori',
+                                  'Durum',
+                                  'Öncelik',
+                                  'Konum',
+                                  'Talep eden',
+                                  'Atanan',
+                                  'Açılış',
+                                  'Kapanış',
+                                ],
+                                rows: () => <List<Object?>>[
+                                  for (final w in _loader.items)
+                                    [
+                                      w.id,
+                                      w.title,
+                                      w.categoryText,
+                                      w.status.label,
+                                      w.priority.label,
+                                      w.apartment?.label ?? w.block?.label,
+                                      w.requester.name,
+                                      w.assignedTo?.name,
+                                      exportDate(w.createdAt),
+                                      exportDate(w.closedAt),
+                                    ],
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              onPressed: _loader.loading ? null : reload,
+                              tooltip: 'Yenile',
+                              icon: const Icon(Icons.refresh_rounded),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpace.md),
+                      CursorListBody<WorkManagedItem>(
+                        loader: _loader,
+                        showLastUpdated: true,
+                        emptyIcon: Icons.assignment_turned_in_rounded,
+                        emptyTitle: _filtered
+                            ? 'Bu süzgeç için talep bulunamadı.'
+                            : 'Açık talep yok.',
+                        emptyMessage: _filtered
+                            ? null
+                            : 'Sakinler bir talep açtığında burada görünür.',
+                        itemBuilder: (context, item) => WorkManagedCard(
+                          item: item,
+                          onTap: () => unawaited(_open(item, site)),
+                        ),
+                      ),
+                    ],
+                  ),
+      ),
     );
   }
 

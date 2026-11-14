@@ -7,7 +7,6 @@ import 'package:site_kapi_kontrol/models/finance.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/expense_attachments.dart';
 import 'package:site_kapi_kontrol/services/payment_notice_api.dart';
-import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
@@ -32,6 +31,7 @@ import 'package:site_kapi_kontrol/ui/views/payment_notices_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/finance_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/finance_settings_controller.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetici "Finans" ekranı (Platform Faz 4a, `finance` modülü): site seçici, mali özet kartı, eylemler
 /// (Tahsilat Ekle, Ek Borç Ekle, Finans Ayarları, Kart Ödemesi) ve sekmeler (Daireler | Tanımlar | Dönemler | Kasa | Giderler |
@@ -686,44 +686,25 @@ class FinanceViewState extends State<FinanceView> {
     final th = theme.textTheme;
     final p = context.palette;
 
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
-
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Sol Blok Başlığı (Süper kullanıcı paneli gibi)
+          // Sol Blok Başlığı
           Row(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.account_balance_wallet_rounded,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -737,16 +718,16 @@ class FinanceViewState extends State<FinanceView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const Text(
+                    Text(
                       'Açık dönem mali özeti, hızlı işlemler ve menüler.',
                       style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -875,16 +856,7 @@ class FinanceViewState extends State<FinanceView> {
     PeopleScope scope, {
     required bool isWide,
   }) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
-    final containerBorderColor = isDark
-        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
-        : Colors.redAccent.shade700;
-
-    final containerBg = isDark
-        ? const Color(0xFF1E232A)
-        : const Color(0xFFFAFAFC);
+    final p = context.palette;
 
     final currentTabTuple = _tabs[_tab];
     final currentTabName = currentTabTuple.$1;
@@ -919,18 +891,7 @@ class FinanceViewState extends State<FinanceView> {
     }
 
     return Container(
-      decoration: BoxDecoration(
-        color: containerBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: containerBorderColor, width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
+      decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),
       padding: const EdgeInsets.all(AppSpace.md),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -942,12 +903,12 @@ class FinanceViewState extends State<FinanceView> {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: AppColors.primary.withValues(alpha: 0.15),
+                  color: AppTone.primary.tint(p),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   currentTabIcon,
-                  color: AppColors.primary,
+                  color: AppTone.primary.ink(p),
                   size: 22,
                 ),
               ),
@@ -961,16 +922,16 @@ class FinanceViewState extends State<FinanceView> {
                       style: TextStyle(
                         fontWeight: FontWeight.w800,
                         fontSize: 16,
-                        color: isDark ? Colors.white : Colors.red.shade900,
+                        color: p.text,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                     Text(
                       tabSubtitle,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 11.5,
-                        color: AppColors.textMuted,
+                        color: p.textSecondary,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -1015,32 +976,62 @@ class FinanceViewState extends State<FinanceView> {
 
   Widget _buildModuleOff(BuildContext context) {
     final th = Theme.of(context).textTheme;
-    return EmptyCard(
-      key: const ValueKey<String>('finance_module_off'),
-      icon: Icons.account_balance_wallet_rounded,
-      tone: AppTone.warning,
-      title: 'Aidat ve Finans bu site için kapalı.',
-      message: 'Modül açılınca aidat, borç ve tahsilat işlemleri burada görünür.',
-      child: widget.onOpenModules == null
-          ? null
-          : Column(
-              children: [
-                Text(
-                  'Modüller ekranından açabilir ya da talep edebilirsiniz.',
-                  textAlign: TextAlign.center,
-                  style: th.bodyMedium,
-                ),
-                const SizedBox(height: AppSpace.md),
-                PrimaryActionButton(
-                  key: const ValueKey<String>('finance_open_modules'),
-                  label: 'Modüller',
-                  icon: Icons.extension_rounded,
-                  variant: AppButtonVariant.tonal,
-                  expand: false,
-                  onPressed: widget.onOpenModules,
-                ),
-              ],
+    final p = context.palette;
+    return WorkspaceSplitShell(
+      left: WorkspacePaneCard(
+        icon: Icons.account_balance_wallet_rounded,
+        title: 'Aidat & Finans Durumu',
+        subtitle: 'Modül erişim ve aktivasyon bilgisi.',
+        tone: AppTone.warning,
+        onRefresh: reload,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              'Bu sitede finans ve muhasebe işlemleri şu an pasif durumdadır.',
+              style: th.bodyMedium?.copyWith(color: p.textSecondary),
             ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              'Modül etkinleştirildiğinde aidat planları, tahsilatlar, gider fişleri ve kasa raporları iki kartlı düzende burada yönetilir.',
+              style: th.bodySmall?.copyWith(color: p.textMuted),
+            ),
+          ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.lock_outline_rounded,
+        title: 'Modül Erişimi',
+        subtitle: 'Aidat ve finans yönetimi bu site için kapalı.',
+        tone: AppTone.warning,
+        child: EmptyCard(
+          key: const ValueKey<String>('finance_module_off'),
+          icon: Icons.account_balance_wallet_rounded,
+          tone: AppTone.warning,
+          title: 'Aidat ve Finans bu site için kapalı.',
+          message: 'Modül açılınca aidat, borç ve tahsilat işlemleri burada görünür.',
+          child: widget.onOpenModules == null
+              ? null
+              : Column(
+                  children: [
+                    Text(
+                      'Modüller ekranından açabilir ya da talep edebilirsiniz.',
+                      textAlign: TextAlign.center,
+                      style: th.bodyMedium,
+                    ),
+                    const SizedBox(height: AppSpace.md),
+                    PrimaryActionButton(
+                      key: const ValueKey<String>('finance_open_modules'),
+                      label: 'Modüller',
+                      icon: Icons.extension_rounded,
+                      variant: AppButtonVariant.tonal,
+                      expand: false,
+                      onPressed: widget.onOpenModules,
+                    ),
+                  ],
+                ),
+        ),
+      ),
     );
   }
 

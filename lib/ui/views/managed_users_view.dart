@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/managed_user_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 class ManagedUsersView extends StatelessWidget {
   const ManagedUsersView({
@@ -68,67 +69,98 @@ class ManagedUsersView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final page = pageData;
+    final p = context.palette;
+    final th = Theme.of(context).textTheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        PageHeaderCard(
-          title: _rolePlural(role),
-          action: ElevatedButton.icon(
-            onPressed: onOpenAddDialog,
-            icon: const Icon(Icons.person_add_alt_1),
-            label: Text('Yeni ${_roleTitle(role)}'),
-          ),
+    return WorkspaceSplitShell(
+      leftFlex: 4,
+      rightFlex: 8,
+      header: PageHeaderCard(
+        title: _rolePlural(role),
+        action: ElevatedButton.icon(
+          onPressed: onOpenAddDialog,
+          icon: const Icon(Icons.person_add_alt_1),
+          label: Text('Yeni ${_roleTitle(role)}'),
         ),
-        const SizedBox(height: AppSpace.lg),
-        // Liste bölümü: başlık sayfa zemininde, her kullanıcı kendi AppCard'ı (kart-içinde-kart yok).
-        SectionHeader(
-          title: page == null
-              ? _rolePlural(role)
-              : '${_rolePlural(role)} (${page.total})',
-          trailing: IconButton(
-            onPressed: loading ? null : onRefresh,
-            icon: const Icon(Icons.refresh),
-          ),
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.badge_outlined,
+        title: 'Rol Özeti & İşlemler',
+        subtitle: 'Kayıtlı kullanıcı sayısı ve yeni hesap ekleme.',
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              page == null
+                  ? 'Kullanıcı kayıtları yükleniyor.'
+                  : 'Toplam ${page.total} kayıtlı hesap.',
+              style: th.bodyMedium?.copyWith(color: p.text, fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            Text(
+              'Sağdaki listeden hesap durumunu değiştirebilir veya kullanıcı detaylarını inceleyebilirsiniz.',
+              style: th.bodySmall?.copyWith(color: p.textSecondary),
+            ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        if (loading && page == null)
-          const ListSkeleton()
-        else if (users.isEmpty)
-          EmptyCard(
-            icon: Icons.group_outlined,
-            title: 'Kayıtlı ${_rolePlural(role).toLowerCase()} bulunamadı.',
-          )
-        else ...[
-          for (var i = 0; i < users.length; i++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AppSpace.md),
-              child: StaggeredEntry(
-                index: i,
-                child: ManagedUserCard(
-                  user: users[i],
-                  isSelf: users[i].id == session.id,
-                  activationBusy: busyActivationUsers.contains(users[i].id),
-                  onActivationChanged: (value) =>
-                      onToggleActivation(users[i], value),
-                  onTap: () => onShowUserDetails(users[i]),
-                  onDelete: onDeleteUser != null
-                      ? () => onDeleteUser!(users[i])
+      ),
+      right: WorkspacePaneCard(
+        icon: Icons.groups_rounded,
+        title: 'Kayıtlı Hesaplar',
+        subtitle: 'Kullanıcı listesi, durum ve sayfa gezintisi.',
+        tone: AppTone.primary,
+        onRefresh: loading ? null : onRefresh,
+        refreshIcon: Icons.refresh,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: page == null
+                  ? _rolePlural(role)
+                  : '${_rolePlural(role)} (${page.total})',
+            ),
+            const SizedBox(height: AppSpace.md),
+            if (loading && page == null)
+              const ListSkeleton()
+            else if (users.isEmpty)
+              EmptyCard(
+                icon: Icons.group_outlined,
+                title: 'Kayıtlı ${_rolePlural(role).toLowerCase()} bulunamadı.',
+              )
+            else ...[
+              for (var i = 0; i < users.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AppSpace.md),
+                  child: StaggeredEntry(
+                    index: i,
+                    child: ManagedUserCard(
+                      user: users[i],
+                      isSelf: users[i].id == session.id,
+                      activationBusy: busyActivationUsers.contains(users[i].id),
+                      onActivationChanged: (value) =>
+                          onToggleActivation(users[i], value),
+                      onTap: () => onShowUserDetails(users[i]),
+                      onDelete: onDeleteUser != null
+                          ? () => onDeleteUser!(users[i])
+                          : null,
+                    ),
+                  ),
+                ),
+              if (page != null)
+                PaginationBar(
+                  label:
+                      'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
+                  onPrevious:
+                      page.page > 1 ? () => onLoadPage(page.page - 1) : null,
+                  onNext: page.page < page.totalPages
+                      ? () => onLoadPage(page.page + 1)
                       : null,
                 ),
-              ),
-            ),
-          if (page != null)
-            PaginationBar(
-              label:
-                  'Sayfa ${page.page} / ${page.totalPages} | Toplam ${page.total}',
-              onPrevious: page.page > 1 ? () => onLoadPage(page.page - 1) : null,
-              onNext: page.page < page.totalPages
-                  ? () => onLoadPage(page.page + 1)
-                  : null,
-            ),
-        ],
-      ],
+            ],
+          ],
+        ),
+      ),
     );
   }
 }

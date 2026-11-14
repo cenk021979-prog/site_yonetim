@@ -26,6 +26,7 @@ import 'package:site_kapi_kontrol/ui/helpers/money.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/views/bank_lines_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/home_shortcut_button.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 BankFile _readIsolate(({Uint8List bytes, String name}) a) => readBankFile(a.bytes, a.name);
 
@@ -392,78 +393,96 @@ class _BankImportViewState extends State<BankImportView> {
           children: [
             if (_loading) const Center(child: Padding(padding: EdgeInsets.all(AppSpace.xl), child: CircularProgressIndicator())),
             if (!_loading && _loadError != null) ...[Text(_loadError!), TextButton(onPressed: _loadAll, child: const Text('Tekrar dene'))],
-            if (!_loading && _loadError == null) ...[
-              if (_attention > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpace.md),
-                  child: AppCard(
-                    child: ListTile(
-                      key: const ValueKey<String>('bank_attention'),
-                      contentPadding: EdgeInsets.zero,
-                      leading: const Icon(Icons.priority_high_rounded),
-                      title: Text('$_attention banka satırı sizi bekliyor'),
-                      subtitle: const Text('Daireye işleyin ya da gelir/gider olarak ayırın.'),
-                      trailing: const Icon(Icons.chevron_right_rounded),
-                      onTap: () async {
-                        await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BankLinesView(scope: widget.scope)));
-                        if (mounted) unawaited(_loadAll());
-                      },
-                    ),
+            if (!_loading && _loadError == null)
+              WorkspaceSplitShell(
+                left: WorkspacePaneCard(
+                  icon: Icons.upload_file_rounded,
+                  title: 'Ekstre Yükleme',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      if (_attention > 0)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpace.md),
+                          child: AppCard(
+                            child: ListTile(
+                              key: const ValueKey<String>('bank_attention'),
+                              contentPadding: EdgeInsets.zero,
+                              leading: const Icon(Icons.priority_high_rounded),
+                              title: Text('$_attention banka satırı sizi bekliyor'),
+                              subtitle: const Text('Daireye işleyin ya da gelir/gider olarak ayırın.'),
+                              trailing: const Icon(Icons.chevron_right_rounded),
+                              onTap: () async {
+                                await Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => BankLinesView(scope: widget.scope)));
+                                if (mounted) unawaited(_loadAll());
+                              },
+                            ),
+                          ),
+                        ),
+                      if (_accounts.isEmpty)
+                        const Text('Önce Kasa sekmesinden bir banka hesabı ekleyin.')
+                      else ...[
+                        Text('1. Hesap', style: th.titleSmall),
+                        const SizedBox(height: AppSpace.xs),
+                        DropdownButtonFormField<int>(
+                          key: const ValueKey<String>('bank_account'),
+                          initialValue: _accountId,
+                          isExpanded: true,
+                          decoration: const InputDecoration(labelText: 'Banka hesabı'),
+                          items: [for (final a in _accounts) DropdownMenuItem<int>(value: a.id, child: Text(a.name))],
+                          onChanged: _working ? null : (v) => setState(() {
+                            _accountId = v;
+                            _reset();
+                          }),
+                        ),
+                        const SizedBox(height: AppSpace.md),
+                        Text('2. Dosya', style: th.titleSmall),
+                        const SizedBox(height: AppSpace.xs),
+                        const Text(
+                          'Bankanızın ekstre dosyası (XLSX, CSV veya MT940). Dosya telefonunuzda/bilgisayarınızda okunur, yalnız hareket satırları gönderilir. '
+                          'PDF hesap ekstresi de yüklenebilir: metni sunucuda okunur (taranmış resim PDF’ler okunamaz), dosya saklanmaz.',
+                        ),
+                        const SizedBox(height: AppSpace.sm),
+                        OutlinedButton.icon(
+                          key: const ValueKey<String>('bank_pick_file'),
+                          onPressed: _working || _accountId == null ? null : _chooseFile,
+                          icon: const Icon(Icons.upload_file_rounded),
+                          label: Text(_working && _preview == null ? 'Okunuyor…' : 'Dosya seç'),
+                        ),
+                      ],
+                      if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
+                      if (_doneText != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: Text(_doneText!, key: const ValueKey<String>('bank_done'))),
+                      if (_preview != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: _summary(_preview!)),
+                    ],
                   ),
                 ),
-              if (_accounts.isEmpty)
-                const Text('Önce Kasa sekmesinden bir banka hesabı ekleyin.')
-              else ...[
-                Text('1. Hesap', style: th.titleSmall),
-                const SizedBox(height: AppSpace.xs),
-                DropdownButtonFormField<int>(
-                  key: const ValueKey<String>('bank_account'),
-                  initialValue: _accountId,
-                  isExpanded: true,
-                  decoration: const InputDecoration(labelText: 'Banka hesabı'),
-                  items: [for (final a in _accounts) DropdownMenuItem<int>(value: a.id, child: Text(a.name))],
-                  onChanged: _working ? null : (v) => setState(() {
-                    _accountId = v;
-                    _reset();
-                  }),
-                ),
-                const SizedBox(height: AppSpace.md),
-                Text('2. Dosya', style: th.titleSmall),
-                const SizedBox(height: AppSpace.xs),
-                const Text(
-                  'Bankanızın ekstre dosyası (XLSX, CSV veya MT940). Dosya telefonunuzda/bilgisayarınızda okunur, yalnız hareket satırları gönderilir. '
-                  'PDF hesap ekstresi de yüklenebilir: metni sunucuda okunur (taranmış resim PDF’ler okunamaz), dosya saklanmaz.',
-                ),
-                const SizedBox(height: AppSpace.sm),
-                OutlinedButton.icon(
-                  key: const ValueKey<String>('bank_pick_file'),
-                  onPressed: _working || _accountId == null ? null : _chooseFile,
-                  icon: const Icon(Icons.upload_file_rounded),
-                  label: Text(_working && _preview == null ? 'Okunuyor…' : 'Dosya seç'),
-                ),
-              ],
-              if (_error != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))),
-              if (_doneText != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: Text(_doneText!, key: const ValueKey<String>('bank_done'))),
-              if (_preview != null) Padding(padding: const EdgeInsets.only(top: AppSpace.md), child: _summary(_preview!)),
-              const SizedBox(height: AppSpace.xl),
-              Text('Geçmiş yüklemeler', style: th.titleSmall),
-              const SizedBox(height: AppSpace.sm),
-              if (_imports.isEmpty) const Text('Henüz banka dosyası yüklenmedi.'),
-              for (final i in _imports)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AppSpace.sm),
-                  child: AppCard(
-                    child: ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: Text(i.fileName, overflow: TextOverflow.ellipsis),
-                      subtitle: Text('${i.accountName} · ${i.lineCount} satır${i.isActive ? '' : ' · geri alındı'}'),
-                      trailing: i.isActive && widget.scope.canWrite
-                          ? TextButton(key: ValueKey<String>('bank_revert_${i.id}'), onPressed: _working ? null : () => _revert(i), child: const Text('Geri al'))
-                          : null,
-                    ),
+                right: WorkspacePaneCard(
+                  icon: Icons.history_rounded,
+                  title: 'Geçmiş Yüklemeler',
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text('Geçmiş yüklemeler', style: th.titleSmall),
+                      const SizedBox(height: AppSpace.sm),
+                      if (_imports.isEmpty) const Text('Henüz banka dosyası yüklenmedi.'),
+                      for (final i in _imports)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AppSpace.sm),
+                          child: AppCard(
+                            child: ListTile(
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(i.fileName, overflow: TextOverflow.ellipsis),
+                              subtitle: Text('${i.accountName} · ${i.lineCount} satır${i.isActive ? '' : ' · geri alındı'}'),
+                              trailing: i.isActive && widget.scope.canWrite
+                                  ? TextButton(key: ValueKey<String>('bank_revert_${i.id}'), onPressed: _working ? null : () => _revert(i), child: const Text('Geri al'))
+                                  : null,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
-            ],
+              ),
           ],
         ),
       ),

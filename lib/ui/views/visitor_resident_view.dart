@@ -17,6 +17,7 @@ import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/cursor_list_body.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/visitor_log_parts.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Sakin "Ziyaretçi ve Kargo" ekranı (`visitor_log` modülü): kendi dairesine ait kargo / ziyaretçi kayıtları.
 /// Görülmemiş kayıtlar kalın + "Yeni" rozetiyle listelenir; kart açılınca ayrıntı penceresi çıkar ve kayıt
@@ -177,112 +178,129 @@ class VisitorResidentViewState extends State<VisitorResidentView> {
     final th = Theme.of(context).textTheme;
     final multiSite = widget.sites.length > 1;
     final hasSite = widget.sites.isNotEmpty;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const PageHeaderCard(
-          title: 'Ziyaretçi ve Kargo',
-          icon: Icons.door_front_door_rounded,
-          help: 'Dairenize gelen kargo ve ziyaretçileri görevli kaydeder; burada görürsünüz. E-posta ve telefon bildirimi yakında.',
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (multiSite) ...[
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('visitor_resident_site_${_siteFilter ?? 0}'),
-              isExpanded: true,
-              initialValue: _siteFilter ?? _allSites,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
-              ),
-              items: [
-                const DropdownMenuItem<int>(
-                  value: _allSites,
-                  child: Text(
-                    'Tüm siteler',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+    return WorkspaceSplitShell(
+      header: const PageHeaderCard(
+        title: 'Ziyaretçi ve Kargo',
+        icon: Icons.door_front_door_rounded,
+        help: 'Dairenize gelen kargo ve ziyaretçileri görevli kaydeder; burada görürsünüz. E-posta ve telefon bildirimi yakında.',
+      ),
+      left: WorkspacePaneCard(
+        icon: Icons.tune_rounded,
+        title: 'Site ve Bildirimler',
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (multiSite)
+              AppCard(
+                child: DropdownButtonFormField<int>(
+                  key: ValueKey<String>(
+                    'visitor_resident_site_${_siteFilter ?? 0}',
                   ),
-                ),
-                for (final s in widget.sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      s.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                  isExpanded: true,
+                  initialValue: _siteFilter ?? _allSites,
+                  dropdownColor: p.surface,
+                  style: th.bodyMedium?.copyWith(color: p.text),
+                  decoration: const InputDecoration(
+                    labelText: 'Site',
+                    prefixIcon: Icon(Icons.apartment_rounded),
+                  ),
+                  items: [
+                    const DropdownMenuItem<int>(
+                      value: _allSites,
+                      child: Text(
+                        'Tüm siteler',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value == null) return;
-                final next = value == _allSites ? null : value;
-                if (next == _siteFilter) return;
-                setState(() => _siteFilter = next);
-                _applyFilters();
-              },
-            ),
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (_unread > 0 && !_moduleOff) ...[
-          InlineNotice(
-            key: const ValueKey<String>('visitor_unread_notice'),
-            tone: AppTone.warning,
-            icon: Icons.notifications_active_rounded,
-            message: _unread == 1
-                ? 'Görülmemiş 1 kaydınız var.'
-                : 'Görülmemiş $_unread kaydınız var.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        SectionHeader(
-          title: 'Kayıtlar',
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
-          ),
+                    for (final s in widget.sites)
+                      DropdownMenuItem<int>(
+                        value: s.code,
+                        child: Text(
+                          s.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                  ],
+                  onChanged: (value) {
+                    if (value == null) return;
+                    final next = value == _allSites ? null : value;
+                    if (next == _siteFilter) return;
+                    setState(() => _siteFilter = next);
+                    _applyFilters();
+                  },
+                ),
+              ),
+            if (multiSite && _unread > 0 && !_moduleOff)
+              const SizedBox(height: AppSpace.md),
+            if (_unread > 0 && !_moduleOff)
+              InlineNotice(
+                key: const ValueKey<String>('visitor_unread_notice'),
+                tone: AppTone.warning,
+                icon: Icons.notifications_active_rounded,
+                message: _unread == 1
+                    ? 'Görülmemiş 1 kaydınız var.'
+                    : 'Görülmemiş $_unread kaydınız var.',
+              ),
+            if (!multiSite && !(_unread > 0 && !_moduleOff))
+              Text(
+                'Dairenize gelen kargo ve ziyaretçi bildirimleri sağda listelenir.',
+                style: th.bodySmall?.copyWith(color: p.textSecondary),
+              ),
+          ],
         ),
-        const SizedBox(height: AppSpace.md),
-        if (_moduleOff)
-          const EmptyCard(
-            key: ValueKey<String>('visitor_module_off'),
-            icon: Icons.door_front_door_outlined,
-            tone: AppTone.warning,
-            title: 'Ziyaretçi ve kargo kaydı bu site için kapalı.',
-            message:
-                'Yönetim bu özelliği açtığında dairenize gelen kargo ve ziyaretçileri buradan görürsünüz.',
-          )
-        else if (!hasSite)
-          const EmptyCard(
-            icon: Icons.door_front_door_outlined,
-            title: 'Kayıt görebileceğiniz site yok.',
-            message:
-                'Ziyaretçi ve kargo kayıtları, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
-          )
-        else
-          CursorListBody<VisitorEntry>(
-            loader: _loader,
-            showLastUpdated: true,
-            emptyIcon: Icons.door_front_door_outlined,
-            emptyTitle: _siteFilter != null
-                ? 'Bu sitede kaydınız yok.'
-                : 'Henüz kaydınız yok.',
-            emptyMessage: _siteFilter != null
-                ? null
-                : 'Dairenize kargo ya da ziyaretçi geldiğinde görevlinin kaydı burada görünür.',
-            itemBuilder: (context, item) => VisitorResidentCard(
-              key: ValueKey<String>('visitor_card_${item.id}'),
-              entry: item,
-              showSite: multiSite,
-              onTap: () => unawaited(_open(item)),
+      ),
+      right: WorkspacePaneCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SectionHeader(
+              title: 'Kayıtlar',
+              trailing: IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
             ),
-          ),
-      ],
+            const SizedBox(height: AppSpace.md),
+            if (_moduleOff)
+              const EmptyCard(
+                key: ValueKey<String>('visitor_module_off'),
+                icon: Icons.door_front_door_outlined,
+                tone: AppTone.warning,
+                title: 'Ziyaretçi ve kargo kaydı bu site için kapalı.',
+                message:
+                    'Yönetim bu özelliği açtığında dairenize gelen kargo ve ziyaretçileri buradan görürsünüz.',
+              )
+            else if (!hasSite)
+              const EmptyCard(
+                icon: Icons.door_front_door_outlined,
+                title: 'Kayıt görebileceğiniz site yok.',
+                message:
+                    'Ziyaretçi ve kargo kayıtları, bir siteye daire sakini olarak bağlandığınızda ve yönetim özelliği açtığında burada görünür.',
+              )
+            else
+              CursorListBody<VisitorEntry>(
+                loader: _loader,
+                showLastUpdated: true,
+                emptyIcon: Icons.door_front_door_outlined,
+                emptyTitle: _siteFilter != null
+                    ? 'Bu sitede kaydınız yok.'
+                    : 'Henüz kaydınız yok.',
+                emptyMessage: _siteFilter != null
+                    ? null
+                    : 'Dairenize kargo ya da ziyaretçi geldiğinde görevlinin kaydı burada görünür.',
+                itemBuilder: (context, item) => VisitorResidentCard(
+                  key: ValueKey<String>('visitor_card_${item.id}'),
+                  entry: item,
+                  showSite: multiSite,
+                  onTap: () => unawaited(_open(item)),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 }

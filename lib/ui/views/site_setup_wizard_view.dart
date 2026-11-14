@@ -13,6 +13,7 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_setup_parts.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_setup_steps.dart';
 import 'package:site_kapi_kontrol/ui/widgets/site_setup_template_button.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Kurulum sihirbazı kapanırken çağırana dönen sonuç.
 class SiteSetupOutcome {
@@ -221,7 +222,7 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
               child: Align(
                 alignment: Alignment.topCenter,
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 640),
+                  constraints: const BoxConstraints(maxWidth: double.infinity),
                   child: _buildBody(
                     context,
                     inlineNav: ready && !_c.showingSummary && !pinned,
@@ -244,7 +245,7 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
                     alignment: Alignment.centerRight,
                     heightFactor: 1,
                     child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 640),
+                      constraints: const BoxConstraints(maxWidth: double.infinity),
                       child: _NavButtons(controller: _c),
                     ),
                   ),
@@ -271,35 +272,44 @@ class SiteSetupWizardViewState extends State<SiteSetupWizardView> {
       );
     }
     final terms = c.snapshot.terms;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _SiteLine(name: c.displayName),
-        const SizedBox(height: AppSpace.md),
-        if (!c.showingSummary &&
-            (c.current == SiteSetupStep.apartments ||
-                c.current == SiteSetupStep.people)) ...[
-          const SiteSetupTemplateButton(),
-          const SizedBox(height: AppSpace.md),
-        ],
-        SiteSetupStepHeader(
-          step: c.current,
-          terms: terms,
-          statuses: _statuses,
-          focusNode: _headingFocus,
-          summary: c.showingSummary,
-        ),
-        const SizedBox(height: AppSpace.lg),
-        if (c.showingSummary)
-          _Summary(controller: c, onFinish: () => unawaited(_finish()))
-        else ...[
-          SiteSetupStepBody(controller: c),
-          if (inlineNav) ...[
-            const SizedBox(height: AppSpace.lg),
-            _NavButtons(controller: c),
+    return WorkspaceSplitShell(
+      header: _SiteLine(name: c.displayName),
+      left: WorkspacePaneCard(
+        tone: AppTone.primary,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (!c.showingSummary &&
+                (c.current == SiteSetupStep.apartments ||
+                    c.current == SiteSetupStep.people)) ...[
+              const SiteSetupTemplateButton(),
+              const SizedBox(height: AppSpace.md),
+            ],
+            SiteSetupStepHeader(
+              step: c.current,
+              terms: terms,
+              statuses: _statuses,
+              focusNode: _headingFocus,
+              summary: c.showingSummary,
+            ),
           ],
-        ],
-      ],
+        ),
+      ),
+      right: WorkspacePaneCard(
+        tone: AppTone.primary,
+        child: c.showingSummary
+            ? _Summary(controller: c, onFinish: () => unawaited(_finish()))
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SiteSetupStepBody(controller: c),
+                  if (inlineNav) ...[
+                    const SizedBox(height: AppSpace.lg),
+                    _NavButtons(controller: c),
+                  ],
+                ],
+              ),
+      ),
     );
   }
 }

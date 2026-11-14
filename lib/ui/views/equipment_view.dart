@@ -12,6 +12,7 @@ import 'package:site_kapi_kontrol/ui/design/app_snack.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/helpers/istanbul_time.dart';
 import 'package:site_kapi_kontrol/ui/views/equipment_quotes_panel.dart';
+import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
 /// Yönetim "Ekipman ve Bakım" ekranı (`equipment` modülü): Ekipman | Bakım takvimi | Teklifler | Gider kırılımı.
 ///
@@ -617,77 +618,127 @@ class EquipmentViewState extends State<EquipmentView> {
   @override
   Widget build(BuildContext context) {
     final site = _site;
-    return ListView(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), 
+    return ListView(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(AppSpace.lg),
       children: <Widget>[
-        SectionHeader(
-          title: 'Ekipman ve Bakım',
-          trailing: site?.canWrite == true
-              ? IconButton(
-                  key: const ValueKey('equipment_emergency_responders'),
-                  tooltip: 'Alarm alıcıları',
-                  icon: const Icon(Icons.notification_important_outlined),
-                  onPressed: () async {
-                    final service = EmergencyService(authService: widget.authService);
-                    try {
-                      final saved = await showEmergencyRespondersDialog(context, service: service, siteCode: site!.code);
-                      if (saved == true && context.mounted) {
-                        AppSnack.show(context, 'Alarm alıcıları kaydedildi.');
-                        await reload();
+        WorkspaceSplitShell(
+          header: SectionHeader(
+            title: 'Ekipman ve Bakım',
+            trailing: site?.canWrite == true
+                ? IconButton(
+                    key: const ValueKey('equipment_emergency_responders'),
+                    tooltip: 'Alarm alıcıları',
+                    icon: const Icon(Icons.notification_important_outlined),
+                    onPressed: () async {
+                      final service = EmergencyService(
+                        authService: widget.authService,
+                      );
+                      try {
+                        final saved = await showEmergencyRespondersDialog(
+                          context,
+                          service: service,
+                          siteCode: site!.code,
+                        );
+                        if (saved == true && context.mounted) {
+                          AppSnack.show(context, 'Alarm alıcıları kaydedildi.');
+                          await reload();
+                        }
+                      } finally {
+                        service.close();
                       }
-                    } finally {
-                      service.close();
-                    }
-                  },
-                )
-              : null,
-        ),
-        const SizedBox(height: AppSpace.md),
-        if (widget.sites.length > 1) ...[
-          DropdownButtonFormField<EquipmentSite>(
-            initialValue: site,
-            decoration: const InputDecoration(labelText: 'Site'),
-            items: <DropdownMenuItem<EquipmentSite>>[for (final s in widget.sites) DropdownMenuItem<EquipmentSite>(value: s, child: Text(s.label))],
-            onChanged: (v) {
-              setState(() => _site = v);
-              reload();
-            },
+                    },
+                  )
+                : null,
           ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (site == null)
-          const Text('Bu özellik için açık bir siteniz yok.')
-        else ...<Widget>[
-          Wrap(
-            spacing: AppSpace.sm,
-            children: <Widget>[
-              for (var i = 0; i < _tabs.length; i++) ChoiceChip(label: Text(_tabs[i]), selected: _tab == i, onSelected: (_) => setState(() => _tab = i)),
-            ],
-          ),
-          const SizedBox(height: AppSpace.md),
-          if (site.canWrite && (_tab == 0 || _tab == 2))
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: _tab == 0 ? _addEquipment : _addQuote,
-                icon: const Icon(Icons.add_rounded),
-                label: Text(_tab == 0 ? 'Ekipman ekle' : 'Teklif ekle'),
-              ),
+          left: WorkspacePaneCard(
+            icon: Icons.tune_rounded,
+            title: 'Site ve Sekmeler',
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: <Widget>[
+                if (widget.sites.length > 1) ...[
+                  DropdownButtonFormField<EquipmentSite>(
+                    initialValue: site,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Site'),
+                    items: <DropdownMenuItem<EquipmentSite>>[
+                      for (final s in widget.sites)
+                        DropdownMenuItem<EquipmentSite>(
+                          value: s,
+                          child: Text(
+                            s.label,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                    ],
+                    onChanged: (v) {
+                      setState(() => _site = v);
+                      reload();
+                    },
+                  ),
+                  const SizedBox(height: AppSpace.md),
+                ],
+                if (site == null)
+                  Text(
+                    'Bakım ve arıza kayıtları sağda gösterilir.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  )
+                else ...<Widget>[
+                  Wrap(
+                    spacing: AppSpace.sm,
+                    runSpacing: AppSpace.sm,
+                    children: <Widget>[
+                      for (var i = 0; i < _tabs.length; i++)
+                        ChoiceChip(
+                          label: Text(_tabs[i]),
+                          selected: _tab == i,
+                          onSelected: (_) => setState(() => _tab = i),
+                        ),
+                    ],
+                  ),
+                  if (site.canWrite && (_tab == 0 || _tab == 2)) ...[
+                    const SizedBox(height: AppSpace.md),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: _tab == 0 ? _addEquipment : _addQuote,
+                        icon: const Icon(Icons.add_rounded),
+                        label: Text(
+                          _tab == 0 ? 'Ekipman ekle' : 'Teklif ekle',
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ],
             ),
-          const SizedBox(height: AppSpace.sm),
-          if (_loading)
-            const Center(child: Padding(padding: EdgeInsets.all(AppSpace.lg), child: CircularProgressIndicator()))
-          else if (_error != null)
-            AppCard(child: Text(_error!))
-          else if (_tab == 0)
-            _equipmentTab(site)
-          else if (_tab == 1)
-            _dueTab()
-          else if (_tab == 2)
-            _quotesTab(site)
-          else
-            _breakdownTab(site),
-        ],
+          ),
+          right: WorkspacePaneCard(
+            icon: Icons.build_circle_outlined,
+            title: site == null ? 'Bilgilendirme' : _tabs[_tab],
+            child: site == null
+                ? const Text('Bu özellik için açık bir siteniz yok.')
+                : (_loading
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(AppSpace.lg),
+                            child: CircularProgressIndicator(),
+                          ),
+                        )
+                      : (_error != null
+                            ? AppCard(child: Text(_error!))
+                            : (_tab == 0
+                                  ? _equipmentTab(site)
+                                  : (_tab == 1
+                                        ? _dueTab()
+                                        : (_tab == 2
+                                              ? _quotesTab(site)
+                                              : _breakdownTab(site)))))),
+          ),
+        ),
       ],
     );
   }
