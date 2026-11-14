@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/models/platform_module.dart' show MySiteModule
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/apartment_management_api.dart';
 import 'package:site_kapi_kontrol/services/bulk_api.dart' show BulkService;
+import 'package:site_kapi_kontrol/styles/app_colors.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_admin_dialogs.dart';
 import 'package:site_kapi_kontrol/ui/design/action_bar.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
@@ -323,8 +324,6 @@ class PeopleViewState extends State<PeopleView> {
   }
 
   Widget _buildSite(BuildContext context, PeopleSite site) {
-    final p = context.palette;
-    final th = Theme.of(context).textTheme;
     final scope = PeopleScope(
       authService: widget.authService,
       siteCode: site.code,
@@ -332,97 +331,374 @@ class PeopleViewState extends State<PeopleView> {
       canWrite: site.canWrite,
       terms: site.terms,
     );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (_sitesError != null) ...[
-          InlineNotice(message: _sitesError!, onRetry: reload),
-          const SizedBox(height: AppSpace.md),
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final mq = MediaQuery.maybeOf(context);
+        final isLandscape = mq?.orientation == Orientation.landscape ||
+            (mq != null && mq.size.width > mq.size.height);
+        // Geniş ekranda (Windows/Web/Tablet >= 720) veya telefon/tablet yatay modunda (landscape >= 500)
+        // iki kart yan yana (master-detail) yerleşir; dikey mobil modda alt alta akar.
+        final isWide =
+            constraints.maxWidth >= 720 || (isLandscape && constraints.maxWidth >= 500);
+        final leftPane = _buildMasterPane(context, site, scope, isWide: isWide);
+        final rightPane = _buildDetailPane(context, site, scope, isWide: isWide);
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (_sitesError != null) ...[
+              InlineNotice(message: _sitesError!, onRetry: reload),
+              const SizedBox(height: AppSpace.md),
+            ],
+            if (isWide)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    flex: constraints.maxWidth >= 900 ? 5 : 1,
+                    child: leftPane,
+                  ),
+                  const SizedBox(width: AppSpace.md),
+                  Expanded(
+                    flex: constraints.maxWidth >= 900 ? 6 : 1,
+                    child: rightPane,
+                  ),
+                ],
+              )
+            else ...[
+              leftPane,
+              const SizedBox(height: AppSpace.lg),
+              rightPane,
+            ],
+          ],
+        );
+      },
+    );
+  }
+
+  /// Sol Blok (Master): Site Seçimi, Toplu İşlemler ve Bölüm Menüleri
+  Widget _buildMasterPane(
+    BuildContext context,
+    PeopleSite site,
+    PeopleScope scope, {
+    required bool isWide,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final th = theme.textTheme;
+    final p = context.palette;
+
+    final containerBorderColor = isDark
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
         ],
-        if (_sites.length > 1)
-          AppCard(
-            child: DropdownButtonFormField<int>(
-              key: ValueKey<String>('people_site_${site.code}_${_sites.length}'),
-              isExpanded: true,
-              initialValue: site.code,
-              dropdownColor: p.surface,
-              style: th.bodyMedium?.copyWith(color: p.text),
-              decoration: const InputDecoration(
-                labelText: 'Site',
-                prefixIcon: Icon(Icons.apartment_rounded),
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sol Blok Başlığı
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.people_alt_rounded,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
               ),
-              items: [
-                for (final s in _sites)
-                  DropdownMenuItem<int>(
-                    value: s.code,
-                    child: Text(
-                      '${s.label} (${s.code})',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Sakinler & Kadro',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-              ],
-              onChanged: (value) {
-                if (value != null) _selectSite(value);
-              },
-            ),
-          )
-        else
-          Wrap(
-            spacing: AppSpace.sm,
-            runSpacing: AppSpace.xs,
-            children: [InfoChip(site.label)],
-          ),
-        const SizedBox(height: AppSpace.md),
-        if (!site.canWrite) ...[
-          const InlineNotice(
-            tone: AppTone.info,
-            icon: Icons.visibility_rounded,
-            message:
-                'Yönetim kurulu üyesi olarak kayıtları yalnızca görüntüleyebilirsiniz.',
-          ),
-          const SizedBox(height: AppSpace.md),
-        ],
-        if (site.canWrite) ...[
-          AppActionBar(
-            actions: [
-              AppBarAction(
-                actionKey: const ValueKey<String>('people_bulk_import'),
-                label: 'Toplu Yükle',
-                icon: Icons.upload_file_rounded,
-                primary: true,
-                onPressed: () => unawaited(_openBulkImport(scope)),
+                    const Text(
+                      'Site sakinleri, daire kayıtları, araçlar ve yönetim kadrosu.',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
-              AppBarAction(
-                actionKey: const ValueKey<String>('people_bulk_export'),
-                label: 'Dışa Aktar',
-                icon: Icons.download_rounded,
-                onPressed: () => unawaited(_openBulkExport(scope)),
+              IconButton(
+                onPressed: reload,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Tümünü Yenile',
               ),
             ],
           ),
           const SizedBox(height: AppSpace.md),
-        ],
-        PeopleSectionNavigation(
-          selected: _tab,
-          unitPlural: site.terms.unitPlural,
-          onSelected: _selectTab,
-          onSafetyRequests: site.canWrite && _tab == 3
-              ? () => unawaited(_openSafetyRequests(site))
-              : null,
-        ),
-        const SizedBox(height: AppSpace.md),
-        // Kurulu sekmeler durumunu korur; görünmeyenin animasyonları (iskelet) durur.
-        for (var i = 0; i < _tabs.length; i++)
-          if (_visited.contains(i))
-            Offstage(
-              offstage: _tab != i,
-              child: TickerMode(
-                enabled: _tab == i,
-                child: _buildTab(i, scope, site.code),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Site seçici veya etiketi
+          if (_sites.length > 1)
+            AppCard(
+              child: DropdownButtonFormField<int>(
+                key: ValueKey<String>('people_site_${site.code}_${_sites.length}'),
+                isExpanded: true,
+                initialValue: site.code,
+                dropdownColor: p.surface,
+                style: th.bodyMedium?.copyWith(color: p.text),
+                decoration: const InputDecoration(
+                  labelText: 'Site',
+                  prefixIcon: Icon(Icons.apartment_rounded),
+                ),
+                items: [
+                  for (final s in _sites)
+                    DropdownMenuItem<int>(
+                      value: s.code,
+                      child: Text(
+                        '${s.label} (${s.code})',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                ],
+                onChanged: (value) {
+                  if (value != null) _selectSite(value);
+                },
+              ),
+            )
+          else
+            Wrap(
+              spacing: AppSpace.sm,
+              runSpacing: AppSpace.xs,
+              children: [InfoChip(site.label)],
+            ),
+
+          if (!site.canWrite) ...[
+            const SizedBox(height: AppSpace.md),
+            const InlineNotice(
+              tone: AppTone.info,
+              icon: Icons.visibility_rounded,
+              message:
+                  'Yönetim kurulu üyesi olarak kayıtları yalnızca görüntüleyebilirsiniz.',
+            ),
+          ],
+
+          if (site.canWrite) ...[
+            const SizedBox(height: AppSpace.md),
+            Text(
+              'Toplu İşlemler',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 13,
+                color: isDark ? Colors.white70 : Colors.black87,
               ),
             ),
-      ],
+            const SizedBox(height: AppSpace.xs),
+            AppActionBar(
+              actions: [
+                AppBarAction(
+                  actionKey: const ValueKey<String>('people_bulk_import'),
+                  label: 'Toplu Yükle',
+                  icon: Icons.upload_file_rounded,
+                  primary: true,
+                  onPressed: () => unawaited(_openBulkImport(scope)),
+                ),
+                AppBarAction(
+                  actionKey: const ValueKey<String>('people_bulk_export'),
+                  label: 'Dışa Aktar',
+                  icon: Icons.download_rounded,
+                  onPressed: () => unawaited(_openBulkExport(scope)),
+                ),
+              ],
+            ),
+          ],
+
+          const SizedBox(height: AppSpace.md),
+          Text(
+            'Bölümler',
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+          const SizedBox(height: AppSpace.xs),
+          PeopleSectionNavigation(
+            selected: _tab,
+            unitPlural: site.terms.unitPlural,
+            onSelected: _selectTab,
+            onSafetyRequests: site.canWrite && _tab == 3
+                ? () => unawaited(_openSafetyRequests(site))
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Sağ Blok (Detail): Menülere göre değişen dinamik içerik alanı
+  Widget _buildDetailPane(
+    BuildContext context,
+    PeopleSite site,
+    PeopleScope scope, {
+    required bool isWide,
+  }) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    final containerBorderColor = isDark
+        ? Colors.redAccent.shade100.withValues(alpha: 0.6)
+        : Colors.redAccent.shade700;
+
+    final containerBg = isDark
+        ? const Color(0xFF1E232A)
+        : const Color(0xFFFAFAFC);
+
+    final IconData currentTabIcon;
+    final String currentTabName;
+    final String tabSubtitle;
+
+    switch (_tab) {
+      case 0:
+        currentTabIcon = Icons.people_alt_rounded;
+        currentTabName = 'Kişiler';
+        tabSubtitle = 'Daire sakinleri, mülk sahipleri ve iletişim kayıtları.';
+        break;
+      case 1:
+        currentTabIcon = Icons.apartment_rounded;
+        currentTabName = site.terms.unitPlural;
+        tabSubtitle = '${site.terms.unitPlural} ve ikamet edenlerin listesi.';
+        break;
+      case 2:
+        currentTabIcon = Icons.directions_car_rounded;
+        currentTabName = 'Araçlar';
+        tabSubtitle = 'Siteye kayıtlı araç plakaları ve yetkileri.';
+        break;
+      case 3:
+      default:
+        currentTabIcon = Icons.badge_rounded;
+        currentTabName = 'Yönetim Kadrosu';
+        tabSubtitle = 'Yönetici, kurul üyeleri ve personel kayıtları.';
+        break;
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: containerBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: containerBorderColor, width: 2),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(AppSpace.md),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Sağ Blok Başlığı
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withValues(alpha: 0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  currentTabIcon,
+                  color: AppColors.primary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      currentTabName,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 16,
+                        color: isDark ? Colors.white : Colors.red.shade900,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    Text(
+                      tabSubtitle,
+                      style: const TextStyle(
+                        fontSize: 11.5,
+                        color: AppColors.textMuted,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                onPressed: _reloadVisibleTab,
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Sekmeyi Yenile',
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpace.md),
+          const Divider(height: 1),
+          const SizedBox(height: AppSpace.md),
+
+          // Kurulu sekmeler durumunu korur; görünmeyenin animasyonları (iskelet) durur.
+          for (var i = 0; i < _tabs.length; i++)
+            if (_visited.contains(i))
+              Offstage(
+                offstage: _tab != i,
+                child: ExcludeFocus(
+                  excluding: _tab != i,
+                  child: TickerMode(
+                    enabled: _tab == i,
+                    child: _buildTab(i, scope, site.code),
+                  ),
+                ),
+              ),
+        ],
+      ),
     );
   }
 

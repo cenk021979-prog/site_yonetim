@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:site_kapi_kontrol/models/finance.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/icon_orb.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/finance_account_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/finance_opening_dialog.dart';
@@ -213,25 +214,61 @@ class FinanceBalancesTabState extends State<FinanceBalancesTab> {
               : null,
         ),
         const SizedBox(height: AppSpace.md),
-        SectionHeader(
-          title: 'Daireler',
-          count: _loader.loadedOnce ? _loader.total : null,
-          trailing: IconButton(
-            onPressed: _loader.loading ? null : reload,
-            tooltip: 'Yenile',
-            icon: const Icon(Icons.refresh_rounded),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: ExpansionTile(
+            initiallyExpanded: true,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            iconColor: context.palette.textSecondary,
+            collapsedIconColor: context.palette.textSecondary,
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.lg,
+              vertical: AppSpace.xs,
+            ),
+            leading: const IconOrb(
+              icon: Icons.apartment_rounded,
+              tone: AppTone.violet,
+              size: 40,
+              shape: IconOrbShape.squircle,
+            ),
+            title: SectionHeader(
+              title: 'Daireler',
+              count: _loader.loadedOnce ? _loader.total : null,
+              trailing: IconButton(
+                onPressed: _loader.loading ? null : reload,
+                tooltip: 'Yenile',
+                icon: const Icon(Icons.refresh_rounded),
+              ),
+            ),
+            subtitle: Text(
+              _loader.loadedOnce && _loader.total == 0
+                  ? 'Kayıtlı daire bulunmuyor'
+                  : 'Daireleri listelemek veya gizlemek için dokunun',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.md,
+                  0,
+                  AppSpace.md,
+                  AppSpace.md,
+                ),
+                child: CrmListBody<BalanceRow>(
+                  loader: _loader,
+                  emptyIcon: Icons.apartment_rounded,
+                  emptyTitle: 'Bu sitede daire bulunamadı.',
+                  filteredTitle: 'Bu arama ve süzgeç için daire bulunamadı.',
+                  filtered: _filtered,
+                  // Yenileme başarısızsa eski tutarlar hata kutusunun altında güncelmiş gibi durmasın: gizlenir.
+                  hideItemsOnError: true,
+                  itemBuilder: (context, row) =>
+                      BalanceRowCard(row: row, onTap: () => _open(row)),
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: AppSpace.md),
-        CrmListBody<BalanceRow>(
-          loader: _loader,
-          emptyIcon: Icons.apartment_rounded,
-          emptyTitle: 'Bu sitede daire bulunamadı.',
-          filteredTitle: 'Bu arama ve süzgeç için daire bulunamadı.',
-          filtered: _filtered,
-          // Yenileme başarısızsa eski tutarlar hata kutusunun altında güncelmiş gibi durmasın: gizlenir.
-          hideItemsOnError: true,
-          itemBuilder: (context, row) => BalanceRowCard(row: row, onTap: () => _open(row)),
         ),
       ],
     );

@@ -6,6 +6,7 @@ import 'package:site_kapi_kontrol/models/bulk_import.dart' show BulkExportFilter
 import 'package:site_kapi_kontrol/models/site_block_record.dart';
 import 'package:site_kapi_kontrol/services/view_mode_service.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
+import 'package:site_kapi_kontrol/ui/design/icon_orb.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/design/view_mode_toggle.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_card_dialog.dart';
@@ -243,24 +244,65 @@ class PeopleApartmentsTabState extends State<PeopleApartmentsTab> {
           ),
         ),
         const SizedBox(height: AppSpace.md),
-        SectionHeader(
-          title: widget.scope.terms.unitPlural,
-          count: _loader.loadedOnce ? _loader.total : null,
-          trailing: _headerActions(context),
-        ),
-        const SizedBox(height: AppSpace.md),
-        CrmListBody<ApartmentSummary>(
-          loader: _loader,
-          emptyIcon: Icons.apartment_rounded,
-          emptyTitle: 'Bu sitede ${widget.scope.terms.unitLower} bulunamadı.',
-          filteredTitle: 'Bu arama ve süzgeç için ${widget.scope.terms.unitLower} bulunamadı.',
-          filtered: _query.isNotEmpty || _blockId != null,
-          itemBuilder: (context, apartment) =>
-              ApartmentCrmCard(apartment: apartment, onTap: () => _open(apartment)),
-          // Liste ↔ kutucuk anahtarı (P2-22): kapsam yoksa liste (eski görünüm).
-          viewMode: ViewModeScope.modeOf(context, ViewScreen.apartments),
-          tileBuilder: (context, apartment) =>
-              ApartmentCrmTile(apartment: apartment, onTap: () => _open(apartment)),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: ExpansionTile(
+            initiallyExpanded: true,
+            shape: const Border(),
+            collapsedShape: const Border(),
+            iconColor: context.palette.textSecondary,
+            collapsedIconColor: context.palette.textSecondary,
+            tilePadding: const EdgeInsets.symmetric(
+              horizontal: AppSpace.lg,
+              vertical: AppSpace.xs,
+            ),
+            leading: const IconOrb(
+              icon: Icons.apartment_rounded,
+              tone: AppTone.violet,
+              size: 40,
+              shape: IconOrbShape.squircle,
+            ),
+            title: SectionHeader(
+              title: widget.scope.terms.unitPlural,
+              count: _loader.loadedOnce ? _loader.total : null,
+              trailing: _headerActions(context),
+            ),
+            subtitle: Text(
+              _loader.loadedOnce && _loader.total == 0
+                  ? 'Kayıtlı ${widget.scope.terms.unitLower} bulunmuyor'
+                  : '${widget.scope.terms.unitPlural} listelemek veya gizlemek için dokunun',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.md,
+                  0,
+                  AppSpace.md,
+                  AppSpace.md,
+                ),
+                child: CrmListBody<ApartmentSummary>(
+                  loader: _loader,
+                  emptyIcon: Icons.apartment_rounded,
+                  emptyTitle:
+                      'Bu sitede ${widget.scope.terms.unitLower} bulunamadı.',
+                  filteredTitle:
+                      'Bu arama ve süzgeç için ${widget.scope.terms.unitLower} bulunamadı.',
+                  filtered: _query.isNotEmpty || _blockId != null,
+                  itemBuilder: (context, apartment) => ApartmentCrmCard(
+                    apartment: apartment,
+                    onTap: () => _open(apartment),
+                  ),
+                  // Liste ↔ kutucuk anahtarı (P2-22): kapsam yoksa liste (eski görünüm).
+                  viewMode: ViewModeScope.modeOf(context, ViewScreen.apartments),
+                  tileBuilder: (context, apartment) => ApartmentCrmTile(
+                    apartment: apartment,
+                    onTap: () => _open(apartment),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ],
     );

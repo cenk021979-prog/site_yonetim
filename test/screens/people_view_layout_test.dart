@@ -750,5 +750,23 @@ void main() {
           reason: 'Kişiler sekmesi bayat işaretlendi ve geri dönüşte yenilendi');
       expect(find.text('1 araç'), findsNothing, reason: 'araç sayısı güncel');
     });
+
+    testWidgets('geniş ekranda ve yatay (landscape) modda iki kart yan yana, dikeyde alt alta', (t) async {
+      final auth = PeopleFakeAuth.seeded();
+      // Geniş ekran (1400x1800) -> Master ve Detail yan yana
+      await _pump(t, auth, width: 1400, height: 1800);
+      final importButton = find.byKey(const ValueKey<String>('people_bulk_import'));
+      final personCard = find.byType(PersonCard).first;
+      expect(t.getTopLeft(personCard).dx, greaterThan(t.getTopLeft(importButton).dx));
+
+      // Telefon / tablet yatay mod (667x375 landscape) -> yan yana
+      await _pump(t, auth, width: 667, height: 375);
+      expect(t.getTopLeft(personCard).dx, greaterThan(t.getTopLeft(importButton).dx));
+
+      // Dar dikey ekran (320x640 portrait x2) -> dikey (alt alta) ve taşma yok
+      await _pump(t, auth, width: 320, height: 640, scale: 2);
+      expect(t.getTopLeft(personCard).dy, greaterThan(t.getBottomLeft(importButton).dy));
+      expect(t.takeException(), isNull);
+    });
   });
 }
