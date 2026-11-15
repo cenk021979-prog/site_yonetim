@@ -70,20 +70,47 @@
       border: 1px solid rgba(255, 190, 70, 0.35);
       border-radius: 18px;
       box-shadow: 0 12px 36px rgba(0, 0, 0, 0.75), 0 0 20px rgba(255, 180, 50, 0.2);
-      padding: 12px 14px;
+      padding: 10px 14px 12px 14px;
       display: flex;
-      align-items: center;
-      gap: 12px;
+      flex-direction: column;
+      gap: 6px;
       z-index: 2147482990;
-      transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
+      transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease;
       opacity: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       box-sizing: border-box;
       pointer-events: auto;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
     }
     #pwa-install-banner.show {
       transform: translateX(-50%) translateY(0);
       opacity: 1;
+    }
+    #pwa-install-banner.is-dragging {
+      transition: none !important;
+      opacity: 0.95;
+      box-shadow: 0 16px 44px rgba(0, 0, 0, 0.85), 0 0 24px rgba(255, 180, 50, 0.3);
+    }
+    .banner-drag-handle-wrap {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      padding-bottom: 2px;
+      cursor: grab;
+    }
+    .banner-drag-handle {
+      width: 38px;
+      height: 4px;
+      border-radius: 2px;
+      background: rgba(255, 255, 255, 0.25);
+    }
+    .banner-main-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      width: 100%;
     }
     #pwa-install-banner img {
       width: 44px;
@@ -91,6 +118,7 @@
       border-radius: 11px;
       flex-shrink: 0;
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
     }
     #pwa-install-banner .pwa-info {
       flex: 1;
@@ -154,31 +182,81 @@
     #pwa-dismiss-btn:hover {
       color: #D1D5DB;
     }
-    /* Kapatıldıktan sonra kullanıcıyı mağdur etmeyen yüzen indirme rozeti */
+    /* Hareketli ve taşınabilir hafif indirme rozeti */
     #app-floating-pill {
       position: fixed;
       bottom: 18px;
       right: 18px;
-      background: rgba(14, 20, 32, 0.92);
-      backdrop-filter: blur(10px);
-      -webkit-backdrop-filter: blur(10px);
-      border: 1px solid rgba(255, 190, 70, 0.4);
+      background: rgba(14, 20, 32, 0.94);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 190, 70, 0.45);
       color: #FFC83F;
       font-weight: 600;
       font-size: 12px;
-      padding: 8px 14px;
-      border-radius: 20px;
-      box-shadow: 0 4px 14px rgba(0,0,0,0.5);
+      padding: 5px 8px 5px 10px;
+      border-radius: 22px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.55), 0 0 12px rgba(255, 190, 70, 0.2);
       z-index: 2147482980;
-      cursor: pointer;
+      cursor: grab;
       display: none;
       align-items: center;
-      gap: 6px;
-      transition: transform 0.2s ease;
+      gap: 7px;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: none;
+      transition: box-shadow 0.2s ease, opacity 0.2s ease;
       text-decoration: none;
+      box-sizing: border-box;
+      max-width: calc(100vw - 24px);
     }
-    #app-floating-pill:active {
-      transform: scale(0.95);
+    #app-floating-pill.is-dragging {
+      cursor: grabbing;
+      opacity: 0.92;
+      box-shadow: 0 10px 28px rgba(0,0,0,0.7), 0 0 18px rgba(255, 190, 70, 0.35);
+      transform: scale(1.05);
+      transition: none !important;
+    }
+    .pill-drag-grip {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: rgba(255, 200, 63, 0.5);
+      cursor: grab;
+      font-size: 13px;
+      line-height: 1;
+      padding-right: 1px;
+      user-select: none;
+    }
+    .pill-body-action {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+    }
+    .pill-body-action:active {
+      transform: scale(0.97);
+    }
+    #pill-dismiss-btn {
+      background: rgba(255, 255, 255, 0.12);
+      border: none;
+      color: #D1D5DB;
+      font-size: 12px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      margin-left: 2px;
+      transition: background 0.15s ease, color 0.15s ease;
+      flex-shrink: 0;
+    }
+    #pill-dismiss-btn:hover {
+      background: rgba(255, 255, 255, 0.25);
+      color: #FFFFFF;
     }
   </style>
 </head>
@@ -217,25 +295,34 @@
   <script src="web_push_helper.js"></script>
   <script src="flutter_bootstrap.js" async></script>
 
-  <!-- Mobil Akıllı Kurulum Arayüzü -->
-  <div id="pwa-install-banner" role="dialog" aria-live="polite" style="display: none;">
-    <img src="icons/Icon-192.png" alt="Site Yönetim" />
-    <div class="pwa-info">
-      <div class="pwa-title" id="pwa-banner-title">Site Yönetim</div>
-      <div class="pwa-desc" id="pwa-banner-desc">Android uygulamasını (APK) doğrudan indirin.</div>
+  <!-- Mobil Akıllı Kurulum Arayüzü (Taşınabilir / Draggable Banner) -->
+  <div id="pwa-install-banner" role="dialog" aria-live="polite" style="display: none;" title="Taşımak için basılı tutup sürükleyebilirsiniz">
+    <div class="banner-drag-handle-wrap" aria-hidden="true" title="Taşı">
+      <span class="banner-drag-handle"></span>
     </div>
-    <div class="pwa-actions">
-      <button id="pwa-install-btn" type="button">APK İndir</button>
-      <button id="pwa-dismiss-btn" type="button" aria-label="Kapat">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-      </button>
+    <div class="banner-main-row">
+      <img src="icons/Icon-192.png" alt="Site Yönetim" />
+      <div class="pwa-info">
+        <div class="pwa-title" id="pwa-banner-title">Site Yönetim</div>
+        <div class="pwa-desc" id="pwa-banner-desc">Android uygulamasını (APK) doğrudan indirin.</div>
+      </div>
+      <div class="pwa-actions">
+        <button id="pwa-install-btn" type="button">APK İndir</button>
+        <button id="pwa-dismiss-btn" type="button" aria-label="Kapat" title="Kapat">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
     </div>
   </div>
 
-  <!-- Kapatıldığında her an erişilebilen hafif indirme rozeti -->
-  <div id="app-floating-pill" role="button" aria-label="Uygulamayı İndir">
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-    <span>APK İndir</span>
+  <!-- Kapatıldığında her an erişilebilen, taşınabilir ve tamamen kapatılabilir indirme rozeti -->
+  <div id="app-floating-pill" role="region" aria-label="Uygulama İndirme Butonu" title="Taşımak için basılı tutup sürükleyebilirsiniz">
+    <span class="pill-drag-grip" aria-hidden="true" title="Taşı">⠿</span>
+    <div class="pill-body-action" id="pill-body-btn" role="button" tabindex="0">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+      <span id="pill-label">APK İndir</span>
+    </div>
+    <button id="pill-dismiss-btn" type="button" aria-label="Gizle" title="Gizle">✕</button>
   </div>
 
   <script>
@@ -245,6 +332,9 @@
 
       var banner = document.getElementById('pwa-install-banner');
       var pill = document.getElementById('app-floating-pill');
+      var pillBodyBtn = document.getElementById('pill-body-btn');
+      var pillLabel = document.getElementById('pill-label');
+      var pillDismissBtn = document.getElementById('pill-dismiss-btn');
       var installBtn = document.getElementById('pwa-install-btn');
       var dismissBtn = document.getElementById('pwa-dismiss-btn');
       var titleEl = document.getElementById('pwa-banner-title');
@@ -255,10 +345,137 @@
       var isWindows = /Windows|Win32|Win64|WOW64/i.test(navigator.userAgent);
       var IOS_APP_STORE_URL = ""; // Resmi App Store linki yayına girince buraya eklenecektir
 
+      function makeDraggable(el, options) {
+        if (!el) return { isDragging: function () { return false; } };
+        options = options || {};
+        var isDragging = false;
+        var hasMoved = false;
+        var startX = 0, startY = 0;
+        var initLeft = 0, initTop = 0;
+        var threshold = 6;
+
+        function clamp(val, min, max) {
+          return Math.max(min, Math.min(max, val));
+        }
+
+        function getCoords(e) {
+          if (e.touches && e.touches.length > 0) {
+            return { x: e.touches[0].clientX, y: e.touches[0].clientY };
+          }
+          return { x: e.clientX, y: e.clientY };
+        }
+
+        function onStart(e) {
+          var target = e.target;
+          if (target && target.closest && target.closest('#pill-dismiss-btn, #pwa-dismiss-btn, #pwa-install-btn, button, a')) {
+            return;
+          }
+          var coords = getCoords(e);
+          var rect = el.getBoundingClientRect();
+          startX = coords.x;
+          startY = coords.y;
+          initLeft = rect.left;
+          initTop = rect.top;
+          hasMoved = false;
+          isDragging = false;
+
+          el.style.left = initLeft + 'px';
+          el.style.top = initTop + 'px';
+          el.style.right = 'auto';
+          el.style.bottom = 'auto';
+          el.style.transform = 'none';
+
+          document.addEventListener('pointermove', onMove, { passive: false });
+          document.addEventListener('pointerup', onEnd, { passive: false });
+          document.addEventListener('pointercancel', onEnd, { passive: false });
+          document.addEventListener('touchmove', onMove, { passive: false });
+          document.addEventListener('touchend', onEnd, { passive: false });
+          document.addEventListener('touchcancel', onEnd, { passive: false });
+        }
+
+        function onMove(e) {
+          var coords = getCoords(e);
+          var dx = coords.x - startX;
+          var dy = coords.y - startY;
+
+          if (!hasMoved) {
+            if (Math.hypot(dx, dy) > threshold) {
+              hasMoved = true;
+              isDragging = true;
+              el.classList.add('is-dragging');
+            }
+          }
+
+          if (isDragging) {
+            if (e.cancelable) e.preventDefault();
+            var rect = el.getBoundingClientRect();
+            var maxL = window.innerWidth - rect.width - 6;
+            var maxT = window.innerHeight - rect.height - 6;
+            var newL = clamp(initLeft + dx, 6, Math.max(6, maxL));
+            var newT = clamp(initTop + dy, 6, Math.max(6, maxT));
+            el.style.left = newL + 'px';
+            el.style.top = newT + 'px';
+          }
+        }
+
+        function onEnd(e) {
+          document.removeEventListener('pointermove', onMove);
+          document.removeEventListener('pointerup', onEnd);
+          document.removeEventListener('pointercancel', onEnd);
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onEnd);
+          document.removeEventListener('touchcancel', onEnd);
+
+          if (isDragging) {
+            el.classList.remove('is-dragging');
+            var coords = getCoords(e);
+            if (options.onSwipeDown && (coords.y - startY > 60)) {
+              options.onSwipeDown();
+            }
+            setTimeout(function () {
+              isDragging = false;
+              hasMoved = false;
+            }, 80);
+          }
+        }
+
+        el.addEventListener('pointerdown', onStart);
+        el.addEventListener('touchstart', onStart, { passive: true });
+
+        window.addEventListener('resize', function () {
+          if (el.style.display === 'none' || !el.style.top) return;
+          var rect = el.getBoundingClientRect();
+          var maxL = window.innerWidth - rect.width - 6;
+          var maxT = window.innerHeight - rect.height - 6;
+          var curL = parseFloat(el.style.left) || rect.left;
+          var curT = parseFloat(el.style.top) || rect.top;
+          el.style.left = clamp(curL, 6, Math.max(6, maxL)) + 'px';
+          el.style.top = clamp(curT, 6, Math.max(6, maxT)) + 'px';
+        });
+
+        return {
+          isDragging: function () { return isDragging || hasMoved; }
+        };
+      }
+
+      var bannerMover = makeDraggable(banner, {
+        onSwipeDown: function () {
+          hideBanner(true);
+        }
+      });
+      var pillMover = makeDraggable(pill);
+
       function showBanner() {
         if (!banner) return;
         if (pill) pill.style.display = 'none';
         banner.style.display = 'flex';
+        if (!banner.style.top || banner.style.top === 'auto') {
+          banner.style.left = '50%';
+          banner.style.bottom = '20px';
+          banner.style.right = 'auto';
+          banner.style.top = 'auto';
+          banner.style.transform = 'translateX(-50%) translateY(140%)';
+        }
         setTimeout(function () { banner.classList.add('show'); }, 60);
       }
 
@@ -268,21 +485,42 @@
         setTimeout(function () {
           banner.style.display = 'none';
           if (toPill && pill && (isAndroid || isIos || isWindows)) {
-            pill.style.display = 'flex';
+            if (!sessionStorage.getItem('pill_dismissed_session')) {
+              pill.style.display = 'flex';
+            }
           }
         }, 350);
         sessionStorage.setItem('banner_dismissed_session', '1');
       }
 
       if (dismissBtn) {
-        dismissBtn.addEventListener('click', function () {
+        dismissBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
           hideBanner(true);
         });
       }
 
-      if (pill) {
-        pill.addEventListener('click', function () {
-          showBanner();
+      if (pillDismissBtn) {
+        pillDismissBtn.addEventListener('click', function (e) {
+          e.stopPropagation();
+          e.preventDefault();
+          if (pill) pill.style.display = 'none';
+          sessionStorage.setItem('pill_dismissed_session', '1');
+        });
+      }
+
+      if (pillBodyBtn) {
+        pillBodyBtn.addEventListener('click', function (e) {
+          if (pillMover && pillMover.isDragging()) return;
+          if (isAndroid) {
+            triggerApkDownload();
+            showBanner();
+          } else if (isWindows) {
+            triggerWindowsDownload();
+            showBanner();
+          } else {
+            showBanner();
+          }
         });
       }
 
@@ -324,13 +562,13 @@
           installBtn.textContent = 'Windows Uygulamasını İndir';
           installBtn.onclick = triggerWindowsDownload;
         }
-        if (pill) {
-          pill.querySelector('span').textContent = 'Windows İndir';
+        if (pillLabel) {
+          pillLabel.textContent = 'Windows İndir';
         }
         setTimeout(function () {
           if (!sessionStorage.getItem('banner_dismissed_session')) {
             showBanner();
-          } else if (pill) {
+          } else if (pill && !sessionStorage.getItem('pill_dismissed_session')) {
             pill.style.display = 'flex';
           }
         }, 1000);
@@ -341,13 +579,13 @@
           installBtn.textContent = 'APK İndir';
           installBtn.onclick = triggerApkDownload;
         }
-        if (pill) {
-          pill.querySelector('span').textContent = 'Android APK İndir';
+        if (pillLabel) {
+          pillLabel.textContent = 'Android APK İndir';
         }
         setTimeout(function () {
           if (!sessionStorage.getItem('banner_dismissed_session')) {
             showBanner();
-          } else if (pill) {
+          } else if (pill && !sessionStorage.getItem('pill_dismissed_session')) {
             pill.style.display = 'flex';
           }
         }, 1200);
@@ -367,13 +605,13 @@
             installBtn.style.display = 'none';
           }
         }
-        if (pill) {
-          pill.querySelector('span').textContent = 'iOS Kurulumu';
+        if (pillLabel) {
+          pillLabel.textContent = 'iOS Kurulumu';
         }
         setTimeout(function () {
           if (!sessionStorage.getItem('banner_dismissed_session')) {
             showBanner();
-          } else if (pill) {
+          } else if (pill && !sessionStorage.getItem('pill_dismissed_session')) {
             pill.style.display = 'flex';
           }
         }, 1500);
