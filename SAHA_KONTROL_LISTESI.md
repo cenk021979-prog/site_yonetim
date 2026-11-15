@@ -5221,3 +5221,28 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 - [ ] **179.3. Geçiş Kontrol platform kapatmasında cihaz anahtarı iptali:**
   - **Nasıl Test Edilir:** Geçiş Kontrol açık test sitesinde platform modülünü kapatın; eski yerel kontrol anahtarıyla LAN açma deneyin ve Plaka Tanıma site durumunu kontrol edin.
   - **Beklenen Sonuç:** Eski yerel anahtar çalışmaz, Plaka Tanıma site düzeyinde kapanır ve uygulama/API üzerinden geçiş isteği reddedilir.
+
+---
+
+## 180. 🏭 Şirket Aracı Cihaz Etiketleme, Otomatik Envanter Kaydı & Süper Kullanıcı Sahiplendirme (2026-11-16)
+
+- [ ] **180.1. Şirket Aracında Karekod Hazırlandığında/Yazdırıldığında Doğrudan Şirket Envanterine Kayıt:**
+  - **Nasıl Test Edilir:**
+    1. `company_qr_tool` uygulamasını açın ve bir cihaza bağlanıp UID okuyun (veya yeni bir cihaz için karekod oluşturun).
+    2. Gerekirse SSH şifresi ile şirket anahtarını alın; karekodu oluşturun veya "Yazdır"a basın.
+    3. Mobil veya web uygulamasında şirket süper kullanıcısı hesabıyla "Kayıtlı Cihazlar" veya "Sahiplenilen Cihazlar" listesine bakın.
+  - **Beklenen Sonuç:** Cihaz hiçbir ek işlem yapmadan anında şirket envanterine kaydedilmeli ve süper kullanıcının cihaz listesinde görünmelidir. Şirket yöneticisinin mobil uygulamadan tekrar karekod okutarak cihaz eklemesi gerekmemelidir.
+
+- [ ] **180.2. Şirket Stoğundaki Atanmamış Cihazın Müşteri/Yönetici Tarafından Devralınabilmesi:**
+  - **Nasıl Test Edilir:**
+    1. Şirket envanterinde kayıtlı ancak henüz bir siteye veya kapıya atanmamış bir cihazın karekodunu, Geçiş Kontrol modülü açık bir sitenin yöneticisi hesabıyla mobil uygulamada "Cihaz Ekle" / "Karekod Oku" ile taratın.
+    2. Cihazın yeni yöneticiye atanıp atanmadığını kontrol edin.
+    3. Başka bir müşterinin zaten aktif kullandığı bir cihazın karekodunu okutmayı deneyin.
+  - **Beklenen Sonuç:** Şirket stoğundaki atanmamış cihaz başarıyla yönetici hesabına devredilmeli ve sahiplenilmelidir. Ancak başka müşterinin kullandığı cihazda 409 yetkisiz sahiplik hatası verilerek güvenlik korunmalıdır.
+
+- [ ] **180.3. ESP32-C3 v4.4.0 OTA Manifest Dondurma ve Dağıtım Koruması:**
+  - **Nasıl Test Edilir:**
+    1. `GET /firmware/esp32-c3/manifest.json` uç noktasını çağırın.
+    2. Manifest yanıtındaki `enabled` değerini ve `firmware.bin` indirme denemesini kontrol edin.
+  - **Beklenen Sonuç:** Manifest `enabled: false` dönmeli, yer tutucu anahtar içeren hatalı binary dağıtılmamalı ve cihazlar yanlış güncelleme almaktan korunmalıdır.
+

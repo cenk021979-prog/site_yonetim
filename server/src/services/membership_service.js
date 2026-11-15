@@ -694,8 +694,24 @@ export async function claimDevice({ userCode, deviceInput }) {
       );
 
     // Cihaz başka bir kullanıcı tarafından sahiplenilmiş mi?
+    let isSuperStock = false;
     if (deviceRow.owner_user_id && String(deviceRow.owner_user_id) !== String(user.id)) {
-      throw ownedByOther();
+      if (deviceRow.site_code == null) {
+        try {
+          const ownerRes = await client.query('SELECT role FROM users WHERE id = $1 LIMIT 1', [deviceRow.owner_user_id]);
+          if (ownerRes.rows?.[0]?.role === 'super_user') {
+            const doorRes = await client.query('SELECT id FROM site_doors WHERE assigned_device_id = $1 LIMIT 1', [deviceRow.id]);
+            if (!doorRes?.rows || doorRes.rows.length === 0) {
+              isSuperStock = true;
+            }
+          }
+        } catch (_) {
+          isSuperStock = false;
+        }
+      }
+      if (!isSuperStock) {
+        throw ownedByOther();
+      }
     }
 
     // Zaten bu kullanıcıya ait (idempotent tekrar okutma)
@@ -712,12 +728,26 @@ export async function claimDevice({ userCode, deviceInput }) {
     }
 
     // Sahibi yok ama şirket cihazı başka bir kullanıcıya ATANMIŞ (assigned_user_code): üzerine yazılıp devralınamaz (süper hariç).
-    if (!isSuper && assignedUserCode != null && String(assignedUserCode) !== String(user.user_code)) {
+    if (!isSuper && !isSuperStock && assignedUserCode != null && String(assignedUserCode) !== String(user.user_code)) {
       throw ownedByOther();
     }
 
-    // Cihazı bu kullanıcıya ata (Sahiplendir) — yalnızca sahibi YOKSA ve kapsamdaysa (atomik koşul)
-    const updateRes = await client.query(SQL_CLAIM_DEVICE_ATOMIC, [user.id, user.user_code, deviceRow.id, isSuper]);
+    // Cihazı bu kullanıcıya ata (Sahiplendir) — yalnızca sahibi YOKSA ya da şirket stoğundaysa (atomik koşul)
+    let updateRes;
+    if (isSuperStock) {
+      updateRes = await client.query(
+        `UPDATE devices
+         SET owner_user_id = $1, assigned_user_code = $2, claimed_at = NOW()
+         WHERE id = $3
+           AND owner_user_id = $4
+           AND site_code IS NULL
+           AND COALESCE(is_defective, FALSE) = FALSE
+         RETURNING id, device_uid, hardware_type, gate_name, site_code, owner_user_id, claimed_at, is_defective`,
+        [user.id, user.user_code, deviceRow.id, deviceRow.owner_user_id],
+      );
+    } else {
+      updateRes = await client.query(SQL_CLAIM_DEVICE_ATOMIC, [user.id, user.user_code, deviceRow.id, isSuper]);
+    }
 
     if (updateRes.rowCount === 0) {
       // Kontrol ile güncelleme arasında başka bir istek sahiplendi, cihaz arızalı işaretlendi ya da cihaz başka bir siteye bağlanıp

@@ -159,6 +159,44 @@ export async function syncCompanyDeviceRecord(db, { deviceUid, hardwareType }) {
   return { created: false, hardware_type_updated: (updated.rowCount || 0) > 0 };
 }
 
+// Şirket aracıyla etiketlenen/kaydedilen cihazı doğrudan şirket süper kullanıcısına (envanter) bağlar.
+// Böylece şirket yöneticileri cihazı mobil uygulamadan tekrar karekod okutarak eklemek zorunda kalmaz.
+export async function autoClaimCompanyDevice(db, deviceUid, preferredUserCode = null) {
+  if (!deviceUid) return null;
+  const normalizedUid = String(deviceUid).trim().toUpperCase().replace(/[:-]/g, '');
+
+  const devRes = await db.query(
+    'SELECT id, owner_user_id, assigned_user_code, site_code FROM devices WHERE UPPER(device_uid) = $1 LIMIT 1',
+    [normalizedUid],
+  );
+  if (!devRes?.rows || devRes.rows.length === 0) return null;
+  const dev = devRes.rows[0];
+  if (dev.owner_user_id || dev.assigned_user_code) {
+    return { already_claimed: true, owner_user_id: dev.owner_user_id, assigned_user_code: dev.assigned_user_code };
+  }
+
+  let targetUser = null;
+  if (preferredUserCode) {
+    const u = await db.query('SELECT id, user_code FROM users WHERE user_code = $1 LIMIT 1', [Number(preferredUserCode)]);
+    if (u?.rows && u.rows.length > 0) targetUser = u.rows[0];
+  }
+  if (!targetUser) {
+    const su = await db.query("SELECT id, user_code FROM users WHERE role = 'super_user' ORDER BY id ASC LIMIT 1");
+    if (su?.rows && su.rows.length > 0) targetUser = su.rows[0];
+  }
+  if (!targetUser) {
+    return null;
+  }
+
+  await db.query(
+    `UPDATE devices
+     SET owner_user_id = $1, assigned_user_code = $2, claimed_at = COALESCE(claimed_at, NOW())
+     WHERE UPPER(device_uid) = $3 AND owner_user_id IS NULL AND assigned_user_code IS NULL`,
+    [targetUser.id, targetUser.user_code, normalizedUid],
+  );
+  return { claimed: true, owner_user_id: targetUser.id, assigned_user_code: targetUser.user_code };
+}
+
 // Cihaz satirini ve kapi atamasini TEK transaction'da siler (kismi silme olmaz). true = satir silindi.
 export async function removeCompanyDeviceRecord(db, deviceUid) {
   const client = await db.connect();
@@ -339,6 +377,8 @@ companyRouter.post('/api/company/labeled-devices', async (req, res) => {
     //    yarim kayit (JSON/PNG var, DB satiri yok) kalmaz; ayni UID ile tekrar deneme idempotenttir.
     try {
       await syncCompanyDeviceRecord(pool, { deviceUid, hardwareType });
+      const preferredUserCode = req.body?.owner_user_code || req.body?.user_code || null;
+      await autoClaimCompanyDevice(pool, deviceUid, preferredUserCode);
     } catch (dbErr) {
       const errorId = newErrorId();
       console.error(`[company] ${errorId} cihaz DB kaydi basarisiz:`, dbErr);

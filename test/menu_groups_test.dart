@@ -51,6 +51,8 @@ const Map<SirketMenuItem, SirketMenuGroup> _expected = <SirketMenuItem, SirketMe
   SirketMenuItem.kayitliCihazlar: SirketMenuGroup.ayarlar,
   SirketMenuItem.bluetoothWifiKur: SirketMenuGroup.ayarlar,
   SirketMenuItem.moduller: SirketMenuGroup.ayarlar,
+  SirketMenuItem.devreyeAlinanModuller: SirketMenuGroup.ayarlar,
+  SirketMenuItem.pasifModuller: SirketMenuGroup.ayarlar,
   SirketMenuItem.modulTalepleri: SirketMenuGroup.ayarlar,
   SirketMenuItem.siteBasvurulari: SirketMenuGroup.ayarlar,
   SirketMenuItem.denetimKaydi: SirketMenuGroup.ayarlar,

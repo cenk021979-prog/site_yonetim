@@ -2051,6 +2051,9 @@ class App:
         if os.name != "nt":
             messagebox.showerror("Yazdırma", "Yalnızca Windows destekleniyor.")
             return
+        d = self.selected_device()
+        if d and d.unique_id and d.unique_id not in self.saved_uids and not self.saving_device:
+            self.save_device_to_server()
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         name = f"print_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{sanitize_filename(self.latest_uid)}.png"
         path = OUTPUT_DIR / name
@@ -2177,6 +2180,7 @@ class App:
             "port": d.port,
             "description": d.description,
             "qr_image_base64": qr_b64,
+            "claim_for_company": True,
         }
         hardware_type = chip_to_hardware_type(d.chip)
         if hardware_type:

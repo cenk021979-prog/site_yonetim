@@ -56,6 +56,9 @@ const Set<SirketMenuItem> showcaseSecondaryItems = <SirketMenuItem>{
 
 /// Özellik modülleri: ızgarada yönetim araçlarından (site / kullanıcı / cihaz yönetimi) ÖNCE gelir.
 const Set<SirketMenuItem> _featureModuleItems = <SirketMenuItem>{
+  SirketMenuItem.siteler,
+  SirketMenuItem.dairem,
+  SirketMenuItem.daireKullanicilariYonetimi,
   SirketMenuItem.kisiler,
   SirketMenuItem.duyurular,
   SirketMenuItem.finans,
@@ -116,6 +119,8 @@ const Map<SirketMenuItem, ModuleArtKind> _artKinds = <SirketMenuItem, ModuleArtK
   SirketMenuItem.siteOnayTalepleri: ModuleArtKind.sites,
   SirketMenuItem.katilimVeKurulum: ModuleArtKind.sites,
   SirketMenuItem.moduller: ModuleArtKind.modules,
+  SirketMenuItem.devreyeAlinanModuller: ModuleArtKind.modules,
+  SirketMenuItem.pasifModuller: ModuleArtKind.modules,
   SirketMenuItem.modulTalepleri: ModuleArtKind.modules,
   SirketMenuItem.abonelikTalepleri: ModuleArtKind.modules,
   SirketMenuItem.kayitliCihazlar: ModuleArtKind.devices,
@@ -171,6 +176,8 @@ const Map<SirketMenuItem, String> _descriptions = <SirketMenuItem, String>{
   SirketMenuItem.katilimVeKurulum: 'Daireye katılın',
   // Anahtar yalnız süper kullanıcıdadır (Faz 1.1): rol verilmezse açma / kapama vaat edilmez (bkz. [_roleDescription]).
   SirketMenuItem.moduller: 'Tanımlı modüller ve modül talebi',
+  SirketMenuItem.devreyeAlinanModuller: 'Platformda aktif olan modüller',
+  SirketMenuItem.pasifModuller: 'Devreye alınmamış pasif modüller',
   SirketMenuItem.modulTalepleri: 'Yöneticilerin modül talepleri',
   SirketMenuItem.abonelikTalepleri: 'Yeni abonelik talepleri',
   SirketMenuItem.kayitliCihazlar: 'Cihaz envanteri ve durumu',
@@ -274,11 +281,7 @@ ShowcaseModel buildShowcaseModel({
       );
 
   final seen = <SirketMenuItem>{};
-  final p1Site = <ShowcaseEntry>[];
-  final p2People = <ShowcaseEntry>[];
-  final p3Doors = <ShowcaseEntry>[];
-  final p4Plates = <ShowcaseEntry>[];
-  final p5Finance = <ShowcaseEntry>[];
+  final doors = <ShowcaseEntry>[];
   final features = <ShowcaseEntry>[];
   final tools = <ShowcaseEntry>[];
   final secondary = <ShowcaseEntry>[];
@@ -286,20 +289,8 @@ ShowcaseModel buildShowcaseModel({
     if (item == SirketMenuItem.dashboard || !seen.add(item)) continue;
     if (showcaseSecondaryItems.contains(item)) {
       secondary.add(entry(item));
-    } else if (item == SirketMenuItem.siteler) {
-      p1Site.add(entry(item));
-    } else if (item == SirketMenuItem.kisiler ||
-        item == SirketMenuItem.daireKullanicilariYonetimi ||
-        item == SirketMenuItem.dairem) {
-      p2People.add(entry(item));
     } else if (item == SirketMenuItem.kapilar) {
-      p3Doors.add(entry(item));
-    } else if (item == SirketMenuItem.plakaTanima ||
-        item == SirketMenuItem.odemeKamera) {
-      p4Plates.add(entry(item));
-    } else if (item == SirketMenuItem.finans ||
-        item == SirketMenuItem.borcum) {
-      p5Finance.add(entry(item));
+      doors.add(entry(item));
     } else if (_featureModuleItems.contains(item)) {
       features.add(entry(item));
     } else {
@@ -308,11 +299,7 @@ ShowcaseModel buildShowcaseModel({
   }
   return ShowcaseModel(
     grid: <ShowcaseEntry>[
-      ...p1Site,
-      ...p2People,
-      ...p3Doors,
-      ...p4Plates,
-      ...p5Finance,
+      ...doors,
       ...features,
       ...tools,
     ],

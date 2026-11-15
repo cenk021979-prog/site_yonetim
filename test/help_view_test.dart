@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:site_kapi_kontrol/config/app_config.dart' as build_config;
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/services/app_config_service.dart';
 import 'package:site_kapi_kontrol/ui/views/help_content.dart';
@@ -427,7 +428,7 @@ void main() {
       });
       addTearDown(() => t.binding.defaultBinaryMessenger.setMockMethodCallHandler(channel, null));
       await pumpDefaultLoader(t);
-      expect(find.text('Uygulama sürümü: v1.0.0 (Build 1)'), findsOneWidget);
+      expect(find.text('Uygulama sürümü: ${build_config.AppConfig.versionDisplay}'), findsOneWidget);
     });
 
     testWidgets('sürüm package_info_plus ile okunur: sürüm (derleme)', (t) async {
