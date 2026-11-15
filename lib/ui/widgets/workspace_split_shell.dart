@@ -104,7 +104,7 @@ class WorkspacePaneCard extends StatelessWidget {
     this.refreshIcon = Icons.refresh_rounded,
     this.tone = AppTone.primary,
     this.padding = const EdgeInsets.all(AppSpace.md),
-    this.showShadow = false,
+    this.showShadow = true,
     required this.child,
   });
 
@@ -126,7 +126,7 @@ class WorkspacePaneCard extends StatelessWidget {
     BuildContext context, {
     AppTone tone = AppTone.primary,
     double radius = 18,
-    bool showShadow = false,
+    bool showShadow = true,
   }) {
     final p = context.palette;
     final bg = p.isDark ? const Color(0xFF162032) : p.surface;
@@ -142,9 +142,15 @@ class WorkspacePaneCard extends StatelessWidget {
           ? [
               BoxShadow(
                 color: (p.isDark ? Colors.black : const Color(0xFF0F172A))
-                    .withValues(alpha: p.isDark ? 0.26 : 0.045),
-                blurRadius: 14,
+                    .withValues(alpha: p.isDark ? 0.35 : 0.05),
+                blurRadius: 16,
                 offset: const Offset(0, 4),
+              ),
+              BoxShadow(
+                color: (p.isDark ? Colors.black : const Color(0xFF0F172A))
+                    .withValues(alpha: p.isDark ? 0.20 : 0.02),
+                blurRadius: 4,
+                offset: const Offset(0, 1),
               ),
             ]
           : null,
