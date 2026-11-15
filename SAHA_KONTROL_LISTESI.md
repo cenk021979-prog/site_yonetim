@@ -5147,3 +5147,14 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
 - [ ] Malike devir seçilmemişken borç kendiliğinden aktarılmaz. Ayrılma tamamlanıp borç devri başarısız olduğunda açık uyarı ve Finans bölümünden devam yönlendirmesi görünür; yanlış başarı mesajı verilmez.
 - [ ] Asansörsüz kapsamda Asansör gösterilmez; tek blokta yangın için gereksiz blok sorulmaz. Güvenlik/servis sesli, yönetici sessiz bildirim kuralı korunur. Kapalı telefon bildirimi ayrıca gerçek FCM kurulumu ve cihaz denemesi gerektirir.
 - [ ] 320 px ve yüzde 200 yazı boyutunda 360 ayrılma, Dairem ve Wi-Fi kurulumunda taşma olmamalıdır; eylemler kaydırılarak erişilebilir kalır.
+## Ortak güncelleme incelemesi — 15 Kasım 2026
+
+Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış saha testi sayılmaz.
+
+- [ ] VS Code F5 ile projeyi açın: ortak ayarlarda başka geliştiricinin kişisel Flutter yolu olmamalı; geçerli yerel kullanıcı SDK ayarıyla uygulama başlamalıdır.
+- [ ] Site üyeliği olmayan fakat izinli cihaz/kapısı bulunan bireysel hesabı açın: Kapılar görünmeli, erişimi olmayan başka kapılar gösterilmemelidir.
+- [ ] Platformdan kapalı anket ve Dosya Deposu için yetkili eski istemcinin liste/oy/indirme isteklerini izole test ortamında deneyin: platform kapısı tüm yollarda uygulanmalı, mevcut hedef-kitle/site izinleri korunmalıdır.
+- [ ] Süper kullanıcıda farklı modülleri açık A/B siteleri seçin; Kapılar ve Site Yönetimi arasında geçin: menü ilgili site kapsamını izlemeli, önceki sitenin seçimiyle gizlenmemelidir.
+- [ ] Devreye Alınmamış modül filtresini açın ve bir modülün durumunu değiştirin: sağdaki detay soldaki filtrede bulunan bir modüle ait olmalı; ters sırada dönen ağ yanıtları yeni durumu geri almamalıdır.
+- [ ] Dikey 320px, yatay 667px ve yüzde 200 yazıda iki kartlı ekranları inceleyin: taşma olmamalı, eylemler erişilebilir olmalı, yalnız açıklama kartı nedeniyle gereksiz uzun kaydırma oluşmamalıdır.
+- [ ] Proje sahibi yeni C3 yayınından önce gerçek genel anahtarla ikili kontrolünü çalıştırmalı: `ota_anahtar.mjs kontrol` kod 0 vermeli; yer tutuculu 4.4.0 yayımlanmamalı ve etkilenmiş cihazların kurtarma yöntemi ayrıca belirlenmelidir. Bu kontrol cihaza otomatik yükleme izni değildir.
