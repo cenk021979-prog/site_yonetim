@@ -10,14 +10,14 @@ PROJENIN AMACI
 Bu dokuman, projeyi sifirdan VPS uzerinde calisir hale getirmek icin basariyla uygulanan adimlari icerir.
 
 1) VPS VE SSH HAZIRLIGI
-- VPS'e baglanildi: ssh salihceylan@178.210.161.55 -p 22667
-- SSH portu 22667 olarak kullanildi.
+- VPS'e baglanildi: ssh salihceylan@178.210.161.55 -p 22
+- SSH portu 22 olarak kullanildi (eski port 22667'den 22'ye guncellendi).
 - SSH erisimi dogrulandi ve aktif dinleme kontrol edildi:
-  sudo ss -ltnp | grep 22667
+  sudo ss -ltnp | grep 22
 
 2) FIREWALL (UFW)
 - Gerekli portlar acildi:
-  sudo ufw allow 22667/tcp
+  sudo ufw allow 22/tcp
   sudo ufw allow 80/tcp
   sudo ufw allow 443/tcp
 - Durum kontrol edildi:

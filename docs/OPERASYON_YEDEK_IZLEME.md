@@ -1,6 +1,6 @@
 # Operasyon: Yedekleme, Geri Yükleme, Dış Kopya ve İzleme
 
-Son güncelleme: 2026-10-16. Kapsam: canlı sunucu (SSH `-p 22667`, kullanıcı `salihceylan`), proje `/var/www/site_kapi_kontrol/server`, PM2 süreci `kapi-api`, veritabanı Docker kapsayıcısı `site_kapi_kontrol_postgres` (postgres:16, veritabanı `site_kapi_kontrol`). Sunucu adresi ve oturum bilgileri için `deploy/README.md`.
+Son güncelleme: 2026-11-15. Kapsam: canlı sunucu (SSH `-p 22`, kullanıcı `salihceylan`), proje `/var/www/site_kapi_kontrol/server`, PM2 süreci `kapi-api`, veritabanı Docker kapsayıcısı `site_kapi_kontrol_postgres` (postgres:16, veritabanı `site_kapi_kontrol`). Sunucu adresi ve oturum bilgileri için `deploy/README.md`.
 
 Bu belgedeki komut ve sonuçlar şu şekilde işaretlidir:
 
@@ -57,7 +57,7 @@ Bu belgedeki komut ve sonuçlar şu şekilde işaretlidir:
 
 Dizinler 700, dosyalar 600 izinlidir. Eski elle yedekler (`~/backups/kapi_<TS>/`, dağıtım sırasında alınanlar) ayrıdır; bu mekanizma onlara dokunmaz (temizlik önerisi: bölüm 4.1).
 
-Depodaki kaynak: `deploy/ops/*`. Sunucuya kopyalama (güvenli yöntem: önce geçici dosya, sonra yer değiştirme): `scp -P 22667 deploy/ops/*.sh deploy/ops/*.mjs deploy/ops/*.example salihceylan@<sunucu>:ops/.stage/` ardından sunucuda `bash -n` ve `mv -f` ile `~/ops/` altına alın, sonra `bash ~/ops/install_ops.sh`.
+Depodaki kaynak: `deploy/ops/*`. Sunucuya kopyalama (güvenli yöntem: önce geçici dosya, sonra yer değiştirme): `scp -P 22 deploy/ops/*.sh deploy/ops/*.mjs deploy/ops/*.example salihceylan@<sunucu>:ops/.stage/` ardından sunucuda `bash -n` ve `mv -f` ile `~/ops/` altına alın, sonra `bash ~/ops/install_ops.sh`.
 
 ### Crontab (sunucu saati UTC; Türkiye UTC+3, yaz saati uygulaması yok)
 
@@ -121,7 +121,7 @@ Neden: veritabanı dökümleri kişisel veriler ve kimlik doğrulama sırları i
 
 Başarısız olursa: durum `~/ops/state/backup.status` içine `result=FAIL` yazılır, hemen e-posta gönderilir ve `healthcheck.sh` aynı olayı tekrar bildirmeden izlemeye alır. Çıkış kodları: 0 tamam, 1 veritabanı yedeği başarısız, 2 düz veritabanı yedeği tamam ama şifreli kopya / yapılandırma / firmware başarısız, 75 kilit alınamadı. Hatalı `KEEP_*` değerleri (sayı ≥ 1 değilse) varsayılana döner ve UYARI yazar.
 
-Elle yedek almak: `ssh -p 22667 salihceylan@<sunucu> "bash ~/ops/backup_db.sh"`. Dağıtımdan (özellikle migration içeren) hemen önce de çalıştırmak iyi bir alışkanlıktır.
+Elle yedek almak: `ssh -p 22 salihceylan@<sunucu> "bash ~/ops/backup_db.sh"`. Dağıtımdan (özellikle migration içeren) hemen önce de çalıştırmak iyi bir alışkanlıktır.
 
 ### 4.1 Elle (dağıtım) yedekleri için bütçe ve temizlik önerisi
 
@@ -141,7 +141,7 @@ Genel kural: **canlı veritabanına geri yüklemeden önce mevcut durumun yeni b
 ### 5.1 Geri yükleme provası (kanıt) — [doğrulandı, ilk sürüm]
 
 ```bash
-ssh -p 22667 salihceylan@<sunucu> "bash ~/ops/restore_test.sh"
+ssh -p 22 salihceylan@<sunucu> "bash ~/ops/restore_test.sh"
 ```
 
 Varsayılan olarak **iki** dosyayı sınar: (1) en son düz günlük yedek, (2) en son **şifreli** dış kopya (`offsite/*.sql.gz.enc`; şifresi çözülür). Her biri `kapi_restoretest_<TS>` adlı geçici bir veritabanına yüklenir, tablo ve satır sayıları canlıyla karşılaştırılır (canlı tarafta oturum `default_transaction_read_only=on`, `lock_timeout=5s`, `statement_timeout=60s` ile salt okunurdur), geçici veritabanı silinir; sonuç `~/ops/state/restore_test.status` ve `~/ops/logs/restore_test_<TS>.txt` dosyalarına yazılır. Yalnızca kendi oluşturduğu `kapi_restoretest_*` veritabanını siler. Tek dosya için: `--file <yol>` (`.sql.gz` veya `.sql.gz.enc`).
@@ -229,7 +229,7 @@ Notlar:
 
 Elinizde olması gerekenler: (1) en az bir **şifreli dış kopya** (`kapi_<TS>.sql.gz.enc`, `kapi_config_<TS>.tgz.enc`, gerekirse `kapi_firmware_<TS>.tgz.enc`, belge modülü kullanıldıysa `kapi_documents_<TS>.tgz.enc` ve iş takibi fotoğrafı eklendiyse `kapi_work_attachments_<TS>.tgz.enc`), (2) **`kapi-backup.key` kopyası**, (3) GitHub deposu. Bu senaryo uçtan uca [denenmedi]; adımlar sunucuda kullanılan kurulumdan (`sunucu_kurulum.txt`, `docker-compose.yml`, `deploy/README.md`, `MQTT_kurulum.txt`) türetilmiştir. Süre tahmini: 2–4 saat.
 
-1. **Yeni VPS**: Ubuntu 22.04+, SSH portu 22667, `salihceylan` kullanıcısı, güvenlik duvarı (22667, 80, 443, 8883). `sudo apt install docker.io docker-compose-v2 nginx certbot python3-certbot-nginx mosquitto rsync`, Node.js 24, `sudo npm i -g pm2`.
+1. **Yeni VPS**: Ubuntu 22.04+, SSH portu 22, `salihceylan` kullanıcısı, güvenlik duvarı (22, 80, 443, 8883). `sudo apt install docker.io docker-compose-v2 nginx certbot python3-certbot-nginx mosquitto rsync`, Node.js 24, `sudo npm i -g pm2`.
 2. **Dosyaları aç** (yeni sunucuda, güvenli geçici dizine):
    ```bash
    mkdir -m 700 ~/kurtar && cd ~/kurtar
@@ -412,7 +412,7 @@ Her iki durumda ilk gönderim: `bash ~/ops/offsite_push.sh --all`. Sonra cron (0
 
 `deploy/ops/pull_backups_windows.ps1` yalnızca OpenSSH istemcisi (`ssh.exe`, `scp.exe`; Windows 11'de yerleşik) kullanır. Sunucudan `~/backups/scheduled/offsite/` içindeki **şifreli** dosyaları indirir, "Salted__" başlığını ve sunucudaki SHA-256 değerini doğrular (ssh uyarıları ayrıştırmaya karışmaz), var olanları yeniden indirmez. Sunucuya yazmaz, silmez. **[doğrulandı]** 2026-10-16 (dosyalar indirildi, özetler eşleşti, ikinci çalışma 0 yeni dosya).
 
-1. Sunucuya parolasız bağlanabildiğinizi doğrulayın: `ssh -p 22667 -o BatchMode=yes salihceylan@<sunucu> echo tamam`. Başarılıysa anahtar zaten hazırdır. (Özel bir anahtar kullanacaksanız betiği `-KeyPath C:\Users\<siz>\.ssh\anahtar` ile çalıştırın.)
+1. Sunucuya parolasız bağlanabildiğinizi doğrulayın: `ssh -p 22 -o BatchMode=yes salihceylan@<sunucu> echo tamam`. Başarılıysa anahtar zaten hazırdır. (Özel bir anahtar kullanacaksanız betiği `-KeyPath C:\Users\<siz>\.ssh\anahtar` ile çalıştırın.)
 2. Betiği sabit bir yere kopyalayın, örn. `C:\kapi-ops\pull_backups_windows.ps1`.
 3. Elle deneyin:
    ```powershell
@@ -573,7 +573,7 @@ Kaynak: PM2 daemon günlüğü (2026-03-10'dan beri) ve `~/.pm2/logs/kapi-api-er
 ## 13. Özet komutlar
 
 ```bash
-ssh -p 22667 salihceylan@<sunucu>
+ssh -p 22 salihceylan@<sunucu>
 bash ~/ops/healthcheck.sh --dry-run -v        # anlık durum (e-posta yok)
 bash ~/ops/healthcheck.sh --test-alert        # test e-postası
 bash ~/ops/backup_db.sh                       # elle yedek

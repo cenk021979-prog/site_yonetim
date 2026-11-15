@@ -44,7 +44,7 @@
 [CmdletBinding()]
 param(
   [string]$HostName = '178.210.161.55',
-  [int]$Port = 22667,
+  [int]$Port = 22,
   [string]$User = 'salihceylan',
   [string]$KeyPath = '',
   [string]$Destination = (Join-Path $env:USERPROFILE 'kapi-yedek'),
