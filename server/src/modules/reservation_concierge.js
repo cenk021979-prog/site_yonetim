@@ -158,12 +158,14 @@ export async function createConciergeRequest({ actor, body, now = () => new Date
 export async function listMyRequests(authUser, query = {}, db = pool) {
   const filters = parseConciergeResidentQuery(query);
   const userCode = userCodeOf(authUser);
-  if (filters.siteCode !== null && !(await isModuleEnabled(filters.siteCode, RESERVATION_MODULE, db))) {
-    // modül durumu yalnız siteyle bağı olan kişiye söylenir (başka sitenin modül durumu sızmaz)
-    if (await hasSiteRelation(db, userCode, filters.siteCode)) {
-      throw moduleDisabled();
+  if (filters.siteCode !== null) {
+    if (!(await isModuleEnabled(filters.siteCode, RESERVATION_MODULE, db))) {
+      // modül durumu yalnız siteyle bağı olan kişiye söylenir (başka sitenin modül durumu sızmaz)
+      if (await hasSiteRelation(db, userCode, filters.siteCode)) {
+        throw moduleDisabled();
+      }
+      return { items: [], next_before_id: null, unread_count: 0 };
     }
-    return { items: [], next_before_id: null, unread_count: 0 };
   }
   const params = [userCode];
   const base = ['c.user_code = $1', `s.approval_status = 'approved'`, MODULE_ON];

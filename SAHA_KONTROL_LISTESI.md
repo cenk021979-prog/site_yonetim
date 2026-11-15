@@ -5147,6 +5147,7 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
 - [ ] Malike devir seçilmemişken borç kendiliğinden aktarılmaz. Ayrılma tamamlanıp borç devri başarısız olduğunda açık uyarı ve Finans bölümünden devam yönlendirmesi görünür; yanlış başarı mesajı verilmez.
 - [ ] Asansörsüz kapsamda Asansör gösterilmez; tek blokta yangın için gereksiz blok sorulmaz. Güvenlik/servis sesli, yönetici sessiz bildirim kuralı korunur. Kapalı telefon bildirimi ayrıca gerçek FCM kurulumu ve cihaz denemesi gerektirir.
 - [ ] 320 px ve yüzde 200 yazı boyutunda 360 ayrılma, Dairem ve Wi-Fi kurulumunda taşma olmamalıdır; eylemler kaydırılarak erişilebilir kalır.
+
 ## Ortak güncelleme incelemesi — 15 Kasım 2026
 
 Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış saha testi sayılmaz.
@@ -5158,3 +5159,26 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 - [ ] Devreye Alınmamış modül filtresini açın ve bir modülün durumunu değiştirin: sağdaki detay soldaki filtrede bulunan bir modüle ait olmalı; ters sırada dönen ağ yanıtları yeni durumu geri almamalıdır.
 - [ ] Dikey 320px, yatay 667px ve yüzde 200 yazıda iki kartlı ekranları inceleyin: taşma olmamalı, eylemler erişilebilir olmalı, yalnız açıklama kartı nedeniyle gereksiz uzun kaydırma oluşmamalıdır.
 - [ ] Proje sahibi yeni C3 yayınından önce gerçek genel anahtarla ikili kontrolünü çalıştırmalı: `ota_anahtar.mjs kontrol` kod 0 vermeli; yer tutuculu 4.4.0 yayımlanmamalı ve etkilenmiş cihazların kurtarma yöntemi ayrıca belirlenmelidir. Bu kontrol cihaza otomatik yükleme izni değildir.
+
+---
+
+## 177. 🔐 OTA Yer Tutucu Anahtar Engeli, Otomatik Şirket Envanteri ve Sunucu Modül Korumaları (2026-11-15)
+
+- [ ] **177.1. Yer Tutucu OTA Anahtarlı Firmware Yayınının Durdurulması ve Engellenmesi (C3 4.4.0 / Sunucu / Derleme):**
+  - **Nasıl Test Edilir:**
+    1. Sunucuda `GET /firmware/esp32-c3/manifest.json?device_uid=...&version=4.3.3` ve `GET /firmware/esp32-c3/firmware.bin` uçlarını sorgulayın; ardından `esp32-wroom` manifestini de kontrol edin.
+    2. Süper kullanıcı yükleme ucu (`POST /admin/firmware/upload`), `company_qr_tool` "Sürüm oluştur / Sunucuya gönder" ve PlatformIO derlemesi (`cihaz_kontrol/tools/ota_anahtar_kontrol_pio.py`) ile içine `OTA-PUBLIC-KEY-NOT-SET-REPLACE!!` baytları gömülmüş bir ikili göndermeyi deneyin.
+  - **Beklenen Sonuç:**
+    - Canlı C3 manifesti `enabled: false`, `update_available: false`, `url: null` döner; `/firmware/esp32-c3/firmware.bin` indirmesi `403 FIRMWARE_PLACEHOLDER_OTA_KEY` ile reddedilir. WROOM manifesti etkilenmez.
+    - Sunucu yüklemesi `400 FIRMWARE_PLACEHOLDER_OTA_KEY`, `company_qr_tool` paketleme/yükleme ve zorunlu PIO post-build kontrolü yer tutucu anahtarlı ikiliyi reddeder.
+
+- [ ] **177.2. Şirket Cihaz Aracında Port 22, Gizli Anahtar Temizliği ve Karekod Hazırlanınca Otomatik Envanter Kaydı:**
+  - **Nasıl Test Edilir:**
+    1. `company_qr_tool/app.py` kaynak kodunda gömülü `COMPANY_API_KEY` bulunmadığını ve varsayılan `VPS_PORT` değerinin `22` olduğunu doğrulayın (`AHBU_VPS_PORT` tanımı olmayan bir ortamda).
+    2. Yerel `.env` dosyasında `COMPANY_API_KEY` yokken (veya silinmişken) uygulamayı açıp bağlı ESP32 kartının kimliğini okuyun; karekod otomatik oluştuğunda SSH penceresini gözlemleyin.
+  - **Beklenen Sonuç:**
+    - Karekod hazırlandığında uygulama otomatik olarak şirket cihaz envanterine kayıt başlatır; anahtar eksikse tanımlı SSH anahtarıyla veya `salihceylan@178.210.161.55:22` SSH parolasını sorarak `COMPANY_API_KEY` alır, cihazı hem yerel hem sunucu envanterine kaydeder ve MQTT kimliği/ACL senkronunu tamamlar (`POST /api/company/labeled-devices`); sahada tekrar karekod okutup cihaz eklemeye gerek kalmaz.
+
+- [ ] **177.3. Sunucu Uçlarında Modül Kapatma (`MODULE_DISABLED`) Korumalarının Tamamlanması:**
+  - **Nasıl Test Edilir:** İlgili modülü (`finance`, `door_control`, `neighbor_board` veya platform düzeyinde kapatılan temel sakin modülleri: `survey`, `decision_book`, `visitor_log`, `reservation`, `drive_storage`, `card_access`, `work_tracking`) kapatıp ödeme bağlantısı, ödeme bildirimi, iade talebi, komşu ilanı geri çekme (`/app/neighbor-board/:id/withdraw`), misafir geçiş listesi/iptali (`GET`/`DELETE /app/guest-passes`), yönetici QR iptali (`/manager/doors/:id/revoke-active-qrs`) ve sakin okuma/yazma uçlarını deneyin.
+  - **Beklenen Sonuç:** Kapatılan modüle ait siteler listelerden dışlanır, tekil işlem ve mutasyon uçları `403 MODULE_DISABLED` ile reddedilir.

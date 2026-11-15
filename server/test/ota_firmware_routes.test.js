@@ -1015,4 +1015,41 @@ describe('OTA imza: yukleme ucu + cihaz ucu (HTTP)', () => {
       assert.equal(bad.status, 400);
     });
   });
+
+  describe('yer tutucu OTA anahtari HTTP korumasi', () => {
+    it('yuklemede 400 FIRMWARE_PLACEHOLDER_OTA_KEY, diskteki yer tutuculu pakette manifest kapali + indirmede 403 doner', async () => {
+      const poisoned = Buffer.concat([
+        fakeImage('esp32-c3', 'http-placeholder'),
+        Buffer.from('OTA-PUBLIC-KEY-NOT-SET-REPLACE!!'),
+      ]);
+      const up = await upload({ version: '4.4.0', image: poisoned });
+      assert.equal(up.status, 400);
+      assert.equal(up.body.code, 'FIRMWARE_PLACEHOLDER_OTA_KEY');
+      assert.equal(fs.existsSync(path.join(dirOf('esp32-c3'), 'manifest.json')), false);
+
+      // Diskte elle birakilmis yer tutuculu paket de manifest ve bin indirmede engellenir
+      const dir = dirOf('esp32-c3');
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(path.join(dir, 'firmware.bin'), poisoned);
+      fs.writeFileSync(path.join(dir, 'manifest.json'), JSON.stringify({
+        enabled: true,
+        target: 'esp32-c3',
+        version: '4.4.0',
+        filename: 'firmware.bin',
+        sha256: sha256Of(poisoned),
+        usb_required: false,
+        interval_hours: 1,
+      }));
+
+      const man = await manifestFor('esp32-c3', '4.3.3');
+      assert.equal(man.status, 200);
+      assert.equal(man.body.enabled, false);
+      assert.equal(man.body.update_available, false);
+      assert.equal(man.body.url, null);
+
+      const binRes = await getBytes('/firmware/esp32-c3/firmware.bin');
+      assert.equal(binRes.status, 403);
+      assert.equal(JSON.parse(binRes.bytes.toString('utf8')).code, 'FIRMWARE_PLACEHOLDER_OTA_KEY');
+    });
+  });
 });

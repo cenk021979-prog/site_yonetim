@@ -24,6 +24,7 @@ import { evaluateManifestSignatureOnDisk } from '../services/firmware_release_se
 import {
   OTA_SIGNATURE_ALGORITHM,
   OTA_SIG_FILE_MAX_BYTES,
+  hasPlaceholderOtaKey,
   loadOtaPublicKey,
   resolveServeUnsigned,
 } from '../services/ota_signature.js';
@@ -197,7 +198,7 @@ firmwareRouter.get('/firmware/:target/manifest.json', async (req, res) => {
     }
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
-    const enabled = manifest.enabled === true;
+    const rawEnabled = manifest.enabled === true;
     const version = String(manifest.version || '').trim();
     const fileName = safeFirmwareFile(manifest.filename || 'firmware.bin');
     const allowedUids = Array.isArray(manifest.allowed_uids)
@@ -225,6 +226,7 @@ firmwareRouter.get('/firmware/:target/manifest.json', async (req, res) => {
       serveUnsigned: resolveServeUnsigned(process.env).value,
       keyState: loadOtaPublicKey(process.env),
     });
+    const enabled = rawEnabled && signaturePolicy.code !== 'PLACEHOLDER_OTA_KEY';
     const rollbackMax = typeof manifest.rollback_max === 'string' && manifest.rollback_max !== '' ? manifest.rollback_max : null;
     // Surum dusurme korumasi: cihazin bildirdigi surumden DUSUK yayin sunulmaz. Tek istisna: yoneticinin acik "downgrade" yayini
     // (yukleme ucunda allow_downgrade + gerekce, denetim kaydina yazilir), yalniz sunucuda DOGRULANMIS imzali paket icin ve yalniz imza
@@ -249,7 +251,9 @@ firmwareRouter.get('/firmware/:target/manifest.json', async (req, res) => {
       (!currentVersion || (compareVersionParts(version, currentVersion) > 0 && !rollbackOnlyBlocksUpgrade) || offersDowngrade);
 
     let message = '';
-    if (targetMismatch) {
+    if (signaturePolicy.code === 'PLACEHOLDER_OTA_KEY') {
+      message = signaturePolicy.message;
+    } else if (targetMismatch) {
       message = 'Firmware manifest hedefi klasorle uyusmuyor; yayin durduruldu.';
     } else if (blockedByUid) {
       message = 'Cihaz bu yayin grubunda degil.';
@@ -266,6 +270,10 @@ firmwareRouter.get('/firmware/:target/manifest.json', async (req, res) => {
     if (enabled && !signaturePolicy.ok) {
       logOtaNoticeOnce(`sig:${folderTarget}:${version}:${signaturePolicy.code}`, () => {
         console.error(`[OTA] Yayin sunulmuyor (${signaturePolicy.code}): hedef=${folderTarget}, surum=${version}`);
+      });
+    } else if (signaturePolicy.code === 'PLACEHOLDER_OTA_KEY') {
+      logOtaNoticeOnce(`sig:${folderTarget}:${version}:${signaturePolicy.code}`, () => {
+        console.error(`[OTA] Yer tutucu anahtar nedeniyle yayin durduruldu: hedef=${folderTarget}, surum=${version}`);
       });
     } else if (enabled && signaturePolicy.signed && !signaturePolicy.verified) {
       // Imzali ama sunucu dogrulayamadi (anahtar tanimsiz ya da manifest baska anahtarla imzali): sunulur, cihaz dogrular.
@@ -350,6 +358,16 @@ firmwareRouter.get('/firmware/:target/:file', (req, res) => {
       return res.status(404).json({ error: 'Imza dosyasi bulunamadi.' });
     }
     return res.sendFile(resolved, { headers });
+  }
+  try {
+    if (hasPlaceholderOtaKey(fs.readFileSync(resolved))) {
+      return res.status(403).json({
+        error: 'Bu firmware dosyası güvenlik nedeniyle engellendi (yer tutucu OTA anahtarı).',
+        code: 'FIRMWARE_PLACEHOLDER_OTA_KEY',
+      });
+    }
+  } catch (_error) {
+    return res.status(500).json({ error: 'Firmware dosyası doğrulanamadı.' });
   }
   const manifestPath = path.join(firmwareRoot, target, 'manifest.json');
   if (fs.existsSync(manifestPath)) {

@@ -216,6 +216,12 @@ neighborBoardRouter.post(
     const id = parseId(req.params.id);
     if (id === null) throw postNotFound();
     const userCode = userCodeOf(req);
+    const found = await pool.query(
+      `SELECT site_code FROM neighbor_posts WHERE id = $1 AND author_user_code = $2 AND status IN ('pending', 'published')`,
+      [id, userCode],
+    );
+    if (!found.rows?.[0]) throw postNotFound();
+    await residentSite(req, found.rows[0].site_code);
     const result = await pool.query(
       `UPDATE neighbor_posts SET status = 'withdrawn', decided_at = NOW() WHERE id = $1 AND author_user_code = $2 AND status IN ('pending', 'published') RETURNING id`,
       [id, userCode],

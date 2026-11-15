@@ -7,12 +7,15 @@ import { publishDoorPulse } from '../mqtt_bridge.js';
 import { getAccessibleDoorForUser, recordDoorAccessLog } from '../services/door_service.js';
 import { assertDoorOpenAllowed } from '../services/door_access_policy.js';
 import { auditLog } from '../utils/helpers.js';
+import { DOOR_CONTROL_MODULE } from '../modules/catalog.js';
 import {
   isDoorModuleDisabled,
   MODULE_DISABLED_CODE,
   moduleDisabledBody,
   renderModuleDisabledGuestPage,
 } from '../modules/door_guard.js';
+import { isModuleEnabled } from '../modules/module_service.js';
+import { isModuleActiveOnPlatform } from '../modules/platform_modules_schema.js';
 import { parseId } from '../utils/ids.js';
 import {
   CLAIM_GUEST_PASS_SQL,
@@ -148,6 +151,9 @@ guestPassesRouter.post('/app/guest-passes', authRequired, async (req, res) => {
 // GET /app/guest-passes
 guestPassesRouter.get('/app/guest-passes', authRequired, async (req, res) => {
   try {
+    if (!(await isModuleActiveOnPlatform(DOOR_CONTROL_MODULE))) {
+      return res.status(200).json({ ok: true, passes: [] });
+    }
     // Tek kullanimlik hak tuketimi is_active'i degistirmez; tukenmis linkler used_count ile elenir.
     const result = await pool.query(
       `
@@ -162,10 +168,14 @@ guestPassesRouter.get('/app/guest-passes', authRequired, async (req, res) => {
           AND gp.is_active = TRUE
           AND gp.used_count < gp.max_uses
           AND gp.expires_at > NOW()
+          AND EXISTS (
+            SELECT 1 FROM site_modules sm
+            WHERE sm.site_code = gp.site_code AND sm.module_code = $2 AND sm.enabled = TRUE
+          )
         ORDER BY gp.created_at DESC
         LIMIT 50
       `,
-      [Number(req.authUser.id)],
+      [Number(req.authUser.id), DOOR_CONTROL_MODULE],
     );
 
     const baseUrl = publicBaseUrl();
@@ -197,19 +207,25 @@ guestPassesRouter.delete('/app/guest-passes/:id', authRequired, async (req, res)
   }
 
   try {
-    const result = await pool.query(
+    const existing = await pool.query(
+      `SELECT id, site_code FROM guest_passes WHERE id = $1 AND created_by_user_code = $2`,
+      [passId, Number(req.authUser.id)],
+    );
+    if (existing.rowCount === 0) {
+      return res.status(404).json({ error: 'Gecis bulunamadi veya yetkiniz yok.' });
+    }
+    if (!(await isModuleEnabled(Number(existing.rows[0].site_code), DOOR_CONTROL_MODULE))) {
+      return res.status(403).json(moduleDisabledBody());
+    }
+
+    await pool.query(
       `
         UPDATE guest_passes
         SET is_active = FALSE
         WHERE id = $1 AND created_by_user_code = $2
-        RETURNING id
       `,
       [passId, Number(req.authUser.id)],
     );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: 'Gecis bulunamadi veya yetkiniz yok.' });
-    }
 
     return res.status(200).json({ ok: true, message: 'Gecis iptal edildi.' });
   } catch (error) {

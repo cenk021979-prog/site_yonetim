@@ -10,6 +10,7 @@ import { pool } from '../db.js';
 import { actorFromAuthUser } from './audit_service.js';
 import { isModuleEnabled } from './module_service.js';
 import { optionalQueryId, parsePositiveId } from './people_common.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import { VISITOR_LOG_MODULE, accountDeleted, mapEntry, moduleDisabled, parseResidentListQuery, visitorEntryNotFound } from './visitor_log_common.js';
 
 const MODULE_ON = `EXISTS (SELECT 1 FROM site_modules smod WHERE smod.site_code = v.site_code AND smod.module_code = '${VISITOR_LOG_MODULE}' AND smod.enabled = TRUE)`;
@@ -84,6 +85,9 @@ export async function listMyVisitorEntries(authUser, query = {}, db = pool) {
   if (filters.siteCode !== null && !(await isModuleEnabled(filters.siteCode, VISITOR_LOG_MODULE, db))) {
     throw moduleDisabled();
   }
+  if (filters.siteCode === null && db === pool && !(await isModuleActiveOnPlatform(VISITOR_LOG_MODULE, db))) {
+    return { items: [], next_before_id: null };
+  }
   const params = [userCode];
   const clauses = [MODULE_ON];
   if (filters.siteCode !== null) {
@@ -109,6 +113,9 @@ export async function listMyVisitorEntries(authUser, query = {}, db = pool) {
 export async function myVisitorSummary(authUser, query = {}, db = pool) {
   const userCode = userCodeOf(authUser);
   const siteCode = optionalQueryId(query.site_code);
+  if (db === pool && !(await isModuleActiveOnPlatform(VISITOR_LOG_MODULE, db))) {
+    return { unread: 0 };
+  }
   const params = [userCode];
   const clauses = [MODULE_ON, 'v.resident_seen_at IS NULL'];
   if (siteCode !== null) {
@@ -131,6 +138,9 @@ export async function markMyVisitorEntrySeen(authUser, rawId, db = pool) {
   const userCode = userCodeOf(authUser);
   if (id === null) {
     throw visitorEntryNotFound();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(VISITOR_LOG_MODULE, db))) {
+    throw moduleDisabled();
   }
   // Yalnız gerçekten okunmamışsa yazar (gereksiz satır kilidi / yazma yok); değilse sahiplik ayrıca doğrulanır.
   const updated = await db.query(

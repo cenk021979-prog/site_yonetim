@@ -12,6 +12,7 @@ import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { pool } from '../db.js';
 import { parseId } from '../utils/ids.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
+import { isModuleEnabled } from './module_service.js';
 import { FORBIDDEN_ROLE_BODY, FORBIDDEN_SITE_BODY, SITE_NOT_FOUND_BODY, getPeopleAccessKind } from './people_access.js';
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
 import { getConnection, removeConnection, saveConnection, testConnection } from './payment_connection_service.js';
@@ -46,6 +47,10 @@ async function resolveAccess(req, res, write) {
   const exists = await pool.query(`SELECT site_code FROM sites WHERE site_code = $1 LIMIT 1`, [siteCode]);
   if (!exists.rows?.[0]) {
     res.status(404).json(SITE_NOT_FOUND_BODY);
+    return null;
+  }
+  if (!(await isModuleEnabled(siteCode, 'finance'))) {
+    res.status(403).json({ error: 'Bu modül bu site için kapalıdır.', code: 'MODULE_DISABLED' });
     return null;
   }
   return { siteCode, userCode: actorFromAuthUser(req.authUser).userCode };

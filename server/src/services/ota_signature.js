@@ -27,6 +27,14 @@ import crypto from 'node:crypto';
 export const OTA_SIGNATURE_ALGORITHM = 'Ed25519';
 export const OTA_SIGNATURE_BYTES = 64;
 export const OTA_SIG_FILE_MAX_BYTES = 4096;
+export const OTA_KEY_PLACEHOLDER_ASCII = 'OTA-PUBLIC-KEY-NOT-SET-REPLACE!!';
+const OTA_KEY_PLACEHOLDER_BUF = Buffer.from(OTA_KEY_PLACEHOLDER_ASCII, 'ascii');
+
+/** Firmware ikili dosyasinda yer tutucu OTA acik anahtari gomulu mu? */
+export function hasPlaceholderOtaKey(buf) {
+  if (!Buffer.isBuffer(buf) || buf.length === 0) return false;
+  return buf.includes(OTA_KEY_PLACEHOLDER_BUF);
+}
 /** Imzaya girebilecek en buyuk imaj boyutu (ESP32 flash tavani; yukleme siniri ayrica OTA_MAX_FIRMWARE_BYTES'tir). */
 export const OTA_MAX_IMAGE_BYTES = 16 * 1024 * 1024;
 

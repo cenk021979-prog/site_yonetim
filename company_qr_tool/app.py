@@ -130,7 +130,7 @@ _load_local_env_file()
 # Sunucu/VPS ayarlari: varsayilanlar korunur; ortam degiskenleriyle (veya .env ile) ezilebilir.
 # Bu degerlerin hicbiri sir DEGILDIR (sirlar: COMPANY_API_KEY, AHBU_VPS_PASSWORD, SSH_KEY_PASSPHRASE).
 VPS_HOST = _env_str("AHBU_VPS_HOST", "178.210.161.55")
-VPS_PORT = _env_str("AHBU_VPS_PORT", "22667")
+VPS_PORT = _env_str("AHBU_VPS_PORT", "22")
 VPS_USER = _env_str("AHBU_VPS_USER", "salihceylan")
 VPS_FIRMWARE_BASE_DIR = _env_str("AHBU_VPS_FIRMWARE_DIR", "/var/www/site_kapi_kontrol/server/firmware")
 VPS_LABELED_DEVICES_DIR = _env_str("AHBU_VPS_DATA_DIR", "/var/www/site_kapi_kontrol/server/data")
@@ -358,6 +358,20 @@ def target_for_env(env: str) -> str:
     if "wroom" in env_clean or "esp32dev" in env_clean:
         return "esp32-wroom"
     return "esp32-c3"
+
+
+OTA_KEY_PLACEHOLDER = b"OTA-PUBLIC-KEY-NOT-SET-REPLACE!!"
+
+
+def assert_no_placeholder_ota_key(bin_path: Path, label: str = "firmware.bin") -> None:
+    """Derlenen ikilide yer tutucu OTA genel anahtari varsa paketleme/yuklemeyi durdurur."""
+    data = bin_path.read_bytes()
+    if OTA_KEY_PLACEHOLDER in data:
+        raise RuntimeError(
+            f"{label} icinde yer tutucu OTA anahtari (OTA-PUBLIC-KEY-NOT-SET-REPLACE!!) bulundu! "
+            "Bu firmware cihazlarin sonraki OTA guncellemelerini kalici olarak kilitleyebilir. "
+            "Gercek anahtari yerlestirip (node cihaz_kontrol/tools/ota_anahtar.mjs yaz ...) yeniden derleyin."
+        )
 
 
 def bootloader_offset_for_env(env: str) -> str:
@@ -1262,6 +1276,7 @@ class App:
         self.fw_result: tuple[bool, str] | None = None
         self.fw_dispatched_key: tuple[str, str] | None = None
         self.saved_uids: set[str] = set()
+        self._auto_register_attempted_uids: set[str] = set()
         self._jobs = 0
         self._was_busy = False
         self._was_hw_busy = False
@@ -2010,6 +2025,13 @@ class App:
         self._set_qr_preview(img, d.unique_id)
         self.set_status(f"Karekod hazır: {d.unique_id}")
         self._refresh_label_ui()
+        if (
+            d.unique_id not in self.saved_uids
+            and d.unique_id not in self._auto_register_attempted_uids
+            and not self.saving_device
+        ):
+            self._auto_register_attempted_uids.add(d.unique_id)
+            self.root.after(50, self.save_device_to_server)
 
     def save_qr(self) -> None:
         if self.latest_qr is None or self.latest_uid is None:
@@ -2037,10 +2059,29 @@ class App:
         self.set_status(f"Yazdırma gönderildi: {path.name}")
         self.toast("Karekod yazdırmaya gönderildi.", "success")
 
+    def _save_company_api_key(self, key: str, status_msg: str) -> str:
+        clean_key = key.strip()
+        os.environ[COMPANY_KEY_ENV] = clean_key
+        save_local_env_key(COMPANY_KEY_ENV, clean_key)
+        self._refresh_key_status()
+        self.set_status(status_msg)
+        self.toast("Sunucu anahtarı hazır.", "success")
+        return clean_key
+
     def _prompt_ssh_for_api_key(self, force: bool = False) -> str:
         current_key = get_company_api_key()
         if current_key and not force:
             return current_key
+
+        if os.environ.get("SSH_KEY_FILE", "").strip() or (Path.home() / ".ssh" / "id_ed25519").is_file():
+            self.set_status("SSH anahtarı ile sunucu şirket anahtarı alınıyor…")
+            self.root.update_idletasks()
+            key, _err = fetch_company_key_via_ssh(password="")
+            if key:
+                return self._save_company_api_key(
+                    key,
+                    "Sunucu şirket anahtarı SSH anahtarıyla alındı ve kaydedildi.",
+                )
 
         password = simpledialog.askstring(
             "VPS SSH Şifresi",
@@ -2056,12 +2097,10 @@ class App:
 
         key, err = fetch_company_key_via_ssh(password=password)
         if key:
-            os.environ[COMPANY_KEY_ENV] = key
-            save_local_env_key(COMPANY_KEY_ENV, key)
-            self._refresh_key_status()
-            self.set_status("Sunucu şirket anahtarı başarıyla alındı ve kaydedildi.")
-            self.toast("Sunucu anahtarı hazır.", "success")
-            return key
+            return self._save_company_api_key(
+                key,
+                "Sunucu şirket anahtarı başarıyla alındı ve kaydedildi.",
+            )
 
         # SSH ile doğrudan çekilemediyse kullanıcıya manuel giriş / onay penceresi aç
         messagebox.showwarning(
@@ -2072,16 +2111,9 @@ class App:
             "Şirket Anahtarı Girişi",
             "COMPANY_API_KEY değerini girin:",
             parent=self.root,
-            initialvalue="r_qjBvboHWLPALmWp1AgXgzN4kaCpAWLt0mhH8XIyUhH985A",
         )
         if manual_key and manual_key.strip():
-            m_key = manual_key.strip()
-            os.environ[COMPANY_KEY_ENV] = m_key
-            save_local_env_key(COMPANY_KEY_ENV, m_key)
-            self._refresh_key_status()
-            self.set_status("Şirket anahtarı kaydedildi.")
-            self.toast("Sunucu anahtarı hazır.", "success")
-            return m_key
+            return self._save_company_api_key(manual_key, "Şirket anahtarı kaydedildi.")
 
         return get_company_api_key()
 
@@ -2475,6 +2507,7 @@ class App:
             missing = [k for k, p in files.items() if not p.exists()]
             if missing:
                 raise FileNotFoundError(f"Build ciktilari eksik: {', '.join(missing)}")
+            assert_no_placeholder_ota_key(files["firmware_bin"], str(files["firmware_bin"]))
 
             rid = datetime.now().strftime("%Y%m%d_%H%M%S")
             folder = RELEASES_DIR / f"{rid}_v{version.replace('.', '_')}"
@@ -2738,6 +2771,7 @@ class App:
                 raise FileNotFoundError(f"Firmware dosyasi yok: {firm}")
             if not manifest.exists():
                 raise FileNotFoundError(f"Manifest dosyasi yok: {manifest}")
+            assert_no_placeholder_ota_key(firm, str(firm))
 
             target = target_for_env(rel.get("env", "lolin_c3_mini"))
             local_target_dir = LOCAL_SERVER_FIRMWARE_BASE_DIR / target

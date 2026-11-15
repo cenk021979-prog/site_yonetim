@@ -11,6 +11,7 @@ import { pool } from '../db.js';
 import { actorFromAuthUser } from './audit_service.js';
 import { isModuleEnabled } from './module_service.js';
 import { parsePositiveId } from './people_common.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import {
   DECISION_BOOK_MODULE,
   ORDER_SQL,
@@ -79,6 +80,8 @@ export async function listMyDecisions(authUser, query = {}, db = pool) {
     if (!(await isModuleEnabled(filters.siteCode, DECISION_BOOK_MODULE, db))) {
       throw moduleDisabled();
     }
+  } else if (db === pool && !(await isModuleActiveOnPlatform(DECISION_BOOK_MODULE, db))) {
+    return emptyPage();
   }
   const params = [userCode];
   const base = [VISIBLE_SQL];
@@ -130,6 +133,9 @@ export async function getMyDecision(authUser, rawId, db = pool) {
   const id = parsePositiveId(rawId);
   if (id === null) {
     throw decisionNotFound();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(DECISION_BOOK_MODULE, db))) {
+    throw moduleDisabled();
   }
   const result = await db.query(
     `WITH ${mySitesCte('$1')} SELECT ${DECISION_COLUMNS} FROM board_decisions d ${DECISION_JOINS} WHERE d.id = $2 AND ${VISIBLE_SQL} LIMIT 1`,

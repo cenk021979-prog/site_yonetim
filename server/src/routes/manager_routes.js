@@ -93,6 +93,9 @@ import {
   updateDeviceAssignment,
   deleteDeviceById,
 } from '../services/device_service.js';
+import { DOOR_CONTROL_MODULE } from '../modules/catalog.js';
+import { moduleDisabledBody } from '../modules/door_guard.js';
+import { isModuleEnabled } from '../modules/module_service.js';
 import { syncMqttAclOrThrow } from '../mqtt_acl_sync.js';
 
 export const managerRouter = express.Router();
@@ -1103,6 +1106,9 @@ managerRouter.post('/manager/doors/:id/revoke-active-qrs', authRequired, require
     }
     if (!(await hasSiteManagementAccess(req.authUser, siteCode))) {
       return res.status(403).json({ error: 'Bu kapiyi yonetme yetkiniz yok.' });
+    }
+    if (!(await isModuleEnabled(siteCode, DOOR_CONTROL_MODULE))) {
+      return res.status(403).json(moduleDisabledBody());
     }
 
     const { revokeActiveQrTokensForDoor } = await import('../services/qr_access_service.js');

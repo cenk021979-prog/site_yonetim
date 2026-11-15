@@ -10,6 +10,7 @@ import { pool } from '../db.js';
 import { actorFromAuthUser } from './audit_service.js';
 import { isModuleEnabled } from './module_service.js';
 import { parsePositiveId } from './people_common.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import {
   SURVEY_MODULE,
   accountDeleted,
@@ -75,6 +76,9 @@ export async function listMySurveys(authUser, query = {}, db = pool) {
   if (filters.siteCode !== null && !(await isModuleEnabled(filters.siteCode, SURVEY_MODULE, db))) {
     throw moduleDisabled();
   }
+  if (filters.siteCode === null && db === pool && !(await isModuleActiveOnPlatform(SURVEY_MODULE, db))) {
+    return { items: [], next_before_id: null };
+  }
   const params = [userCode];
   const clauses = [visibleSql('$1')];
   if (filters.siteCode !== null) {
@@ -108,6 +112,9 @@ export async function getMySurvey(authUser, rawId, db = pool) {
   if (id === null) {
     throw surveyNotFound();
   }
+  if (db === pool && !(await isModuleActiveOnPlatform(SURVEY_MODULE, db))) {
+    throw moduleDisabled();
+  }
   const row = await loadMyRow(db, userCode, id);
   if (!row) {
     throw surveyNotFound();
@@ -124,6 +131,9 @@ export async function voteMySurvey({ actor, rawId, body }) {
   const userCode = userCodeOf(actor);
   if (id === null) {
     throw surveyNotFound();
+  }
+  if (!(await isModuleActiveOnPlatform(SURVEY_MODULE))) {
+    throw moduleDisabled();
   }
   const located = await pool.query(`SELECT s.site_code FROM surveys s WHERE s.id = $2 AND ${visibleSql('$1')} LIMIT 1`, [userCode, id]);
   if (!located.rows?.[0]) {

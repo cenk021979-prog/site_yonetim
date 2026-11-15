@@ -79,4 +79,31 @@ def kontrol():
         print("[OTA imza] ota_public_key.h: gercek anahtar yerlestirilmis (yer tutucu degil).")
 
 
+def post_bin_kontrol(target, source, env):  # noqa: ARG001
+    zorunlu = os.environ.get("SKP_OTA_ANAHTAR_ZORUNLU") == "1"
+    bin_yolu = str(target[0]) if target else ""
+    if not bin_yolu or not os.path.isfile(bin_yolu):
+        return
+    try:
+        with open(bin_yolu, "rb") as f:
+            veri = f.read()
+    except OSError as hata:
+        print("[OTA imza] UYARI: ikili okunamadi (%s): %s" % (bin_yolu, hata))
+        if zorunlu:
+            derlemeyi_durdur()
+        return
+    if YER_TUTUCU in veri:
+        satir = "=" * 100
+        print(satir)
+        print("[OTA imza] KRITIK UYARI: Derlenen %s icinde YER TUTUCU OTA anahtari bulundu!" % bin_yolu)
+        print("           Bu firmware sahaya cikarsa cihazlar OTA ile bir daha guncellenemez.")
+        print(satir)
+        if zorunlu:
+            if env is not None:
+                env.Exit(2)
+            sys.exit(2)
+
+
 kontrol()
+if env is not None:
+    env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", post_bin_kontrol)

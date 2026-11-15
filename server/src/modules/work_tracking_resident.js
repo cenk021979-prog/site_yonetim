@@ -12,6 +12,7 @@
 import { pool } from '../db.js';
 import { actorFromAuthUser } from './audit_service.js';
 import { isModuleEnabled } from './module_service.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import { syncSitePeopleSafe } from './people_sync.js';
 import { parsePositiveId } from './people_common.js';
 import { myApartmentsCte } from './document_resident.js';
@@ -229,6 +230,9 @@ export async function listMyWorkItems(authUser, query = {}, db = pool) {
   if (filters.siteCode !== null && !(await isModuleEnabled(filters.siteCode, WORK_TRACKING_MODULE, db))) {
     throw moduleDisabled();
   }
+  if (filters.siteCode === null && db === pool && !(await isModuleActiveOnPlatform(WORK_TRACKING_MODULE, db))) {
+    return { items: [], next_before_id: null, unread_updates: 0 };
+  }
   const params = [userCode];
   const base = [`w.created_by = $1`, MODULE_ON];
   if (filters.siteCode !== null) {
@@ -272,6 +276,9 @@ export async function getMyWorkItem(authUser, rawId, db = pool) {
   if (id === null) {
     throw workItemNotFound();
   }
+  if (db === pool && !(await isModuleActiveOnPlatform(WORK_TRACKING_MODULE, db))) {
+    throw moduleDisabled();
+  }
   const row = await loadResidentItem(db, userCode, id);
   if (!row) {
     throw workItemNotFound();
@@ -311,6 +318,9 @@ export async function cancelMyWorkItem({ actor, rawId }) {
   if (id === null) {
     throw workItemNotFound();
   }
+  if (!(await isModuleActiveOnPlatform(WORK_TRACKING_MODULE))) {
+    throw moduleDisabled();
+  }
   const siteCode = await siteOfOwnItem(userCode, id);
   await withWorkTransaction(siteCode, async (client) => {
     await lockActiveUser(client, actor);
@@ -342,6 +352,9 @@ export async function addMyComment({ actor, rawId, body }) {
   const userCode = userCodeOf(actor);
   if (id === null) {
     throw workItemNotFound();
+  }
+  if (!(await isModuleActiveOnPlatform(WORK_TRACKING_MODULE))) {
+    throw moduleDisabled();
   }
   const siteCode = await siteOfOwnItem(userCode, id);
   const limits = workItemLimits();
@@ -393,6 +406,9 @@ export async function markMyWorkItemSeen(authUser, rawId, db = pool) {
   const userCode = userCodeOf(authUser);
   if (id === null) {
     throw workItemNotFound();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(WORK_TRACKING_MODULE, db))) {
+    throw moduleDisabled();
   }
   // Yalnız gerçekten okunmamışsa yazar (gereksiz satır kilidi / yazma yok); değilse sahiplik ayrıca doğrulanır.
   const result = await db.query(

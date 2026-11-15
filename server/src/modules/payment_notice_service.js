@@ -8,13 +8,15 @@ import { pool } from '../db.js';
 import { actorFromAuthUser } from './audit_service.js';
 import { attachNoticeCheckMarks } from './check_mark_service.js';
 import { newStorageKey } from './document_storage.js';
-import { apartmentNotFound, moduleDisabled, periodOfDate, today } from './finance_common.js';
+import { FINANCE_MODULE, apartmentNotFound, moduleDisabled, periodOfDate, today } from './finance_common.js';
 import { accountBalances, accountPartySql, defaultPaymentParty, loadAccountBalance, postPayment } from './finance_parties.js';
 import { findRefs } from './finance_payment_ref.js';
 import { enabledFinanceSites, loadVisibleAccounts } from './finance_read_service.js';
 import { isPeriodClosed, lockActorRow, recordFinanceAudit, withFinanceTransaction } from './finance_tx.js';
+import { isModuleEnabled } from './module_service.js';
 import { apartmentLabel, parsePositiveId } from './people_common.js';
 import { syncUserPeopleSafe } from './people_sync.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import {
   BULK_MAX,
   MAX_PENDING_PER_USER,
@@ -190,6 +192,7 @@ export async function createMyNotice(authUser, body, { now = new Date() } = {}) 
 export async function listMyNotices(authUser, query = {}) {
   const userCode = userCodeOf(authUser);
   if (userCode === null) return { items: [], pending_total_minor: 0, unseen_count: 0 };
+  if (!(await isModuleActiveOnPlatform(FINANCE_MODULE))) return { items: [], pending_total_minor: 0, unseen_count: 0 };
   const apartmentId = query.apartment_id === undefined ? null : parsePositiveId(query.apartment_id);
   const rows = await pool.query(
     `${SELECT_NOTICE} WHERE n.submitted_by = $1 AND n.origin <> 'manager' AND n.status <> 'uploading' AND ($2::BIGINT IS NULL OR n.apartment_id = $2) ORDER BY n.id DESC LIMIT 50`,
@@ -207,9 +210,10 @@ export async function withdrawMyNotice(authUser, rawId) {
   const userCode = userCodeOf(authUser);
   const id = parseNoticeId(rawId);
   return withTx(async (client) => {
-    const found = await client.query(`SELECT id, status FROM payment_notices WHERE id = $1 AND submitted_by = $2 AND origin <> 'manager' FOR UPDATE`, [id, userCode]);
+    const found = await client.query(`SELECT id, site_code, status FROM payment_notices WHERE id = $1 AND submitted_by = $2 AND origin <> 'manager' FOR UPDATE`, [id, userCode]);
     const current = found.rows[0];
     if (!current) throw noticeNotFound();
+    if (!(await isModuleEnabled(Number(current.site_code), FINANCE_MODULE, client))) throw moduleDisabled();
     if (current.status === 'withdrawn') return { replayed: true };
     if (!['uploading', 'pending'].includes(current.status)) throw noticeInvalidState('Karara bağlanmış bildirim geri çekilemez.');
     await client.query(`UPDATE payment_notices SET status = 'withdrawn', decided_at = NOW() WHERE id = $1`, [id]);
@@ -220,6 +224,7 @@ export async function withdrawMyNotice(authUser, rawId) {
 export async function markMyNoticesSeen(authUser) {
   const userCode = userCodeOf(authUser);
   if (userCode === null) return { updated: 0 };
+  if (!(await isModuleActiveOnPlatform(FINANCE_MODULE))) return { updated: 0 };
   const result = await pool.query(
     `UPDATE payment_notices SET resident_seen_at = NOW() WHERE submitted_by = $1 AND status IN ('approved', 'rejected') AND resident_seen_at IS NULL`,
     [userCode],
@@ -524,6 +529,7 @@ export async function findUploadTarget({ id, userCode, siteCode = null, manager 
   );
   const row = rows.rows[0];
   if (!row || !row.storage_key) throw noticeNotFound();
+  if (!(await isModuleEnabled(Number(row.site_code), FINANCE_MODULE))) throw moduleDisabled();
   if (row.status !== 'uploading') throw new PlatformError(409, 'UPLOAD_ALREADY_COMPLETED', 'Bu bildirimin dosyası zaten yüklendi.');
   if (row.stale) throw noticeInvalidState('Yükleme süresi doldu; bildirimi yeniden oluşturun.');
   return { id: Number(row.id), siteCode: Number(row.site_code), storageKey: row.storage_key, sizeBytes: Number(row.size_bytes), mimeType: row.mime_type };
@@ -550,6 +556,7 @@ export async function findFileTarget({ id, userCode = null, siteCode = null }) {
   );
   const row = rows.rows[0];
   if (!row) throw noticeNotFound();
+  if (!(await isModuleEnabled(Number(row.site_code), FINANCE_MODULE))) throw moduleDisabled();
   return { id: Number(row.id), siteCode: Number(row.site_code), storageKey: row.storage_key, sizeBytes: Number(row.size_bytes), mimeType: row.mime_type, displayName: row.display_name };
 }
 

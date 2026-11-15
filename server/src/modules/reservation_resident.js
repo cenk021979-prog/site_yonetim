@@ -378,12 +378,14 @@ export async function createReservation({ actor, body, now = () => new Date() })
 export async function listMyReservations(authUser, query = {}, db = pool) {
   const filters = parseResidentReservationQuery(query);
   const userCode = userCodeOf(authUser);
-  if (filters.siteCode !== null && !(await isModuleEnabled(filters.siteCode, RESERVATION_MODULE, db))) {
-    // modül durumu yalnız siteyle bağı olan kişiye söylenir (başka sitenin modül durumu sızmaz)
-    if (await hasSiteRelation(db, userCode, filters.siteCode)) {
-      throw moduleDisabled();
+  if (filters.siteCode !== null) {
+    if (!(await isModuleEnabled(filters.siteCode, RESERVATION_MODULE, db))) {
+      // modül durumu yalnız siteyle bağı olan kişiye söylenir (başka sitenin modül durumu sızmaz)
+      if (await hasSiteRelation(db, userCode, filters.siteCode)) {
+        throw moduleDisabled();
+      }
+      return { items: [], next_before_id: null, unread_count: 0 };
     }
-    return { items: [], next_before_id: null, unread_count: 0 };
   }
   const now = new Date();
   const params = [userCode];

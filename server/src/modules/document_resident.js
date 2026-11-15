@@ -9,7 +9,8 @@ import { pool } from '../db.js';
 import { publicDocumentAccessSql } from './document_visibility.js';
 import { escapeLike, foldSql, foldText } from './people_common.js';
 import { syncSitePeopleSafe } from './people_sync.js';
-import { documentNotFound, mapResidentRow, parsePositiveId, parseResidentQuery } from './document_common.js';
+import { DOCUMENTS_MODULE, documentNotFound, mapResidentRow, moduleDisabled, parsePositiveId, parseResidentQuery } from './document_common.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 
 const INT32_MAX = 2147483647;
 
@@ -126,6 +127,9 @@ export async function listMyDocuments(authUser, query = {}, db = pool) {
   if (userCode === null) {
     return { items: [], next_before_id: null };
   }
+  if (db === pool && !(await isModuleActiveOnPlatform(DOCUMENTS_MODULE, db))) {
+    return { items: [], next_before_id: null };
+  }
   await syncMissingPeople(userCode, db);
   const params = [userCode];
   const clauses = [residentWhere('$1')];
@@ -173,6 +177,9 @@ export async function getMyDocument(authUser, rawId, db = pool) {
   if (id === null || userCode === null) {
     throw documentNotFound();
   }
+  if (db === pool && !(await isModuleActiveOnPlatform(DOCUMENTS_MODULE, db))) {
+    throw moduleDisabled();
+  }
   await syncMissingPeople(userCode, db);
   const result = await db.query(
     `
@@ -197,6 +204,9 @@ export async function resolveResidentDownload(authUser, rawId, db = pool) {
   const userCode = userCodeOf(authUser);
   if (id === null || userCode === null) {
     throw documentNotFound();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(DOCUMENTS_MODULE, db))) {
+    throw moduleDisabled();
   }
   const result = await db.query(
     `
@@ -224,6 +234,9 @@ export async function resolveAnnouncementAttachmentDownload(authUser, rawAnnounc
   const userCode = userCodeOf(authUser);
   if (announcementId === null || documentId === null || userCode === null) {
     throw documentNotFound();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(DOCUMENTS_MODULE, db))) {
+    throw moduleDisabled();
   }
   const result = await db.query(
     `

@@ -144,12 +144,12 @@ anahtari `known_hosts` dosyasinda (varsayilan `~/.ssh/known_hosts`, veya
 Ilk kurulum (bir kez):
 
 1. Sunucuda parmak izini ogrenin: `ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub`
-2. Bu bilgisayarda: `ssh-keyscan -p 22667 -H 178.210.161.55 >> %USERPROFILE%\.ssh\known_hosts`
+2. Bu bilgisayarda: `ssh-keyscan -p 22 -H 178.210.161.55 >> %USERPROFILE%\.ssh\known_hosts`
 3. Eklenen anahtarin parmak izini 1. adimdaki ile karsilastirin
    (`ssh-keygen -lf %USERPROFILE%\.ssh\known_hosts`); eslesmiyorsa satiri silin.
 
 Sunucu yeniden kurulursa anahtar degisir; uygulama "UYUSMUYOR" uyarisi verir.
-Once sunucudan parmak izini dogrulayin, sonra eski kaydi `ssh-keygen -R "[178.210.161.55]:22667"`
+Once sunucudan parmak izini dogrulayin, sonra eski kaydi `ssh-keygen -R 178.210.161.55`
 ile silip adimlari tekrarlayin.
 
 Kimlik dogrulama: `SSH_KEY_FILE` (ve gerekirse `SSH_KEY_PASSPHRASE`) tanimliysa anahtar ile

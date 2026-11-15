@@ -11,6 +11,7 @@
 
 import { pool } from '../db.js';
 import { computeModuleEnabled, getModuleDefinition } from './catalog.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import {
   FINANCE_MODULE,
   RECENT_ENTRIES_LIMIT,
@@ -567,6 +568,9 @@ export const rowsOfView = (rows, view) => rows.filter((entry) => entryAccountPar
 /** Modülü AÇIK siteler (katalog varsayılanı + site_modules satırı). */
 export async function enabledFinanceSites(db, siteCodes) {
   if (siteCodes.length === 0) {
+    return new Set();
+  }
+  if (db === pool && !(await isModuleActiveOnPlatform(FINANCE_MODULE, db))) {
     return new Set();
   }
   const definition = getModuleDefinition(FINANCE_MODULE);

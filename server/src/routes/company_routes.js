@@ -9,6 +9,7 @@ import { requireCompanyAccess } from '../middlewares/company_auth.js';
 import { newErrorId } from '../middlewares/error_handler.js';
 import { createRuleLimiter, clientIp } from '../middlewares/rate_limiters.js';
 import { syncMqttAclOrThrow } from '../mqtt_acl_sync.js';
+import { ensureDeviceMqttCredentialsByUid } from '../services/device_service.js';
 import { normalizeClientIp } from '../services/firmware_manifest_service.js';
 import { isCloudflareIp } from '../security/cloudflare_ranges.js';
 
@@ -347,6 +348,13 @@ companyRouter.post('/api/company/labeled-devices', async (req, res) => {
         error: 'Cihaz veritabanina kaydedilemedi; islemi tekrar deneyin.',
         errorId,
       });
+    }
+
+    try {
+      await ensureDeviceMqttCredentialsByUid(deviceUid);
+      await syncMqttAclOrThrow({ reason: 'company_device_labeled' });
+    } catch (_credErr) {
+      // Cihaz satiri olusturuldu; ACL/MQTT kimlik bilgileri sonraki adimda tamamlanabilir.
     }
 
     ensureDirectoryExists(qrcodesRoot);

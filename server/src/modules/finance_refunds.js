@@ -25,6 +25,7 @@ import { fingerprintOf, formatMinor, objectOf, queryEnum, queryId, queryInt, req
 import { resolveOpenPeriod } from './finance_4b_guard.js';
 import { lockAccountRows } from './finance_accounts.js';
 import {
+  FINANCE_MODULE,
   REASON_MAX,
   apartmentNotFound,
   idempotencyConflict,
@@ -45,8 +46,10 @@ import { RECEIPT_TEMPLATE_VERSION, receiptSecret, snapshotHash, verificationCode
 import { enabledFinanceSites, loadResidentLedger, loadVisibleAccounts, rowsOfView, viewSinceOf } from './finance_read_service.js';
 import { residentEntryOf, residentView } from './finance_resident_view.js';
 import { isPeriodClosed, lockActorRow, recordFinanceAudit, withFinanceTransaction } from './finance_tx.js';
+import { isModuleEnabled } from './module_service.js';
 import { apartmentLabel, parsePositiveId, toIso } from './people_common.js';
 import { syncUserPeopleSafe } from './people_sync.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 
 export const REFUND_STATUSES = Object.freeze(['requested', 'approved', 'rejected', 'cancelled', 'reversed']);
 export const REFUND_DEFINITION_NAME = 'Alacak iadesi';
@@ -377,6 +380,7 @@ export async function createMyRefundRequest(authUser, body) {
 export async function listMyRefundRequests(authUser, query = {}) {
   const userCode = userCodeOf(authUser);
   if (userCode === null) return { items: [] };
+  if (!(await isModuleActiveOnPlatform(FINANCE_MODULE))) return { items: [] };
   const apartmentId = query.apartment_id === undefined ? null : parsePositiveId(query.apartment_id);
   const result = await pool.query(
     `${REFUND_SELECT} WHERE r.requested_by = $1 AND r.requested_by_kind = 'resident' AND ($2::BIGINT IS NULL OR r.apartment_id = $2) ORDER BY r.id DESC LIMIT 50`,
@@ -393,6 +397,7 @@ export async function cancelMyRefundRequest(authUser, rawId) {
   const head = await pool.query(`SELECT site_code, apartment_id FROM finance_refunds WHERE id = $1 AND requested_by = $2 AND requested_by_kind = 'resident'`, [id, userCode]);
   if (!head.rows?.[0]) throw refundNotFound();
   const siteCode = Number(head.rows[0].site_code);
+  if (!(await isModuleEnabled(siteCode, FINANCE_MODULE))) throw moduleDisabled();
   const actorInfo = actorFromAuthUser(authUser);
   return withFinanceTransaction(siteCode, async (client) => {
     await lockApartment(client, siteCode, Number(head.rows[0].apartment_id));

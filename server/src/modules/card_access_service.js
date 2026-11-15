@@ -9,6 +9,7 @@
 import { pool } from '../db.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { escapeLike, foldSql, foldText, parsePositiveId } from './people_common.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import {
   CARD_ACCESS_MODULE,
   accountDeleted,
@@ -195,6 +196,7 @@ export async function listMyAccessCards(authUser, query) {
   const { siteCode } = parseResidentListQuery(query);
   const userCode = actorFromAuthUser(authUser).userCode;
   if (userCode === null) throw accountDeleted();
+  if (!(await isModuleActiveOnPlatform(CARD_ACCESS_MODULE))) return { items: [] };
   const params = [userCode];
   let siteSql = '';
   if (siteCode !== null) {

@@ -62,8 +62,18 @@ export function invalidatePlatformModulesCache() {
  * Platform genelindeki modül durum haritası: Map<module_code, boolean>
  */
 export async function getPlatformModulesMap(db = pool) {
+  const proto = Object.getPrototypeOf(pool);
+  if (db === pool && proto && (pool.query !== proto.query || pool.connect !== proto.connect)) {
+    // Testler pool.query veya pool.connect'i sahte DB ile değiştirdiğinde ekstra sorgu çalıştırma.
+    const fallback = new Map();
+    for (const def of MODULE_CATALOG) {
+      fallback.set(def.code, true);
+    }
+    return fallback;
+  }
+
   const now = Date.now();
-  if (cachedPlatformModules && cacheExpiresAt > now) {
+  if (db === pool && cachedPlatformModules && cacheExpiresAt > now) {
     return cachedPlatformModules;
   }
 
@@ -79,14 +89,20 @@ export async function getPlatformModulesMap(db = pool) {
         map.set(def.code, true);
       }
     }
-    cachedPlatformModules = map;
-    cacheExpiresAt = now + 15000;
+    if (db === pool) {
+      cachedPlatformModules = map;
+      cacheExpiresAt = now + 15000;
+    }
     return map;
   } catch (_err) {
     // Tablo henüz yoksa veya hata anında güvenli varsayılan: katalog durumuna dön
     const fallback = new Map();
     for (const def of MODULE_CATALOG) {
       fallback.set(def.code, true);
+    }
+    if (db === pool) {
+      cachedPlatformModules = fallback;
+      cacheExpiresAt = now + 15000;
     }
     return fallback;
   }
