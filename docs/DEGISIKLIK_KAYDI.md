@@ -448,6 +448,23 @@ Geri dönüş, yeni veri kaybına neden olacak veritabanı restorasyonu anlamın
 
 Windows yayını SSH erişimi doğrulandıktan sonra hazırlanmış paketle sürdürülebilir; Android üretim yayını mevcut yayın anahtarını gerektirir. Uzak geçici test/dağıtım klasörlerinin temizliği de SSH erişimi sonrası kontrollü yapılacaktır. Bu dosya mevcut yayın/engel durumunu kaynaklardan ayrı ve açıkça kaydeder.
 **Android derleme doğrulaması:** Android debug `1.0.2+3` derlemesi SDK 37 / Kotlin 2.3.20 / AGP 8.11.1 ile başarılı oldu (596,3 saniye). Bu bir test paketidir; mevcut üretim imzasını taşımadığı için canlı APK'nin yerine konmadı ve telefona kurulmadı. Derleme için ek Android kaynak/Gradle sürüm değişikliği gerekmedi.
+## 2026-11-15 — Bireysel Kapılar Erişimi, Site Kapsamı, Modül Filtresi ve Eski Ağ Yanıtı Yarışı Koruması
+
+- **Kompakt Menü Eşlemesi (`lib/ui/helpers/menu_layout.dart`):** `menuModuleCodes` haritasından `SirketMenuItem.kapilar`, `ellerSerbest`, `kayitliCihazlar` ve `bluetoothWifiKur` satırları temizlendi. Kompakt menü (`menu_layout`) geçiş kontrolü öğelerini kapsamaz; bu öğeler doğrudan `doorControlMenuItems` kümesiyle yönetilir. Böylece sitenin özel `menu_layout` konfigürasyonunda `door_control` olmasa dahi Kapılar menüsünün gizlenmesi engellendi.
+- **Bireysel Kapılar Erişimi (`lib/ui/pages/home_page.dart`):** `_isModuleEnabledForCurrentSite` içinde `PlatformModuleCodes.doorControl` için `!_isDoorControlClosed(session)` kontrolü getirildi. Site üyeliği bulunmayan (`my-modules` boş / `sites: []`) fakat izinli kapısı/cihazı bulunan bireysel hesaplarda `anyEnabled('door_control')` false döndüğü için menünün kaybolması hatası giderildi.
+- **Süper Kullanıcı Çekmece & Kapılar Erişimi (`lib/ui/pages/home_page.dart`):** `_extraMenuItems` ve `_hiddenMenuItems` içinde süper kullanıcı rolü için `SirketMenuItem.kapilar` öğesinin çekmeceden gizlenmesi önlendi. Seçili sitede geçiş kontrolü kapalı olduğunda `DoorControlDisabledCard` açılır; süper kullanıcının `Kapılar` ekranına erişimi ve `Site Yönetimi` ile `Kapılar` arasında serbestçe geçişi korundu.
+- **Süper Kullanıcı Site Kapsamı Takibi (`lib/ui/pages/home_page.dart`):** `_currentSuperSiteId` getter'ı ve `_activeSuperSiteId` alanı eklendi. Süper kullanıcı `Site Yönetimi` ekranındayken `_selectedSite`, `Kapılar` ekranındayken `_doorControlSite` ve genel seçimlerde aktif site ID'si izlenir. A ve B siteleri arasında geçiş yapıldığında sol menü önceki sitenin modül kapsamında takılı kalmaz.
+- **Platform Modülleri Filtresi & Ayrıntı Eşleşmesi (`lib/ui/views/platform_modules_view.dart`):** `_syncSelectionWithFilter` yardımcısı tanımlandı. `Devreye Alınmamış` (`inactive`) filtresindeyken bir modül devreye alındığında veya filtre değiştirildiğinde, sağ detay paneli otomatik olarak soldaki filtrede kalan geçerli bir modüle geçer; filtre dışı modülün sağda asılı kalması engellendi.
+- **Ters Sırada Dönen Ağ Yanıtı Yarışı (Race Condition) Koruması (`lib/ui/views/platform_modules_view.dart`):** `_requestGeneration` ve `_toggleGeneration` sayaçları entegre edildi. `_toggleModule` çağrıldığında jenerasyon artırılarak, işlemden önce başlamış ve gecikmeli dönen eski `loadData()` ağ yanıtlarının güncel modül durumunu geri alması engellendi.
+- **Test ve Doğrulama:**
+  - `test/screens/unaffiliated_home_page_test.dart`: Site üyeliği olmayan fakat izinli kapısı bulunan bireysel hesapta Kapılar görünümü ve yalnızca yetkili kapının listelenmesi doğrulandı (3/3 geçti).
+  - `test/screens/modules_home_page_test.dart`: Süper kullanıcıda farklı modülleri açık A ve B siteleri seçilip Kapılar ve Site Yönetimi arasında geçildiğinde menünün aktif site kapsamını izlediği doğrulandı.
+  - `test/screens/platform_modules_view_test.dart`: Devreye alınmamış modül filtresi detay senkronizasyonu ve ters sırada dönen ağ yanıtı yarış koruması doğrulandı (8/8 geçti).
+  - `test/module_access_test.dart`, `test/screens/menu_layout_home_page_test.dart`, `test/screens/home_navigation_test.dart`, `test/screens/home_shortcut_test.dart`, `test/screens/yan_menu_compact_test.dart`: Tüm ilgili test paketleri çalıştırıldı (189/189 geçti).
+  - `flutter analyze`: 0 hata, 0 uyarı ("No issues found!").
+
+---
+
 ## 2026-11-15 — ortak güncellemelerin incelenmesi ve alınması
 
 - `8c9ab418` üzerine arkadaşımızın `f61bf9aa` sürümüne kadar yaptığı 24 commit / 130 dosya değişikliği `git pull --rebase origin main` ile çakışmasız ileri taşındı. Origin geçmişi korunur; upstream'deki farklı hashler 7–10 Kasım geçmişidir ve yeniden körlemesine birleştirilmedi. `output/` ve `tmp/` yerel dosyaları korundu.

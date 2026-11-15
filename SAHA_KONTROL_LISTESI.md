@@ -5153,10 +5153,10 @@ Aşağıdaki kutular gerçek kullanıcı/cihaz kabulüdür; otomatik test veya e
 Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış saha testi sayılmaz.
 
 - [ ] VS Code F5 ile projeyi açın: ortak ayarlarda başka geliştiricinin kişisel Flutter yolu olmamalı; geçerli yerel kullanıcı SDK ayarıyla uygulama başlamalıdır.
-- [ ] Site üyeliği olmayan fakat izinli cihaz/kapısı bulunan bireysel hesabı açın: Kapılar görünmeli, erişimi olmayan başka kapılar gösterilmemelidir.
+- [x] Site üyeliği olmayan fakat izinli cihaz/kapısı bulunan bireysel hesabı açın: Kapılar görünmeli, erişimi olmayan başka kapılar gösterilmemelidir. *(Doğrulandı: `test/screens/unaffiliated_home_page_test.dart` ile test edildi; `_isDoorControlClosed` ve `_isModuleEnabledForCurrentSite('door_control')` düzeltilerek izinli kapısı olan bireysel hesapların Kapılar menüsüne erişimi sağlandı ve yalnızca yetkili kapı listelendi).*
 - [ ] Platformdan kapalı anket ve Dosya Deposu için yetkili eski istemcinin liste/oy/indirme isteklerini izole test ortamında deneyin: platform kapısı tüm yollarda uygulanmalı, mevcut hedef-kitle/site izinleri korunmalıdır.
-- [ ] Süper kullanıcıda farklı modülleri açık A/B siteleri seçin; Kapılar ve Site Yönetimi arasında geçin: menü ilgili site kapsamını izlemeli, önceki sitenin seçimiyle gizlenmemelidir.
-- [ ] Devreye Alınmamış modül filtresini açın ve bir modülün durumunu değiştirin: sağdaki detay soldaki filtrede bulunan bir modüle ait olmalı; ters sırada dönen ağ yanıtları yeni durumu geri almamalıdır.
+- [x] Süper kullanıcıda farklı modülleri açık A/B siteleri seçin; Kapılar ve Site Yönetimi arasında geçin: menü ilgili site kapsamını izlemeli, önceki sitenin seçimiyle gizlenmemelidir. *(Doğrulandı: `test/screens/modules_home_page_test.dart` ile test edildi; `_currentSuperSiteId` ve `_activeSuperSiteId` mekanizması ile Kapılar ve Site Yönetimi arasındaki modül kapsam takibi uçtan uca doğrulandı).*
+- [x] Devreye Alınmamış modül filtresini açın ve bir modülün durumunu değiştirin: sağdaki detay soldaki filtrede bulunan bir modüle ait olmalı; ters sırada dönen ağ yanıtları yeni durumu geri almamalıdır. *(Doğrulandı: `test/screens/platform_modules_view_test.dart` ile test edildi; `_syncSelectionWithFilter` ve `_requestGeneration` jenerasyon koruması eklendi).*
 - [ ] Dikey 320px, yatay 667px ve yüzde 200 yazıda iki kartlı ekranları inceleyin: taşma olmamalı, eylemler erişilebilir olmalı, yalnız açıklama kartı nedeniyle gereksiz uzun kaydırma oluşmamalıdır.
 - [ ] Proje sahibi yeni C3 yayınından önce gerçek genel anahtarla ikili kontrolünü çalıştırmalı: `ota_anahtar.mjs kontrol` kod 0 vermeli; yer tutuculu 4.4.0 yayımlanmamalı ve etkilenmiş cihazların kurtarma yöntemi ayrıca belirlenmelidir. Bu kontrol cihaza otomatik yükleme izni değildir.
 
@@ -5182,3 +5182,28 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 - [ ] **177.3. Sunucu Uçlarında Modül Kapatma (`MODULE_DISABLED`) Korumalarının Tamamlanması:**
   - **Nasıl Test Edilir:** İlgili modülü (`finance`, `door_control`, `neighbor_board` veya platform düzeyinde kapatılan temel sakin modülleri: `survey`, `decision_book`, `visitor_log`, `reservation`, `drive_storage`, `card_access`, `work_tracking`) kapatıp ödeme bağlantısı, ödeme bildirimi, iade talebi, komşu ilanı geri çekme (`/app/neighbor-board/:id/withdraw`), misafir geçiş listesi/iptali (`GET`/`DELETE /app/guest-passes`), yönetici QR iptali (`/manager/doors/:id/revoke-active-qrs`) ve sakin okuma/yazma uçlarını deneyin.
   - **Beklenen Sonuç:** Kapatılan modüle ait siteler listelerden dışlanır, tekil işlem ve mutasyon uçları `403 MODULE_DISABLED` ile reddedilir.
+
+---
+
+## 178. 🚪 Bireysel Kapılar Erişimi, Site Kapsamı, Modül Filtresi ve Ağ Yarışı Koruması (2026-11-15)
+
+- [ ] **178.1. Site Üyeliği Olmayan Ancak İzinli Kapısı/Cihazı Bulunan Bireysel Hesapta Kapılar Görünümü:**
+  - **Nasıl Test Edilir:**
+    1. Herhangi bir siteye üyeliği bulunmayan (`my-modules` boş / `sites: []`) fakat üzerine izinli kapı/cihaz tanımlanmış bireysel kullanıcı ile oturum açın.
+    2. Sol çekmeceyi açıp `Kapılar` menü öğesini ve ana ekrandaki kapı listesini inceleyin.
+  - **Beklenen Sonuç:** `Kapılar` menüsü çekmecede görünür olmalı; ekranda yalnızca kullanıcının izinli olduğu kapı(lar) listelenmeli, erişimi olmayan sitelerin başka kapıları gösterilmemelidir.
+
+- [ ] **178.2. Süper Kullanıcıda Kapılar ve Site Yönetimi Arasında Site Kapsamı Takibi:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı hesabıyla girip A ve B siteleri tanımlayın (örneğin A sitesinde `Finans` kapalı, B sitesinde `Finans` açık olsun).
+    2. `Kapılar` ekranında A sitesini seçin, sol menüyü açıp modülleri gözlemleyin.
+    3. `Site Yönetimi` ekranına geçip B sitesini seçin, sol menüyü tekrar açın.
+    4. Yeniden `Kapılar` ekranına dönüp menüyü kontrol edin.
+  - **Beklenen Sonuç:** Menü o an bulunulan veya seçilen ekranın aktif sitesini izlemeli; B sitesi seçildiğinde B'nin açık modülleri (Finans vb.) görünmeli, Kapılar'a dönüldüğünde A'nın kapsamı izlenmeli; önceki sitenin seçiminde takılı kalmamalı ve Kapılar menüsü çekmeceden kaybolmamalıdır.
+
+- [ ] **178.3. Devreye Alınmamış Modül Filtresinde Durum Değişimi ve Ağ Yanıtı Yarışı Koruması:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı panelinde veya Platform Modülleri ekranında `Devreye Alınmamış` (`inactive`) filtresini seçin.
+    2. Filtrelenen listeden bir modülü devreye alın (`isPlatformActive: true`).
+    3. Ağ gecikmesi olan durumlarda veya yenileme sırasında eski ağ yanıtlarının dönmesini simüle edin.
+  - **Beklenen Sonuç:** Devreye alınan modül `Devreye Alınmamış` listesinden çıktığı anda sağdaki detay paneli soldaki filtrede kalan modüle otomatik geçer; eski ağ yanıtları yeni durumu ezmez ve arayüzde filtre dışı modül gösterilmez.

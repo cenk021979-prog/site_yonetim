@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/platform_module.dart';
@@ -5,6 +7,28 @@ import 'package:site_kapi_kontrol/ui/views/platform_modules_view.dart';
 
 import '../design/harness.dart';
 import 'modules_fixtures.dart';
+
+class _DelayedPlatformAuth extends ModulesFakeAuth {
+  _DelayedPlatformAuth({
+    required List<PlatformModule> initialModules,
+    required this.staleFuture,
+  }) {
+    platformModules = List<PlatformModule>.from(initialModules);
+  }
+
+  final Future<List<PlatformModule>> staleFuture;
+  bool _firstCall = true;
+
+  @override
+  Future<List<PlatformModule>> getPlatformModules() async {
+    if (_firstCall) {
+      _firstCall = false;
+      // İlk istek (loadData) gecikmeli ağ cevabı simüle eder
+      return staleFuture;
+    }
+    return List<PlatformModule>.from(platformModules ?? const <PlatformModule>[]);
+  }
+}
 
 List<PlatformModule> _sampleModules() => <PlatformModule>[
       const PlatformModule(
@@ -147,6 +171,76 @@ void main() {
       expect(find.text('Modül Listesi (4 Modül)'), findsOneWidget);
       expect(find.text('Kişi ve Daire Kayıtları Yönetimi'), findsOneWidget);
       expect(t.takeException(), isNull);
+    });
+
+    testWidgets('Devreye Alınmamış modül filtresinde durum değişince sağdaki detay filtredeki modüle geçer', (t) async {
+      final auth = ModulesFakeAuth()..platformModules = _sampleModules();
+      await _pumpView(t, auth: auth, width: 1200, height: 800);
+
+      // Devre Dışı (Devreye Alınmamış) filtresini seç
+      await t.tap(find.text('Devre Dışı (2)'));
+      await t.pumpAndSettle();
+
+      // İlk seçili olan: door_control (Geçiş Kontrol)
+      expect(find.text('Geçiş Kontrol (SmartKeyPass) Yönetimi'), findsOneWidget);
+
+      // door_control modülünü Devreye Al
+      expect(find.text('Modülü Devreye Al'), findsOneWidget);
+      await t.tap(find.text('Modülü Devreye Al'));
+      await t.pumpAndSettle();
+
+      // door_control filtre dışına çıktı, kalan tek modül: plate_recognition (Plaka Tanıma)
+      // Sağ detay paneli artık filtrede kalan modülü (Plaka Tanıma) göstermeli, door_control'de kalmamalıdır
+      expect(find.text('Plaka Tanıma ve Kapı Açma Yönetimi'), findsOneWidget);
+      expect(find.text('Modül Kodu: plate_recognition'), findsOneWidget);
+    });
+
+    testWidgets('ters sırada dönen eski ağ yanıtı güncel modül durumunu geri almaz', (t) async {
+      final modules = _sampleModules();
+      final staleList = List<PlatformModule>.from(modules);
+      final completer = Completer<List<PlatformModule>>();
+
+      // İlk istek (yükleme) bekletilsin
+      final auth = _DelayedPlatformAuth(
+        initialModules: modules,
+        staleFuture: completer.future,
+      );
+
+      // View'ı pump et ama ilk yükleme tamamlanmadan önce UI'ı çizdir
+      await pumpAt(
+        t,
+        SingleChildScrollView(
+          child: PlatformModulesView(authService: auth),
+        ),
+        width: 1200,
+        height: 800,
+      );
+      await t.pump();
+
+      // View state'ine doğrudan erişip ilk yükleme dönmeden bir toggle başlatalım
+      final state = t.state<PlatformModulesViewState>(find.byType(PlatformModulesView));
+      // State'te başlangıç listesi verip toggle çağıralım
+      state.setStateForTesting(() {
+        state.setModulesForTesting(List<PlatformModule>.from(modules));
+      });
+      await t.pumpAndSettle();
+
+      // people modülünü pasife al
+      expect(find.text('Modülü Pasife Al'), findsOneWidget);
+      await t.tap(find.text('Modülü Pasife Al'));
+      await t.pumpAndSettle();
+
+      // Artık people 'Devre Dışı' oldu
+      var peopleCard = find.byKey(const ValueKey('module_card_people'));
+      expect(find.descendant(of: peopleCard, matching: find.text('Devre Dışı')), findsOneWidget);
+
+      // Şimdi ilk baştaki geciken eski loadData cevabı geç gelsin (stale response)
+      completer.complete(staleList);
+      await t.pumpAndSettle();
+
+      // Yeni durum (pasife alınmış) korunmalı, eski devrede durumuyla ezilmemelidir
+      peopleCard = find.byKey(const ValueKey('module_card_people'));
+      expect(find.descendant(of: peopleCard, matching: find.text('Devre Dışı')), findsOneWidget);
     });
 
     testWidgets('küçük ekranda (320x640 x2.0) taşma hatası oluşmaz (Kural 6)', (t) async {

@@ -576,6 +576,19 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoadingSites = false;
 
   SiteRecord? _selectedSite;
+  int? _activeSuperSiteId;
+
+  int? get _currentSuperSiteId {
+    if (_selectedMenu == SirketMenuItem.siteler ||
+        _selectedMenu == SirketMenuItem.daireKullanicilariYonetimi) {
+      return _selectedSite?.id ?? _activeSuperSiteId ?? _doorControlSite?.id;
+    }
+    if (_selectedMenu == SirketMenuItem.kapilar ||
+        _selectedMenu == SirketMenuItem.ellerSerbest) {
+      return _doorControlSite?.id ?? _activeSuperSiteId ?? _selectedSite?.id;
+    }
+    return _activeSuperSiteId ?? _selectedSite?.id ?? _doorControlSite?.id;
+  }
 
   SiteStructureRecord? _selectedSiteStructure;
 
@@ -1171,7 +1184,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         hasDoors: _hasResidentSignal,
       ),
     };
-    if (session != null && _isDoorControlClosed(session)) {
+    if (session != null &&
+        session.role != UserRole.superUser &&
+        _isDoorControlClosed(session)) {
       hidden.addAll(doorControlMenuItems);
     }
     for (final entry in menuModuleCodes.entries) {
@@ -1340,8 +1355,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   Set<SirketMenuItem> _extraMenuItems(UserRole role) {
     final session = widget.authService.session;
     return <SirketMenuItem>{
-      // Kapı paneli: Geçiş Kontrol açıkken görünür; kapalıyken tüm kullanıcılar için gizlenir.
-      if (session == null || !_isDoorControlClosed(session)) SirketMenuItem.kapilar,
+      // Kapı paneli: Süper kullanıcıda her zaman görünür (kapalıysa DoorControlDisabledCard gösterilir);
+      // diğer kullanıcılarda Geçiş Kontrol açıkken görünür, kapalıyken gizlenir.
+      if (session == null ||
+          session.role == UserRole.superUser ||
+          !_isDoorControlClosed(session))
+        SirketMenuItem.kapilar,
       if (_canAccessDairem(role)) SirketMenuItem.dairem,
       if (_canAccessEmergency(role)) SirketMenuItem.acilDurum,
       if (_moduleAccess.boardMemberSites.isNotEmpty && _isModuleEnabledForCurrentSite(PlatformModuleCodes.people)) SirketMenuItem.kisiler,
@@ -2511,7 +2530,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Süper kullanıcı için seçili sitenin tüm modül durumlarını çeker ve önbelleğe alır.
   Future<void> _loadSuperSiteModules([int? siteId]) async {
     if (widget.authService.session?.role != UserRole.superUser) return;
-    final id = siteId ?? _doorControlSite?.id ?? _selectedSite?.id;
+    final id = siteId ?? _currentSuperSiteId;
     if (id == null) return;
     try {
       final state = await widget.authService.getSiteModules(id);
@@ -2531,12 +2550,12 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// TÜM sitelerde (veya seçili kapsamda) kapalı. Süper kullanıcıda: seçili sitede kapalı.
   bool _isDoorControlClosed(UserSession session) {
     if (session.role == UserRole.superUser) {
-      final site = _doorControlSite ?? _selectedSite;
-      if (site != null) {
-        if (_superDoorEnabled[site.id] != null) {
-          return !_superDoorEnabled[site.id]!;
+      final siteId = _currentSuperSiteId;
+      if (siteId != null) {
+        if (_superDoorEnabled[siteId] != null) {
+          return !_superDoorEnabled[siteId]!;
         }
-        if (widget.authService.isDoorControlClosed(site.id)) {
+        if (widget.authService.isDoorControlClosed(siteId)) {
           return true;
         }
       }
@@ -2556,26 +2575,44 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final session = widget.authService.session;
     if (session == null) return true;
 
+    if (moduleCode == PlatformModuleCodes.doorControl) {
+      if (session.role == UserRole.superUser) return true;
+      return !_isDoorControlClosed(session);
+    }
+
     if (session.role == UserRole.superUser) {
-      final siteId = _doorControlSite?.id ?? _selectedSite?.id;
+      final siteId = _currentSuperSiteId;
       if (siteId != null) {
-        if (moduleCode == PlatformModuleCodes.doorControl) {
-          if (_superDoorEnabled[siteId] != null) {
-            return _superDoorEnabled[siteId]!;
-          }
-          if (widget.authService.isDoorControlClosed(siteId)) {
-            return false;
-          }
-        }
         final state = _superSiteModules[siteId];
         if (state != null) {
           final m = state.module(moduleCode);
           if (m != null) {
-            return m.enabled && m.isPlatformActive;
+            if (!m.isPlatformActive) return false;
+            if (m.status == 'available') return m.enabled;
+            return m.core;
           }
         }
       }
-      return PlatformModule.defaultEnabled(moduleCode);
+      return true;
+    }
+
+    if (!_moduleAccess.isFiltering) {
+      return true;
+    }
+
+    final isImplicitCore = moduleCode == PlatformModuleCodes.people ||
+        moduleCode == PlatformModuleCodes.announcements;
+    if (isImplicitCore) {
+      final sites = _moduleAccess.result?.sites ?? const <MySiteModules>[];
+      if (sites.isEmpty) return false;
+      if (_moduleAccess.scopeSiteCode != null) {
+        final site = sites
+            .where((s) => s.siteCode == _moduleAccess.scopeSiteCode!)
+            .firstOrNull;
+        if (site == null) return true;
+        return site.modules[moduleCode] != false;
+      }
+      return sites.any((s) => s.modules[moduleCode] != false);
     }
 
     if (_moduleAccess.scopeSiteCode != null) {
@@ -3210,12 +3247,24 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     switch (item) {
       case SirketMenuItem.dashboard:
       case SirketMenuItem.kapilar:
+        if (_doorControlSite != null) {
+          _activeSuperSiteId = _doorControlSite!.id;
+          if (session.role == UserRole.superUser) {
+            unawaited(_loadSuperSiteModules(_doorControlSite!.id));
+          }
+        }
         _loadDoorControlSites();
 
         break;
 
       case SirketMenuItem.siteler:
       case SirketMenuItem.daireKullanicilariYonetimi:
+        if (_selectedSite != null) {
+          _activeSuperSiteId = _selectedSite!.id;
+          if (session.role == UserRole.superUser) {
+            unawaited(_loadSuperSiteModules(_selectedSite!.id));
+          }
+        }
         _loadSites(force: true);
         if (_selectedSite != null) {
           unawaited(_reloadSiteStructure(_selectedSite!.id));
@@ -3304,6 +3353,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           // Seçili nesneyi yeni listedeki kayıtla DEĞİŞTİR: güncelleme sonrası eski alanlar
           // (politika, ad vb.) ekranda kalmasın.
           _selectedSite = currentInList;
+          _activeSuperSiteId ??= currentInList.id;
           refreshManagersOnly = true;
         }
       });
@@ -3311,6 +3361,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (siteToSelect != null) {
         unawaited(_selectSite(siteToSelect!));
       } else if (refreshManagersOnly && _selectedSite != null) {
+        if (widget.authService.session?.role == UserRole.superUser) {
+          unawaited(_loadSuperSiteModules(_selectedSite!.id));
+        }
         unawaited(_loadSiteManagers(_selectedSite!.id));
         if (force) {
           unawaited(_reloadSiteStructure(_selectedSite!.id));
@@ -3354,6 +3407,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     final token = ++_siteSelectionToken;
     setState(() {
       _selectedSite = site;
+      _activeSuperSiteId = site.id;
       _selectedSiteStructure = null;
       _selectedSiteManagersData = null;
       _isLoadingSiteStructure = true;
@@ -3361,7 +3415,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     });
 
     unawaited(_loadSiteManagers(site.id));
-    unawaited(_loadSuperSiteModules(site.id));
+    if (widget.authService.session?.role == UserRole.superUser) {
+      unawaited(_loadSuperSiteModules(site.id));
+    }
 
     final (structure, error) = await widget.authService.getSiteStructure(
       siteCode: site.id,
@@ -3502,6 +3558,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                       selectable.any((s) => s.id == _doorControlSite!.id)
                   ? _doorControlSite!.id
                   : selectable.first.id);
+          _activeSuperSiteId ??= siteToSelect;
         } else {
           _doorControlSite = null;
           _doorControlStructure = null;
@@ -3540,6 +3597,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
     setState(() {
       _doorControlSite = site;
+      _activeSuperSiteId = site.id;
       _doorControlStructure = null;
       _doorControlDoor = null;
       _doorRuntimeStatus = null;

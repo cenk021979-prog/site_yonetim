@@ -39,9 +39,23 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   bool _loading = false;
   String? _error;
   final Set<String> _busyCodes = <String>{};
+  int _requestGeneration = 0;
+  int _toggleGeneration = 0;
 
   String _filter = 'all'; // 'all', 'active', 'inactive', 'core', 'optional'
   String? _selectedCode;
+
+  @visibleForTesting
+  void setModulesForTesting(List<PlatformModule> modules) {
+    _modules = modules;
+    _loading = false;
+    _syncSelectionWithFilter(modules);
+  }
+
+  @visibleForTesting
+  void setStateForTesting(VoidCallback fn) {
+    setState(fn);
+  }
 
   @override
   void initState() {
@@ -54,7 +68,30 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     unawaited(loadData());
   }
 
+  @override
+  void didUpdateWidget(PlatformModulesView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.showOnlyActive != oldWidget.showOnlyActive) {
+      if (widget.showOnlyActive == true) {
+        _filter = 'active';
+      } else if (widget.showOnlyActive == false) {
+        _filter = 'inactive';
+      } else {
+        _filter = 'all';
+      }
+      _syncSelectionWithFilter();
+    }
+  }
+
+  void _syncSelectionWithFilter([List<PlatformModule>? source]) {
+    final filtered = _applyFilter(source ?? _modules ?? const <PlatformModule>[], _filter);
+    if (_selectedCode == null || !filtered.any((m) => m.code == _selectedCode)) {
+      _selectedCode = filtered.isNotEmpty ? filtered.first.code : null;
+    }
+  }
+
   Future<void> loadData() async {
+    final gen = ++_requestGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -62,16 +99,14 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
 
     try {
       final list = await widget.authService.getPlatformModules();
-      if (!mounted) return;
+      if (!mounted || gen != _requestGeneration) return;
       setState(() {
         _modules = list;
         _loading = false;
-        if (_selectedCode == null || !list.any((m) => m.code == _selectedCode)) {
-          _selectedCode = list.isNotEmpty ? list.first.code : null;
-        }
+        _syncSelectionWithFilter(list);
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || gen != _requestGeneration) return;
       setState(() {
         _error = e is ApiException ? e.message : 'Platform modülleri yüklenemedi.';
         _loading = false;
@@ -83,10 +118,13 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
     final code = module.code;
     if (_busyCodes.contains(code)) return;
 
+    final toggleGen = ++_toggleGeneration;
+    ++_requestGeneration;
+
     setState(() => _busyCodes.add(code));
     try {
       await widget.authService.setPlatformModuleActive(code, isActive);
-      if (!mounted) return;
+      if (!mounted || toggleGen != _toggleGeneration) return;
       AppSnack.show(
         context,
         isActive
@@ -95,9 +133,31 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
         kind: AppSnackKind.success,
       );
       widget.onChanged?.call();
+      if (_modules != null) {
+        final idx = _modules!.indexWhere((m) => m.code == code);
+        if (idx != -1) {
+          final old = _modules![idx];
+          _modules![idx] = PlatformModule(
+            code: old.code,
+            name: old.name,
+            description: old.description,
+            core: old.core,
+            status: old.status,
+            enabled: old.enabled,
+            toggleable: old.toggleable,
+            canToggle: old.canToggle,
+            requestStatus: old.requestStatus,
+            updatedAt: old.updatedAt,
+            updatedBy: old.updatedBy,
+            recommended: old.recommended,
+            isPlatformActive: isActive,
+          );
+        }
+      }
+      _syncSelectionWithFilter();
       await loadData();
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || toggleGen != _toggleGeneration) return;
       final msg = e is ApiException ? e.message : 'Modül durumu güncellenemedi.';
       AppSnack.show(context, msg, kind: AppSnackKind.error);
     } finally {
@@ -425,10 +485,7 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
       onTap: () {
         setState(() {
           _filter = key;
-          final updatedFiltered = _applyFilter(modules, key);
-          if (!updatedFiltered.any((m) => m.code == _selectedCode)) {
-            _selectedCode = updatedFiltered.isNotEmpty ? updatedFiltered.first.code : null;
-          }
+          _syncSelectionWithFilter(modules);
         });
       },
       borderRadius: BorderRadius.circular(20),
@@ -635,7 +692,9 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   }) {
     final p = context.palette;
     final isDark = p.isDark;
-    final selected = modules.where((m) => m.code == _selectedCode).firstOrNull;
+    final filtered = _applyFilter(modules, _filter);
+    final selected = filtered.where((m) => m.code == _selectedCode).firstOrNull ??
+        (filtered.isNotEmpty ? filtered.first : null);
 
     return Container(
       decoration: WorkspacePaneCard.paneDecoration(context, tone: AppTone.primary),

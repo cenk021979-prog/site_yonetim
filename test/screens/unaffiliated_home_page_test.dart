@@ -154,5 +154,52 @@ void main() {
         expect(find.byIcon(Icons.settings_rounded), findsOneWidget);
       },
     );
+
+    testWidgets(
+      'site üyeliği olmayan fakat izinli kapısı bulunan bireysel hesap: Kapılar görünür, yalnız izinli kapı listelenir',
+      (t) async {
+        final auth = _UnaffiliatedMockAuth(role: UserRole.individual);
+        auth.sites = [];
+        auth.apartments = [];
+        auth.doors = [
+          DoorRecord.fromJson({
+            'id': 101,
+            'door_name': 'İzinli Otopark Kapısı',
+            'site_code': 1,
+            'site_name': 'Mavi Site',
+            'door_index': 1,
+            'is_active': true,
+            'assigned_device_id': 1,
+            'assigned_device_uid': 'DEV-101',
+            'mqtt_site_id': 1,
+            'created_at': '2026-01-01T00:00:00Z',
+          }),
+        ];
+
+        await _pumpApp(t, auth);
+
+        // Bireysel kullanıcının izinli kapısı olduğundan bağsız (Unaffiliated) sayılmaz
+        expect(find.byType(JoinAndSetupView), findsNothing);
+
+        // Çekmece düğmesi (hamburger) mevcut olmalı
+        expect(find.byType(DrawerButton), findsOneWidget);
+
+        // Sol çekmeceyi aç
+        await t.tap(find.byType(DrawerButton));
+        await t.pumpAndSettle();
+
+        // Kapılar menü öğesi çekmecede görünür olmalı ve seçilebilmeli
+        final kapilarTile = find.descendant(of: find.byType(Drawer), matching: find.text('Kapılar'));
+        expect(kapilarTile, findsOneWidget);
+
+        // Kapılar sayfasına git
+        await t.tap(kapilarTile);
+        await t.pumpAndSettle();
+
+        // İzinli olan kapı görünmeli, erişimi olmayan başka kapı görünmemelidir
+        expect(find.text('İzinli Otopark Kapısı'), findsOneWidget);
+        expect(find.text('Başka Kapı'), findsNothing);
+      },
+    );
   });
 }

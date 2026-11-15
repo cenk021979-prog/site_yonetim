@@ -13,10 +13,6 @@ import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 /// Menü öğesinin YETENEĞİ = sunucu modül kodu. Eşlemesi olmayan öğe (Panel, Dairem, Site Yönetimi, Daireye Katıl, Yeni Site ve
 /// bütün hesap / ayar öğeleri) modüle bağlı olmayan sabit öğedir.
 const Map<SirketMenuItem, String> menuModuleCodes = <SirketMenuItem, String>{
-  SirketMenuItem.kapilar: PlatformModuleCodes.doorControl,
-  SirketMenuItem.ellerSerbest: PlatformModuleCodes.doorControl,
-  SirketMenuItem.kayitliCihazlar: PlatformModuleCodes.doorControl,
-  SirketMenuItem.bluetoothWifiKur: PlatformModuleCodes.doorControl,
   SirketMenuItem.kisiler: PlatformModuleCodes.people,
   SirketMenuItem.plakaTanima: PlatformModuleCodes.plateRecognition,
   SirketMenuItem.odemeKamera: PlatformModuleCodes.plateCameras,

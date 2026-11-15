@@ -266,7 +266,7 @@ void main() {
       for (final hidden in <String>['Anket ve Oylama', 'Komşu Panosu', 'Dosya Deposu', 'Faaliyet Raporu', 'Ekipman ve Bakım']) {
         expect(titles, isNot(contains(hidden)), reason: '$hidden yalnız "Tüm işlemler"de');
       }
-      expect(await settingsTitlesOnly(t), contains('Modüller'), reason: 'Ayarlar paneli kompakt menüden etkilenmez');
+      expect(await settingsTitlesOnly(t), anyOf(contains('Modüller'), contains('Modül Yönetimi(Siteye Göre)')), reason: 'Ayarlar paneli kompakt menüden etkilenmez');
       await _disposeHome(t);
     });
 

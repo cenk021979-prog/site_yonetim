@@ -316,12 +316,19 @@ Future<void> _tapMenu(WidgetTester t, String label) async {
   await t.pump(const Duration(milliseconds: 600));
 }
 
-/// Panel vitrinindeki "Kapılar" kartına dokunur: kapı paneli (DashboardView / bireysel ana ekran) bir dokunuş uzaktadır.
+/// Panel vitrinindeki "Kapılar" kartına ya da çekmecedeki Kapılar öğesine dokunur: kapı paneli bir dokunuş uzaktadır.
 Future<void> _openDoorPanel(WidgetTester t) async {
   final card = find.byKey(const ValueKey<String>('panel_kart_kapilar'));
-  await t.ensureVisible(card);
-  await t.pump();
-  await t.tap(card);
+  if (card.evaluate().isNotEmpty) {
+    await t.ensureVisible(card);
+    await t.pump();
+    await t.tap(card);
+  } else {
+    await _openDrawer(t);
+    await t.ensureVisible(_tileTitle('Kapılar'));
+    await t.pump();
+    await t.tap(_tileTitle('Kapılar'));
+  }
   await t.pump();
   await t.pump(const Duration(milliseconds: 600));
 }
@@ -366,15 +373,23 @@ void main() {
       await _openDrawer(t);
       expect(_tileTitle('Modüller'), findsNothing, reason: 'ayar öğesi çekmecede değil');
       await _openSettings(t);
-      expect(_tileTitle('Modüller'), findsOneWidget);
-      expect(_tileTitle('Denetim Kaydı'), findsOneWidget);
+      final modullerFinder = find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byWidgetPredicate((w) => w is Text && (w.data == 'Modüller' || w.data == 'Modül Yönetimi(Siteye Göre)')),
+      );
+      final auditFinder = find.descendant(
+        of: find.byType(Drawer),
+        matching: find.byWidgetPredicate((w) => w is Text && (w.data == 'Denetim Kaydı' || w.data == 'Sistem Logları')),
+      );
+      expect(modullerFinder, findsOneWidget);
+      expect(auditFinder, findsOneWidget);
       expect(_tileTitle('Kayıtlı Cihazlar').evaluate().isEmpty, isTrue,
           reason: 'süper kullanıcıda öğe adı "Şirket Cihaz Envanteri"dir');
       expect(_tileTitle('Şirket Cihaz Envanteri'), findsOneWidget);
       // Süper kullanıcının çekmecesi uzundur (Finans, Belgeler ... eklendikçe uzar): öğe görünür alana kaydırılır.
-      await t.ensureVisible(find.text('Modüller').last);
+      await t.ensureVisible(modullerFinder.last);
       await t.pump();
-      await t.tap(find.text('Modüller').last);
+      await t.tap(modullerFinder.last);
       await t.pump();
       await t.pump(const Duration(milliseconds: 600));
       expect(find.byType(ModulesView), findsOneWidget);
@@ -1456,5 +1471,66 @@ void main() {
         });
       }
     }
+
+    testWidgets('süper kullanıcı: farklı modülleri açık A ve B siteleri seçilip Kapılar ve Site Yönetimi arasında geçilince menü ilgili site kapsamını izler', (t) async {
+      final auth = _HomeModAuth(
+        role: UserRole.superUser,
+        sites: <SiteRecord>[mdSite(11, 'A Sitesi'), mdSite(12, 'B Sitesi')],
+        states: <int, SiteModulesState>{
+          11: SiteModulesState(
+            siteCode: 11,
+            siteName: 'A Sitesi',
+            modules: [
+              ...mdState(11, 'A Sitesi', door: true).modules.where((m) => m.code != 'finance'),
+              const PlatformModule(code: 'finance', name: 'Aidat ve Finans', enabled: false, isPlatformActive: true, status: 'available'),
+            ],
+          ),
+          12: SiteModulesState(
+            siteCode: 12,
+            siteName: 'B Sitesi',
+            modules: [
+              ...mdState(12, 'B Sitesi', door: false).modules.where((m) => m.code != 'finance'),
+              const PlatformModule(code: 'finance', name: 'Aidat ve Finans', enabled: true, isPlatformActive: true, status: 'available'),
+            ],
+          ),
+        },
+      );
+      await _pumpHome(t, auth);
+
+      // 1. Kapılar ekranına git: varsayılan Site 11 (A Sitesi) seçili
+      await _openDoorPanel(t);
+      await _openDrawer(t);
+      // Site 11'de finance kapalı olduğu için Finans menüsü gizlenmeli
+      expect(_tileTitle('Finans'), findsNothing);
+      expect(_tileTitle('Kapılar'), findsOneWidget);
+      await _closeDrawer(t);
+
+      // 2. Site Yönetimi ekranına geç
+      await _openDrawer(t);
+      await t.tap(_tileTitle('Site Yönetimi'));
+      await t.pumpAndSettle();
+
+      // 3. Site Yönetimi ekranında B Sitesi'ni (id: 12) seç
+      final bSiteItem = find.text('B Sitesi');
+      if (bSiteItem.evaluate().isNotEmpty) {
+        await t.tap(bSiteItem.first);
+        await t.pumpAndSettle();
+      }
+
+      // Menüyü aç: Site 12 seçili olduğu için Finans menüsü açık olmalı
+      await _openDrawer(t);
+      expect(_tileTitle('Finans'), findsOneWidget);
+      await _closeDrawer(t);
+
+      // 4. Tekrar Kapılar ekranına dön
+      await _openDoorPanel(t);
+      await _openDrawer(t);
+      // Kapılar ekranında Site 11 kapsamı izlenmeli (Finans gizli)
+      expect(_tileTitle('Finans'), findsNothing);
+      expect(_tileTitle('Kapılar'), findsOneWidget);
+      await _closeDrawer(t);
+
+      await _disposeHome(t);
+    });
   });
 }

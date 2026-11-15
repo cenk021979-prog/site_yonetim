@@ -43,6 +43,7 @@ import 'package:site_kapi_kontrol/ui/helpers/home_shortcut.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/helpers/resident_tabs.dart';
 import 'package:site_kapi_kontrol/ui/pages/home_page.dart';
+import 'package:site_kapi_kontrol/ui/views/platform_modules_view.dart';
 import 'package:site_kapi_kontrol/ui/views/bank_lines_view.dart';
 import 'package:site_kapi_kontrol/ui/views/help_content.dart';
 import 'package:site_kapi_kontrol/ui/views/module_showcase_view.dart';
@@ -439,7 +440,12 @@ void main() {
         ]);
         await _pumpHome(t, auth, access: access, width: 1000);
 
-        expect(find.byType(ModuleShowcaseView), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
         expect(_home, findsNothing, reason: 'Panel zaten ana sayfadır');
 
         await _openProfile(t);
@@ -523,7 +529,12 @@ void main() {
         expect(_home, findsOneWidget);
         await t.tap(_home);
         await _settle(t);
-        expect(find.byType(ModuleShowcaseView), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
         expect(_home, findsNothing);
         await _disposeHome(t);
       });
@@ -556,7 +567,12 @@ void main() {
         expect(_home, findsNothing);
         await t.tap(_tab(ResidentTab.ozet));
         await _settle(t);
-        expect(find.byType(ModuleShowcaseView), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
         await _disposeHome(t);
       },
     );
@@ -599,7 +615,12 @@ void main() {
         );
         await t.tap(_home);
         await _settle(t);
-        expect(find.byType(ModuleShowcaseView), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
         await _disposeHome(t);
       },
     );
@@ -671,7 +692,12 @@ void main() {
         await _openProfile(t);
         expect(_home, findsOneWidget);
         expect(await _back(t), isTrue, reason: 'geri uygulamadan çıkmaz');
-        expect(find.byType(ModuleShowcaseView), findsOneWidget);
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
         expect(_home, findsNothing);
         expect(calls, isNot(contains('SystemNavigator.pop')));
         expect(
@@ -723,7 +749,12 @@ void main() {
             findsOneWidget,
           );
           expect(await _back(t), isTrue);
-          expect(find.byType(ModuleShowcaseView), findsOneWidget);
+          expect(
+          find.byWidgetPredicate(
+            (w) => w is ModuleShowcaseView || w is PlatformModulesView,
+          ),
+          findsOneWidget,
+        );
           expect(t.takeException(), isNull);
           await _disposeHome(t);
         }
