@@ -473,9 +473,35 @@ export async function recordEdgeEvent(client, body, { writeDoorLog = recordDoorA
   }
 }
 
+/** Yönetici olayında yalnız açıkça belirtilen kamera/kapıyla eşleşen aktif hedefi çözer. Eşleşme yoksa null; başka kapıya düşmez. */
+export async function resolveManagerPlateTarget(db, { siteCode, gateId, cameraId }) {
+  const exactCameraId = Number.isSafeInteger(Number(cameraId)) && Number(cameraId) > 0 ? Number(cameraId) : null;
+  const exactGateId = Number.isSafeInteger(Number(gateId)) && Number(gateId) > 0 ? Number(gateId) : null;
+  if (exactCameraId === null && exactGateId === null) return null;
+  const result = await db.query(
+    `SELECT g.id, g.door_id, g.name AS gate_name,
+            COALESCE(g.device_uid, d.device_uid) AS device_uid,
+            COALESCE(sd.door_name, g.name) AS door_name
+       FROM plate_gates g
+       JOIN site_doors sd ON sd.id = g.door_id AND sd.site_code = g.site_code AND sd.is_active = TRUE
+       JOIN devices d ON d.id = sd.assigned_device_id AND d.site_code = g.site_code
+       LEFT JOIN plate_gate_cameras gc ON gc.gate_id = g.id
+      WHERE g.site_code = $1 AND g.is_active = TRUE
+        AND (
+          ($2::BIGINT IS NOT NULL AND $3::BIGINT IS NOT NULL AND g.id = $2 AND gc.camera_id = $3)
+          OR ($2::BIGINT IS NOT NULL AND $3::BIGINT IS NULL AND g.id = $2)
+          OR ($2::BIGINT IS NULL AND $3::BIGINT IS NOT NULL AND gc.camera_id = $3)
+        )
+      ORDER BY CASE WHEN gc.camera_id = $3 THEN 1 WHEN g.id = $2 THEN 2 ELSE 3 END, g.id LIMIT 1`,
+    [siteCode, exactGateId, exactCameraId],
+  );
+  return result.rows?.[0] ?? null;
+}
+
 /** Yönetici / Windows masaüstü uygulaması tarafından gönderilen plaka olayını kaydeder ve kabul edilen araç için kapıyı MQTT ile tetikler. */
 export async function recordManagerPlateEvent({ siteCode, body }) {
-  let cameraId = Number(body?.camera_id);
+  const requestedCameraId = Number(body?.camera_id);
+  let cameraId = requestedCameraId;
   if (!Number.isSafeInteger(cameraId) || cameraId <= 0) {
     const fallback = (
       await pool.query(`SELECT id FROM camera_devices WHERE site_code = $1 AND is_active ORDER BY id LIMIT 1`, [siteCode])
@@ -495,46 +521,16 @@ export async function recordManagerPlateEvent({ siteCode, body }) {
   }
   if (res.decision === 'acildi' && !res.duplicate) {
     try {
-      const gateRow = (
-        await pool.query(
-          `SELECT g.id, g.door_id, g.name AS gate_name,
-                  COALESCE(g.device_uid, d.device_uid) AS device_uid,
-                  COALESCE(sd.door_name, g.name) AS door_name
-             FROM plate_gates g
-             LEFT JOIN site_doors sd ON sd.id = g.door_id AND sd.site_code = g.site_code
-             LEFT JOIN devices d ON d.id = sd.assigned_device_id
-             LEFT JOIN plate_gate_cameras gc ON gc.gate_id = g.id
-            WHERE g.site_code = $1 AND (g.id = $2 OR gc.camera_id = $3 OR $3 IS NULL)
-            ORDER BY CASE WHEN gc.camera_id = $3 THEN 1 WHEN g.id = $2 THEN 2 ELSE 3 END, g.id LIMIT 1`,
-          [siteCode, body?.gate_id ?? null, cameraId || null],
-        )
-      ).rows[0];
-
-      let targetDeviceUid = gateRow?.device_uid;
-      let targetDoorId = gateRow?.door_id ?? gateRow?.id;
-
-      if (!targetDeviceUid) {
-        const fallbackDev = (
-          await pool.query(
-            `SELECT sd.id AS door_id, sd.door_name, d.device_uid
-               FROM site_doors sd
-               JOIN devices d ON d.id = sd.assigned_device_id
-              WHERE sd.site_code = $1 AND sd.is_active
-              ORDER BY sd.id LIMIT 1`,
-            [siteCode],
-          )
-        ).rows[0];
-        if (fallbackDev) {
-          targetDeviceUid = fallbackDev.device_uid;
-          targetDoorId = fallbackDev.door_id;
-        }
-      }
-
-      if (targetDeviceUid) {
+      const gateRow = await resolveManagerPlateTarget(pool, {
+        siteCode,
+        gateId: body?.gate_id,
+        cameraId: requestedCameraId,
+      });
+      if (gateRow?.device_uid && gateRow?.door_id) {
         await publishDoorPulse({
-          deviceUid: targetDeviceUid,
+          deviceUid: gateRow.device_uid,
           requestedBy: `Plaka: ${body?.plate || 'Otomatik'}`,
-          doorId: targetDoorId,
+          doorId: gateRow.door_id,
           siteCode,
         });
       }

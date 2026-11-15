@@ -1,7 +1,7 @@
 // Platform modül sistemi Faz 1: ModuleAccess (menü/panel süzgeci verisi).
 //
 // Kurallar (docs/PLATFORM_MODUL_SISTEMI.md): süper kullanıcıda her şey açık; çağrı hatasında mevcut
-// değer korunur; ilk yükleme başarısızsa TÜM modüller açık (fail-open); çıkışta temizlenir; AdaptivePoller
+// değer korunur; ilk yükleme başarısızsa doğrulanmamış modüller kapalı kalır; çıkışta temizlenir; AdaptivePoller
 // ile kısa aralıklı tazelenir (görünür değilken ağ isteği yok). Sanal zaman: testWidgets + tester.pump.
 import 'dart:async';
 
@@ -51,21 +51,20 @@ class _Fetcher {
 }
 
 void main() {
-  group('Fail-open: veri yokken her şey açık', () {
-    test('henüz yüklenmedi -> isEnabled/anyEnabled true, hiçbir şey kapalı sayılmaz', () {
+  group('Fail-closed: veri yokken modül açılmaz', () {
+    test('henüz yüklenmedi -> isEnabled/anyEnabled false', () {
       final access = ModuleAccess(fetch: _Fetcher().call);
       expect(access.isLoaded, isFalse);
       expect(access.isFiltering, isFalse);
-      expect(access.isEnabled(1, PlatformModuleCodes.doorControl), isTrue);
-      expect(access.isEnabled(1, PlatformModuleCodes.finance), isTrue,
-          reason: 'fail-open: TÜM modüller açık sayılır');
-      expect(access.anyEnabled(PlatformModuleCodes.doorControl), isTrue);
+      expect(access.isEnabled(1, PlatformModuleCodes.doorControl), isFalse);
+      expect(access.isEnabled(1, PlatformModuleCodes.finance), isFalse);
+      expect(access.anyEnabled(PlatformModuleCodes.doorControl), isFalse);
       expect(access.isDisabledEverywhere(PlatformModuleCodes.doorControl), isFalse);
       expect(access.sitesWith(PlatformModuleCodes.doorControl), isEmpty);
       access.dispose();
     });
 
-    test('ilk yükleme hata verirse fail-open sürer; sonra başarılı olunca süzgeç devreye girer', () async {
+    test('ilk yükleme hata verirse kapalı kalır; sonra başarılı olunca sunucu durumu kullanılır', () async {
       final fetcher = _Fetcher()..error = Exception('ağ yok');
       final access = ModuleAccess(fetch: fetcher.call);
       var notified = 0;
@@ -73,7 +72,7 @@ void main() {
 
       expect(await access.refresh(), isFalse);
       expect(access.isLoaded, isFalse);
-      expect(access.isEnabled(7, PlatformModuleCodes.doorControl), isTrue);
+      expect(access.isEnabled(7, PlatformModuleCodes.doorControl), isFalse);
       expect(access.isDisabledEverywhere(PlatformModuleCodes.doorControl), isFalse);
       expect(notified, 0, reason: 'hata durumunda dinleyiciler uyarılmaz');
 
@@ -123,8 +122,8 @@ void main() {
       expect(access.isEnabled(1, PlatformModuleCodes.doorControl), isTrue);
       expect(access.isEnabled(2, PlatformModuleCodes.doorControl), isFalse);
       expect(access.isEnabled(1, PlatformModuleCodes.finance), isFalse);
-      expect(access.isEnabled(999, PlatformModuleCodes.doorControl), isTrue,
-          reason: 'onay bekleyen/yeni site: door_control varsayılanı açık');
+      expect(access.isEnabled(999, PlatformModuleCodes.doorControl), isFalse,
+          reason: 'onay bekleyen/yeni site: sunucu durumu gelmeden kapalı');
       expect(access.isEnabled(999, PlatformModuleCodes.finance), isFalse);
     });
 
@@ -224,7 +223,7 @@ void main() {
       access.dispose();
     });
 
-    test('clear: durumu sıfırlar (fail-open) ve uçuştaki eski yanıt yok sayılır', () async {
+    test('clear: durumu sıfırlar ve uçuştaki eski yanıt yok sayılır', () async {
       final fetcher = _Fetcher();
       final access = ModuleAccess(fetch: fetcher.gated);
       var notified = 0;
@@ -235,7 +234,7 @@ void main() {
       fetcher.gates[0].complete(_result(<MySiteModules>[_site(1, door: false)]));
       expect(await pending, isNull);
       expect(access.isLoaded, isFalse);
-      expect(access.isEnabled(1, PlatformModuleCodes.doorControl), isTrue);
+      expect(access.isEnabled(1, PlatformModuleCodes.doorControl), isFalse);
       expect(notified, 0);
 
       // Yüklü durumdan temizleme dinleyicileri uyarır.
@@ -247,7 +246,7 @@ void main() {
       loaded.clear();
       expect(n2, 1);
       expect(loaded.isLoaded, isFalse);
-      expect(loaded.isEnabled(1, PlatformModuleCodes.doorControl), isTrue);
+      expect(loaded.isEnabled(1, PlatformModuleCodes.doorControl), isFalse);
       loaded.dispose();
       access.dispose();
     });
@@ -587,7 +586,7 @@ void main() {
       }
     });
 
-    test('daire sakini rolünde hiç sitesi olmayan (yüklendi, boş) hesapta da kapı öğeleri gizlenir; veri yokken (fail-open) gizlenmez', () async {
+    test('daire sakini rolünde hiç sitesi olmayan hesapta kapı öğeleri gizlenir; veri yokken durum doğrulanmamıştır', () async {
       final none = await loaded(const <MySiteModules>[]);
       expect(hiddenMenuItemsFor(UserRole.apartmentOwner, none), doorControlMenuItems);
       expect(hiddenMenuItemsFor(UserRole.individual, none), isEmpty);
@@ -596,7 +595,7 @@ void main() {
       final notLoaded = ModuleAccess(fetch: (_Fetcher()..error = Exception('ağ yok')).call);
       await notLoaded.refresh();
       expect(notLoaded.isFiltering, isFalse);
-      expect(hiddenMenuItemsFor(UserRole.apartmentOwner, notLoaded), isEmpty, reason: 'fail-open: menü eskisi gibi');
+      expect(notLoaded.anyEnabled(PlatformModuleCodes.doorControl), isFalse);
       notLoaded.dispose();
     });
 

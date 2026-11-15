@@ -111,7 +111,9 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
  * Modül bu sitede açık mı? Bilinmeyen modül -> false. Platformda pasif -> false. Satır yoksa katalog varsayılanı.
  */
 export async function isModuleEnabled(siteCode, moduleCode, db = pool) {
-  const isPlatformActive = await isModuleActiveOnPlatform(moduleCode, db);
+  // Platform master durumu her zaman ana havuzdan okunur. `db` çoğu çağrıda site işleminin transaction
+  // client'ıdır; platform sorgusunu o client'a eklemek kilit sırasını değiştirir ve servis sahte DB'lerini bozar.
+  const isPlatformActive = await isModuleActiveOnPlatform(moduleCode);
   if (!isPlatformActive) {
     return false;
   }

@@ -66,19 +66,19 @@ describe('temel modüller (Kural 25): doldurma metni ve migrationlar', () => {
     assert.match(migration, /UPDATE module_requests[\s\S]*status = 'approved'[\s\S]*WHERE module_code = 'finance' AND status = 'pending';/);
   });
 
-  it('migrations/082, beş modül için üretici metnin aynısını içerir (anket, dosya deposu, komşu panosu, faaliyet raporu, ekipman)', () => {
+  it('migrations/082 tarihsel temel modül kümesini içerir', () => {
     const migration = read('migrations/082_more_core_modules.sql');
-    assert.ok(migration.endsWith(buildCoreModulesBackfillSql(MIGRATION_082_CODES)), 'migration gövdesi buildCoreModulesBackfillSql(082 kodları) ile aynı olmalı');
     for (const code of MIGRATION_082_CODES) {
       assert.ok(CORE_MODULE_CODES.includes(code), `${code} katalogda temel modül olmalı`);
+      assert.ok(migration.includes(`('${code}')`), `${code} tarihsel migration içinde olmalı`);
     }
   });
 
-  it('migrations/126, yedi modül için üretici metnin aynısını içerir (rezervasyon, iş takibi, ziyaretçi, sözleşmeler, karar defteri, rehber, bütçe)', () => {
+  it('migrations/126 tarihsel temel modül kümesini içerir', () => {
     const migration = read('migrations/126_additional_core_modules.sql');
-    assert.ok(migration.endsWith(buildCoreModulesBackfillSql(MIGRATION_126_CODES)), 'migration gövdesi buildCoreModulesBackfillSql(126 kodları) ile aynı olmalı');
     for (const code of MIGRATION_126_CODES) {
       assert.ok(CORE_MODULE_CODES.includes(code), `${code} katalogda temel modül olmalı`);
+      assert.ok(migration.includes(`('${code}')`), `${code} tarihsel migration içinde olmalı`);
     }
   });
 
@@ -88,6 +88,7 @@ describe('temel modüller (Kural 25): doldurma metni ve migrationlar', () => {
       assert.ok(CORE_MODULES_BACKFILL_SQL.includes(`('${code}', '${getModuleDefinition(code).name.replace(/'/g, "''")}')`), `${code} talep sonuçlandırmasında`);
     }
     assert.match(CORE_MODULES_BACKFILL_SQL, /INSERT INTO site_modules[\s\S]*SELECT s\.site_code, c\.code, TRUE, NOW\(\)\s+FROM sites s\s+CROSS JOIN \(VALUES/);
+    assert.match(CORE_MODULES_BACKFILL_SQL, /INNER JOIN platform_modules pm ON pm\.module_code = c\.code AND pm\.is_active = TRUE/);
     assert.match(CORE_MODULES_BACKFILL_SQL, /ON CONFLICT \(site_code, module_code\) DO UPDATE SET enabled = TRUE, updated_at = NOW\(\)\s+WHERE site_modules\.enabled IS DISTINCT FROM TRUE;/);
     assert.match(CORE_MODULES_BACKFILL_SQL, /UPDATE module_requests\s+SET status = 'approved'[\s\S]*decided_by_name = 'Sistem'[\s\S]*WHERE module_requests\.module_code = c\.code AND module_requests\.status = 'pending';/);
     // yalnız temel modüller: temel olmayan hiçbir kod doldurmada geçmez

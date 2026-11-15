@@ -116,7 +116,7 @@ class PlatformModule {
 
   /// Modül satırı olmayan sitede katalog varsayılanı (sunucudaki `computeModuleEnabled` ile aynı
   /// sıra): `available` olmayan modül KAPALI (çekirdek `people`/`announcements` de, ekranları
-  /// gelene dek); çekirdek modül açık; aksi halde yalnız `door_control` AÇIK.
+  /// gelene dek); çekirdek modül açık; ek modüller sunucu durumu gelene kadar kapalıdır.
   static bool defaultEnabled(
     String code, {
     bool core = false,
@@ -124,7 +124,7 @@ class PlatformModule {
   }) {
     if (status != 'available') return false;
     if (core) return true;
-    return code == PlatformModuleCodes.doorControl;
+    return false;
   }
 
   factory PlatformModule.fromJson(Map<String, dynamic> json) {

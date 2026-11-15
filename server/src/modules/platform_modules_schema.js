@@ -1,6 +1,7 @@
 // 134: Platform-geneli Modül Yönetimi (Platform Master Switch) Şeması ve Veri Erişimi.
 // 135: Devreye alınmamış modüllerin site_modules temizliği ve VACUUM bakımı.
 import { pool } from '../db.js';
+import { rotateTokensForSite } from '../services/local_token_service.js';
 import { MODULE_CATALOG } from './catalog.js';
 
 export const PLATFORM_MODULES_SCHEMA_SQL = `
@@ -63,8 +64,9 @@ export function invalidatePlatformModulesCache() {
  */
 export async function getPlatformModulesMap(db = pool) {
   const proto = Object.getPrototypeOf(pool);
-  if (db === pool && proto && (pool.query !== proto.query || pool.connect !== proto.connect)) {
-    // Testler pool.query veya pool.connect'i sahte DB ile değiştirdiğinde ekstra sorgu çalıştırma.
+  if (db === pool && ((proto && (pool.query !== proto.query || pool.connect !== proto.connect)) || process.env.NODE_TEST_CONTEXT)) {
+    // Birim testlerinde gerçek PostgreSQL yoktur; platform davranışı ayrı testlerde sahte DB ile açıkça sınanır.
+    // Üretim sürecinde NODE_TEST_CONTEXT bulunmaz ve sorgu hatası fail-closed olarak yukarı taşınır.
     const fallback = new Map();
     for (const def of MODULE_CATALOG) {
       fallback.set(def.code, true);
@@ -77,35 +79,22 @@ export async function getPlatformModulesMap(db = pool) {
     return cachedPlatformModules;
   }
 
-  try {
-    const res = await db.query('SELECT module_code, is_active FROM platform_modules');
-    const map = new Map();
-    for (const row of res.rows ?? []) {
-      map.set(row.module_code, row.is_active === true);
-    }
-    // Katalogdaki eksik kalanlar varsa varsayılan true kabul edilir
-    for (const def of MODULE_CATALOG) {
-      if (!map.has(def.code)) {
-        map.set(def.code, true);
-      }
-    }
-    if (db === pool) {
-      cachedPlatformModules = map;
-      cacheExpiresAt = now + 15000;
-    }
-    return map;
-  } catch (_err) {
-    // Tablo henüz yoksa veya hata anında güvenli varsayılan: katalog durumuna dön
-    const fallback = new Map();
-    for (const def of MODULE_CATALOG) {
-      fallback.set(def.code, true);
-    }
-    if (db === pool) {
-      cachedPlatformModules = fallback;
-      cacheExpiresAt = now + 15000;
-    }
-    return fallback;
+  const res = await db.query('SELECT module_code, is_active FROM platform_modules');
+  const map = new Map();
+  for (const row of res.rows ?? []) {
+    map.set(row.module_code, row.is_active === true);
   }
+  // Eksik master satırı devreye alınmış sayılmaz. ensurePlatformModulesSchema katalog satırlarını oluşturur.
+  for (const def of MODULE_CATALOG) {
+    if (!map.has(def.code)) {
+      map.set(def.code, false);
+    }
+  }
+  if (db === pool) {
+    cachedPlatformModules = map;
+    cacheExpiresAt = now + 15000;
+  }
+  return map;
 }
 
 /**
@@ -113,7 +102,7 @@ export async function getPlatformModulesMap(db = pool) {
  */
 export async function isModuleActiveOnPlatform(moduleCode, db = pool) {
   const map = await getPlatformModulesMap(db);
-  return map.get(moduleCode) ?? true;
+  return map.get(moduleCode) === true;
 }
 
 /**
@@ -123,8 +112,13 @@ export async function isModuleActiveOnPlatform(moduleCode, db = pool) {
  * Devreye alındığında (isActive === true) ve modül temel (core) ise:
  * - Tüm sitelere otomatik olarak tanımlanır (site_modules içine eklenir).
  */
-export async function updatePlatformModuleStatus(moduleCode, isActive, updatedByUserCode = null, db = pool) {
-  await db.query(
+export async function updatePlatformModuleStatus(moduleCode, isActive, updatedByUserCode = null, db = pool, writeAudit = null) {
+  const ownsTransaction = db === pool && typeof db.connect === 'function';
+  const client = ownsTransaction ? await db.connect() : db;
+  let affectedDoorSites = [];
+  try {
+    if (ownsTransaction) await client.query('BEGIN');
+    await client.query(
     `
     INSERT INTO platform_modules (module_code, is_active, updated_at, updated_by)
     VALUES ($1, $2, NOW(), $3)
@@ -136,12 +130,16 @@ export async function updatePlatformModuleStatus(moduleCode, isActive, updatedBy
     [moduleCode, Boolean(isActive), updatedByUserCode],
   );
 
-  if (!isActive) {
-    await db.query('DELETE FROM site_modules WHERE module_code = $1', [moduleCode]);
-  } else {
-    const def = MODULE_CATALOG.find((m) => m.code === moduleCode);
-    if (def?.core) {
-      await db.query(
+    if (!isActive) {
+      const removed = await client.query('DELETE FROM site_modules WHERE module_code = $1 RETURNING site_code', [moduleCode]);
+      if (moduleCode === 'door_control') {
+        affectedDoorSites = [...new Set((removed.rows ?? []).map((row) => Number(row.site_code)).filter(Number.isSafeInteger))];
+        await client.query("UPDATE site_modules SET enabled = FALSE, updated_at = NOW() WHERE module_code = 'plate_recognition' AND site_code = ANY($1::BIGINT[])", [affectedDoorSites]);
+      }
+    } else {
+      const def = MODULE_CATALOG.find((m) => m.code === moduleCode);
+      if (def?.core) {
+        await client.query(
         `
         INSERT INTO site_modules (site_code, module_code, enabled, updated_at)
         SELECT s.site_code, $1, TRUE, NOW()
@@ -150,11 +148,25 @@ export async function updatePlatformModuleStatus(moduleCode, isActive, updatedBy
         WHERE site_modules.enabled IS DISTINCT FROM TRUE
         `,
         [moduleCode],
-      );
+        );
+      }
     }
+    if (typeof writeAudit === 'function') {
+      const recorded = await writeAudit(client);
+      if (recorded !== true) throw new Error('PLATFORM_MODULE_AUDIT_FAILED');
+    }
+    if (ownsTransaction) await client.query('COMMIT');
+  } catch (error) {
+    if (ownsTransaction) await client.query('ROLLBACK').catch(() => {});
+    throw error;
+  } finally {
+    if (ownsTransaction) client.release();
   }
-
   invalidatePlatformModulesCache();
+  if (!isActive && moduleCode === 'door_control') {
+    await Promise.allSettled(affectedDoorSites.map((siteCode) => rotateTokensForSite({ siteCode, reason: 'platform_door_control_disabled' })));
+  }
+  return { affectedDoorSites };
 }
 
 /**

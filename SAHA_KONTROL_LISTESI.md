@@ -5207,3 +5207,17 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     2. Filtrelenen listeden bir modülü devreye alın (`isPlatformActive: true`).
     3. Ağ gecikmesi olan durumlarda veya yenileme sırasında eski ağ yanıtlarının dönmesini simüle edin.
   - **Beklenen Sonuç:** Devreye alınan modül `Devreye Alınmamış` listesinden çıktığı anda sağdaki detay paneli soldaki filtrede kalan modüle otomatik geçer; eski ağ yanıtları yeni durumu ezmez ve arayüzde filtre dışı modül gösterilmez.
+
+## 179. 🔒 Modül Anahtarı ve Plaka Kapısı Güvenlik Doğrulaması (2026-11-16)
+
+- [ ] **179.1. Plaka olayında kesin kamera–kapı–cihaz eşleşmesi:**
+  - **Nasıl Test Edilir:** İki aktif kapısı olan test sitesinde eşleşmiş kameradan geçerli plaka olayı gönderin; ardından kamera kimliği olmayan, başka siteye ait veya kapıyla eşleşmemiş olay gönderin.
+  - **Beklenen Sonuç:** Yalnız doğru eşleşmede hedef kapının cihazına tek MQTT darbesi gider. Eksik/yanlış eşleşmede olay kaydı korunur, hiçbir kapıya komut gönderilmez.
+
+- [ ] **179.2. Platform modülü kapatma ve yeniden başlatma tutarlılığı:**
+  - **Nasıl Test Edilir:** Bir temel modülü platformdan kapatın, API ve menüyü kontrol edin; sunucuyu yeniden başlatıp `site_modules` kayıtlarını sorgulayın. Sonra modülü yeniden devreye alın.
+  - **Beklenen Sonuç:** Kapalı modül API'de `403 MODULE_DISABLED` döner, normal kullanıcıda görünmez ve yeniden başlatmada site satırı oluşmaz. Yeniden açılan temel modül tüm sitelerde açık tanımlanır.
+
+- [ ] **179.3. Geçiş Kontrol platform kapatmasında cihaz anahtarı iptali:**
+  - **Nasıl Test Edilir:** Geçiş Kontrol açık test sitesinde platform modülünü kapatın; eski yerel kontrol anahtarıyla LAN açma deneyin ve Plaka Tanıma site durumunu kontrol edin.
+  - **Beklenen Sonuç:** Eski yerel anahtar çalışmaz, Plaka Tanıma site düzeyinde kapanır ve uygulama/API üzerinden geçiş isteği reddedilir.

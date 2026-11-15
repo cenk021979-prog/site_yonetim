@@ -93,9 +93,16 @@ total_sites="$(q1 "select count(*) from sites")"
 core_sql=""
 for m in $CORE_MODULES; do
   core_sql="$core_sql${core_sql:+,}'$m'"
+  active="$(q1 "select coalesce((select is_active::text from platform_modules where module_code = '$m'), 'false')")"
+  if [ "$active" != "true" ]; then
+    echo "bilgi   $m: platformda kapali; site satiri beklenmez"
+    continue
+  fi
   n="$(q1 "select count(*) from sites s where exists (select 1 from site_modules m where m.site_code = s.site_code and m.module_code = '$m' and m.enabled)")"
   if [ -n "$n" ] && [ "$n" = "$total_sites" ]; then echo "OK      $m: $n/$total_sites sitede acik"; else echo "SORUNLU $m: acik site ${n:-?} / toplam site ${total_sites:-?}"; fi
 done
+inactive_rows="$(q1 "select count(*) from site_modules m join platform_modules p on p.module_code = m.module_code where not p.is_active")"
+if [ "$inactive_rows" = "0" ]; then echo "TAMAM   platformda kapali modul site satiri: 0"; else echo "SORUNLU platformda kapali modul site satiri: $inactive_rows"; fi
 # Seçmeli modüller varsayılan kapalıdır, ama ilk dağıtımdan sonra site yöneticileri talep ederek açar: açık site sayısı
 # artık bilgidir (eskiden "0 beklenir" SORUNLU basıyordu). Dağıtım öncesi/sonrası sayı değişmemeli: değiştiyse bir
 # migration modülü kendiliğinden açmış olabilir. Kataloktan kalkan eski kodlar (documents, card_payments; 083/084) listeden ayrıdır:

@@ -42,6 +42,9 @@ import {
 } from './announcement_service.js';
 import { FORBIDDEN_ROLE_BODY, resolvePeopleAccess } from './people_access.js';
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
+import { isModuleEnabled } from './module_service.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
+import { PlatformError } from './errors.js';
 
 export const announcementRouter = express.Router();
 
@@ -86,6 +89,8 @@ export const announcementSummaryLimiter = createRuleLimiter({
 
 const bodyOf = (req) => (req.body && typeof req.body === 'object' && !Array.isArray(req.body) ? req.body : {});
 const canSeeManagerFields = (access) => access.kind === 'super' || access.kind === 'manager';
+const ANNOUNCEMENTS_MODULE = 'announcements';
+const announcementModuleDisabled = () => new PlatformError(403, 'MODULE_DISABLED', 'Duyuru ve Bildirim modülü kapalı.', { module: ANNOUNCEMENTS_MODULE });
 
 /** Yayından sonra e-posta kuyruğunu tetikler (hata yanıtı bozmaz; kuyruk kendi başına dayanıklıdır). */
 function afterWrite(detail) {
@@ -116,6 +121,7 @@ function managerHandler({ context, fallback, write = false, allowBoard = true },
       if (!access) {
         return undefined;
       }
+      if (!(await isModuleEnabled(access.siteCode, ANNOUNCEMENTS_MODULE))) throw announcementModuleDisabled();
       if (!allowBoard && access.kind === 'board') {
         return res.status(403).json(FORBIDDEN_ROLE_BODY);
       }
@@ -130,6 +136,7 @@ function managerHandler({ context, fallback, write = false, allowBoard = true },
 function appHandler({ context, fallback, status = 200 }, run) {
   return async (req, res) => {
     try {
+      if (!(await isModuleActiveOnPlatform(ANNOUNCEMENTS_MODULE))) throw announcementModuleDisabled();
       return res.status(status).json(await run(req));
     } catch (error) {
       return respondError(res, context, error, fallback);

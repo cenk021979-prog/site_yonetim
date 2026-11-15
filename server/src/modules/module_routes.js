@@ -291,14 +291,16 @@ moduleRouter.put('/admin/platform-modules/:moduleCode', authRequired, requireSup
     if (!def) {
       return res.status(404).json({ error: 'Modül bulunamadı.', code: 'MODULE_NOT_FOUND' });
     }
-    await updatePlatformModuleStatus(moduleCode, is_active, req.authUser?.userCode);
-    await recordAudit({
-      siteCode: null,
-      action: is_active ? 'platform_module.enabled' : 'platform_module.disabled',
-      actor: actorFromAuthUser(req.authUser),
-      target: moduleCode,
-      details: { module_code: moduleCode, is_active },
-    });
+    await updatePlatformModuleStatus(moduleCode, is_active, req.authUser?.userCode, undefined, (client) =>
+      recordAudit(client, {
+        siteCode: null,
+        action: is_active ? 'platform_module.enabled' : 'platform_module.disabled',
+        actor: actorFromAuthUser(req.authUser),
+        targetType: 'platform_module',
+        targetId: moduleCode,
+        details: { module_code: moduleCode, is_active },
+      }, { inTransaction: true }),
+    );
     return res.status(200).json({ ok: true, code: moduleCode, is_platform_active: is_active });
   } catch (error) {
     return respondError(res, 'update_platform_module', error, 'Platform modülü güncellenemedi.');

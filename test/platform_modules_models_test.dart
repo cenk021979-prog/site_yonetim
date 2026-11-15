@@ -102,7 +102,7 @@ void main() {
         'core': false,
         'status': 'available',
       });
-      expect(door.enabled, isTrue, reason: 'door_control varsayılanı AÇIK');
+      expect(door.enabled, isFalse, reason: 'sunucu durumu gelmeden ek modül açılmaz');
       expect(door.toggleable, isTrue);
       expect(door.isAvailable, isTrue);
 
@@ -157,8 +157,8 @@ void main() {
       expect(m.description, '');
     });
 
-    test('defaultEnabled: yalnız door_control ve çekirdek modüller açık', () {
-      expect(PlatformModule.defaultEnabled('door_control'), isTrue);
+    test('defaultEnabled: yalnız çekirdek modüller açık', () {
+      expect(PlatformModule.defaultEnabled('door_control'), isFalse);
       expect(PlatformModule.defaultEnabled('finance'), isFalse);
       expect(PlatformModule.defaultEnabled('people', core: true), isTrue);
       expect(
@@ -256,8 +256,8 @@ void main() {
       final legacy = r.sites.last;
       expect(legacy.managementType, ManagementType.apartmentSite);
       expect(legacy.role, 'resident');
-      expect(legacy.isEnabled('door_control'), isTrue,
-          reason: 'modül bilgisi yoksa door_control varsayılanı açık');
+      expect(legacy.isEnabled('door_control'), isFalse,
+          reason: 'modül bilgisi yoksa ek modül açılmaz');
     });
 
     test('eşitlik: aynı içerik eşit, farklı modül durumu farklı', () {

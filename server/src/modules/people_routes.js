@@ -40,6 +40,9 @@ import {
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
 import { createVehicle, listVehicles, removeVehicle } from './vehicle_service.js';
 import { executePeopleBulkAction, sendPersonPasswordReset } from './people_bulk_service.js';
+import { isModuleEnabled } from './module_service.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
+import { PlatformError } from './errors.js';
 
 export const peopleRouter = express.Router();
 
@@ -67,6 +70,8 @@ const canSeeUserCode = (access) => access.kind === 'super' || access.kind === 'm
 
 // Kurul üyesi (salt okuma) yönetici iç notlarını (kişi/araç note: null) ve kullanıcı kodlarını (actor_user_code vb.) GÖRMEZ.
 const redactFor = (access, body) => (canSeeUserCode(access) ? body : redactForReadOnlyRole(body));
+const PEOPLE_MODULE = 'people';
+const peopleModuleDisabled = () => new PlatformError(403, 'MODULE_DISABLED', 'Kişi ve Daire Kayıtları modülü kapalı.', { module: PEOPLE_MODULE });
 
 /**
  * Ortak sarmalayıcı: yetki + site doğrulaması -> iş -> JSON. `run({ req, access })` { status?, body } döndürür.
@@ -78,6 +83,7 @@ function handler({ context, fallback, write = false }, run) {
       if (!access) {
         return undefined;
       }
+      if (!(await isModuleEnabled(access.siteCode, PEOPLE_MODULE))) throw peopleModuleDisabled();
       const { status = 200, body } = await run({ req, access });
       return res.status(status).json(redactFor(access, body));
     } catch (error) {
@@ -416,6 +422,7 @@ peopleRouter.get(
 
 peopleRouter.get('/app/my-records', authRequired, peopleReadLimiter, async (req, res) => {
   try {
+    if (!(await isModuleActiveOnPlatform(PEOPLE_MODULE))) throw peopleModuleDisabled();
     return res.status(200).json(await listMyRecords(req.authUser));
   } catch (error) {
     return respondError(res, 'my_records', error, 'Kayıtlarınız yüklenemedi.');

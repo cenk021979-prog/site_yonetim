@@ -17,9 +17,8 @@ import 'package:site_kapi_kontrol/services/adaptive_poller.dart';
 ///   da sayfa görünür değilken [isActive] false döner ve ağ isteği yapılmaz).
 /// - SÜPER KULLANICIDA her şey açık sayılır ([isSuperUser] ya da sunucunun `scope: all` yanıtı);
 ///   süper kullanıcı için ağ isteği hiç yapılmaz.
-/// - FAIL-OPEN: çağrı hatasında mevcut değer korunur; ilk yükleme hiç başarılı olmadıysa TÜM
-///   modüller açık sayılır (ağ hatası yüzünden menüler/kapılar kaybolmasın). Sunucu zaten kapalı
-///   modülü reddeder; burası yalnız arayüz süzgecidir.
+/// - İlk başarılı yanıta kadar modül durumu bilinmiyor kabul edilir; modül menüleri açılmaz. Daha önce
+///   başarılı veri varsa çağrı hatasında son doğrulanmış değer korunur.
 /// - [clear] (çıkış / kullanıcı değişimi) durumu sıfırlar; uçuştaki eski yanıt yok sayılır.
 /// - SİTE KAPSAMI (İP-1D, çekmecenin en üstündeki site seçici): [setScopeSiteCode] ile bir site seçilince [result] ve
 ///   bütün sorgular yalnız o siteyle çalışır (kapsam dışı site kapalı sayılır; menüler yalnız daralır, fail-closed);
@@ -103,22 +102,24 @@ class ModuleAccess extends ChangeNotifier {
   /// null. Çağrı hatasında son değer korunur.
   int? get pendingApplicationCount => _pendingApplicationCount;
 
-  /// En az bir yanıt başarıyla alındı mı? (false iken fail-open: her şey açık.)
+  /// En az bir yanıt başarıyla alındı mı?
   bool get isLoaded => _result != null;
 
   /// Süper kullanıcı (rol ya da sunucunun `scope: all` yanıtı): modül süzgeci uygulanmaz.
   bool get isSuper => (_isSuperUser?.call() ?? false) || (_result?.isAll ?? false);
 
-  /// Süzgeç devrede mi? Süper kullanıcıda ve ilk yükleme başarısızken değildir.
+  /// Güvenle site sonucu okunarak süzgeç uygulanabilir mi? İlk doğrulanmış yanıttan önce false'tur;
+  /// [isEnabled] ve [anyEnabled] bu sırada yine fail-closed davranır.
   bool get isFiltering => !isSuper && isLoaded;
 
   /// [siteCode] sitesinde [code] modülü açık mı?
   ///
-  /// Süper kullanıcıda ve veri yokken (fail-open) true. Site listede yoksa (örn. onay bekleyen ya da
+  /// Süper kullanıcıda true. Veri henüz doğrulanmadıysa false. Site listede yoksa (örn. onay bekleyen ya da
   /// yeni kurulmuş site) ya da kod o sitede yoksa katalog varsayılanı geçerlidir
   /// ([PlatformModule.defaultEnabled]: yalnız `door_control` ve çekirdek modüller açık).
   bool isEnabled(int siteCode, String code) {
-    if (!isFiltering) return true;
+    if (isSuper) return true;
+    if (!isLoaded) return false;
     // Site kapsamı: kapsam dışı (seçilmemiş) site kapalı sayılır.
     final scope = scopeSiteCode;
     if (scope != null && siteCode != scope) return false;
@@ -129,9 +130,10 @@ class ModuleAccess extends ChangeNotifier {
   }
 
   /// Kullanıcının bağlı olduğu sitelerden en az birinde [code] açık mı? Süper kullanıcıda ve veri
-  /// yokken true; hiç sitesi olmayan kullanıcıda false (bkz. [isDisabledEverywhere]).
+  /// yokken false; hiç sitesi olmayan kullanıcıda false (bkz. [isDisabledEverywhere]).
   bool anyEnabled(String code) {
-    if (!isFiltering) return true;
+    if (isSuper) return true;
+    if (!isLoaded) return false;
     return result!.sites.any((s) => s.isEnabled(code));
   }
 
@@ -139,14 +141,14 @@ class ModuleAccess extends ChangeNotifier {
   /// önceliği: yönetici > kurul > görevli > sakin). Süper kullanıcıda ve veri yokken boş liste döner.
   /// Kişi ve Daire Kayıtları ekranına salt okunur erişim buradan açılır (Faz 2a).
   List<MySiteModules> get boardMemberSites {
-    if (!isFiltering) return const <MySiteModules>[];
+    if (!isFiltering || !isLoaded) return const <MySiteModules>[];
     return result!.sites.where((s) => s.isBoardMember).toList(growable: false);
   }
 
   /// [code] modülünün açık olduğu siteler (süper kullanıcıda ya da veri yokken boş liste döner:
   /// bu durumda süzgeç yoktur, tüm siteler için [isEnabled] true'dur).
   List<MySiteModules> sitesWith(String code) {
-    if (!isFiltering) return const <MySiteModules>[];
+    if (!isFiltering || !isLoaded) return const <MySiteModules>[];
     return result!.sites.where((s) => s.isEnabled(code)).toList(growable: false);
   }
 
@@ -158,7 +160,7 @@ class ModuleAccess extends ChangeNotifier {
   /// sayılmaz. Hiç sitesi olmayan ya da kapı erişimi olan hiç sitesi olmayan kullanıcıda (örn. yalnız
   /// kendi cihazını kaydeden bireysel kullanıcı, yalnız kurul üyesi) false'tur: ekranları değişmez.
   bool isDisabledEverywhere(String code) {
-    if (!isFiltering) return false;
+    if (!isFiltering || !isLoaded) return false;
     return result!.isDisabledEverywhere(code);
   }
 

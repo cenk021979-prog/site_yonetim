@@ -111,6 +111,13 @@ function installFakeDb() {
     const a = access(sql, params ?? []);
     if (a) return a;
     if (/^(BEGIN|COMMIT|ROLLBACK)$/.test(sql) || /^SELECT pg_advisory_xact_lock/.test(sql) || /^(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT) /.test(sql) || /^INSERT INTO audit_log/.test(sql)) return ok();
+    if (/^SELECT module_code, is_active FROM platform_modules$/.test(sql)) {
+      return ok([
+        { module_code: 'announcements', is_active: true },
+        { module_code: 'people', is_active: true },
+      ]);
+    }
+    if (/^SELECT enabled FROM site_modules WHERE site_code = \$1 AND module_code = \$2 LIMIT 1$/.test(sql)) return ok();
     if (STEP_SQLS.has(sql)) return ok();
     // kötüye kullanım sınırları ve çift POST koruması: varsayılan "izin verilir" (sınırları sınayan testler kendi işleyicisini ekler)
     if (/^SELECT COUNT\(\*\)::INTEGER AS total, COUNT\(\*\) FILTER \(WHERE importance = 'urgent' AND send_email\)/.test(sql)) return ok([{ total: 0, urgent_email: 0 }]);

@@ -19,6 +19,7 @@ import { ANNOUNCEMENT_LOCK_JOBS, acquireSessionLock } from './announcement_lock.
 import { publishDueAnnouncement, recordPublishFailure } from './announcement_service.js';
 import { hasPendingPush } from './push_outbox.js';
 import { kickPushQueue } from './push_worker.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 
 export const SCHEDULER_INTERVAL_MS = 30 * 1000;
 export const SCHEDULER_FIRST_TICK_DELAY_MS = 5 * 1000;
@@ -61,6 +62,10 @@ async function doTick() {
   const summary = { locked: false, published: 0, skipped: 0, failed: 0 };
   let lock = null;
   try {
+    if (!(await isModuleActiveOnPlatform('announcements'))) {
+      summary.skipped = 1;
+      return summary;
+    }
     lock = await acquireSessionLock(SCHEDULER_LOCK_JOB);
     if (!lock) {
       summary.locked = true;

@@ -1,6 +1,5 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODULE_CATALOG } from '../src/modules/catalog.js';
 import {
   getPlatformModulesMap,
   isModuleActiveOnPlatform,
@@ -9,25 +8,21 @@ import {
 } from '../src/modules/platform_modules_schema.js';
 
 describe('platform_modules_master (Katman 1)', () => {
-  it('varsayılan harita: DB hatasında bile tüm katalog döner', async () => {
+  it('platform durumu okunamazsa hata yutulmaz (fail-closed)', async () => {
     const fakeDb = {
       query: async () => {
         throw new Error('tablo yok');
       },
     };
-    const map = await getPlatformModulesMap(fakeDb);
-    assert.equal(map instanceof Map, true);
-    for (const def of MODULE_CATALOG) {
-      assert.equal(map.has(def.code), true);
-    }
+    await assert.rejects(() => getPlatformModulesMap(fakeDb), /tablo yok/);
   });
 
-  it('isModuleActiveOnPlatform bilinmeyen modülde varsayılan true döner', async () => {
+  it('isModuleActiveOnPlatform bilinmeyen/eksik modülde false döner', async () => {
     const fakeDb = {
       query: async () => ({ rows: [] }),
     };
     const active = await isModuleActiveOnPlatform('unknown_module', fakeDb);
-    assert.equal(active, true);
+    assert.equal(active, false);
   });
 
   it('updatePlatformModuleStatus doğru SQL ve parametrelerle çağrılır ve pasif yapılınca site_modules siler', async () => {

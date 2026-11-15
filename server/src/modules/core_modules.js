@@ -22,6 +22,7 @@ export const SQL_ENABLE_CORE_MODULES_FOR_SITE = `
   INSERT INTO site_modules (site_code, module_code, enabled, updated_at)
   SELECT $1::BIGINT, c.code, TRUE, NOW()
   FROM unnest($2::TEXT[]) AS c(code)
+  INNER JOIN platform_modules pm ON pm.module_code = c.code AND pm.is_active = TRUE
   ON CONFLICT (site_code, module_code) DO UPDATE SET enabled = TRUE, updated_at = NOW()
   WHERE site_modules.enabled IS DISTINCT FROM TRUE
 `;
@@ -60,6 +61,7 @@ export function buildCoreModulesBackfillSql(codes) {
 SELECT s.site_code, c.code, TRUE, NOW()
 FROM sites s
 CROSS JOIN (VALUES ${codeRows}) AS c(code)
+INNER JOIN platform_modules pm ON pm.module_code = c.code AND pm.is_active = TRUE
 ON CONFLICT (site_code, module_code) DO UPDATE SET enabled = TRUE, updated_at = NOW()
 WHERE site_modules.enabled IS DISTINCT FROM TRUE;
 
@@ -69,6 +71,7 @@ SET status = 'approved',
     decided_by_name = 'Sistem',
     decision_note = c.name || ' temel modül oldu; her sitede açık.'
 FROM (VALUES ${nameRows}) AS c(code, name)
+INNER JOIN platform_modules pm ON pm.module_code = c.code AND pm.is_active = TRUE
 WHERE module_requests.module_code = c.code AND module_requests.status = 'pending';
 `;
 }

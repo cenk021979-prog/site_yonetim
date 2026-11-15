@@ -45,6 +45,16 @@ Future<void> closeMenuPanels(WidgetTester t) async {
 /// [label] öğesini bulur: önce çekmecede, yoksa Ayarlar panelinde. Paneli açık bırakır ve öğenin bulucusunu döner (hiçbirinde
 /// yoksa boş bulucu; çekmece açık kalır).
 Future<Finder> findMenuEntry(WidgetTester t, String label) async {
+  final unaffiliatedAccount = find.byKey(const ValueKey('unaffiliated_account_menu'));
+  if (label == 'Profilim' && unaffiliatedAccount.evaluate().isNotEmpty) {
+    await t.tap(unaffiliatedAccount);
+    await t.pump();
+    await t.pump(const Duration(milliseconds: 300));
+    return find.byWidgetPredicate(
+      (widget) => widget is PopupMenuItem<String> && widget.value == 'profile',
+      description: 'bağımsız kullanıcı Profilim hesap menüsü',
+    );
+  }
   await openMenuDrawer(t);
   final inDrawer = find.descendant(of: find.byType(YanMenu), matching: find.text(label));
   if (inDrawer.evaluate().isNotEmpty) return inDrawer.first;
