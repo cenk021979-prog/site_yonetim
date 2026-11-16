@@ -97,8 +97,8 @@ List<String> _titles(WidgetTester t) {
 
 void main() {
   group('yeni öğeler ve sayılar', () {
-    testWidgets('süper kullanıcı: 19 öğe = çekmecede 4 + Ayarlar panelinde 15; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
-      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(19));
+    testWidgets('süper kullanıcı: 15 öğe = çekmecede 4 + Ayarlar panelinde 11; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
+      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(15));
       await _pumpMenu(t, UserRole.superUser, height: 1200);
       final drawer = _titles(t);
       expect(drawer, <String>[
@@ -112,8 +112,16 @@ void main() {
 
       await _pumpSettings(t, UserRole.superUser, height: 1200);
       final settings = _titles(t);
-      expect(settings, hasLength(15));
+      expect(settings, hasLength(11));
       expect(settings.first, 'Profilim');
+      expect(settings.contains('Kullanıcı Yönetimi'), isTrue);
+      expect(settings.contains('Modül Geliştirme'), isTrue);
+      expect(settings.contains('Şirket Cihaz Envanteri'), isTrue);
+      expect(settings.contains('Süper Kullanıcı Yönetimi'), isFalse);
+      expect(settings.contains('Site Yöneticileri Yönetimi'), isFalse);
+      expect(settings.contains('Devreye Alınmış Modüller'), isFalse);
+      expect(settings.contains('Devreye Alınmamış Modüller'), isFalse);
+      expect(settings.contains('Şirket Cihazı Kaydet'), isFalse);
       expect(settings.indexOf('Modül Talepleri'), settings.indexOf('Modül Yönetimi(Siteye Göre)') + 1);
       expect(settings.indexOf('Site Başvuruları'), settings.indexOf('Modül Talepleri') + 1);
       expect(settings[settings.length - 3], 'Sistem Logları');

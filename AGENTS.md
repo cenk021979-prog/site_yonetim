@@ -272,3 +272,14 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - Devreye alınmamış hiçbir modülü süper kullanıcı dışındaki kullanıcılara veya site yöneticilerine gösterme veya talep edilebilir kılma.
       - Tüm kodlama, mimari geliştirmeler, etiketler ve iş mantığında bu 6 temel tanıma sadık kal.
 
+34. **Süper Kullanıcı Ayarlar Menüsü Sadeleştirmesi ve Konsolidasyonu (Kural 34):**
+    - **Neden Yapıldı:**
+      - Süper kullanıcı ayarlar menüsünde daha önce dağınık ve mükerrer duran menü öğeleri mantıklı üst başlıklar altında birleştirildi:
+        1. **Kullanıcı Yönetimi:** "Kullanıcı yönetimi", "Süper kullanıcı yönetimi" ve "Site yöneticileri yönetimi" menüleri tek bir `Kullanıcı Yönetimi` (`SirketMenuItem.kullaniciYonetimi`) altında toplandı. Ekran içinde tüm roller (`Süper Kullanıcılar`, `Site Yöneticileri`, `Daire Sakinleri`, `Bireysel Kullanıcılar`) aranabilir, filtrelenebilir ve yeni kullanıcı eklenebilir hale getirildi.
+        2. **Modül Geliştirme:** "Devreye alınmış modüller" ve "Devreye alınmamış modüller" menüleri tek bir `Modül Geliştirme` (`SirketMenuItem.modulGelistirme`) menüsü altında toplandı. Tek ekrandan filtre çipleriyle (`Tümü`, `Devrede`, `Devre Dışı`, `Temel`, `Ek`) platform modüllerinin aktiflik durumu yönetilebilir kılındı.
+        3. **Şirket Cihaz Envanteri:** "Şirket cihaz envanteri" ve "Şirket cihazı kaydet" menüleri tek bir `Şirket Cihaz Envanteri` (`SirketMenuItem.kayitliCihazlar`) altında toplandı. Ayrı bir sayfaya gitmeye gerek kalmadan doğrudan envanter ekranından "Yeni Cihaz Kaydet" (QR Kod ile veya Unique ID ile elle giriş) eylemi sağlandı.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Süper kullanıcı ayarlar menüsüne ayrıştırılmış "Süper kullanıcı yönetimi", "Site yöneticileri yönetimi", "Devreye alınmış/alınmamış modüller" veya "Şirket cihazı kaydet" menülerini ASLA tekrar tekil menü öğesi olarak ekleme.
+      - Birleştirilmiş `Kullanıcı Yönetimi`, `Modül Geliştirme` ve `Şirket Cihaz Envanteri` yapılarını koru.
+
+

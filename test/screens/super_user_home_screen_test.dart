@@ -105,7 +105,15 @@ void main() {
     final visibleItems = YanMenu.visibleItems(role: UserRole.superUser);
     expect(visibleItems.contains(SirketMenuItem.katilimVeKurulum), isFalse);
     expect(visibleItems.contains(SirketMenuItem.yeniSite), isFalse);
-    expect(visibleItems.length, 19);
+    expect(visibleItems.length, 15);
+    expect(visibleItems.contains(SirketMenuItem.kullaniciYonetimi), isTrue);
+    expect(visibleItems.contains(SirketMenuItem.modulGelistirme), isTrue);
+    expect(visibleItems.contains(SirketMenuItem.kayitliCihazlar), isTrue);
+    expect(visibleItems.contains(SirketMenuItem.superUserYonetimi), isFalse);
+    expect(visibleItems.contains(SirketMenuItem.siteYoneticileriYonetimi), isFalse);
+    expect(visibleItems.contains(SirketMenuItem.devreyeAlinanModuller), isFalse);
+    expect(visibleItems.contains(SirketMenuItem.pasifModuller), isFalse);
+    expect(visibleItems.contains(SirketMenuItem.cihazEkle), isFalse);
 
     // 3. Sol çekmeceyi aç ve kontrol et
     tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();

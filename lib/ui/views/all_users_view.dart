@@ -31,6 +31,7 @@ class AllUsersView extends StatefulWidget {
     required this.onDeleteUser,
     this.onGetDatabaseHealth,
     this.onRunDatabaseCleanup,
+    this.onOpenAddDialog,
   });
 
   final UserSession session;
@@ -50,6 +51,7 @@ class AllUsersView extends StatefulWidget {
   final Future<void> Function(ManagedUserAccount user) onDeleteUser;
   final Future<Map<String, dynamic>> Function()? onGetDatabaseHealth;
   final Future<Map<String, dynamic>> Function()? onRunDatabaseCleanup;
+  final void Function({UserRole? role})? onOpenAddDialog;
 
   @override
   State<AllUsersView> createState() => _AllUsersViewState();
@@ -610,7 +612,7 @@ class _AllUsersViewState extends State<AllUsersView> {
   Widget build(BuildContext context) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
-    final displayUsers = widget.users.where((u) => u.role != UserRole.superUser).toList();
+    final displayUsers = widget.users;
     final totalUsers = widget.pageData?.total ?? displayUsers.length;
     final totalPages = widget.pageData?.totalPages ?? 1;
     final hasFilter = _searchController.text.isNotEmpty || _selectedRoleFilter != null;
@@ -622,16 +624,25 @@ class _AllUsersViewState extends State<AllUsersView> {
     final stackActions =
         MediaQuery.textScalerOf(context).scale(1) > 1.3 ||
         MediaQuery.sizeOf(context).width < 340;
-    final headerActions = Row(
-      mainAxisSize: MainAxisSize.min,
+    final headerActions = Wrap(
+      spacing: AppSpace.sm,
+      runSpacing: AppSpace.xs,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
+        if (widget.onOpenAddDialog != null) ...[
+          ElevatedButton.icon(
+            style: filledToneStyle(context, tone: AppTone.primary),
+            onPressed: () => widget.onOpenAddDialog!(role: _selectedRoleFilter),
+            icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+            label: const Text('Yeni Kullanıcı'),
+          ),
+        ],
         if (widget.onGetDatabaseHealth != null) ...[
           IconButton.filledTonal(
             onPressed: _showDbMaintenanceDialog,
             icon: const Icon(Icons.cleaning_services_rounded, size: 20),
             tooltip: 'Veritabanı Sağlığı & Çöp Temizliği',
           ),
-          const SizedBox(width: AppSpace.sm),
         ],
         IconButton.filledTonal(
           onPressed: widget.isLoading ? null : () => _fetchData(),
@@ -704,6 +715,7 @@ class _AllUsersViewState extends State<AllUsersView> {
                 runSpacing: AppSpace.sm,
                 children: [
                   _roleChip(context, 'Tüm Roller', null, AppTone.primary),
+                  _roleChip(context, 'Süper Kullanıcılar', UserRole.superUser, UserRole.superUser.tone),
                   _roleChip(context, 'Site Yöneticileri', UserRole.siteManager, UserRole.siteManager.tone),
                   _roleChip(context, 'Daire Sakinleri', UserRole.apartmentOwner, UserRole.apartmentOwner.tone),
                   _roleChip(context, 'Bireysel Kullanıcılar', UserRole.individual, UserRole.individual.tone),

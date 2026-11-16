@@ -388,6 +388,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       GlobalKey<PlatformModulesViewState>();
   final GlobalKey<PlatformModulesViewState> _passiveModulesViewKey =
       GlobalKey<PlatformModulesViewState>();
+  final GlobalKey<PlatformModulesViewState> _modulesDevViewKey =
+      GlobalKey<PlatformModulesViewState>();
   final GlobalKey<PlatformModulesViewState> _superModulePanelKey =
       GlobalKey<PlatformModulesViewState>();
   final GlobalKey<ModuleRequestsViewState> _moduleRequestsViewKey =
@@ -3332,6 +3334,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _loadAllUsers(force: true);
         break;
 
+      case SirketMenuItem.modulGelistirme:
+        unawaited(_modulesDevViewKey.currentState?.loadData());
+        break;
+
       case SirketMenuItem.superUserYonetimi:
         _loadManagedUsers(UserRole.superUser, force: true);
 
@@ -3988,9 +3994,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     String? search,
     bool force = false,
   }) async {
-    final sanitizedRole = role == UserRole.superUser ? null : role;
     if (_isLoadingAllUsers && !force) return;
-    _allUsersRoleFilter = sanitizedRole;
+    _allUsersRoleFilter = role;
     _allUsersCurrentPage = page;
     _allUsersPageSize = pageSize;
     _allUsersSearchQuery = search;
@@ -3998,8 +4003,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     setState(() => _isLoadingAllUsers = true);
     try {
       final data = await widget.authService.listManagedUsers(
-        role: sanitizedRole,
-        excludeRole: UserRole.superUser,
+        role: role,
+        excludeRole: null,
         page: page,
         pageSize: pageSize,
         search: search,
@@ -6031,13 +6036,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       user: user,
 
       isSelf: user?.id == widget.authService.session?.id,
+
+      allowRoleSelection: user == null,
     );
 
     if (result == null) return;
 
     if (user == null) {
+      final targetRole = result.role ?? role;
       final error = await widget.authService.createManagedUser(
-        role: role,
+        role: targetRole,
 
         fullName: result.fullName,
 
@@ -6053,9 +6061,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       if (error != null) {
         _showMessage(error);
       } else {
-        _showMessage('$roleTitle oluşturuldu.');
+        _showMessage('${targetRole.label} oluşturuldu.');
 
-        _loadManagedUsers(role, force: true);
+        _loadManagedUsers(targetRole, force: true);
+        _loadAllUsers(force: true);
       }
     } else {
       final error = await widget.authService.updateManagedUser(
@@ -6393,6 +6402,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         break;
       case SirketMenuItem.siteOnayTalepleri:
         await _loadPendingSiteApprovals(force: true);
+        break;
+      case SirketMenuItem.modulGelistirme:
+        await _modulesDevViewKey.currentState?.loadData();
         break;
       case SirketMenuItem.devreyeAlinanModuller:
         await _activeModulesViewKey.currentState?.loadData();
@@ -7938,6 +7950,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           onDeleteUser: _deleteDirectoryUser,
           onGetDatabaseHealth: widget.authService.getDatabaseHealth,
           onRunDatabaseCleanup: widget.authService.runDatabaseCleanup,
+          onOpenAddDialog: ({role}) =>
+              _openManagedUserDialog(role: role ?? UserRole.siteManager),
         );
 
       case SirketMenuItem.superUserYonetimi:
@@ -8018,6 +8032,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               _deleteManagedUser(role: UserRole.siteManager, user: user),
         );
 
+      case SirketMenuItem.modulGelistirme:
+        return PlatformModulesView(
+          key: _modulesDevViewKey,
+          authService: widget.authService,
+          onChanged: () {
+            unawaited(_moduleAccess.refresh());
+            unawaited(_loadSuperDoorModule());
+          },
+        );
       case SirketMenuItem.devreyeAlinanModuller:
         return PlatformModulesView(
           key: _activeModulesViewKey,
@@ -8407,6 +8430,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               : null,
           onToggleDefect: _toggleDeviceDefect,
           onReleaseOwnership: _releaseDeviceOwnership,
+          onOpenQrRegistration: _openDeviceRegistrationFlow,
+          onOpenManualRegistration: _openManualDeviceRegistrationFlow,
         );
 
       case SirketMenuItem.bluetoothWifiKur:

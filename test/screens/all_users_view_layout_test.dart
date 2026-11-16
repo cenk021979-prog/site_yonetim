@@ -106,12 +106,12 @@ void main() {
       ]) {
         expect(find.text(text), findsWidgets, reason: 'metin korunmalı: $text');
       }
-      // Süper kullanıcılar dizinde listelenmez (önceki davranış).
-      expect(find.text('Süper Yönetici'), findsNothing);
+      // Süper kullanıcılar artık Kullanıcı Yönetimi altında birleştirilmiştir.
+      expect(find.text('Süper Yönetici'), findsWidgets);
       // Rol çipleri yatay kaydırılmaz: hepsi ekran genişliği içinde (sığmayan çip alta iner).
       final chips = find.byType(FilterChip);
-      expect(chips, findsNWidgets(4));
-      for (var i = 0; i < 4; i++) {
+      expect(chips, findsNWidgets(5));
+      for (var i = 0; i < 5; i++) {
         expect(
           t.getRect(chips.at(i)).right,
           lessThanOrEqualTo(w + 0.5),
@@ -448,6 +448,7 @@ void main() {
         AppTone.success,
         AppTone.violet,
         AppTone.violet,
+        AppTone.primary,
       ]);
       expect(
         orbs.every(
@@ -464,7 +465,7 @@ void main() {
       expect(toneOf('Daire Kullanicisi'), AppTone.violet);
       expect(toneOf('Bireysel Kullanici'), AppTone.violet);
       // Aktiflik: dizinde anahtar yok, bu yüzden her satırda açıkça yazılır.
-      expect(find.widgetWithText(StatusChip, 'Aktif'), findsNWidgets(3));
+      expect(find.widgetWithText(StatusChip, 'Aktif'), findsNWidgets(4));
       expect(toneOf('Aktif'), AppTone.success);
       expect(find.widgetWithText(StatusChip, 'Pasif'), findsOneWidget);
       expect(toneOf('Pasif'), AppTone.neutral);
@@ -484,9 +485,9 @@ void main() {
         dark: false,
       );
       expect(find.byType(IconOrb), findsNothing);
-      expect(find.byType(StatusChip), findsNothing);
+      expect(find.widgetWithText(StatusChip, 'Siz'), findsOneWidget);
       expect(find.text('Site Yoneticisi'), findsNWidgets(2));
-      expect(find.text('Aktif'), findsNWidgets(3));
+      expect(find.text('Aktif'), findsNWidgets(4));
       expect(find.text('Pasif'), findsOneWidget);
       expect(t.takeException(), isNull);
     });
@@ -506,8 +507,8 @@ void main() {
           .widgetList<AppCard>(find.byType(AppCard))
           .map((c) => c.level)
           .toList();
-      // Üst kart, 4 kullanıcı satırı, sayfalama kartı.
-      expect(levels, <int>[2, 1, 1, 1, 1, 1]);
+      // Üst kart, 5 kullanıcı satırı, sayfalama kartı.
+      expect(levels, <int>[2, 1, 1, 1, 1, 1, 1]);
     });
 
     testWidgets('detay alt sayfası: büyük rol rozeti (hero, glow) ad ve e-postanın yanında', (

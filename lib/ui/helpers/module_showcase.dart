@@ -119,6 +119,7 @@ const Map<SirketMenuItem, ModuleArtKind> _artKinds = <SirketMenuItem, ModuleArtK
   SirketMenuItem.siteOnayTalepleri: ModuleArtKind.sites,
   SirketMenuItem.katilimVeKurulum: ModuleArtKind.sites,
   SirketMenuItem.moduller: ModuleArtKind.modules,
+  SirketMenuItem.modulGelistirme: ModuleArtKind.modules,
   SirketMenuItem.devreyeAlinanModuller: ModuleArtKind.modules,
   SirketMenuItem.pasifModuller: ModuleArtKind.modules,
   SirketMenuItem.modulTalepleri: ModuleArtKind.modules,
@@ -176,6 +177,7 @@ const Map<SirketMenuItem, String> _descriptions = <SirketMenuItem, String>{
   SirketMenuItem.katilimVeKurulum: 'Daireye katılın',
   // Anahtar yalnız süper kullanıcıdadır (Faz 1.1): rol verilmezse açma / kapama vaat edilmez (bkz. [_roleDescription]).
   SirketMenuItem.moduller: 'Tanımlı modüller ve modül talebi',
+  SirketMenuItem.modulGelistirme: 'Platform modülleri ve durumları',
   SirketMenuItem.devreyeAlinanModuller: 'Platformda aktif olan modüller',
   SirketMenuItem.pasifModuller: 'Devreye alınmamış pasif modüller',
   SirketMenuItem.modulTalepleri: 'Yöneticilerin modül talepleri',

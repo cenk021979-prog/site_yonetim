@@ -28,6 +28,8 @@ class CompanyDevicesView extends StatelessWidget {
     this.onRegisterNewDevice,
     this.onToggleDefect,
     this.onReleaseOwnership,
+    this.onOpenQrRegistration,
+    this.onOpenManualRegistration,
   });
 
   final DevicePage? pageData;
@@ -46,6 +48,100 @@ class CompanyDevicesView extends StatelessWidget {
   final VoidCallback? onRegisterNewDevice;
   final ValueChanged<DeviceRecord>? onToggleDefect;
   final ValueChanged<DeviceRecord>? onReleaseOwnership;
+  final VoidCallback? onOpenQrRegistration;
+  final VoidCallback? onOpenManualRegistration;
+
+  void _showDeviceAddChoiceSheet(BuildContext context) {
+    final p = context.palette;
+    final th = Theme.of(context).textTheme;
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: p.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(AppRadius.xl)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(AppSpace.lg),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: AppSpace.md),
+                  decoration: BoxDecoration(
+                    color: p.textMuted.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Row(
+                children: [
+                  Icon(Icons.memory_rounded, color: AppTone.primary.ink(p), size: 24),
+                  const SizedBox(width: AppSpace.sm),
+                  Text(
+                    'Şirket Cihazı Kaydet',
+                    style: th.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                  ),
+                ],
+              ),
+              const SizedBox(height: AppSpace.xs),
+              Text(
+                'Yeni kartı envantere eklemek için bir yöntem seçin:',
+                style: th.bodySmall?.copyWith(color: p.textSecondary),
+              ),
+              const SizedBox(height: AppSpace.md),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  side: BorderSide(color: p.border),
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTone.primary.tint(p),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Icon(Icons.qr_code_scanner_rounded, color: AppTone.primary.ink(p)),
+                ),
+                title: const Text('Karekod (QR) ile Kaydet', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Cihaz üzerindeki QR kodu kamerayla okutur ve Unique ID bilgisini otomatik doldurur.'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onOpenQrRegistration?.call();
+                },
+              ),
+              const SizedBox(height: AppSpace.sm),
+              ListTile(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  side: BorderSide(color: p.border),
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: AppTone.info.tint(p),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Icon(Icons.edit_note_rounded, color: AppTone.info.ink(p)),
+                ),
+                title: const Text('Unique ID ile Elle Kaydet', style: TextStyle(fontWeight: FontWeight.w600)),
+                subtitle: const Text('Cihazın 12 haneli Unique ID bilgisini klavyeden elle girerek doğrudan kayıt açar.'),
+                onTap: () {
+                  Navigator.pop(ctx);
+                  onOpenManualRegistration?.call();
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _card(DeviceRecord device, int index) {
     return StaggeredEntry(
@@ -108,6 +204,12 @@ class CompanyDevicesView extends StatelessWidget {
                 runSpacing: AppSpace.sm,
                 crossAxisAlignment: WrapCrossAlignment.center,
                 children: [
+                  if (onOpenQrRegistration != null || onOpenManualRegistration != null)
+                    ElevatedButton.icon(
+                      onPressed: () => _showDeviceAddChoiceSheet(context),
+                      icon: const Icon(Icons.add_circle_outline_rounded, size: 20),
+                      label: const Text('Yeni Cihaz Kaydet'),
+                    ),
                   ElevatedButton.icon(
                     onPressed: isBroadcastingOta ||
                             isLoading ||
@@ -171,15 +273,23 @@ class CompanyDevicesView extends StatelessWidget {
                 icon: Icons.devices_other_rounded,
                 title: 'Şirket hesabına kayıtlı cihaz bulunamadı.',
                 message: isSuperUser
-                    ? 'Yeni cihaz eklemek için sol menüdeki "Şirket Cihazı Kaydet" bölümünü kullanabilirsiniz.'
+                    ? ((onOpenQrRegistration != null || onOpenManualRegistration != null)
+                        ? 'Yeni bir cihaz eklemek için aşağıdaki butonu kullanabilirsiniz.'
+                        : 'Yeni cihaz eklemek için sol menüdeki "Şirket Cihazı Kaydet" bölümünü kullanabilirsiniz.')
                     : null,
-                child: !isSuperUser && onRegisterNewDevice != null
+                child: (isSuperUser && (onOpenQrRegistration != null || onOpenManualRegistration != null))
                     ? ElevatedButton.icon(
-                        onPressed: onRegisterNewDevice,
+                        onPressed: () => _showDeviceAddChoiceSheet(context),
                         icon: const Icon(Icons.add_circle_outline_rounded),
                         label: const Text('Yeni Cihaz Kaydet'),
                       )
-                    : null,
+                    : (!isSuperUser && onRegisterNewDevice != null
+                        ? ElevatedButton.icon(
+                            onPressed: onRegisterNewDevice,
+                            icon: const Icon(Icons.add_circle_outline_rounded),
+                            label: const Text('Yeni Cihaz Kaydet'),
+                          )
+                        : null),
               )
             else ...[
               if (unassignedDevices.isNotEmpty) ...[

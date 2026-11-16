@@ -5369,3 +5369,30 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     4. Çekmecede süper kullanıcının yönetim öğelerinin ("Panel", "Site Yönetimi", "Kişiler", "Daire Sakinleri", "Kullanıcı Yönetimi", "Modüller", "Cihazlar" vb.) eksiksiz yer aldığını doğrulayın.
     5. Sağ üstteki ayarlar panelini (`EndDrawer`) açın: Sakin moduna geçiş düğmesinin olmadığını doğrulayın.
   - **Beklenen Sonuç:** Süper kullanıcı asla daire sakini veya site sahibi olamaz; bu nedenle gereksiz tüm sakin modu butonları, daireye katılma ve yeni site başvurusu ekranları süper kullanıcı arayüzünden tamamen kaldırılmıştır. Süper kullanıcı tüm siteleri, daireleri, kişileri, kullanıcıları ve cihazları merkezi olarak yönetir.
+
+---
+
+## 186. ⚙️ Süper Kullanıcı Ayarlar Menüsü Sadeleştirme ve Konsolidasyonu (2026-11-16)
+
+- [ ] **186.1. Kullanıcı Yönetimi Birleştirilmesi:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı (`UserRole.superUser`) hesabıyla oturum açıp sağ üstteki "Ayarlar" dişli simgesine dokunun.
+    2. Menüde ayrı ayrı duran "Süper kullanıcı yönetimi" ve "Site yöneticileri yönetimi" öğelerinin kalktığını, tek bir **"Kullanıcı Yönetimi"** menüsünün bulunduğunu doğrulayın.
+    3. "Kullanıcı Yönetimi" ekranına girin. Üstteki rol filtreleme çiplerinde (`Tüm Roller`, `Süper Kullanıcılar`, `Site Yöneticileri`, `Daire Sakinleri`, `Bireysel Kullanıcılar`) süper kullanıcıların da listelendiğini ve filtrelenebildiğini teyit edin.
+    4. "Yeni Kullanıcı" butonuna dokunarak yeni bir hesap açın; seçilen role göre veya rol seçim listesinden başarıyla hesap oluşturulduğunu doğrulayın.
+  - **Beklenen Sonuç:** 3 ayrı menü yerine tek bir "Kullanıcı Yönetimi" ekranından tüm roller (süper kullanıcı, yönetici, sakin, bireysel) aranabilir, filtrelenebilir, düzenlenebilir, aktif/pasif yapılabilir ve yeni kullanıcı eklenebilir.
+
+- [ ] **186.2. Modül Geliştirme Menüsü Birleştirilmesi:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı Ayarlar menüsünde "Devreye alınmış modüller" ve "Devreye alınmamış modüller" yerine tek bir **"Modül Geliştirme"** menüsünün yer aldığını teyit edin.
+    2. "Modül Geliştirme" ekranını açın. Ekrandaki filtre çiplerinden (`Tümü`, `Devrede`, `Devre Dışı`, `Temel`, `Ek`) modülleri süzün.
+    3. Bir modülü seçip platform anahtarını (aktif/pasif) değiştirin; durumun anında güncellendiğini doğrulayın.
+  - **Beklenen Sonuç:** İki ayrı menüye ihtiyaç kalmadan tek bir "Modül Geliştirme" ekranından tüm modüllerin platform geneli geliştirme ve aktiflik durumu yönetilebilir.
+
+- [ ] **186.3. Şirket Cihaz Envanteri ve Cihaz Kaydı Birleştirilmesi:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı Ayarlar menüsünde "Şirket cihazı kaydet" ve "Şirket cihaz envanteri" yerine tek bir **"Şirket Cihaz Envanteri"** menüsünün yer aldığını teyit edin.
+    2. "Şirket Cihaz Envanteri" ekranını açın. Sol panelde/üst eylemlerde yer alan "Yeni Cihaz Kaydet" butonuna dokunun.
+    3. Açılan seçim menüsünden "Karekod (QR) ile Kaydet" veya "Unique ID ile Elle Kaydet" seçeneklerini test edin.
+    4. Yeni bir cihaz eklendiğinde envanter listesinde anında göründüğünü teyit edin.
+  - **Beklenen Sonuç:** Ayrı bir cihaz kaydetme sayfasına gitmeye gerek kalmadan tüm cihaz envanteri, OTA yayınlama, PDF raporu ve yeni cihaz ekleme (QR ve Unique ID) tek bir "Şirket Cihaz Envanteri" ekranından yürütülebilir.
