@@ -6745,25 +6745,27 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         },
       ),
     // P1-14 (K11): her ekrandan erişilebilir geri bildirim; ekran adı ve rota formda otomatik eklenir.
-    YanMenuAction(
-      icon: Icons.rate_review_outlined,
-      title: 'Geri bildirim gönder',
-      onTap: _openFeedback,
-    ),
-    YanMenuAction(
-      icon: Icons.history_rounded,
-      title: 'Gönderdiğim geri bildirimler',
-      onTap: () {
-        Navigator.of(context).pop();
-        unawaited(
-          FeedbackInboxPage.open(
-            context,
-            service: _feedbackService,
-            mine: true,
-          ),
-        );
-      },
-    ),
+    if (session.role != UserRole.superUser) ...[
+      YanMenuAction(
+        icon: Icons.rate_review_outlined,
+        title: 'Geri bildirim gönder',
+        onTap: _openFeedback,
+      ),
+      YanMenuAction(
+        icon: Icons.history_rounded,
+        title: 'Gönderdiğim geri bildirimler',
+        onTap: () {
+          Navigator.of(context).pop();
+          unawaited(
+            FeedbackInboxPage.open(
+              context,
+              service: _feedbackService,
+              mine: true,
+            ),
+          );
+        },
+      ),
+    ],
     if (_canReadFeedback(session))
       YanMenuAction(
         icon: Icons.inbox_outlined,
@@ -7230,8 +7232,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                     _toggleResidentMode();
                   },
                   onSelect: _selectMenu,
-                  onOpenHelp: _openHelp,
-                  onOpenFeedback: _openFeedback,
+                  onOpenHelp: session.role == UserRole.superUser ? null : _openHelp,
+                  onOpenFeedback: session.role == UserRole.superUser ? null : _openFeedback,
                   // P2-26: çıkış her zaman onaydan geçer; vazgeçilirse çekmece açık kalır ve oturum kapanmaz.
                   onLogout: () => unawaited(_confirmAndLogout()),
                   // İP-1D / G2: site seçici çekmecenin en üstünde.
@@ -7623,7 +7625,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
             ),
         ],
       ),
-      onOpenHelp: _openHelpPage,
+      onOpenHelp: session.role == UserRole.superUser ? null : _openHelpPage,
       debtSiteCodes: resident ? _debtSiteCodes() : null,
       quickActionItems: resident ? _quickActionItems() : null,
       onCreateGuestPass: resident ? _guestPassAction(session) : null,

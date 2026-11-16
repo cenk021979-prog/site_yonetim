@@ -358,7 +358,7 @@ void main() {
         t,
         end: true,
         endDrawer: _settings(
-          badges: const <SirketMenuItem, int>{SirketMenuItem.modulTalepleri: 4},
+          badges: const <SirketMenuItem, int>{SirketMenuItem.istemciHatalari: 4},
           actions: <YanMenuAction>[
             YanMenuAction(icon: Icons.widgets_outlined, title: 'Masaüstüne Widget Ekle', onTap: () => widgetTaps++),
           ],
@@ -379,7 +379,7 @@ void main() {
         isSemantics(label: 'Ayarlar', isHeader: true),
       );
       final badge = find.descendant(
-        of: _tile(SirketMenuItem.modulTalepleri),
+        of: _tile(SirketMenuItem.istemciHatalari),
         matching: find.byKey(const ValueKey<String>('yan_menu_rozet')),
       );
       expect(find.descendant(of: badge, matching: find.text('4')), findsOneWidget);
@@ -404,12 +404,13 @@ void main() {
     test('rozet toplamı: yalnız ayar öğelerinin rozetleri', () {
       expect(
         YanMenuAyarlar.badgeTotal(
-          const <SirketMenuItem>[SirketMenuItem.modulTalepleri, SirketMenuItem.siteBasvurulari, SirketMenuItem.duyurular],
+          const <SirketMenuItem>[SirketMenuItem.platformAyarlari, SirketMenuItem.istemciHatalari, SirketMenuItem.duyurular],
           const <SirketMenuItem, int>{
-            SirketMenuItem.modulTalepleri: 2,
-            SirketMenuItem.siteBasvurulari: 1,
+            SirketMenuItem.platformAyarlari: 2,
+            SirketMenuItem.istemciHatalari: 1,
             SirketMenuItem.duyurular: 9,
           },
+          UserRole.superUser,
         ),
         3,
       );

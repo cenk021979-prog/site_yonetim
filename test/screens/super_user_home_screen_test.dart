@@ -137,6 +137,17 @@ void main() {
     expect(find.descendant(of: drawer, matching: find.text('Siteye Göre Kişilerin Yönetimi')), findsOneWidget);
     expect(find.descendant(of: drawer, matching: find.text('Tüm Kullanıcı Yönetimi')), findsOneWidget);
     expect(find.descendant(of: drawer, matching: find.text('Daire Sakinleri')), findsNothing);
+    expect(find.descendant(of: drawer, matching: find.text('Yardım ve Destek')), findsNothing);
+    expect(find.descendant(of: drawer, matching: find.text('Geri bildirim')), findsNothing);
+
+    // 4. Sağ ayarlar panelini (endDrawer) aç ve kontrol et
+    tester.state<ScaffoldState>(find.byType(Scaffold).first).openEndDrawer();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 450));
+
+    // Süper kullanıcı için "Geri bildirim gönder" ve "Gönderdiğim geri bildirimler" ayarlar panelinde de olmamalıdır
+    expect(find.text('Geri bildirim gönder'), findsNothing);
+    expect(find.text('Gönderdiğim geri bildirimler'), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump();

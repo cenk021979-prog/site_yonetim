@@ -278,7 +278,18 @@ void main() {
             of: find.byType(YanMenuAyarlar),
             matching: find.text('Gelen geri bildirimler'),
           );
-          expect(find.descendant(of: find.byType(YanMenuAyarlar), matching: find.text('Gönderdiğim geri bildirimler')), findsOneWidget);
+          final hasMyFeedback = find
+              .descendant(
+                of: find.byType(YanMenuAyarlar),
+                matching: find.text('Gönderdiğim geri bildirimler'),
+              )
+              .evaluate()
+              .isNotEmpty;
+          if (auth.role == UserRole.superUser) {
+            expect(hasMyFeedback, isFalse, reason: 'süper kullanıcıda gönderdiğim geri bildirimler ayarlar panelinde yer almaz');
+          } else {
+            expect(hasMyFeedback, isTrue);
+          }
           final result = (
             send.evaluate().isNotEmpty,
             inbox.evaluate().isNotEmpty,
@@ -300,7 +311,7 @@ void main() {
             _HomeAuth(role: UserRole.superUser),
             await _access(() => <MySiteModules>[], superUser: true),
           ),
-          (true, true),
+          (false, true),
           reason: 'süper kullanıcı',
         );
         expect(
@@ -438,13 +449,13 @@ void main() {
       },
     );
 
-    testWidgets('süper kullanıcı: site bağlamı yok', (t) async {
+    testWidgets('süper kullanıcı: çekmecede yardım ve geri bildirim yer almaz', (t) async {
       final auth = _HomeAuth(role: UserRole.superUser);
       final access = await _access(() => <MySiteModules>[], superUser: true);
       await _pumpHome(t, auth, access: access);
-      await _tapDrawerFeedback(t);
-      expect(find.byType(FeedbackDialog), findsOneWidget);
-      expect(_k('feedback_context_site'), findsNothing);
+      await openMenuDrawer(t);
+      expect(find.text('Geri bildirim'), findsNothing);
+      expect(find.text('Yardım ve Destek'), findsNothing);
       await _disposeHome(t);
     });
   });

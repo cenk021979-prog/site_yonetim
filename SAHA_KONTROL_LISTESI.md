@@ -5429,13 +5429,20 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
        - Şirket Cihaz Envanteri
        - Bluetooth ile Wi-Fi Kur
        - Tüm işlemler
-       - Yardım ve Destek
-       - Geri bildirim
        - Çıkış Yap
     2. Sağ üstteki dişli simgesine ("Ayarlar") dokunun.
-    3. Ayarlar panelinde yalnız şu 4 öğenin kaldığını doğrulayın:
+    3. Ayarlar panelinde yalnız şu öğelerin kaldığını doğrulayın:
        - Profilim
        - Sistem Logları
        - Platform Ayarları
        - İstemci Hataları
+       - Gelen geri bildirimler (varsa)
   - **Beklenen Sonuç:** Tüm operasyonel süper kullanıcı komutları ana sol menüde kolay erişilebilir duruma gelir; Ayarlar paneli ise yalnızca sistem ayarları ve profili barındırır.
+
+- [ ] **187.4. Süper Kullanıcı İçin Yardım ve Geri Bildirim Butonlarının Kaldırılması:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı (`UserRole.superUser`) hesabıyla oturum açın.
+    2. Sol çekmecede "Yardım ve Destek" ve "Geri bildirim" öğelerinin YER ALMADIĞINI doğrulayın (süper kullanıcının kendi kendine bildirim göndermesi veya yardım istemesi anlamsızdır).
+    3. Ana panel ekranında (Vitrin) "Yardım ve Destek" butonunun yer almadığını teyit edin.
+    4. Sağ üstteki Ayarlar paneline (dişli) girin; panelde "Geri bildirim gönder" ve "Gönderdiğim geri bildirimler" öğelerinin YER ALMADIĞINI, yalnızca sakinlerden gelen geri bildirimleri incelemek üzere "Gelen geri bildirimler" seçeneğinin yer aldığını doğrulayın.
+  - **Beklenen Sonuç:** Süper kullanıcı arayüzü gereksiz destek ve geri bildirim formlarından tamamen arındırılır; süper kullanıcı geri bildirim gönderen değil, gelen bildirimleri yöneten makam olarak kalır.

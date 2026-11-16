@@ -285,7 +285,9 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
 35. **Süper Kullanıcı Sol Menü (Drawer) ve Ayarlar Paneli Revizyonu (Kural 35):**
     - **Neden Yapıldı:**
       - Süper kullanıcı sistemi geliştiren ve yöneten kişidir; site sakini veya site yöneticisi düzeyindeki operasyonel bölüm başlıkları ve modüller (Daireler başlığı, Daire Sakinleri, Borçlar başlığı, Finans, İletişim başlığı, Duyurular, Site hizmetleri başlığı, Kapılar, Dosya Deposu) süper kullanıcının sol çekmecesinden tamamen kaldırıldı.
-      - Site Yönetimi, Tüm işlemler, Yardım ve Destek, Geri bildirim doğrudan Panel gibi ana dizine alındı.
+      - Site Yönetimi ve Tüm işlemler doğrudan Panel gibi ana dizine alındı.
+      - Süper kullanıcının kendi sisteminde kime geri bildirimde bulunacağı veya kimden yardım isteyeceği anlamsız olduğundan; sol menüden ve vitrin panelinden **"Yardım ve Destek"** ile **"Geri bildirim"** düğmeleri tamamen kaldırıldı.
+      - Benzer şekilde sağ üst Ayarlar panelindeki ek eylemlerden **"Geri bildirim gönder"** ve **"Gönderdiğim geri bildirimler"** süper kullanıcı için kaldırıldı (süper kullanıcı yalnızca sakinlerden gelen geri bildirimleri incelemek üzere "Gelen geri bildirimler" kutusunu görür).
       - "Kişiler" menüsü **"Kullanıcı Yönetimi"** açılır/katlanır (collapsible expansion) menüsü yapıldı. Altına:
         - **"Siteye Göre Kişilerin Yönetimi"** (`SirketMenuItem.kisiler`)
         - **"Tüm Kullanıcı Yönetimi"** (`SirketMenuItem.kullaniciYonetimi`) alt menüleri yerleştirildi.
@@ -303,6 +305,7 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
         - `İstemci Hataları` (`istemciHatalari`)
     - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
       - Süper kullanıcı sol çekmecesine "Daireler", "Daire Sakinleri", "Borçlar", "Finans", "İletişim", "Duyurular", "Site hizmetleri", "Kapılar", "Dosya Deposu" gibi site sakini modüllerini ASLA geri ekleme (`HomePage._extraMenuItems` ve `_hiddenMenuItems` süper kullanıcı için boş küme döner, bu kuralı bozma).
+      - Süper kullanıcı sol menüsüne, vitrinine veya ayarlar paneline "Yardım ve Destek", "Geri bildirim", "Geri bildirim gönder" veya "Gönderdiğim geri bildirimler" butonlarını ASLA geri ekleme.
       - "Kullanıcı Yönetimi" açılır menüsünü ve altındaki "Siteye Göre Kişilerin Yönetimi" ile "Tüm Kullanıcı Yönetimi" alt öğelerini bozma.
       - Sol çekmeceye taşınan 6 süper kullanıcı komutunu (Modül Geliştirme, Modül Yönetimi(Siteye Göre), Modül Talepleri, Site Başvuruları, Şirket Cihaz Envanteri, Bluetooth ile Wi-Fi Kur) Ayarlar paneline geri itme.
 

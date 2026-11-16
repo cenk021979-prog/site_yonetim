@@ -828,7 +828,7 @@ class YanMenu extends StatelessWidget {
       }
     }
     if (onOpenAllActions != null) rows.add(allActionsTile());
-    if (onOpenHelp != null) {
+    if (onOpenHelp != null && role != UserRole.superUser) {
       rows.add(
         entry(
           const ValueKey<String>('yan_menu_yardim'),
@@ -842,7 +842,7 @@ class YanMenu extends StatelessWidget {
         ),
       );
     }
-    if (onOpenFeedback != null) {
+    if (onOpenFeedback != null && role != UserRole.superUser) {
       rows.add(
         entry(
           const ValueKey<String>('yan_menu_geri_bildirim'),
