@@ -4,6 +4,7 @@ import { pool } from '../src/db.js';
 import {
   MAX_DEVICE_LOG_BATCH_ITEMS,
   MAX_REQUESTED_BY_LENGTH,
+  applyStatusMessage,
   buildLogsAckPayload,
   buildPulsePayload,
   buildQrResultPayload,
@@ -365,5 +366,47 @@ describe('kayitli cihaz denetimi (durum haritasi sismesin)', () => {
     } finally {
       delete pool.query;
     }
+  });
+
+  it('kayitli UID icin updateDevicePublicIp devices tablosuna dokunmaz ve durum haritasinda public_ip gunceller', async () => {
+    const executedQueries = [];
+    pool.query = async (text, params) => {
+      executedQueries.push({ text: String(text), params });
+      if (/SELECT 1 FROM devices/.test(String(text))) {
+        return { rowCount: 1, rows: [{ '?column?': 1 }] };
+      }
+      return { rowCount: 1, rows: [] };
+    };
+    try {
+      await updateDevicePublicIp('A1B2C3D4E5F6', '198.51.100.42');
+      assert.equal(getDeviceRuntimeStatus('A1B2C3D4E5F6').public_ip, '198.51.100.42');
+      // devices tablosundaki is_online / last_offline_at kesinlikle ezilmemeli
+      const devicesUpdate = executedQueries.find((q) => /UPDATE devices/.test(q.text));
+      assert.equal(devicesUpdate, undefined);
+      // yalnizca device_runtime_status guncellenir
+      const runtimeInsert = executedQueries.find((q) => /INSERT INTO device_runtime_status/.test(q.text));
+      assert.ok(runtimeInsert);
+    } finally {
+      delete pool.query;
+    }
+  });
+
+  it('applyStatusMessage: state ve event konulari availability gelmemis olsa bile cihazi cevrimici yapar', () => {
+    const testUid = 'C1C2C3C4C5C6';
+    const initialStatus = getDeviceRuntimeStatus(testUid);
+    assert.equal(initialStatus.mqtt_connected, false);
+
+    // state mesaji geldi
+    applyStatusMessage(`device/${testUid}/state`, JSON.stringify({ locked: true, firmware_version: '4.4.0' }));
+    const afterState = getDeviceRuntimeStatus(testUid);
+    assert.equal(afterState.mqtt_connected, true);
+    assert.equal(afterState.door_locked, true);
+    assert.equal(afterState.firmware_version, '4.4.0');
+
+    // event mesaji da mqtt_connected korur
+    applyStatusMessage(`device/${testUid}/event`, JSON.stringify({ event: 'button_pulse_started' }));
+    const afterEvent = getDeviceRuntimeStatus(testUid);
+    assert.equal(afterEvent.mqtt_connected, true);
+    assert.equal(afterEvent.last_event, 'button_pulse_started');
   });
 });

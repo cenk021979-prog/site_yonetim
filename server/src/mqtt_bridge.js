@@ -774,6 +774,15 @@ export function applyStatusMessage(topic, payload, meta = {}) {
   const text = String(payload || '').trim();
   status.last_payload_at = new Date().toISOString();
 
+  // availability harici tum konularda (state, event, logs, qr_verify, screen_qr) cihaz broker uzerinden
+  // mesaj yayinladigina gore MQTT baglantisi aktiftir; availability mesaji gecikmis/dusmus olsa bile
+  // cihaz cevrimici olarak terfi ettirilir.
+  if (kind !== 'availability' && status.mqtt_connected !== true) {
+    status.mqtt_connected = true;
+    status.online_since = new Date();
+    void syncLocalControlConfigFromDb(status.device_uid);
+  }
+
   if (kind === 'screen_qr') {
     let token = '';
     let validSeconds = 30;
@@ -987,7 +996,31 @@ export async function updateDevicePublicIp(deviceUid, publicIp) {
   const status = ensureStatus(normalizedUid);
   status.public_ip = String(publicIp);
   status.last_seen_at = new Date().toISOString();
-  await persistRuntimeStatus(status);
+  // Manifest HTTP istegi yalnizca IP ve last_seen_at gunceller; cihazın devices.is_online veya
+  // mqtt_connected durumunu geriye (offline) dusurmez.
+  try {
+    await pool.query(
+      `
+        INSERT INTO device_runtime_status (
+          device_uid,
+          public_ip,
+          last_seen_at,
+          updated_at
+        )
+        SELECT $1, $2, NOW(), NOW()
+        WHERE EXISTS (
+          SELECT 1 FROM devices WHERE device_uid = $1
+        )
+        ON CONFLICT (device_uid) DO UPDATE SET
+          public_ip = EXCLUDED.public_ip,
+          last_seen_at = EXCLUDED.last_seen_at,
+          updated_at = NOW()
+      `,
+      [normalizedUid, String(publicIp)],
+    );
+  } catch (error) {
+    recordBridgeError('db_error', `Device public IP DB yazilamadi: ${error.message}`);
+  }
 }
 
 export function startMqttBridge() {
