@@ -1,6 +1,15 @@
 # 📋 SAHA KONTROL LİSTESİ (FIELD VERIFICATION CHECKLIST)
 
 
+## 184. Cihaz OTA Manifest İsteklerinin Çevrimdışı Yapmasının Önlenmesi ve MQTT Port 8883 Ağ Kontrolü (2026-11-16)
+
+- [ ] **184.1. OTA Manifest HTTP İsteklerinde Çevrimiçi Durumun Korunması:**
+  - **Nasıl Test Edilir:** Cihaz Wi-Fi'ye bağlandığında otomatik olarak HTTP üzerinden firmware manifestini (`GET /firmware/esp32-c3/manifest.json`) sorgular.
+  - **Beklenen Sonuç:** Sunucuda `updateDevicePublicIp` artık `persistRuntimeStatus` üzerinden `devices.is_online` alanını `false` yapmaz ve `last_offline_at` değerini sıfırlamaz. Cihazın `public_ip` bilgisi kaydedilir, çevrimdışı olma hatası oluşmaz. Ayrıca MQTT üzerinden `state` veya `event` mesajı geldiğinde cihaz otomatik olarak çevrimiçi duruma geçirilir.
+- [ ] **184.2. MQTT Port 8883 Bulut Güvenlik Duvarı İzni (Natro Bulut Paneli):**
+  - **Nasıl Test Edilir:** Sunucuda (`178.210.161.55`) Mosquitto servisi 8883 portunda TLS ile çalışmakta ve yerel bağlantıları kabul etmektedir. Dış ağdan `tcpdump` ile yapılan testte port 8883 paketlerinin sunucu ağ kartına hiç ulaşmadığı (Natro bulut güvenlik duvarında bırakıldığı) tespit edilmiştir.
+  - **Beklenen Sonuç:** Natro yönetim panelinden sunucuya ait Bulut Güvenlik Duvarı (Security Group) kurallarına `Port: 8883, Protokol: TCP, Giriş (Inbound): İzin Ver (0.0.0.0/0)` kuralı tanımlandığında cihaz `mqtt.gudeteknoloji.com.tr:8883` adresine anında bağlanacak ve uygulamada yeşil canlı çevrimiçi rozetiyle görünecektir.
+
 ## 183. Acil Durum ve SOS Temel Modülü (2026-11-16)
 
 - [ ] **183.1. Platform kapalıyken SOS tamamen gizli:** Süper kullanıcıda `emergency` platform modülü kapalıyken uygulamayı yönetici ve sakin hesaplarıyla açın. Üst çubukta SOS bulunmamalı; alarm alıcısı başlamamalı ve acil durum API'leri boş/kapalı yanıt vermelidir.
