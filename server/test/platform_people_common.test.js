@@ -375,8 +375,9 @@ describe('normalizeLoginName: kullanici (giris) adi', () => {
     assert.equal(normalizeLoginName('abc'), 'abc');
   });
 
-  it("'@' iceremez (e-posta ile karismasin); 3-40 karakter; yalniz a-z 0-9 . _ - ; aksi 400 INVALID_BODY ve alan adi mesajda", () => {
-    for (const bad of ['ab', 'x'.repeat(41), 'ali@example.com', 'ali veli', 'ali/veli', 'çağrı', 'a+b', 'ali,veli', 'ali\u0000x']) {
+  it('gecerli e-posta veya 3-40 karakter sade kullanici adi kabul edilir; aksi 400 INVALID_BODY', () => {
+    assert.equal(normalizeLoginName(' Ali.Example+1@Example.COM '), 'ali.example+1@example.com');
+    for (const bad of ['ab', 'x'.repeat(41), 'ali@', 'a@b', `${'x'.repeat(95)}@x.com`, 'ali veli', 'ali/veli', 'çağrı', 'a+b', 'ali,veli', 'ali\u0000x']) {
       const result = codeOf(() => normalizeLoginName(bad));
       assert.equal(result?.code, 'INVALID_BODY', JSON.stringify(bad));
       assert.match(result.message, /login_name/);

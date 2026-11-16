@@ -204,9 +204,9 @@ export function normalizePersonEmail(value, field = 'email') {
 }
 
 export const LOGIN_NAME_MIN = 3;
-export const LOGIN_NAME_MAX = 50;
-// Kullanıcı (giriş) adı: e-posta verilmişse e-posta (<=100 karakter), kullanıcı adı verilmişse /^[a-z0-9._-]{3,50}$/.
-export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,50}$/;
+export const LOGIN_NAME_MAX = 40;
+// Kullanıcı (giriş) adı: e-posta verilmişse e-posta (<=100 karakter), kullanıcı adı verilmişse /^[a-z0-9._-]{3,40}$/.
+export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,40}$/;
 const EMAIL_LOGIN_PATTERN = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 
 /** Kullanıcı adı: kırpılır, küçük harfe çevrilir; boş/yok -> null; biçim uymazsa 400 INVALID_BODY. */

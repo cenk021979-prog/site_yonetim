@@ -124,8 +124,9 @@ export function validateCreateInput({
 // Kullanıcı (giriş) adı kuralı: e-posta girilmişse geçerli bir e-posta adresi (<=100 karakter),
 // kullanıcı adı girilmişse /^[a-z0-9._-]{3,50}$/ biçiminde sade bir kullanıcı adı kabul edilir.
 const LOGIN_NAME_MIN_LENGTH = 3;
-const LOGIN_NAME_MAX_LENGTH = 100;
-const LOGIN_NAME_RULE = /^[a-z0-9._-]{3,50}$/;
+const LOGIN_NAME_MAX_LENGTH = 40;
+const EMAIL_LOGIN_MAX_LENGTH = 100;
+const LOGIN_NAME_RULE = /^[a-z0-9._-]{3,40}$/;
 const EMAIL_LOGIN_RULE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 
 export function validateLoginName(loginName) {
@@ -134,7 +135,7 @@ export function validateLoginName(loginName) {
     return 'Kullanici adi en az 3 karakter olmali.';
   }
   if (name.includes('@')) {
-    if (!EMAIL_LOGIN_RULE.test(name) || name.length > 100) {
+    if (!EMAIL_LOGIN_RULE.test(name) || name.length > EMAIL_LOGIN_MAX_LENGTH) {
       return 'Gecerli bir e-posta adresi girin.';
     }
     return null;
@@ -142,8 +143,8 @@ export function validateLoginName(loginName) {
   if (name.length < LOGIN_NAME_MIN_LENGTH) {
     return 'Kullanici adi en az 3 karakter olmali.';
   }
-  if (name.length > 50) {
-    return 'Kullanici adi en fazla 50 karakter olabilir.';
+  if (name.length > LOGIN_NAME_MAX_LENGTH) {
+    return `Kullanici adi en fazla ${LOGIN_NAME_MAX_LENGTH} karakter olabilir.`;
   }
   if (!LOGIN_NAME_RULE.test(name)) {
     return 'Kullanici adi yalnizca kucuk harf, rakam, nokta, alt tire ve tire icerebilir.';

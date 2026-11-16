@@ -5326,15 +5326,15 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 
 ---
 
-## 183. 🧩 Modül Yönetimi: Türkçe Alfabetik Sıralama & Site Bazında Temel Modül Pasife Alma (2026-11-16)
+## 196. 🧩 Modül Yönetimi: Türkçe Alfabetik Sıralama & Site Bazında Temel Modül Pasife Alma (2026-11-16)
 
-- [ ] **183.1. Modüllerin Türkçe Alfabetik Sıralı Listelenmesi:**
+- [ ] **196.1. Modüllerin Türkçe Alfabetik Sıralı Listelenmesi:**
   - **Nasıl Test Edilir:**
     1. Hem Platform Modülleri yönetim ekranına (Süper Kullanıcı) hem de Site Modülleri ekranına (Site Yöneticisi) gidin.
     2. Modül kartlarının listelenme sırasını kontrol edin (Örn: Aidat ve Finans, Anket ve Oylama, Dosya Deposu, Ekipman ve Bakım, ... Rehber, Rezervasyon, Ziyaretçi ve Kargo).
   - **Beklenen Sonuç:** Modüller Türkçe karakter duyarlı (Ç, Ğ, I, İ, Ö, Ş, Ü) olarak A'dan Z'ye alfabetik sırada listelenmelidir.
 
-- [ ] **183.2. Seçilen Site İçin Temel Modüllerin Switch ile Pasife Alınabilmesi (Aktif/Pasif - Süper Kullanıcı & Site Yöneticisi):**
+- [ ] **196.2. Seçilen Site İçin Temel Modüllerin Switch ile Pasife Alınabilmesi (Aktif/Pasif - Süper Kullanıcı & Site Yöneticisi):**
   - **Nasıl Test Edilir:**
     1. İlgili sitenin **Site Yöneticisi** (`site_manager`) veya **Süper Kullanıcı** hesabıyla "Site Modülleri" ekranına gidin.
     2. Temel modüllerden birinin (örn: `Anket ve Oylama`, `Komşu Panosu` veya `Ekipman ve Bakım`) yanındaki açma/kapama switch'ine dokunun.
@@ -5343,7 +5343,7 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     5. Bir ek modülün (örn. Geçiş Kontrol) yanına bakın; tanımlı değilse switch yerine "Modül Talep Et" butonu çıkmalıdır.
   - **Beklenen Sonuç:** Temel modüller varsayılan olarak her sitede açık gelir; hem Süper Kullanıcı hem de Site Yöneticisi tarafından site bazında switch ile kapatılabilir. Kapatıldığında durum rozeti "Kapalı"ya döner, site sakinlerinin ve yöneticisinin menüsünden modül kaldırılır. Tekrar açıldığında "Her sitede açık" olur ve menüye geri gelir. Ek modüllerde ise site yöneticisi için onay/satın alma koruması sürer ("Modül Talep Et").
 
-- [ ] **183.3. Platformda Devre Dışı Olan Modüllerin Sitede Görünmemesi:**
+- [ ] **196.3. Platformda Devre Dışı Olan Modüllerin Sitede Görünmemesi:**
   - **Nasıl Test Edilir:**
     1. Henüz platform genelinde devreye alınmamış bir modülün (`Acil Durum ve SOS`) durumunu kontrol edin.
     2. Normal bir sitenin modül listesine ve menüsüne bakın.
@@ -5351,9 +5351,9 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 
 ---
 
-## 184. 🚪 Cihaz Ekleme Sonrası Akıllı Kapı Atama & Site Kur Ekranı İptali (2026-11-16)
+## 197. 🚪 Cihaz Ekleme Sonrası Akıllı Kapı Atama & Site Kur Ekranı İptali (2026-11-16)
 
-- [ ] **184.1. Cihaz Eklendiğinde Site Kurulumuna Atılmaması ve Mevcut Kapılara Atama Yapılabilmesi:**
+- [ ] **197.1. Cihaz Eklendiğinde Site Kurulumuna Atılmaması ve Mevcut Kapılara Atama Yapılabilmesi:**
   - **Nasıl Test Edilir:**
     1. Site yöneticisi hesabıyla sisteme giriş yapın.
     2. "Cihaz Ekle" / "Yeni Cihaz Kaydet" butonuna tıklayıp geçerli bir cihaz UID'si veya QR kodu ile cihazı sahiplenin.
@@ -5364,9 +5364,9 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
 
 ---
 
-## 185. 🛡️ Süper Kullanıcı Arayüzü Sadeleştirme & Daire/Site Başvuru Kısıtlaması (2026-11-16)
+## 198. 🛡️ Süper Kullanıcı Arayüzü Sadeleştirme & Daire/Site Başvuru Kısıtlaması (2026-11-16)
 
-- [ ] **185.1. Süper Kullanıcı Ekranından Daire Sakini ve Site Başvurusu Menü/Ekran/Butonlarının Kaldırılması:**
+- [ ] **198.1. Süper Kullanıcı Ekranından Daire Sakini ve Site Başvurusu Menü/Ekran/Butonlarının Kaldırılması:**
   - **Nasıl Test Edilir:**
     1. Süper kullanıcı (`UserRole.superUser`) hesabıyla oturum açın.
     2. AppBar üst çubuğunu inceleyin: "Yönetici Görünümü / Sakin Görünümü" veya "Sakin Moduna Geç" geçiş hap butonunun olmadığını teyit edin.

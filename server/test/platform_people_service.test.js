@@ -1409,7 +1409,7 @@ describe('provisionPersonAccount and resetPersonPinDirect', () => {
 
   it('gecersiz girdi 400 INVALID_BODY ve kilit / sorgu ONCESINDE: kullanici adi ("@" yok), e-posta (dahili / sistem alan adi dahil), parola uzunlugu', async () => {
     const cases = [
-      [{ loginName: 'ali@example.com' }, /login_name/],
+      [{ loginName: 'ali@' }, /login_name/],
       [{ loginName: 'ab' }, /login_name/],
       [{ loginName: 'ali veli' }, /login_name/],
       [{ email: 'bozuk' }, /email/],
@@ -1480,7 +1480,7 @@ describe('provisionPersonAccount and resetPersonPinDirect', () => {
     assert.equal(res.login_name, 'yeni.ad');
     assert.equal(find(passwordUpdate).params[1], 'yeni.ad');
     await assert.rejects(
-      () => provisionPersonAccount({ siteCode: SITE, personId: 5, loginName: 'sakin@example.com', actor }),
+      () => provisionPersonAccount({ siteCode: SITE, personId: 5, loginName: 'sakin@', actor }),
       (error) => error.code === 'INVALID_BODY',
     );
   });

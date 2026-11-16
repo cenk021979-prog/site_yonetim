@@ -262,7 +262,7 @@ describe('POST /auth/login: giris sorgusu deterministik ve tekil', () => {
     assert.ok([200, 401, 403, 429].includes(res.status));
     const query = log.find((q) => q.sql.includes('LOWER(login_name)'));
     assert.ok(query, 'giris sorgusu calisti');
-    assert.match(query.sql, /WHERE LOWER\(email\) = LOWER\(\$1\) OR LOWER\(login_name\) = LOWER\(\$1\) ORDER BY \(LOWER\(email\) = LOWER\(\$1\)\) DESC, user_code ASC LIMIT 1$/);
+    assert.match(query.sql, /WHERE LOWER\(email\) = LOWER\(\$1\) OR LOWER\(login_name\) = LOWER\(\$1\) OR EXISTS .*resident_email.* ORDER BY \(LOWER\(email\) = LOWER\(\$1\) OR LOWER\(login_name\) = LOWER\(\$1\)\) DESC, user_code ASC LIMIT 1$/);
     assert.deepEqual(query.params, ['ali@example.com']);
   });
 });

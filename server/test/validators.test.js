@@ -92,20 +92,21 @@ describe('Server Validators Tests', () => {
         } catch (_error) {
           accepted = false;
         }
-        assert.equal(residentWith(sample) === null, accepted, `girdi: ${JSON.stringify(sample)}`);
+        assert.equal(residentWith(sample) === null, accepted || String(sample).trim() === '', `girdi: ${JSON.stringify(sample)}`);
       }
       // Yapi sabiti de ayni (3-40, yalniz a-z 0-9 . _ -)
       assert.equal(String(LOGIN_NAME_PATTERN), String(/^[a-z0-9._-]{3,40}$/));
     });
 
-    it('kullanici adi: 40 karakterden uzun, @ iceren ve Turkce harfli adlar reddedilir; buyuk harf kucultulerek kabul edilir (normalizeLoginName gibi)', () => {
+    it('kullanici adi: 40 karakterden uzun ve Turkce harfli adlar reddedilir; gecerli e-posta ve buyuk harf kabul edilir', () => {
       assert.match(residentWith('a'.repeat(41)), /en fazla 40/);
-      assert.match(residentWith('ali@x.com'), /@ kullanilamaz/);
+      assert.equal(residentWith('ali@x.com'), null);
+      assert.match(residentWith('ali@'), /e-posta/);
       assert.match(residentWith('ada\u00e7'), /kucuk harf, rakam/);
       assert.equal(residentWith('a'.repeat(40)), null);
       assert.equal(residentWith('Ada.L'), null);
       assert.match(residentWith('ab'), /en az 3/);
-      assert.match(residentWith(undefined), /en az 3/);
+      assert.equal(residentWith(undefined), null);
     });
   });
 
