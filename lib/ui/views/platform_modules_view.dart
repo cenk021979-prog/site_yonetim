@@ -458,16 +458,19 @@ class PlatformModulesViewState extends State<PlatformModulesView> {
   }
 
   List<PlatformModule> _applyFilter(List<PlatformModule> modules, String filter) {
+    final List<PlatformModule> list;
     if (filter == 'active') {
-      return modules.where((m) => m.isPlatformActive).toList();
+      list = modules.where((m) => m.isPlatformActive).toList();
     } else if (filter == 'inactive') {
-      return modules.where((m) => !m.isPlatformActive).toList();
+      list = modules.where((m) => !m.isPlatformActive).toList();
     } else if (filter == 'core') {
-      return modules.where((m) => m.core).toList();
+      list = modules.where((m) => m.core).toList();
     } else if (filter == 'optional') {
-      return modules.where((m) => !m.core).toList();
+      list = modules.where((m) => !m.core).toList();
+    } else {
+      list = modules.toList();
     }
-    return modules;
+    return list..sort(compareModulesByName);
   }
 
   Widget _buildFilterChip(

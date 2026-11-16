@@ -15,7 +15,7 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
   PlatformModule m, {
   bool requestMode = false,
 }) {
-  if (requestMode && m.toggleable) {
+  if (requestMode && m.toggleable && !m.core) {
     // `enabled`, `requestStatus`'tan ÖNCELİKLİDİR: açık modülde (örn. süper kullanıcı doğrudan açtı,
     // bekleyen talep henüz kapanmadı) "Talep gönderildi" gösterilmez.
     if (m.enabled) {
@@ -31,11 +31,9 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
     return (label: 'Tanımlı değil', tone: AppTone.neutral, icon: Icons.block_rounded);
   }
   if (m.core) {
-    return (
-      label: 'Her sitede açık',
-      tone: AppTone.info,
-      icon: Icons.verified_rounded,
-    );
+    return m.enabled
+        ? (label: 'Her sitede açık', tone: AppTone.info, icon: Icons.verified_rounded)
+        : (label: 'Kapalı', tone: AppTone.warning, icon: Icons.pause_circle_rounded);
   }
   if (!m.isAvailable) {
     return (
@@ -117,10 +115,10 @@ class ModuleCard extends StatelessWidget {
     // Süper kullanıcı: bekleyen talep varsa kartta ayrıca belirtilir.
     final showPendingChip = !requestMode && module.hasPendingRequest && !module.core;
 
-    // Talep düğmesi (YALNIZ site yöneticisi; süper kullanıcıda gizli): yalnız `toggleable && !enabled`
+    // Talep düğmesi (YALNIZ site yöneticisi; süper kullanıcıda gizli): yalnız `toggleable && !core && !enabled`
     // modülde; bekleyen talep varsa "Talebi Geri Çek", yoksa "Modül Talep Et".
     Widget? requestAction;
-    if (requestMode && module.toggleable && !module.enabled) {
+    if (requestMode && module.toggleable && !module.core && !module.enabled) {
       if (busy) {
         requestAction = const SizedBox(
           height: 48,
@@ -182,7 +180,7 @@ class ModuleCard extends StatelessWidget {
             children: [
               IconTile(
                 icon: moduleIconOf(module.code),
-                tone: module.enabled || module.core
+                tone: module.enabled
                     ? AppTone.success
                     : AppTone.neutral,
                 gap: AppSpace.md,
@@ -202,6 +200,12 @@ class ModuleCard extends StatelessWidget {
                           tone: status.tone,
                           icon: status.icon,
                         ),
+                        if (module.core)
+                          const StatusChip(
+                            label: 'Temel Modül',
+                            tone: AppTone.info,
+                            icon: Icons.verified_rounded,
+                          ),
                         if (showPendingChip)
                           const StatusChip(
                             label: 'Bekleyen talep var',

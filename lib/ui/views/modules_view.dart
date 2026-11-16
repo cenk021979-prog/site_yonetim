@@ -579,6 +579,9 @@ class ModulesViewState extends State<ModulesView> {
 
   List<Widget> _buildModulesSection(BuildContext context, int siteCode) {
     final state = _state;
+    final modules = state != null
+        ? (state.modules.toList()..sort(compareModulesByName))
+        : null;
     return [
       const SectionHeader(title: 'Site Modülleri'),
       const SizedBox(height: AppSpace.md),
@@ -592,21 +595,21 @@ class ModulesViewState extends State<ModulesView> {
           ),
           if (state != null) const SizedBox(height: AppSpace.md),
         ],
-        if (state != null)
-          for (var i = 0; i < state.modules.length; i++)
+        if (modules != null)
+          for (var i = 0; i < modules.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: AppSpace.md),
               child: StaggeredEntry(
                 index: i,
                 child: ModuleCard(
-                  module: state.modules[i],
-                  busy: _busyModules.contains(state.modules[i].code),
+                  module: modules[i],
+                  busy: _busyModules.contains(modules[i].code),
                   requestMode: !_isSuper,
-                  onToggle: _busyModules.contains(state.modules[i].code)
+                  onToggle: _busyModules.contains(modules[i].code)
                       ? null
-                      : (value) => unawaited(_toggle(state.modules[i], value)),
-                  onRequest: () => unawaited(_requestModule(state.modules[i])),
-                  onCancelRequest: () => unawaited(_cancelRequest(state.modules[i])),
+                      : (value) => unawaited(_toggle(modules[i], value)),
+                  onRequest: () => unawaited(_requestModule(modules[i])),
+                  onCancelRequest: () => unawaited(_cancelRequest(modules[i])),
                 ),
               ),
             ),

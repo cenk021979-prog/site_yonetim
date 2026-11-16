@@ -100,9 +100,9 @@ void main() {
       expect(find.text('Temel (2)'), findsOneWidget);
       expect(find.text('Ek (2)'), findsOneWidget);
 
-      // Sağ panel başlığı (ilk modül seçilidir)
-      expect(find.text('Kişi ve Daire Kayıtları Yönetimi'), findsOneWidget);
-      expect(find.text('Modül Kodu: people'), findsOneWidget);
+      // Sağ panel başlığı (alfabetik ilk modül seçilidir: Aidat ve Finans)
+      expect(find.text('Aidat ve Finans Yönetimi'), findsOneWidget);
+      expect(find.text('Modül Kodu: finance'), findsOneWidget);
       expect(find.text('Platform Genelinde Devrede'), findsOneWidget);
       expect(find.text('Otomatik Dağıtım'), findsOneWidget);
     });
@@ -111,7 +111,7 @@ void main() {
       final auth = ModulesFakeAuth()..platformModules = _sampleModules();
       await _pumpView(t, auth: auth, width: 1200, height: 800);
 
-      expect(find.text('Kişi ve Daire Kayıtları Yönetimi'), findsOneWidget);
+      expect(find.text('Aidat ve Finans Yönetimi'), findsOneWidget);
 
       // 'Geçiş Kontrol (SmartKeyPass)' modülüne dokun
       await t.tap(find.text('Geçiş Kontrol (SmartKeyPass)'));
@@ -154,6 +154,10 @@ void main() {
       final auth = ModulesFakeAuth()..platformModules = _sampleModules();
       await _pumpView(t, auth: auth, width: 1200, height: 800);
 
+      // Kişi ve Daire Kayıtları modülüne dokun
+      await t.tap(find.byKey(const ValueKey('module_card_people')));
+      await t.pumpAndSettle();
+
       // people modülü devrede -> Pasife Al butonuna dokun
       expect(find.text('Modülü Pasife Al'), findsOneWidget);
       await t.tap(find.text('Modülü Pasife Al'));
@@ -169,7 +173,7 @@ void main() {
       await _pumpView(t, auth: auth, width: 360, height: 640, dark: true);
 
       expect(find.text('Modül Listesi (4 Modül)'), findsOneWidget);
-      expect(find.text('Kişi ve Daire Kayıtları Yönetimi'), findsOneWidget);
+      expect(find.text('Aidat ve Finans Yönetimi'), findsOneWidget);
       expect(t.takeException(), isNull);
     });
 
@@ -225,22 +229,22 @@ void main() {
       });
       await t.pumpAndSettle();
 
-      // people modülünü pasife al
+      // İlk modül olan finance zaten seçilidir -> pasife al
       expect(find.text('Modülü Pasife Al'), findsOneWidget);
       await t.tap(find.text('Modülü Pasife Al'));
       await t.pumpAndSettle();
 
-      // Artık people 'Devre Dışı' oldu
-      var peopleCard = find.byKey(const ValueKey('module_card_people'));
-      expect(find.descendant(of: peopleCard, matching: find.text('Devre Dışı')), findsOneWidget);
+      // Artık finance 'Devre Dışı' oldu
+      var financeCard = find.byKey(const ValueKey('module_card_finance'));
+      expect(find.descendant(of: financeCard, matching: find.text('Devre Dışı')), findsOneWidget);
 
       // Şimdi ilk baştaki geciken eski loadData cevabı geç gelsin (stale response)
       completer.complete(staleList);
       await t.pumpAndSettle();
 
       // Yeni durum (pasife alınmış) korunmalı, eski devrede durumuyla ezilmemelidir
-      peopleCard = find.byKey(const ValueKey('module_card_people'));
-      expect(find.descendant(of: peopleCard, matching: find.text('Devre Dışı')), findsOneWidget);
+      financeCard = find.byKey(const ValueKey('module_card_finance'));
+      expect(find.descendant(of: financeCard, matching: find.text('Devre Dışı')), findsOneWidget);
     });
 
     testWidgets('küçük ekranda (320x640 x2.0) taşma hatası oluşmaz (Kural 6)', (t) async {

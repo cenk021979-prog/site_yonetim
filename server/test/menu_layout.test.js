@@ -258,12 +258,22 @@ function handle(sql, params, tx) {
     return ok(state.sites.has(Number(params[0])) ? [{ site_code: String(params[0]) }] : []);
   }
 
-  // yetenek (yalniz okunur: bu uclar site_modules'a ASLA yazmaz)
+  // yetenek (menu yerlesimi uclari site_modules'a yazmaz; testteki setSiteModuleEnabled yazabilir)
+  if (/^SELECT pg_advisory_xact_lock/.test(sql)) {
+    return ok();
+  }
+  if (/^SELECT enabled FROM site_modules WHERE site_code = \$1 AND module_code = \$2 LIMIT 1$/.test(sql)) {
+    const key = `${params[0]}:${params[1]}`;
+    const row = state.siteModules.get(key);
+    return ok(row ? [{ enabled: row.enabled }] : []);
+  }
+  if (/^INSERT INTO site_modules /.test(sql)) {
+    const [siteCode, moduleCode, enabled] = params;
+    write(() => state.siteModules.set(`${siteCode}:${moduleCode}`, { site_code: Number(siteCode), module_code: moduleCode, enabled }));
+    return ok();
+  }
   if (/^SELECT module_code, enabled FROM site_modules WHERE site_code = \$1$/.test(sql)) {
     return ok([...state.siteModules.values()].filter((r) => r.site_code === Number(params[0])).map((r) => ({ module_code: r.module_code, enabled: r.enabled })));
-  }
-  if (/^(INSERT INTO|UPDATE|DELETE FROM) site_modules/.test(sql)) {
-    throw new Error(`menu yerlesimi site_modules'a yazmamali: ${sql}`);
   }
 
   // yerlesim
@@ -484,15 +494,10 @@ describe('PUT /manager/sites/:siteCode/menu-layout', () => {
     assert.equal(state.siteModules.size, 0);
   });
 
-  it('temel modul KAPATILAMAZ: katman ayrimi bu kurali degistirmez (MODULE_NOT_TOGGLEABLE)', async () => {
-    for (const code of CORE_CODES) {
-      await assert.rejects(
-        () => setSiteModuleEnabled({ siteCode: SITE_1, moduleCode: code, enabled: false, actor: users.superUser }),
-        (e) => e.code === 'MODULE_NOT_TOGGLEABLE' && e.statusCode === 400,
-        code,
-      );
-    }
-    assert.equal(state.siteModules.size, 0);
+  it('temel modul site bazinda kapatilabilir ve site_modules e yazilir', async () => {
+    const result = await setSiteModuleEnabled({ siteCode: SITE_1, moduleCode: 'finance', enabled: false, actor: users.superUser });
+    assert.equal(result.changed, true);
+    assert.equal(state.siteModules.get(`${SITE_1}:finance`)?.enabled, false);
   });
 
   it('varsayilanla ayni kume ozellestirme sayilmaz: satir silinir (sonradan acilan moduller varsayilani izler)', async () => {

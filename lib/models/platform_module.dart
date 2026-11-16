@@ -57,6 +57,99 @@ abstract final class PlatformModuleCodes {
   static const String emergency = 'emergency';
 }
 
+int compareTurkishStrings(String a, String b) {
+  const turkishOrder = <int, int>{
+    // a / A
+    0x61: 1, 0x41: 1,
+    // b / B
+    0x62: 2, 0x42: 2,
+    // c / C
+    0x63: 3, 0x43: 3,
+    // ç / Ç
+    0xe7: 4, 0xc7: 4,
+    // d / D
+    0x64: 5, 0x44: 5,
+    // e / E
+    0x65: 6, 0x45: 6,
+    // f / F
+    0x66: 7, 0x46: 7,
+    // g / G
+    0x67: 8, 0x47: 8,
+    // ğ / Ğ
+    0x11f: 9, 0x11e: 9,
+    // h / H
+    0x68: 10, 0x48: 10,
+    // ı / I
+    0x131: 11, 0x49: 11,
+    // i / İ
+    0x69: 12, 0x130: 12,
+    // j / J
+    0x6a: 13, 0x4a: 13,
+    // k / K
+    0x6b: 14, 0x4b: 14,
+    // l / L
+    0x6c: 15, 0x4c: 15,
+    // m / M
+    0x6d: 16, 0x4d: 16,
+    // n / N
+    0x6e: 17, 0x4e: 17,
+    // o / O
+    0x6f: 18, 0x4f: 18,
+    // ö / Ö
+    0xf6: 19, 0xd6: 19,
+    // p / P
+    0x70: 20, 0x50: 20,
+    // r / R
+    0x71: 21, 0x51: 21,
+    // s / S
+    0x72: 22, 0x52: 22,
+    // ş / Ş
+    0x15f: 23, 0x15e: 23,
+    // t / T
+    0x74: 24, 0x54: 24,
+    // u / U
+    0x75: 25, 0x55: 25,
+    // ü / Ü
+    0xfc: 26, 0xdc: 26,
+    // v / V
+    0x76: 27, 0x56: 27,
+    // y / Y
+    0x79: 28, 0x59: 28,
+    // z / Z
+    0x7a: 29, 0x5a: 29,
+  };
+
+  final aRunes = a.runes.toList();
+  final bRunes = b.runes.toList();
+  final minLen = aRunes.length < bRunes.length ? aRunes.length : bRunes.length;
+
+  for (var i = 0; i < minLen; i++) {
+    final codeA = aRunes[i];
+    final codeB = bRunes[i];
+    if (codeA == codeB) continue;
+
+    final rankA = turkishOrder[codeA];
+    final rankB = turkishOrder[codeB];
+
+    if (rankA != null && rankB != null) {
+      if (rankA != rankB) return rankA.compareTo(rankB);
+      final diff = codeA.compareTo(codeB);
+      if (diff != 0) return diff;
+    } else if (rankA != null) {
+      return -1;
+    } else if (rankB != null) {
+      return 1;
+    } else {
+      final diff = codeA.compareTo(codeB);
+      if (diff != 0) return diff;
+    }
+  }
+  return aRunes.length.compareTo(bRunes.length);
+}
+
+int compareModulesByName(PlatformModule a, PlatformModule b) =>
+    compareTurkishStrings(a.name, b.name);
+
 DateTime? _parseDate(Object? raw) {
   if (raw == null) return null;
   return DateTime.tryParse(raw.toString())?.toLocal();
@@ -145,7 +238,7 @@ class PlatformModule {
     final status = json['status']?.toString() ?? 'available';
     final toggleable = json['toggleable'] is bool
         ? json['toggleable'] as bool
-        : (!core && status == 'available');
+        : (status == 'available');
     return PlatformModule(
       code: code,
       name: json['name']?.toString() ?? code,
@@ -267,12 +360,13 @@ class SiteModulesState {
           ? label.trim()
           : type.label,
       modules: rawModules is List
-          ? rawModules
+          ? (rawModules
                 .whereType<Map>()
                 .map(
                   (m) => PlatformModule.fromJson(Map<String, dynamic>.from(m)),
                 )
-                .toList(growable: false)
+                .toList()
+              ..sort(compareModulesByName))
           : const <PlatformModule>[],
       managementTerms: ManagementTerms.fromJson(json['management_terms']),
     );

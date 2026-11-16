@@ -158,9 +158,6 @@ export async function setSiteModuleEnabled({ siteCode, moduleCode: requestedModu
   if (typeof enabled !== 'boolean') {
     throw new PlatformError(400, 'INVALID_BODY', 'enabled alanı true veya false olmalıdır.');
   }
-  if (definition.core) {
-    throw new PlatformError(400, 'MODULE_NOT_TOGGLEABLE', 'Bu modül kapatılamaz.');
-  }
   if (definition.status === MODULE_STATUS_COMING_SOON) {
     if (enabled) {
       throw new PlatformError(409, 'MODULE_COMING_SOON', 'Bu modül yakında.');

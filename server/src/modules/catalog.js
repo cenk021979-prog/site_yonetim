@@ -278,7 +278,7 @@ export function retiredModuleName(code) {
 }
 
 export function isToggleable(definition) {
-  return Boolean(definition) && !definition.core && definition.status === MODULE_STATUS_AVAILABLE;
+  return Boolean(definition) && definition.status === MODULE_STATUS_AVAILABLE;
 }
 
 /**
@@ -290,24 +290,25 @@ export function computeModuleEnabled(definition, row) {
   if (!definition || definition.status !== MODULE_STATUS_AVAILABLE) {
     return false;
   }
-  if (definition.core) {
-    return true;
-  }
   if (row && typeof row.enabled === 'boolean') {
     return row.enabled;
+  }
+  if (definition.core) {
+    return true;
   }
   return definition.defaultEnabled === true;
 }
 
-/** GET /app/modules/catalog gövdesindeki modül listesi. */
+/** GET /app/modules/catalog gövdesindeki modül listesi (Türkçe alfabetik sıralı). */
 export function publicCatalog() {
-  return MODULE_CATALOG.map(({ code, name, description, core, status }) => ({
+  const list = MODULE_CATALOG.map(({ code, name, description, core, status }) => ({
     code,
     name,
     description,
     core,
     status,
   }));
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
 }
 
 /**
@@ -349,12 +350,12 @@ function toIsoOrNull(value) {
 }
 
 /**
- * GET /manager/sites/:siteCode/modules `modules` dizisi.
+ * GET /manager/sites/:siteCode/modules `modules` dizisi (Türkçe alfabetik sıralı).
  * Satırlar: { module_code, enabled, updated_at, updated_by_name }
  */
 export function computeSiteModuleList(rows) {
   const byCode = rowsByModuleCode(rows);
-  return MODULE_CATALOG.map((definition) => {
+  const list = MODULE_CATALOG.map((definition) => {
     const row = byCode.get(definition.code);
     return {
       code: definition.code,
@@ -368,4 +369,5 @@ export function computeSiteModuleList(rows) {
       updated_by: row?.updated_by_name ?? null,
     };
   });
+  return list.sort((a, b) => a.name.localeCompare(b.name, 'tr'));
 }

@@ -68,7 +68,7 @@ SiteModulesState mdState(
     String description, {
     bool core = false,
     String status = 'coming_soon',
-    bool enabled = false,
+    bool? enabled,
     bool toggleable = false,
   }) => <String, dynamic>{
     'code': code,
@@ -76,7 +76,7 @@ SiteModulesState mdState(
     'description': description,
     'core': core,
     'status': status,
-    'enabled': enabled,
+    'enabled': enabled ?? (core ? true : false),
     'toggleable': toggleable,
     'can_toggle': toggleable && superView,
     'request_status': requests[code],
