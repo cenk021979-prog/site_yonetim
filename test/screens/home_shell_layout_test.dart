@@ -575,12 +575,12 @@ void main() {
           final auth = _ShellAuth();
           await _pumpShell(tester, auth, width: 360, scale: 1.5);
           expect(
-            _inAppBar(find.byTooltip('Masaüstüne Widget Ekle')),
+            _inAppBar(find.byTooltip('Ana Ekrana Kapı Widget\'ı Ekle')),
             findsNothing,
           );
           await _openSettings(tester);
           expect(
-            find.text('Masaüstüne Widget Ekle'),
+            find.text('Ana Ekrana Kapı Widget\'ı Ekle'),
             findsNothing,
             reason: 'masaüstünde iğneleme yok',
           );
@@ -661,7 +661,7 @@ void main() {
     );
 
     testWidgets(
-      'eylem düğmeleri çalışır: Yenile araç ipucunu korur, Çıkış Yap AppBar\'da yok (menünün dibinde, onaylı); widget eylemi dişlideki Ayarlar panelinde',
+      'eylem düğmeleri çalışır: Yenile araç ipucunu korur; widget küçük AppBar ikonu ve Ayarlar panelindedir',
       (tester) async {
         final auth = _ShellAuth();
         await _pumpShell(tester, auth, width: 1000, scale: 1.5);
@@ -669,14 +669,14 @@ void main() {
         expect(_inAppBar(find.byTooltip('Çıkış Yap')), findsNothing);
         expect(_inAppBar(find.byTooltip('Ayarlar')), findsOneWidget);
         expect(
-          _inAppBar(find.byTooltip('Masaüstüne Widget Ekle')),
-          findsNothing,
+          _inAppBar(find.byTooltip('Ana Ekrana Kapı Widget\'ı Ekle')),
+          findsOneWidget,
         );
         await _openSettings(tester);
         expect(
           find.descendant(
             of: find.byType(YanMenuAyarlar),
-            matching: find.text('Masaüstüne Widget Ekle'),
+            matching: find.text('Ana Ekrana Kapı Widget\'ı Ekle'),
           ),
           findsOneWidget,
           reason: 'Android: iğneleme eylemi Ayarlar panelinde',

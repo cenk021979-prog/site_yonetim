@@ -115,7 +115,7 @@ abstract final class HelpContent {
     'Raporlar',
     'Site hizmetleri',
     'Ayarlar',
-    'Masaüstüne Widget Ekle',
+    'Ana Ekrana Kapı Widget\'ı Ekle',
     'Dosya Deposu',
     'Taleplerim',
     'Rehber',
@@ -279,7 +279,8 @@ abstract final class HelpContent {
       'Kiracı “Daireyi devret / Çıkış” ile ayrılır; yönetim malike döner. Malik ile kiracı arasındaki bağı “Bağlantıyı kes talebi” ile, karşı tarafın onayıyla kesebilirsiniz.',
       'Herkes “Bu daireden ayrıl” ile kendi bağını onaysız keser; diğer üyelere bildirim gitmez.',
     ],
-    note: 'Aile üyeleri borç bilgisini görmez. Anlaşmazlıkta kararı site yönetimi verir.',
+    note:
+        'Aile üyeleri borç bilgisini görmez. Anlaşmazlıkta kararı site yönetimi verir.',
   );
 
   /// Araçlarım: daire yöneticisi dairenin araçlarını ekler / düzenler / çıkarır; diğer üyeler yalnız görür.
@@ -293,7 +294,8 @@ abstract final class HelpContent {
       '“Notu düzenle” ile notu değiştirin, “Aracı çıkar” ile aracı kaldırın (kayıt silinmez, pasifleşir). Plaka değişmez; yanlışsa aracı çıkarıp doğru plakayla yeniden ekleyin.',
       'Aile üyeleri ve daire yöneticisi olmayan malik ya da kiracı dairenin araçlarını yalnızca görür.',
     ],
-    note: 'Dairenize en fazla 4 araç kaydedilebilir; daha fazlası için site yönetimine başvurun. Eklediğiniz plaka, sitede plaka tanıma açıksa yetkili araç sayılır; bu yüzden yalnızca kendi dairenizin araçlarını ekleyin. Aynı plaka başka bir kayıtta varsa site yönetimiyle görüşün.',
+    note:
+        'Dairenize en fazla 4 araç kaydedilebilir; daha fazlası için site yönetimine başvurun. Eklediğiniz plaka, sitede plaka tanıma açıksa yetkili araç sayılır; bu yüzden yalnızca kendi dairenizin araçlarını ekleyin. Aynı plaka başka bir kayıtta varsa site yönetimiyle görüşün.',
   );
 
   /// Güvenlik ve destek: yardım hatları, gizli talep, koruma kararı.
@@ -307,7 +309,8 @@ abstract final class HelpContent {
       'İsterseniz “Site yönetimine gizli talep gönder” ile durumunuzu yalnızca site yöneticisine iletin; daire yöneticisi, malik ve diğer üyeler görmez ve haberdar edilmez.',
       'Uzaklaştırma ya da koruma kararınız varsa belgeyi site yönetimine bildirin; site yöneticisi gerekirse kişinin kapı erişimini askıya alabilir.',
     ],
-    note: 'Uygulama polisin ya da mahkemenin yerine geçmez. Sistem iddiayı doğrulayamaz ve otomatik kilitleme yapmaz; kararı site yöneticisi verir.',
+    note:
+        'Uygulama polisin ya da mahkemenin yerine geçmez. Sistem iddiayı doğrulayamaz ve otomatik kilitleme yapmaz; kararı site yöneticisi verir.',
   );
 
   /// Acil durum (P2-24): 112, yangın ve asansör arızası; arama kanalı yoksa numaralar ve adres kopyalanabilir metin olarak verilir.
@@ -321,7 +324,8 @@ abstract final class HelpContent {
       '“Yangın” düğmesine dokunun ve yangının bulunduğu blok veya ortak alanı seçin. Seçim anında yangın alarmı kaydedilir.',
       'Güvenlik ve atanmış asansör servisi açık uygulamada sesli alarm alır; yöneticiye yalnız uygulama içi bildirim gider. Ekrandaki kayıt sonucu, alarmın duyulduğunu kanıtlamaz.',
     ],
-    note: 'Yönetim Ekipman ve Bakım bölümündeki Alarm alıcıları ayarından güvenliği ve anlaşmalı servisin mevcut hesabını atar. Ses için cihaz sesi, uygulamanın açık olması ve tarayıcıda sesi etkinleştirme önemlidir. Bildirim otomatik resmî yardım çağrısı başlatmaz.',
+    note:
+        'Yönetim Ekipman ve Bakım bölümündeki Alarm alıcıları ayarından güvenliği ve anlaşmalı servisin mevcut hesabını atar. Ses için cihaz sesi, uygulamanın açık olması ve tarayıcıda sesi etkinleştirme önemlidir. Bildirim otomatik resmî yardım çağrısı başlatmaz.',
   );
 
   /// Site yöneticisi: eski sakin / adli kayıt (sakin yardımına EKLENMEZ; kayıt sakinlere gösterilmez).
@@ -348,7 +352,8 @@ abstract final class HelpContent {
       'Yöneticinizin paylaştığı site katılım QR kodunu okutun ya da katılım kodunu girin; blok ve daireyi seçip başvurun.',
       'Başvurunuzu yönetici onaylayınca kapılarınız “Kapılar” ekranında görünür. Durumu “Katılım Başvurularım” bölümünden izleyebilirsiniz.',
     ],
-    note: 'Başvuru reddedilirse gerekçesi aynı bölümde yazar; bilgileri düzeltip yeniden başvurabilirsiniz.',
+    note:
+        'Başvuru reddedilirse gerekçesi aynı bölümde yazar; bilgileri düzeltip yeniden başvurabilirsiniz.',
   );
 
   static const HelpTopic _profile = HelpTopic(
@@ -481,7 +486,8 @@ abstract final class HelpContent {
         'Yönetim dekontu kontrol edinceye kadar kartta tutarla birlikte “İnceleniyor” görünür. Onaylanınca borcunuzdan düşer ve makbuzunuz oluşur.',
         'Kabul edilmezse nedenini kartın altında görürsünüz; düzeltip yeniden gönderebilirsiniz.',
       ],
-      note: 'Dekont ad ve IBAN gibi kişisel veri içerebilir; yalnız site yönetimi görür. Fotoğraflardaki konum bilgisi silinir. Bu özellik sitede açık değilse “Dekont yükle” görünmez.',
+      note:
+          'Dekont ad ve IBAN gibi kişisel veri içerebilir; yalnız site yönetimi görür. Fotoğraflardaki konum bilgisi silinir. Bu özellik sitede açık değilse “Dekont yükle” görünmez.',
     ),
     HelpTopic(
       id: 'neighbor_board',
@@ -492,7 +498,8 @@ abstract final class HelpContent {
         'Yeni ilan düğmesine dokunup başlık ve metni yazın; ilan yönetici onayına gider.',
         'Onaylanınca komşularınız ilanı görür. Uygunsuz bir ilanı Şikayet et düğmesiyle yöneticiye bildirebilirsiniz.',
       ],
-      note: 'Yönetici reddederse gerekçeyi ilanınızın altında görürsünüz. İlanınızı istediğiniz an geri çekebilirsiniz.',
+      note:
+          'Yönetici reddederse gerekçeyi ilanınızın altında görürsünüz. İlanınızı istediğiniz an geri çekebilirsiniz.',
     ),
     HelpTopic(
       id: 'guest_plate',
@@ -503,7 +510,8 @@ abstract final class HelpContent {
         'Misafir plakası ekle düğmesine dokunup plakayı yazın (örneğin 34 ABC 123; yazarken kendiliğinden biçimlenir), süreyi seçin (1 gün, 1 hafta ya da en çok 30 gün) ve kaydedin.',
         'İzin süresi dolunca kendiliğinden biter; erken bitirmek için listedeki iptal düğmesine dokunun.',
       ],
-      note: 'Bir günde en çok 5 misafir plakası tanımlayabilirsiniz; yalnız kendi daireniz için. Kapı açma kenar (güvenlik bilgisayarı) sistemiyle yapılır; plaka tanınınca izinliyse kapı tetiklenir ve kayıt düşer.',
+      note:
+          'Bir günde en çok 5 misafir plakası tanımlayabilirsiniz; yalnız kendi daireniz için. Kapı açma kenar (güvenlik bilgisayarı) sistemiyle yapılır; plaka tanınınca izinliyse kapı tetiklenir ve kayıt düşer.',
     ),
     HelpTopic(
       id: 'open_door',
@@ -530,7 +538,8 @@ abstract final class HelpContent {
         'Ekranlı kapı cihazlarında “Kapı Ekranından QR Oku” eylemiyle kapının ekranındaki karekodu okutabilirsiniz.',
         '“Kurye / Misafir Geçiş Linki Oluştur” eylemiyle kurye ve misafirleriniz için süreli bir geçiş bağlantısı paylaşabilirsiniz.',
       ],
-      note: 'Bu eylemler yetkinize ve sitenizin kapı donanımına göre menüde görünür; görünmüyorsa yöneticinize sorun.',
+      note:
+          'Bu eylemler yetkinize ve sitenizin kapı donanımına göre menüde görünür; görünmüyorsa yöneticinize sorun.',
     ),
     _joinApartment,
     HelpTopic(
@@ -581,7 +590,8 @@ abstract final class HelpContent {
         'Daire sakini ve bireysel kullanıcılar cihaz eklemez; sitenizin kapısını açmak için yöneticinizin tanımladığı yetkiyi kullanırsınız.',
         'Kendi sitenizi kurmak istiyorsanız “Site Kurulumu” kartındaki “Site Kurmak İçin Başvur” ile başvurun; site kurulunca cihazı siz eklersiniz.',
       ],
-      note: 'Zaten hesabınıza tanımlı cihazlarınız ve kapı açma yetkileriniz aynen çalışmaya devam eder.',
+      note:
+          'Zaten hesabınıza tanımlı cihazlarınız ve kapı açma yetkileriniz aynen çalışmaya devam eder.',
     ),
     HelpTopic(
       id: 'site_application',
@@ -610,7 +620,8 @@ abstract final class HelpContent {
         '“İptal et”te nedeni seçin; sakin nedeni görür. Yanlış daireye yapılmışsa iptal edip tahsilatı doğru daireye elle girin. Birden çok dekontu kutucuklarla seçip toplu onaylayabilirsiniz.',
         'Elden aldığınız parayı “Elden giriş” ile kaydedin; o da aynı yoldan onaylanır.',
       ],
-      note: 'Dekontun ayı kapatılmışsa “Açık döneme yaz” ile bugünün tarihine işleyebilirsiniz. Onaydan sonra geri almak için tahsilat kaydını iptal edin (ters kayıt).',
+      note:
+          'Dekontun ayı kapatılmışsa “Açık döneme yaz” ile bugünün tarihine işleyebilirsiniz. Onaydan sonra geri almak için tahsilat kaydını iptal edin (ters kayıt).',
     ),
     HelpTopic(
       id: 'equipment',
@@ -623,7 +634,8 @@ abstract final class HelpContent {
         'Teklifler sekmesinde aynı konudaki teklifleri yan yana tabloda karşılaştırın: tutar, KDV esası, geçerlilik, teslim süresi ve kapsam / not. Tutarlar aynı KDV esasındaysa en düşük tutar ve en kısa teslim süresi işaretlenir. Kabul ettiğiniz teklif gider ya da sözleşme olarak kaydedilir. Gider kırılımı sekmesi giderleri ekipman bazında gösterir.',
         'Henüz karara bağlanmamış (açık) teklifi Düzenle ile yerinde değiştirebilirsiniz. Kabul edilmiş (onaylı) teklif değişmez: Revizyon oluştur ile gerekçesini yazıp yeni sürüm açın; yeni sürüm önceki sürüme bağlanır, sizin onayınızı bekler ve Sürüm geçmişi’nde tüm sürümler görünür. Reddedilirse önceki onay geçerli kalır.',
       ],
-      note: 'Eski onaylı fiyat tarihli fiyattır, bugünün fiyatı sayılmaz. Telefon / e-posta ile otomatik hatırlatma ve teklife belge yükleme Yakında…',
+      note:
+          'Eski onaylı fiyat tarihli fiyattır, bugünün fiyatı sayılmaz. Telefon / e-posta ile otomatik hatırlatma ve teklife belge yükleme Yakında…',
     ),
     HelpTopic(
       id: 'site_audit_log',
@@ -634,8 +646,10 @@ abstract final class HelpContent {
         'İşlem türü listesinden yalnız bir türü (örneğin Aidat ve finans) seçin. Dönem çipleriyle bugünü, son 7 ya da 30 günü seçin; özel aralıkta tarihleri GG.AA.YYYY yazın, tarihlerden biri boş olabilir.',
         'Daha eski kayıtlar için “Daha fazla yükle”ye dokunun.',
       ],
-      note: 'Kayıtlar değiştirilemez. Parola, telefon ve e-posta kayıtta yer almaz; sistem yöneticisinin işlemleri “Sistem yöneticisi”, silinmiş hesapların işlemleri “Silinmiş Kullanıcı” olarak görünür.',
-    ),    _panelAdmin,
+      note:
+          'Kayıtlar değiştirilemez. Parola, telefon ve e-posta kayıtta yer almaz; sistem yöneticisinin işlemleri “Sistem yöneticisi”, silinmiş hesapların işlemleri “Silinmiş Kullanıcı” olarak görünür.',
+    ),
+    _panelAdmin,
     _navigationManager,
     _emergency,
     HelpTopic(
@@ -657,7 +671,8 @@ abstract final class HelpContent {
         'Daireye dokununca üstte daire admini, altında “Aile üyeleri” akordiyonu görünür; akordiyona dokununca dairedeki herkes listelenir. Kiracı oturan dairede malik ayrı satırda “Malik (oturmuyor)” olarak yazar.',
         'Bir kişiye dokununca kişi kartı açılır. Daire adminini değiştirmek, kapı erişimini askıya almak ve eski sakinlere (“Eski sakinler / Adli kayıt”) bakmak için “Daire kartı”na dokunun.',
       ],
-      note: 'Telefon, hesap durumu ve çocuk bilgisi yalnız site yöneticisi ve sistem yöneticisi içindir; kurul üyesi yalnız ad ve ilişkiyi görür.',
+      note:
+          'Telefon, hesap durumu ve çocuk bilgisi yalnız site yöneticisi ve sistem yöneticisi içindir; kurul üyesi yalnız ad ve ilişkiyi görür.',
     ),
     HelpTopic(
       id: 'people',
@@ -671,7 +686,8 @@ abstract final class HelpContent {
     ),
     HelpTopic(
       id: 'team',
-      title: 'Kurul, kapıcı gibi görevlileri ve uygulamaya daveti nasıl yönetirim?',
+      title:
+          'Kurul, kapıcı gibi görevlileri ve uygulamaya daveti nasıl yönetirim?',
       icon: Icons.badge_rounded,
       steps: <String>[
         'Menüden “Kişiler” ekranını açın, kişinin kartında “Görev ver”e dokunun ve görevi seçin (kurul üyesi, denetçi, kapıcı, teknik görevli, danışma, diğer).',
@@ -679,7 +695,8 @@ abstract final class HelpContent {
         'Tüm kadroyu “Kişiler” ekranındaki “Kadro” sekmesinde görür, faydalı telefonları (su arıza, asansör servisi gibi) oradan eklersiniz.',
         'Sakinlerin kadroyu ve telefonları görmesi için “Rehber” modülü açık olmalıdır (Modüller ekranından talep edin).',
       ],
-      note: 'Görev vermezseniz ilgili işler sizde kalır. Rehberde görünecek telefonu sakinlere göstermeden önce kişinin onayını alın.',
+      note:
+          'Görev vermezseniz ilgili işler sizde kalır. Rehberde görünecek telefonu sakinlere göstermeden önce kişinin onayını alın.',
     ),
     HelpTopic(
       id: 'announce',
@@ -716,7 +733,8 @@ abstract final class HelpContent {
         '“Tebliğ et” ile tebliğ tarihini girin; itiraz süresi bitince “Kesinleştir” açılır. İtiraz gelirse “İtiraz: taslağa al” ile projeyi düzeltin.',
         'Aynı ekranda planlanan ve gerçekleşen giderleri kategori bazında görür, “PDF” ile indirirsiniz.',
       ],
-      note: 'Geçici projenin kalan günü listede görünür. Süreleri sistem yöneticisi “Kurallar”dan belirler; yasal adımları kendi karar defterinizle birlikte takip edin.',
+      note:
+          'Geçici projenin kalan günü listede görünür. Süreleri sistem yöneticisi “Kurallar”dan belirler; yasal adımları kendi karar defterinizle birlikte takip edin.',
     ),
     HelpTopic(
       id: 'annual_report',
@@ -728,11 +746,13 @@ abstract final class HelpContent {
         '“Gelecek yıl tahmini” bölümüne gider artış yüzdesini yazıp “Hesapla”ya basın.',
         '“Taslağı kaydet” düzenlemelerinizi saklar, “PDF” raporu verir.',
       ],
-      note: 'Kapalı modüllerin bölümleri boş kalır. Düzenlemediğiniz bölüm her açılışta güncel kayıtlardan gelir. Ekipman envanteri “Yakında…”.',
+      note:
+          'Kapalı modüllerin bölümleri boş kalır. Düzenlemediğiniz bölüm her açılışta güncel kayıtlardan gelir. Ekipman envanteri “Yakında…”.',
     ),
     HelpTopic(
       id: 'plate_recognition',
-      title: 'Plaka kayıtlarını, misafir plakalarını ve kara listeyi nasıl yönetirim?',
+      title:
+          'Plaka kayıtlarını, misafir plakalarını ve kara listeyi nasıl yönetirim?',
       icon: Icons.directions_car_rounded,
       steps: <String>[
         'Plaka Tanıma modülü açıkken menüden “Plaka Tanıma” ekranını açın. Olaylar sekmesi kameradan gelen plakaları ve kararı (izinli, engelli, bilinmiyor) nedeniyle gösterir.',
@@ -740,7 +760,8 @@ abstract final class HelpContent {
         'Kara liste sekmesine eklediğiniz plaka, araç listesinde ya da misafir izninde olsa bile hiçbir zaman izinli sayılmaz.',
         'Ayarlar sekmesinde kameranın baktığı kapıyı eşleyin. Plakayla otomatik açma varsayılan olarak kapalıdır; açarken risk uyarısını onaylamanız gerekir.',
       ],
-      note: 'Kapı açma Yakında…: otomatik açma açık kapıda izinli okumalar şimdilik yalnız "açılırdı" diye kaydedilir. Plaka kişisel veridir; yalnız güvenlik amacıyla kullanın.',
+      note:
+          'Kapı açma Yakında…: otomatik açma açık kapıda izinli okumalar şimdilik yalnız "açılırdı" diye kaydedilir. Plaka kişisel veridir; yalnız güvenlik amacıyla kullanın.',
     ),
     HelpTopic(
       id: 'metering',
@@ -816,7 +837,8 @@ abstract final class HelpContent {
         'Önizlemede devir tarihini seçin ve toplamı kontrol edin; onayda tutarları eski kayıtlarla karşılaştırdığınızı işaretleyin.',
         'Yanlış yüklediyseniz aynı pencerede ilgili yüklemenin yanındaki “Geri al”a dokunun; neden yazılır ve ters kayıt eklenir, eski kayıtlar silinmez.',
       ],
-      note: 'Daire alacaklıysa tutarı eksi işaretle yazın (-500,00): alacak sonraki borçlardan düşer; onayda borç ve alacak toplamı ayrı gösterilir. Aynı dosyayı ikinci kez yüklemek bir şey değiştirmez.',
+      note:
+          'Daire alacaklıysa tutarı eksi işaretle yazın (-500,00): alacak sonraki borçlardan düşer; onayda borç ve alacak toplamı ayrı gösterilir. Aynı dosyayı ikinci kez yüklemek bir şey değiştirmez.',
     ),
     HelpTopic(
       id: 'bulk_all_in_one',
@@ -840,7 +862,8 @@ abstract final class HelpContent {
         'Gider eklerken “Gider türü” (Rutin / Beklenmedik) önerisiyle gelir; aktif sözleşmesi olan firma ve son aylarda tekrar eden giderler rutin sayılır. Önerinin nedeni altında yazar, isterseniz değiştirebilirsiniz.',
         '“Gelecek yıl tahmini”, son 12 tam aydaki rutin giderlere yazdığınız artış oranını uygular; beklenmedik giderler yıllık ortalamayla alınır. Oranı boş bırakırsanız kurallar tablosundaki varsayılan kullanılır.',
       ],
-      note: 'Tahmin bir öngörüdür, taahhüt değildir. Veri 12 aydan azsa yıllığa çevrilir ve bu ekranda belirtilir.',
+      note:
+          'Tahmin bir öngörüdür, taahhüt değildir. Veri 12 aydan azsa yıllığa çevrilir ve bu ekranda belirtilir.',
     ),
     HelpTopic(
       id: 'devices',
@@ -860,7 +883,8 @@ abstract final class HelpContent {
         'Menünün üst kısmında (site satırının hemen altında) görünüyorsa “Sakin Moduna Geç” seçeneğine dokunun.',
         'Yönetici paneline dönmek için aynı yerdeki “Yönetici Paneline Geç” seçeneğini kullanın.',
       ],
-      note: 'Bu seçenek yalnız hem yönetici hem sakin olarak kayıtlı hesaplarda görünür.',
+      note:
+          'Bu seçenek yalnız hem yönetici hem sakin olarak kayıtlı hesaplarda görünür.',
     ),
     _formerResidentRecords,
     _profile,

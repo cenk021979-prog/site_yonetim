@@ -557,20 +557,20 @@ void main() {
     });
 
     testWidgets(
-      '"Masaüstüne Widget Ekle" AppBar\'da değil, Ayarlar panelinde (mobil, süper olmayan)',
+      'widget ekleme küçük AppBar ikonu ve Ayarlar panelinde aktiftir (mobil, süper olmayan)',
       (t) async {
         final auth = _NavAuth(UserRole.apartmentOwner);
         final access = await _access(() => <MySiteModules>[_my('resident')]);
         await _pumpHome(t, auth, access: access);
         expect(
-          _inAppBar(find.byTooltip('Masaüstüne Widget Ekle')),
-          findsNothing,
+          _inAppBar(find.byTooltip('Ana Ekrana Kapı Widget\'ı Ekle')),
+          findsOneWidget,
         );
         await _openSettings(t);
         expect(
           find.descendant(
             of: find.byType(YanMenuAyarlar),
-            matching: find.text('Masaüstüne Widget Ekle'),
+            matching: find.text('Ana Ekrana Kapı Widget\'ı Ekle'),
           ),
           findsOneWidget,
         );

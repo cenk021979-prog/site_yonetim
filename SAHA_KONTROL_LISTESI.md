@@ -5246,3 +5246,15 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     2. Manifest yanıtındaki `enabled` değerini ve `firmware.bin` indirme denemesini kontrol edin.
   - **Beklenen Sonuç:** Manifest `enabled: false` dönmeli, yer tutucu anahtar içeren hatalı binary dağıtılmamalı ve cihazlar yanlış güncelleme almaktan korunmalıdır.
 
+---
+
+## 181. 🧭 Kurulum Devamı ve Kapı Widget Kısayolu (2026-11-16)
+
+- [ ] **181.1. Yarım kalan site kurulumuna Panelden devam:**
+  - **Nasıl Test Edilir:** Site yöneticisi olarak Site Yönetimi ekranından bir sitenin Kurulum Sihirbazını açın, birkaç adımı tamamlayıp sihirbazı kapatın ve Panel'e dönün.
+  - **Beklenen Sonuç:** Panelin üstünde `Site Kurulumuna Devam Et` düğmesi görünür, düğme sihirbazı kaldığı adımdan açar; gizleme eylemi yoktur ve `Kurulumu bitir` tamamlanınca kart kendiliğinden kaybolur.
+
+- [ ] **181.2. Kapı widget ekleme küçük ikonu:**
+  - **Nasıl Test Edilir:** Android uygulamasında süper kullanıcı dışındaki bir hesapla giriş yapın ve üst çubuktaki widget ikonuna dokunun.
+  - **Beklenen Sonuç:** Android ana ekran widget ekleme akışı açılır; masaüstü/web platformlarında yanıltıcı ikon gösterilmez. Aynı işlem Ayarlar panelinden de yapılabilir.
+

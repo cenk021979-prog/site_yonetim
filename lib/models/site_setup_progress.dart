@@ -91,7 +91,8 @@ class SiteSetupProgress {
   static const int stepCount = 6;
 
   bool isDone(SiteSetupStep step) => done.contains(step);
-  bool isSkipped(SiteSetupStep step) => skipped.contains(step) && !done.contains(step);
+  bool isSkipped(SiteSetupStep step) =>
+      skipped.contains(step) && !done.contains(step);
 
   /// Tamamlanmış ya da bilerek atlanmış (kullanıcı bu adım için karar verdi).
   bool isSettled(SiteSetupStep step) => isDone(step) || skipped.contains(step);
@@ -101,8 +102,9 @@ class SiteSetupProgress {
   /// Her adım tamam (atlanan yok).
   bool get isComplete => SiteSetupStep.values.every(isDone);
 
-  /// Sihirbazın kullanıcıya hâlâ önerilmesi gereken hâli (hatırlatma kartı bunu kullanır).
-  bool get needsAttention => !finished && !dismissed && !isComplete;
+  /// Sihirbazın kullanıcıya hâlâ önerilmesi gereken hâli. Eski sürümlerde yazılmış [dismissed] kaydı
+  /// tamamlanmamış kurulumu artık gizlemez.
+  bool get needsAttention => !finished && !isComplete;
 
   /// Sıradaki yapılacak adım: önce hiç dokunulmamış ilk adım, sonra atlanan ilk adım; hepsi tamamsa null.
   SiteSetupStep? get firstOpen {
@@ -118,7 +120,9 @@ class SiteSetupProgress {
   /// Adım sırası bir adım ileri (son adımda null).
   static SiteSetupStep? after(SiteSetupStep step) {
     final next = step.index + 1;
-    return next < SiteSetupStep.values.length ? SiteSetupStep.values[next] : null;
+    return next < SiteSetupStep.values.length
+        ? SiteSetupStep.values[next]
+        : null;
   }
 
   /// Adım sırası bir adım geri (ilk adımda null).
@@ -170,19 +174,28 @@ class SiteSetupProgress {
     return copyWith(skipped: <SiteSetupStep>{...skipped, step}, updatedAt: at);
   }
 
-  SiteSetupProgress markFinished({DateTime? at}) => copyWith(finished: true, updatedAt: at);
+  SiteSetupProgress markFinished({DateTime? at}) =>
+      copyWith(finished: true, updatedAt: at);
 
   /// Bitmiş / kapatılmış sihirbazı yeniden etkinleştirir (kullanıcı elle açtığında).
-  SiteSetupProgress reopened({DateTime? at}) => copyWith(finished: false, dismissed: false, updatedAt: at);
+  SiteSetupProgress reopened({DateTime? at}) =>
+      copyWith(finished: false, dismissed: false, updatedAt: at);
 
-  SiteSetupProgress markDismissed({DateTime? at}) => copyWith(dismissed: true, updatedAt: at);
+  SiteSetupProgress markDismissed({DateTime? at}) =>
+      copyWith(dismissed: true, updatedAt: at);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'site': siteCode,
     'name': siteName,
     'step': current.name,
-    'done': <String>[for (final step in SiteSetupStep.values) if (done.contains(step)) step.name],
-    'skipped': <String>[for (final step in SiteSetupStep.values) if (skipped.contains(step)) step.name],
+    'done': <String>[
+      for (final step in SiteSetupStep.values)
+        if (done.contains(step)) step.name,
+    ],
+    'skipped': <String>[
+      for (final step in SiteSetupStep.values)
+        if (skipped.contains(step)) step.name,
+    ],
     'started': started,
     'finished': finished,
     'dismissed': dismissed,
@@ -198,7 +211,8 @@ class SiteSetupProgress {
     Set<SiteSetupStep> steps(Object? list) => <SiteSetupStep>{
       if (list is List)
         for (final item in list)
-          if (SiteSetupStep.tryParse(item) != null) SiteSetupStep.tryParse(item)!,
+          if (SiteSetupStep.tryParse(item) != null)
+            SiteSetupStep.tryParse(item)!,
     };
     final name = raw['name'];
     final at = raw['at'];

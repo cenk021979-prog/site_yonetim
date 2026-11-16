@@ -8,7 +8,7 @@ import 'package:site_kapi_kontrol/ui/design/buttons.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
 import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 
-/// Panel'de (yönetici / süper kullanıcı görünümü) "Site kurulumunuz sürüyor" hatırlatması (P2-15: yarım kalan kurulum
+/// Panel'de site yöneticisi görünümünde "Site kurulumunuz sürüyor" hatırlatması (P2-15: yarım kalan kurulum
 /// devam eder).
 ///
 /// YALNIZ cihazda kaydı olan ve bitirilmemiş / kapatılmamış bir kurulum varsa çizilir; yoksa hiçbir şey çizmez (boşluk
@@ -16,10 +16,14 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
 /// bu kart kimseye "site kur" diye davet etmez (başvuru / kurulum davetleri başka ekranlardadır). Ağ isteği YAPMAZ:
 /// ilerleme ("3 / 6 adım") kayıttan okunur. Kayıt değişince ([SiteSetupProgressStore.changes]) kendini tazeler.
 ///
-/// "Kuruluma devam et" sihirbazı açar ([onResume]); "Şimdilik gizle" hatırlatmayı kapatır (sihirbaz Site Yönetimi'nden yine
-/// açılır).
+/// "Site Kurulumuna Devam Et" sihirbazı açar ([onResume]); kurulum tamamlanana kadar kart görünür kalır.
 class SiteSetupResumeCard extends StatefulWidget {
-  const SiteSetupResumeCard({super.key, required this.userId, required this.onResume, this.store});
+  const SiteSetupResumeCard({
+    super.key,
+    required this.userId,
+    required this.onResume,
+    this.store,
+  });
 
   final int userId;
 
@@ -37,7 +41,8 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
   SiteSetupProgress? _progress;
   int _token = 0;
 
-  SiteSetupProgressStore get _store => widget.store ?? SiteSetupProgressStore.shared;
+  SiteSetupProgressStore get _store =>
+      widget.store ?? SiteSetupProgressStore.shared;
 
   @override
   void initState() {
@@ -54,7 +59,9 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
       oldStore.removeListener(_reload);
       _store.addListener(_reload);
     }
-    if (oldWidget.userId != widget.userId || !identical(oldStore, _store)) unawaited(_load());
+    if (oldWidget.userId != widget.userId || !identical(oldStore, _store)) {
+      unawaited(_load());
+    }
   }
 
   @override
@@ -73,17 +80,15 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
     if (next != _progress) setState(() => _progress = next);
   }
 
-  Future<void> _dismiss(SiteSetupProgress progress) async {
-    await _store.save(widget.userId, progress.markDismissed());
-  }
-
   @override
   Widget build(BuildContext context) {
     final progress = _progress;
     if (progress == null) return const SizedBox.shrink();
     final th = Theme.of(context).textTheme;
     final p = context.palette;
-    final name = progress.siteName.trim().isEmpty ? 'Siteniz' : progress.siteName.trim();
+    final name = progress.siteName.trim().isEmpty
+        ? 'Siteniz'
+        : progress.siteName.trim();
     final fresh = !progress.started;
     final summary = fresh
         ? '$name hazır. Kişileri, modülleri ve finansı birkaç adımda tamamlayın.'
@@ -100,7 +105,11 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const IconTile(icon: Icons.checklist_rtl_rounded, size: 44, gap: AppSpace.md),
+                const IconTile(
+                  icon: Icons.checklist_rtl_rounded,
+                  size: 44,
+                  gap: AppSpace.md,
+                ),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -108,14 +117,18 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
                       Semantics(
                         header: true,
                         child: Text(
-                          fresh ? 'Site kurulumunu tamamlayın' : 'Site kurulumunuz yarım kaldı',
+                          fresh
+                              ? 'Site kurulumunu tamamlayın'
+                              : 'Site kurulumunuz yarım kaldı',
                           style: th.titleMedium,
                         ),
                       ),
                       const SizedBox(height: AppSpace.xs),
                       Text(
                         summary,
-                        key: const ValueKey<String>('site_setup_resume_summary'),
+                        key: const ValueKey<String>(
+                          'site_setup_resume_summary',
+                        ),
                         style: th.bodyMedium?.copyWith(color: p.textSecondary),
                       ),
                     ],
@@ -131,16 +144,11 @@ class _SiteSetupResumeCardState extends State<SiteSetupResumeCard> {
               children: [
                 PrimaryActionButton(
                   key: const ValueKey<String>('site_setup_resume_open'),
-                  label: fresh ? 'Kuruluma başla' : 'Kuruluma devam et',
+                  label: 'Site Kurulumuna Devam Et',
                   icon: Icons.arrow_forward_rounded,
                   expand: false,
-                  onPressed: () => widget.onResume(progress.siteCode, progress.siteName),
-                ),
-                TextButton(
-                  key: const ValueKey<String>('site_setup_resume_dismiss'),
-                  onPressed: () => unawaited(_dismiss(progress)),
-                  style: TextButton.styleFrom(minimumSize: const Size(48, 48)),
-                  child: const Text('Şimdilik gizle'),
+                  onPressed: () =>
+                      widget.onResume(progress.siteCode, progress.siteName),
                 ),
               ],
             ),
