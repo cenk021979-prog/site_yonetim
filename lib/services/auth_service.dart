@@ -1010,6 +1010,17 @@ class AuthService extends ChangeNotifier {
     }
   }
 
+  /// Süper kullanıcı paneli için özet metrikleri çeker.
+  Future<Map<String, dynamic>> getSuperUserDashboardSummary() async {
+    final active = _requireSuperUserSession();
+    try {
+      return await api.getSuperUserDashboardSummary(token: active.token);
+    } catch (e) {
+      _handleSessionError(e, usedToken: active.token);
+      rethrow;
+    }
+  }
+
   Future<Map<String, dynamic>> runDatabaseCleanup() async {
     final active = _requireSuperUserSession();
     try {

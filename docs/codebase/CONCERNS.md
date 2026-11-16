@@ -6,13 +6,18 @@
 
 | Severity | Concern | Evidence | Impact | Suggested action |
 |----------|---------|----------|--------|------------------|
+| high | Module contract drift: current `AGENTS.md` says 16 core modules cannot be toggled, while `isToggleable()` returns true for available core modules and recent commits deliberately enabled site-manager toggling | `AGENTS.md` rule 25, `server/src/modules/catalog.js`, commits `dd843461`, `3540544d` | Product behavior and future changes have contradictory authorities | Reconcile code to the current rule or explicitly replace the rule before further module work |
+| high | Documentation/catalog drift: README and older platform docs say 23 modules / 8 core; runtime catalog is 22 / 16 | `README.md`, `docs/PLATFORM_MODUL_SISTEMI.md`, `server/src/modules/catalog.js` | Incorrect onboarding and unsafe module migrations | Regenerate module documentation from the catalog |
+| medium | Live platform gate has only 5 of 16 core modules active (`announcements`, `directory`, `drive_storage`, `finance`, `people`); the remaining core modules are platform-disabled | 2026-11-16 read-only query of `platform_modules` | “Core means available everywhere” is not true in production | Decide whether platform-disabled core modules are intentional rollout gates; encode and document the rule |
+| high | Production schema has no `schema_migrations` ledger: `node scripts/migrate.js --status` reports 0 applied / 127 pending although the tables and later schema objects exist | 2026-11-16 live read-only migration status; `server/scripts/migrate.js` | A normal migration run could attempt the full history against an already-populated database | Establish the verified baseline only after comparing live schema with migrations; never run plain `migrate` first |
+| medium | Live logs repeatedly report expired `JWT_SECRET_PREVIOUS_UNTIL` and missing `OTA_PUBLIC_KEY`; current rule 27 says mandatory OTA-signature/placeholder blocking was removed | PM2 logs, `AGENTS.md` rule 27, `server/src/config/env.js`, `server/src/services/ota_signature.js` | Operational noise and unclear OTA release contract | Remove stale JWT rollover vars; reconcile OTA policy and warning behavior |
 | high | Production credentials were exposed in the past (repository history, firmware binaries, chat) | git history, `cihaz_kontrol/firmware_releases/` | Anyone with the old values could reach SSH/MQTT/DB/SMTP | Rotate all production credentials (VPS SSH, MQTT, DB, SMTP, JWT secret); consider history cleanup (`git filter-repo`) - a user decision |
 | high | Firmware has never run on hardware (builds + device simulator only) | `SAHA_KONTROL_LISTESI.md` sections 42-52 | Field behavior (relay, OTA rollback, local control v2, admin PIN, display) is unverified | Run the field checklist on one C3 and one WROOM board before rollout |
 | medium | Production `.env` is weaker than the code expects (short `JWT_SECRET`, long `JWT_EXPIRES_IN`, optional `NODE_ENV`) | `server/.env.example`, `BEKLEYEN_ISLER.md` | Weak token secret/lifetime | Update production values in a maintenance window (all sessions are invalidated when the secret changes) |
 | medium | Rate limiters and login lock-out are in-memory | `server/src/middlewares/rate_limiters.js`, `login_throttle.js` | Limits reset on restart and are per process | Move to a shared store if PM2 cluster mode is ever used |
 | low | Local door control (UDP v2) is unencrypted on the LAN | `cihaz_kontrol/include/yerel_kapi_kontrol.h`, `docs/YEREL_KONTROL_V2.md` | Request/response content is readable, but the token never leaves the devices and commands are bound to a single-use challenge | Encrypt only if the threat model requires it; app and firmware must be updated together (v1 clients no longer work) |
 | medium | Generated firmware binaries are tracked in git (~180 MB) | `cihaz_kontrol/firmware_releases/` | Repository size, unclear provenance | Move release binaries to external storage |
-| low | Very large Flutter files | `lib/ui/pages/home_page.dart` (~7,500 lines), `lib/services/auth_service.dart` (~4,300), `lib/services/auth_api.dart` (~4,900) | Harder reviews and rebuild cost | Extract by feature when editing |
+| low | Very large orchestration files | `home_page.dart` 8,523 lines, `auth_service.dart` 4,433, `auth_api.dart` 5,070, `company_qr_tool/app.py` 5,354, `server/src/db.js` 2,195 | Harder reviews and coupled regressions | Extract by feature when editing |
 | low | UI changes were verified by analysis, unit/widget tests and builds only (no device/emulator walk-through) | `SAHA_KONTROL_LISTESI.md` section 52, `BEKLEYEN_ISLER.md` Faz 4/5 | Visual regressions (dark theme, small screens, large text) may only show on devices | The owner runs section 52 on a phone and a desktop window; frame-time harness: `integration_test/perf_frames_test.dart` |
 
 Resolved since the previous scan (kept here for traceability): monolithic `server.js` (now layered), wildcard CORS (allowlist), missing CI (`.github/workflows/ci.yml`), no backend tests (`server/test/`), hard-coded MQTT credentials in Flutter defaults (removed), insecure MQTT TLS in firmware (CA verification on), UID-only local control (token required; since v2 the token is never sent and HTTP open was removed), unauthenticated company routes (`X-Company-Key`/super user), unbounded app polling (`AdaptivePoller`), heavy work on the UI isolate (PDF/JSON offloaded), low text contrast and five divergent "open door" buttons (design system, `DoorOpenButton`).
@@ -54,12 +59,13 @@ Resolved since the previous scan (kept here for traceability): monolithic `serve
 | `lib/ui/design/` (tokens, palette, components) | A palette or token change restyles ~60 screens | Run `flutter test test/design test/screens` (contrast >= 4.5:1, overflow at 320x640 x 2.0, reduce-motion) before and after; keep widget types (`ElevatedButton`, `AlertDialog`, `ListTile`) stable because finders in tests and the menu walker depend on them |
 | `cihaz_kontrol/include/` and `ekran_yazilimi/` | The UART protocol (`display_protocol.h`) must be identical in both projects; C3 and WROOM are separate hardware targets | Update controller and display together; never mix pins between targets |
 
-### 6) Open Decisions
+### 6) `[ASK USER]` Questions
 
-1. Rotate production credentials and decide on git history cleanup.
-2. Whether `cihaz_kontrol/firmware_releases/` stays in git.
-3. Production values for `JWT_EXPIRES_IN`, `NODE_ENV`, `CORS_ORIGINS`.
-4. Store publication steps. The application id is already `tr.com.gudeteknoloji.siteyonetim` on Android and iOS (no `com.example.*` left), and Android release builds read the signing key from `android/key.properties` (outside git; the build fails with an explicit error if it is incomplete). Remaining store steps are tracked in `BEKLEYEN_ISLER.md`.
+1. [ASK USER] Current `AGENTS.md` rule 25 or the recent “core modules can be toggled” commits: which is authoritative?
+2. [ASK USER] Platform-disabled core modules are staged rollout gates, or should all core modules except explicitly named exceptions be activated now?
+3. [ASK USER] Is OTA signing optional-but-supported, or should the remaining `OTA_PUBLIC_KEY` gate/warnings also be removed under rule 27?
+4. [ASK USER] Rotate production credentials and decide on git history cleanup.
+5. [ASK USER] Whether `cihaz_kontrol/firmware_releases/` stays in git.
 
 ### 7) Evidence
 

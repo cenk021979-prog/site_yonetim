@@ -5446,3 +5446,48 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     3. Ana panel ekranında (Vitrin) "Yardım ve Destek" butonunun yer almadığını teyit edin.
     4. Sağ üstteki Ayarlar paneline (dişli) girin; panelde "Geri bildirim gönder" ve "Gönderdiğim geri bildirimler" öğelerinin YER ALMADIĞINI, yalnızca sakinlerden gelen geri bildirimleri incelemek üzere "Gelen geri bildirimler" seçeneğinin yer aldığını doğrulayın.
   - **Beklenen Sonuç:** Süper kullanıcı arayüzü gereksiz destek ve geri bildirim formlarından tamamen arındırılır; süper kullanıcı geri bildirim gönderen değil, gelen bildirimleri yöneten makam olarak kalır.
+
+---
+
+## 188. 🚀 Süper Kullanıcı Canlı Kokpit Paneli (Donanım, IoT, Hacim ve Canlı Sistem Nabzı) (2026-11-16)
+
+Süper kullanıcının ana panelinde (`HomePage` -> `_selectedMenu == SirketMenuItem.dashboard`), eski modül vitrini yerine platformun anlık canlı verilerini (PostgreSQL SQL sorguları ve MQTT çalışma zamanı durumu) sunan modern Kokpit ekranı yer alır.
+
+- [ ] **188.1. Canlı Veri ve Sayfa Yenileme (Pull-to-Refresh & Canlı Nabız):**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı (`UserRole.superUser`) hesabıyla giriş yapın ve doğrudan "Panel"i açın.
+    2. Ekranın üst kısmında canlı nabız göstergesinin (yeşil yanan nokta ve "Canlı Sistem Nabzı • Son güncelleme: ss:dd:ss") yer aldığını görün.
+    3. Ekranı aşağı doğru çekerek (Pull-to-Refresh) veya sağ üstteki yenileme simgesine dokunarak tazeleyin.
+  - **Beklenen Sonuç:** `GET /admin/dashboard/summary` çağrısı anında sunucudan güncel verileri çeker ve arayüzdeki tüm sayaçlar gerçek zamanlı yenilenir.
+- [ ] **188.2. Dikkat ve Eylem Çubuğu (Attention Bar):**
+  - **Nasıl Test Edilir:**
+    1. İnceleme bekleyen site başvurusu veya onay bekleyen modül talebi varsa çubuğun dikkat çekici renkle açıldığını doğrulayın.
+    2. "Site Başvuruları" veya "Modül Talepleri" rozetine dokunun.
+  - **Beklenen Sonuç:** İlgili yönetim ekranına anında yönlendirir; bekleyen hiçbir iş yoksa "Tüm onay ve talepler güncel, bekleyen acil iş yok" yeşil durumu gösterilir.
+- [ ] **188.3. Platform ve Mülk Hacmi Kartları (Siteler, Daireler, Kullanıcılar):**
+  - **Nasıl Test Edilir:**
+    1. Siteler kartında: Toplam site sayısı, aktif ve pasif site dağılımını inceleyin.
+    2. Daireler kartında: Toplam daire sayısı, dolu/boş daire adedi ve yüzdesel doluluk oranını (%xx Doluluk) doğrulayın.
+    3. Kullanıcılar kartında: Toplam kayıtlı kullanıcı adedi ile Site Yöneticisi, Daire Admini ve Sakin alt kırılımlarını inceleyin.
+  - **Beklenen Sonuç:** Tüm veriler veritabanındaki gerçek tablo sayımlarıyla (`sites`, `apartments`, `users`) birebir eşleşir.
+- [ ] **188.4. Donanım & IoT Saha Sağlığı (ESP32 Cihazları ve Kapılar):**
+  - **Nasıl Test Edilir:**
+    1. Cihaz Durumu: Son 3 dakika içinde MQTT kalp atışı göndermiş Online cihazlar (yeşil) ile Offline cihazları (kırmızı) doğrulayın.
+    2. Donanım Mimarisi: Sahadaki `ESP32-C3` ve `ESP32-WROOM` cihaz dağılımını görün.
+    3. Kapı Durumu: Toplam ve aktif kapı sayısını kontrol edin.
+    4. Günlük Geçiş Sayacı: Bugün sisteme kaydedilen toplam kapı geçiş sayısını (QR, BLE, mobil geçiş) teyit edin.
+  - **Beklenen Sonuç:** IoT cihazlarının sahada çalışıp çalışmadığı anlık olarak panodan izlenebilir.
+- [ ] **188.5. Altyapı ve Sunucu Canlılık Göstergesi:**
+  - **Nasıl Test Edilir:**
+    1. Veritabanı durumu: PostgreSQL bağlantısının "Bağlı" olduğunu görün.
+    2. MQTT Broker: EMQX/MQTT sunucusunun "Bağlı" olduğunu teyit edin.
+    3. Sunucu ve Platform Sürümü: v1.0.0 ve API sürümünün canlı gösterildiğini doğrulayın.
+  - **Beklenen Sonuç:** Süper kullanıcı sistem altyapısının sağlığını saniyeler içinde anlar.
+- [ ] **188.6. Hızlı Eylemler (Kısayollar):**
+  - **Nasıl Test Edilir:**
+    1. "Cihaz Kaydet" düğmesine dokunun -> Şirket cihazı kaydetme diyaloğu açılır.
+    2. "Başvuruları İncele"ye dokunun -> Site Başvuruları ekranına geçer.
+    3. "Modül Geliştirme"ye dokunun -> Modül Geliştirme paneline geçer.
+    4. "Bluetooth Wi-Fi"ye dokunun -> Saha BLE Wi-Fi kurulum aracı açılır.
+  - **Beklenen Sonuç:** En sık kullanılan operasyonel işlemler tek dokunuşla başlatılır.
+

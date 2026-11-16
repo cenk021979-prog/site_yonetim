@@ -7,12 +7,14 @@
 - Primary style: multi-component repository with a layer-oriented Flutter client, a modular Express API (routes -> services -> PostgreSQL), an MQTT bridge, PlatformIO firmware for two door-controller boards plus a display board, and a Python Windows helper.
 - Why this classification: Flutter source is split into `models`, `services`, `styles`, `ui`; the API is split into `routes/` (core HTTP: auth, admin, manager, membership, doors, firmware), `services/` (core business rules and SQL), `modules/` (platform features such as finance, announcements, work tracking, reservations; each with its own `*_routes.js` / `*_service.js` / `*_schema.js`, gated by the module catalog `modules/catalog.js`), `middlewares/`, `config/`, `security/` and `utils/`; `server/src/server.js` only wires them together; firmware and QR tool are separate top-level components.
 - Primary constraints: role-based access (`super_user`, `site_manager`, `apartment_owner`, `individual`), one central door-open policy (`server/src/services/door_access_policy.js`), PostgreSQL-backed state, JWT-protected API routes, MQTT over TLS for device commands/events, local-network (UDP) door control protected by challenge-bound HMAC-SHA256 signatures keyed by the per-device token (protocol v2, `docs/YEREL_KONTROL_V2.md`), and ESP32 device provisioning (BLE) and OTA.
+- Current module topology (2026-11-16): catalog has 22 modules; 16 are marked `core`. Platform activation is a separate database gate (`platform_modules`). Site-level enablement is stored in `site_modules`. `isToggleable()` currently returns true for available core modules; this conflicts with current `AGENTS.md` rule 25 and is tracked in `CONCERNS.md`.
 
 ### 2) System Flow
 
 ```text
 Flutter UI -> AuthService/AuthApi -> Express route/middleware -> service -> PostgreSQL / mail / MQTT bridge -> JSON response -> Flutter state/UI
 Device (ESP32) <-> MQTT broker (TLS) <-> server/src/mqtt_bridge.js -> PostgreSQL (state, door logs)
+Internet TLS :443 -> HAProxy SNI split -> Nginx :8443 (HTTPS) / Mosquitto :8883 (MQTT)
 ```
 
 1. `lib/main.dart` starts `MyApp`; `lib/app.dart` initializes auth and network services before showing login, home, or no-internet UI.

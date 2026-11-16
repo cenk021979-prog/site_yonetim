@@ -44,7 +44,7 @@
 | `server/src/services/` | Business rules, SQL, door policy, geofence | Express request/response objects |
 | `server/src/modules/` | Platform feature modules (finance, announcements, work tracking, reservations, surveys, documents/Drive storage, ...): per feature `*_routes.js`, `*_service.js`, `*_schema.js`; module catalog `catalog.js` decides which sites see which feature | Core door/device logic |
 | `server/src/middlewares/`, `config/`, `security/`, `utils/` | Auth, rate limits, error handling, env/CORS config, login guards, helpers/validators | Route-specific business logic |
-| `server/migrations/` | PostgreSQL schema migration files (consecutive `NNN_*.sql`, 001-084 as of 2026-10-28) | Runtime route handlers |
+| `server/migrations/` | PostgreSQL schema migration files; 127 SQL files are present through `137_emergency_core_module_disabled.sql` (number gaps are intentional) | Runtime route handlers |
 | `cihaz_kontrol/include/` | Header-only firmware modules (Wi-Fi, MQTT, OTA, offline log, local control, admin PIN, GM60) | Company desktop QR UI |
 | `company_qr_tool/` | Windows serial/QR/firmware helper | API server endpoints |
 

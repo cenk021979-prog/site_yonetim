@@ -56,3 +56,11 @@
 - `server/eslint.config.js`
 - `server/src/server.js`
 - `test/`, `server/test/`
+
+### 7) Repository authority and change discipline
+
+- `AGENTS.md` is the current behavioral contract; code or older documentation that disagrees with it is a divergence, not a new convention.
+- Backend mutations require live deployment and verification; firmware changes require isolated C3/WROOM builds and a field checklist item.
+- Existing unrelated worktree changes must be preserved; commits stage only task-owned files.
+
+Evidence: `AGENTS.md`, `deploy/README.md`, `SAHA_KONTROL_LISTESI.md`.

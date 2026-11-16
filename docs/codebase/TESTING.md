@@ -9,7 +9,7 @@
 - Assertion/mocking tools: Flutter `expect`/finders and `SharedPreferences.setMockInitialValues`.
 - Backend test framework: Node.js built-in test runner (`node --test`, script `npm test` in `server/package.json`); most tests use fakes/stubs and do not need a database. Some SQL paths were additionally verified against a real PostgreSQL inside a rolled-back transaction during development.
 - Backend lint: ESLint (`npm run lint` -> `eslint src`, `npm run lint:all` -> `eslint .`).
-- Firmware: host tests in `cihaz_kontrol/host_test/` (719 checks: local control v2 core, UDP/HTTP, admin PIN, GM60, MQTT/OTA for WROOM and C3; real firmware headers + stubs, MSVC, not in CI); PlatformIO builds; behavior on hardware is checked by the field steps in `SAHA_KONTROL_LISTESI.md`.
+- Firmware: host tests in `cihaz_kontrol/host_test/` (README records 1708 checks across local control v2, UDP/HTTP, admin PIN, GM60, Ed25519, MQTT/OTA for WROOM and C3; real firmware headers + stubs, MSVC, not in CI); PlatformIO builds; behavior on hardware is checked by `SAHA_KONTROL_LISTESI.md`.
 - CI: `.github/workflows/ci.yml` (server lint + test, Flutter analyze + test, gitleaks secret scan; it has no firmware build and no deploy step). Other workflows: `.github/workflows/ios-build.yml` (manual iOS Simulator build for Appetize, `workflow_dispatch` only) and `.github/workflows/uptime.yml` (external health monitor, every 30 minutes).
 - Commands:
 
@@ -27,7 +27,7 @@ node scripts/migrate.js --status   # migration durumu (salt okunur)
 
 # Firmware (PlatformIO)
 cd cihaz_kontrol
-python host_test/run_all.py       # ana makine testleri (Windows + MSVC), 719 dogrulama
+python host_test/run_all.py       # ana makine testleri (Windows + MSVC), README: 1708 dogrulama
 pio run -e lolin_c3_mini           # ESP32-C3
 pio run -e esp32_relay_wroom       # ESP32-WROOM
 cd ../ekran_yazilimi
@@ -61,6 +61,7 @@ pio run -e esp32c3_display         # ekran firmware
 ### 5) Coverage and Quality Signals
 
 - Coverage tool + threshold: none configured; tests are expected to pass in full (`npm test`, `flutter test`).
+- Inventory snapshot (2026-11-16): 368 backend `*.test.js` files and 497 Flutter `*_test.dart` files. Counts are inventory, not proof that the current worktree passed.
 - Known gaps: firmware behavior (hardware), BLE provisioning, speech-to-text and Android widget on real devices, SMTP delivery against a real mail server, PostgreSQL-specific SQL paths (only partly verified against a real database).
 
 ### 6) Evidence

@@ -120,6 +120,7 @@ import 'package:site_kapi_kontrol/ui/pages/wifi_provision_page.dart';
 import 'package:site_kapi_kontrol/ui/views/bluetooth_wifi_view.dart';
 
 import 'package:site_kapi_kontrol/ui/views/company_devices_view.dart';
+import 'package:site_kapi_kontrol/ui/views/super_user_dashboard_view.dart';
 
 import 'package:site_kapi_kontrol/ui/views/dashboard_view.dart';
 
@@ -390,8 +391,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       GlobalKey<PlatformModulesViewState>();
   final GlobalKey<PlatformModulesViewState> _modulesDevViewKey =
       GlobalKey<PlatformModulesViewState>();
-  final GlobalKey<PlatformModulesViewState> _superModulePanelKey =
-      GlobalKey<PlatformModulesViewState>();
+  final GlobalKey<SuperUserDashboardViewState> _superDashboardKey =
+      GlobalKey<SuperUserDashboardViewState>();
   final GlobalKey<ModuleRequestsViewState> _moduleRequestsViewKey =
       GlobalKey<ModuleRequestsViewState>();
   final GlobalKey<SiteApplicationsViewState> _siteApplicationsViewKey =
@@ -6363,6 +6364,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
         _refreshVisitorBadge();
         await _loadApartments();
         await _loadDoorControlSites();
+        if (session.role == UserRole.superUser) {
+          await _superDashboardKey.currentState?.loadData();
+        }
         await _showcaseKey.currentState?.reload();
         await _individualHomeKey.currentState?.loadAll();
         break;
@@ -7676,15 +7680,10 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
           );
         }
         if (session.role == UserRole.superUser && !_isResidentMode) {
-          return PlatformModulesView(
-            key: _superModulePanelKey,
+          return SuperUserDashboardView(
+            key: _superDashboardKey,
             authService: widget.authService,
-            onChanged: () {
-              unawaited(_moduleAccess.refresh());
-              unawaited(_loadSuperDoorModule());
-              _activeModulesViewKey.currentState?.loadData();
-              _passiveModulesViewKey.currentState?.loadData();
-            },
+            onNavigate: _goToMenu,
           );
         }
         return _buildShowcase(session);

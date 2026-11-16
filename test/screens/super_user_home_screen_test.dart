@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/models/user_session.dart';
 import 'package:site_kapi_kontrol/styles/app_theme.dart';
 import 'package:site_kapi_kontrol/ui/pages/home_page.dart';
+import 'package:site_kapi_kontrol/ui/views/super_user_dashboard_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/yan_menu.dart';
 
 import 'modules_fixtures.dart';
@@ -75,6 +76,52 @@ class _SuperUserAuth extends ModulesFakeAuth {
 
   @override
   Future<bool> isPhoneConnectedToLocalWifi() async => false;
+
+  @override
+  Future<Map<String, dynamic>> getSuperUserDashboardSummary() async => <String, dynamic>{
+    'ok': true,
+    'attention': <String, dynamic>{
+      'pending_site_applications': 2,
+      'pending_module_requests': 1,
+      'unresolved_client_errors': 0,
+      'unique_client_errors': 0,
+      'total_feedbacks': 3,
+    },
+    'platform': <String, dynamic>{
+      'total_sites': 12,
+      'active_sites': 10,
+      'passive_sites': 2,
+      'total_apartments': 240,
+      'occupied_apartments': 200,
+      'empty_apartments': 40,
+      'total_users': 310,
+      'site_managers': 14,
+      'apartment_users': 290,
+      'super_users': 2,
+      'individuals': 4,
+    },
+    'iot': <String, dynamic>{
+      'total_doors': 18,
+      'active_doors': 16,
+      'total_devices': 14,
+      'online_devices': 12,
+      'offline_devices': 2,
+      'esp32_c3_count': 10,
+      'esp32_wroom_count': 4,
+      'today_door_passes': 84,
+    },
+    'system': <String, dynamic>{
+      'database': 'connected',
+      'mqtt': <String, dynamic>{
+        'configured': true,
+        'connected': true,
+        'has_error': false,
+      },
+      'uptime_seconds': 7200,
+      'server_time': '2026-11-16T20:00:00Z',
+      'version': '1.0.0',
+    },
+  };
 }
 
 void main() {
@@ -94,6 +141,10 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 600));
+
+    // Panel ekranında Süper Kullanıcı Dashboard (Cockpit) görünmelidir
+    expect(find.byType(SuperUserDashboardView), findsOneWidget);
+    expect(find.text('Sistem ve Platform Genel Bakışı'), findsOneWidget);
 
     // 1. AppBar üzerinde 'Sakin Moduna Geç', 'Yönetici Paneli', veya ikili mod hap butonu olmamalıdır
     expect(find.text('Sakin Moduna Geç'), findsNothing);

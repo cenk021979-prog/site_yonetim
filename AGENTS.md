@@ -309,4 +309,21 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - "Kullanıcı Yönetimi" açılır menüsünü ve altındaki "Siteye Göre Kişilerin Yönetimi" ile "Tüm Kullanıcı Yönetimi" alt öğelerini bozma.
       - Sol çekmeceye taşınan 6 süper kullanıcı komutunu (Modül Geliştirme, Modül Yönetimi(Siteye Göre), Modül Talepleri, Site Başvuruları, Şirket Cihaz Envanteri, Bluetooth ile Wi-Fi Kur) Ayarlar paneline geri itme.
 
+36. **Süper Kullanıcı Canlı Kokpit Paneli ve Gerçek Zamanlı Metrikler (Kural 36):**
+    - **Neden Yapıldı:**
+      - Süper kullanıcının ana panelinde (`HomePage` -> `_selectedMenu == SirketMenuItem.dashboard`) daha önce Modül Geliştirme ekranı ile birebir aynı olan statik içerik gösteriliyordu.
+      - Menüde zaten "Modül Geliştirme" yer aldığından, Panel ekranı süper kullanıcının tüm platformu, mülk hacmini, donanım/IoT saha sağlığını ve sistem nabzını anlık izleyebileceği modern bir canlı "Kokpit" (`SuperUserDashboardView`) olarak yeniden tasarlandı.
+      - Paneldeki tüm veriler arka uçta (`server/src/services/admin_dashboard_service.js`) gerçek PostgreSQL SQL sorgularından (`sites`, `apartments`, `users`, `doors`, `devices`, `site_applications`, `module_requests`, `client_errors`, `door_logs`) ve MQTT çalışma zamanı bağlantı durumundan anlık çekilir.
+      - 5 Ana Bölüm Oluşturuldu:
+        1. **Dikkat & Eylem Çubuğu (Attention Bar):** Bekleyen site başvuruları, bekleyen modül talepleri ve son 24 saatteki çözülmemiş istemci hatalarını gösterir; tek dokunuşla ilgili ekrana yönlendirir.
+        2. **Platform & Mülk Hacmi (Volume Cards):** Toplam, aktif ve pasif site sayıları; toplam/dolu daire sayıları ve yüzdesel doluluk oranı; toplam, site yöneticisi, daire sakini ve süper kullanıcı sayıları.
+        3. **Donanım & IoT Saha Sağlığı (Saha Durumu):** Son 3 dakika içinde kalp atışı göndermiş Online ESP32 cihazlar (yeşil) ile Offline cihazlar (kırmızı); donanım mimarisi dağılımı (`ESP32-C3` vs `ESP32-WROOM`); toplam ve aktif kapı sayıları; bugünkü toplam kapı geçiş sayacı.
+        4. **Altyapı & Canlı Sistem Nabzı (Infrastructure Pulse):** PostgreSQL bağlantı durumu, MQTT Broker bağlantı durumu, API & Platform sürümü ve sunucu uptime süresi.
+        5. **Hızlı Eylemler (Kısayollar):** Şirket cihazı kaydet, site başvurularını incele, modül geliştirme ve Bluetooth ile Wi-Fi kur butonları.
+      - Sayfada `RefreshIndicator` (Pull-to-Refresh) ve manuel yenileme ile sayfa kapatılıp açılmadan anlık veri güncellemesi garantilendi.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Süper kullanıcı ana paneline tekrar eski modül vitrinini koyma veya sahte/statik (mock) veriler bağlama. Panel daima `GET /admin/dashboard/summary` üzerinden canlı veritabanı ve MQTT durumunu yansıtacaktır.
+      - Canlı nabız göstergesini (`LivePulseIndicator`), sayaç kartlarını ve Pull-to-Refresh mekanizmasını bozma.
+
+
 

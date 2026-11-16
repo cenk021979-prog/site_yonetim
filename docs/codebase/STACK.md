@@ -7,7 +7,7 @@
 | Area | Value | Evidence |
 |------|-------|----------|
 | Primary language | Dart/Flutter for the client (one app for all roles); JavaScript for the API; C++ for ESP32 firmware; Python for the QR/firmware desktop helper | `pubspec.yaml`, `server/package.json`, `cihaz_kontrol/platformio.ini`, `company_qr_tool/requirements.txt` |
-| Runtime + version | Dart SDK constraint `^3.11.0`; Node.js >= 20.19 (`engines`; CI and `.nvmrc` use Node 24); Python requirement is 3.10+ in README; PlatformIO uses Arduino framework on Espressif32 | `pubspec.yaml`, `server/package.json`, `company_qr_tool/README.md`, `cihaz_kontrol/platformio.ini` |
+| Runtime + version | Dart SDK constraint `^3.11.0`; inspected workstation: Flutter 3.47.2 / Dart 3.13.2 / Node 24.15.0; live VPS: Node 24.14.0; backend minimum Node 20.19; Python requirement is 3.10+; PlatformIO uses Arduino on Espressif32 6.5.0 | `pubspec.yaml`, `.nvmrc`, `server/package.json`, `company_qr_tool/README.md`, `cihaz_kontrol/platformio.ini`; 2026-11-16 terminal checks |
 | Package manager | Flutter/Dart pub; npm; pip; PlatformIO | `pubspec.yaml`, `server/package.json`, `company_qr_tool/requirements.txt`, `cihaz_kontrol/platformio.ini` |
 | Module/build system | Flutter multi-platform app, Node ESM API, Docker Compose PostgreSQL, PlatformIO firmware | `.metadata`, `server/package.json`, `docker-compose.yml`, `cihaz_kontrol/platformio.ini` |
 
@@ -38,7 +38,7 @@
 | jsonwebtoken | `^9.0.2` | Access token signing/verification | `server/package.json`, `server/src/jwt.js` |
 | bcryptjs | `^2.4.3` | Password and verification-code hashing | `server/package.json`, `server/src/services/` |
 | mqtt | `^5.14.1` | API <-> broker (TLS) | `server/package.json`, `server/src/mqtt_bridge.js` |
-| nodemailer | `^10.0.13` | Email verification and apartment credential delivery | `server/package.json`, `server/src/mailer.js` |
+| nodemailer | `^10.2.1` | Email verification and apartment credential delivery | `server/package.json`, `server/src/mailer.js` |
 | web-push | `^3.6.7` | Browser web-push notifications | `server/package.json`, `server/src/modules/web_push.js` |
 | pdfjs-dist | `6.4.299` (pinned) | Text-layer reading of bank statement PDFs in a worker thread | `server/package.json`, `server/src/modules/bank_pdf_worker.js` |
 | cors, dotenv | `^2.8.5`, `^16.4.5` | CORS allowlist, `.env` loading | `server/package.json`, `server/src/config/cors.js` |

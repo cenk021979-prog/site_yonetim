@@ -38,6 +38,7 @@ import {
   errorBodyExtras,
 } from '../utils/validators.js';
 import { createUser, updateUserByCode, userExists } from '../services/user_service.js';
+import { getSuperUserDashboardSummary } from '../services/admin_dashboard_service.js';
 import { rejectWeakPassword } from '../security/password_policy.js';
 import { resolveManagementTypeInput } from '../modules/management_types.js';
 import { freePeriodOrderError, parseFreePeriodBody } from '../modules/site_free_period.js';
@@ -1855,6 +1856,18 @@ adminRouter.post('/admin/devices/:id/release-ownership', authRequired, requireSu
     });
   } catch (error) {
     return sendServiceError(res, error, 'Cihaz sahipliği sıfırlanamadı.');
+  }
+});
+
+// GET /admin/dashboard/summary
+adminRouter.get('/admin/dashboard/summary', authRequired, requireSuperUser, async (_req, res) => {
+  try {
+    const summary = await getSuperUserDashboardSummary();
+    return res.status(200).json(summary);
+  } catch (error) {
+    const errorId = newErrorId();
+    console.error(`[admin] ${errorId} Dashboard ozet bilgisi alinamadi:`, error);
+    return res.status(500).json({ error: 'Dashboard ozet bilgisi alinamadi.', errorId });
   }
 });
 

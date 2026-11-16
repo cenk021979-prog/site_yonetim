@@ -555,6 +555,20 @@ class AuthApi {
     return _decodePayload(response);
   }
 
+  /// Süper kullanıcı ana paneli (Cockpit) özet metrikleri (`GET /admin/dashboard/summary`).
+  Future<Map<String, dynamic>> getSuperUserDashboardSummary({
+    required String token,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'GET',
+      path: '/admin/dashboard/summary',
+      token: token,
+    );
+
+    _ensureStatus(response, 200);
+    return _decodePayload(response);
+  }
+
   Future<Map<String, dynamic>> runDatabaseCleanup({
     required String token,
   }) async {

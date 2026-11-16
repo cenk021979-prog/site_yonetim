@@ -42,12 +42,11 @@ class _AssignMockAuth extends AuthService {
   _AssignMockAuth({
     this.sites = const [],
     this.doors = const [],
-    this.assignError,
   }) : super(api: AuthApi(baseUrl: 'http://localhost'));
 
   final List<SiteRecord> sites;
   final List<DoorRecord> doors;
-  final String? assignError;
+  String? assignError;
 
   int? assignedDoorId;
   String? assignedDeviceUid;
