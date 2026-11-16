@@ -295,6 +295,7 @@ void main() {
       expect(find.textContaining('kiracı çıkana kadar sürer'), findsOneWidget);
       await t.tap(find.text('Vazgeç'));
       await settleFor(t);
+      await t.ensureVisible(find.text('Aile üyesi ekle'));
       await t.tap(find.text('Aile üyesi ekle'));
       await settleFor(t);
       expect(t.takeException(), isNull);
@@ -321,15 +322,13 @@ void main() {
       expect(find.text('Kiracı ekle'), findsNothing);
       expect(find.text('Aile üyesi ekle'), findsNothing);
       expect(find.text('Bu daireden ayrıl'), findsOneWidget);
-      // Güvenlik bölümü varsayılan KAPALI: yardım hatları ve talep düğmesi açılınca görünür.
+      // Güvenlik bölümü kaldırıldı: yardım hatları ve gizli talep bulunmaz.
+      expect(find.text('Güvenlik ve destek'), findsNothing);
       expect(find.text('Site yönetimine gizli talep gönder'), findsNothing);
-      await t.tap(find.text('Güvenlik ve destek'));
-      await settleFor(t);
-      expect(find.textContaining('112'), findsWidgets);
-      expect(find.textContaining('ALO 183'), findsOneWidget);
-      expect(find.textContaining('KADES'), findsOneWidget);
-      expect(find.textContaining('ŞÖNİM'), findsOneWidget);
-      expect(find.text('Site yönetimine gizli talep gönder'), findsOneWidget);
+      expect(find.textContaining('112'), findsNothing);
+      expect(find.textContaining('ALO 183'), findsNothing);
+      expect(find.textContaining('KADES'), findsNothing);
+      expect(find.textContaining('ŞÖNİM'), findsNothing);
     },
   );
 

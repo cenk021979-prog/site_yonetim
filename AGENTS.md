@@ -325,5 +325,14 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - Süper kullanıcı ana paneline tekrar eski modül vitrinini koyma veya sahte/statik (mock) veriler bağlama. Panel daima `GET /admin/dashboard/summary` üzerinden canlı veritabanı ve MQTT durumunu yansıtacaktır.
       - Canlı nabız göstergesini (`LivePulseIndicator`), sayaç kartlarını ve Pull-to-Refresh mekanizmasını bozma.
 
+37. **Dairem Ekranından 'Güvenlik ve Destek' (112, KADES, ALO 183, ŞÖNİM) Bölümünün Kaldırılması (Kural 37):**
+    - **Neden Yapıldı:**
+      - "Dairem" ekranı (`MyApartmentView`), daire sakinlerinin ve yöneticilerinin daire yönetimi (malik, kiracı, aile üyeleri, araçlar) işlemlerini yürüttüğü ana mülk profil ekranıdır.
+      - Bu ekranda daha önce en altta yer alan "Güvenlik ve destek" akordeon kutusu (içerisinde büyük kırmızı 112 Acil Çağrı butonu, ALO 183 Sosyal Destek, KADES, ŞÖNİM ve mahkeme/polis uzaklaştırma bildirimleri bulunan kısım) site yönetim arayüzü için alakasız, rahatsız edici ve saçma görüldüğünden kullanıcının talimatıyla tamamen kaldırılmıştır.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - `MyApartmentView` içerisine veya daire kullanıcılarının mülk/daire ekranlarına "Güvenlik ve destek", büyük kırmızı 112 acil çağrı butonu, KADES, ALO 183, ŞÖNİM veya "Site yönetimine gizli talep gönder" bölümlerini ASLA geri ekleme.
+      - Dairem ekranı yalnızca daire yönetimi, sakinler, aile üyeleri, vekalet, çıkış ve araç yönetimiyle sınırlı ve sade tutulacaktır.
+
+
 
 

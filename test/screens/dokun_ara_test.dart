@@ -696,8 +696,7 @@ MyApartmentsData _aptData() => MyApartmentsData(
 );
 
 void _apartmentTests() {
-  testWidgets('bölüm açılınca büyük 112 düğmesi var; dokununca tel:112; kuru modda numara + kopyala', (t) async {
-    final copied = _recordClipboard(t);
+  testWidgets('Dairem ekranında Güvenlik ve destek / 112 bölümü yer almaz', (t) async {
     final phone = _Phone(opens: false);
     await pumpList(
       t,
@@ -708,44 +707,11 @@ void _apartmentTests() {
       dark: false,
     );
     await settleFor(t);
-    expect(find.byKey(_emergencyKey), findsNothing, reason: 'gizli bölüm varsayılan kapalı');
-
-    await t.tap(find.text('Güvenlik ve destek'));
-    await settleFor(t);
-    expect(find.byKey(_emergencyKey), findsOneWidget);
-    expect(find.textContaining('ALO 183'), findsOneWidget);
-    expect(find.textContaining('KADES'), findsOneWidget);
-
-    await t.ensureVisible(find.byKey(_emergencyKey));
-    await t.tap(find.byKey(_emergencyKey));
-    await settleFor(t);
-    expect(phone.calls.single.toString(), 'tel:112');
-    expect(find.byType(DialFallbackCard), findsOneWidget);
-    await t.ensureVisible(find.byKey(const ValueKey<String>('arama_kuru_mod_kopyala')));
-    await t.tap(find.byKey(const ValueKey<String>('arama_kuru_mod_kopyala')));
-    await settleFor(t);
-    expect(copied, <String>['112']);
+    expect(find.text('Güvenlik ve destek'), findsNothing);
+    expect(find.byKey(_emergencyKey), findsNothing);
+    expect(find.textContaining('112'), findsNothing);
+    expect(find.textContaining('ALO 183'), findsNothing);
+    expect(find.textContaining('KADES'), findsNothing);
+    expect(find.textContaining('ŞÖNİM'), findsNothing);
   });
-
-  for (final (w, h, s) in const <(double, double, double)>[(320, 640, 2.0), (360, 640, 1.5)]) {
-    testWidgets('taşma yok: Dairem güvenlik bölümü ${w.toInt()}x${h.toInt()} yazı $s', (t) async {
-      final phone = _Phone(opens: false);
-      await pumpList(
-        t,
-        MyApartmentView(authService: PeopleFakeAuth(), service: _FakeApt(_aptData()), dialLauncher: phone.launch),
-        width: w,
-        height: 2400,
-        scale: s,
-        dark: false,
-      );
-      await settleFor(t);
-      await t.tap(find.text('Güvenlik ve destek'));
-      await settleFor(t);
-      await t.ensureVisible(find.byKey(_emergencyKey));
-      await t.tap(find.byKey(_emergencyKey));
-      await settleFor(t);
-      expect(find.byType(DialFallbackCard), findsOneWidget);
-      expect(t.takeException(), isNull);
-    });
-  }
 }

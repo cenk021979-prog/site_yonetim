@@ -1,6 +1,6 @@
 // "Dairem" ekranı (modül gerektirmez; daire sakini ve bireysel sakin): daire yönetimi kimde, malik / kiracı / aile, vekalet,
-// bekleyen davet ve talepler, "Araçlarım" (daire yöneticisi araç ekler), "Bu daireden ayrıl" ve gizli "Güvenlik ve destek" bölümü.
-// Sözleşme: docs/PLATFORM_DAIRE_YONETIMI.md, docs/PLATFORM_DAIRE_GUVENLIK_POLITIKASI.md.
+// bekleyen davet ve talepler, "Araçlarım" (daire yöneticisi araç ekler) ve "Bu daireden ayrıl".
+// Sözleşme: docs/PLATFORM_DAIRE_YONETIMI.md.
 // Ana sayfa gövdesinde sınırsız yükseklik hatası vermesin diye liste yok: Column + kartlar (kaydırmayı üst sayfa yapar).
 import 'dart:async';
 
@@ -23,7 +23,6 @@ import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart'
     show crmMessageOf;
 import 'package:site_kapi_kontrol/ui/views/my_apartment_vehicles.dart';
 import 'package:site_kapi_kontrol/ui/views/my_apartment_layout.dart';
-import 'package:site_kapi_kontrol/ui/widgets/emergency_call_button.dart';
 import 'package:site_kapi_kontrol/ui/widgets/state_view.dart';
 import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
@@ -281,20 +280,6 @@ class MyApartmentViewState extends State<MyApartmentView> {
     if (okDone && accept) widget.onChanged?.call();
   }
 
-  Future<void> _safety(MyApartment apt) async {
-    final input = await SafetyRequestDialog.show(context);
-    if (input == null) return;
-    await _run(
-      () => _service.sendSafetyRequest(
-        apt.apartmentId,
-        message: input.message,
-        contactPref: input.contactPref,
-      ),
-      success:
-          'Talebiniz site yönetimine iletildi. Başka kimseye bildirim gitmedi.',
-    );
-  }
-
   // ----------------------------------------------------------------- görünüm
 
   @override
@@ -524,7 +509,6 @@ class MyApartmentViewState extends State<MyApartmentView> {
             _busy ? null : () => unawaited(_leave(apt)),
             tone: AppTone.danger,
           ),
-          _safetySection(apt),
         ],
         secondary: [vehicles, ...requests, ...proxy],
         stacked: [
@@ -778,78 +762,5 @@ class MyApartmentViewState extends State<MyApartmentView> {
           ),
       ]),
     ];
-  }
-
-  /// Gizli "Güvenlik ve destek": varsayılan kapalı, sade başlık. Yardım hatları + site yönetimine gizli talep.
-  Widget _safetySection(MyApartment apt) {
-    final th = Theme.of(context).textTheme;
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        key: ValueKey<String>('apt_safety_${apt.apartmentId}'),
-        tilePadding: EdgeInsets.zero,
-        title: const Text('Güvenlik ve destek'),
-        childrenPadding: EdgeInsets.zero,
-        expandedCrossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Text('Acil tehlikede 112\'yi arayın.', style: th.titleSmall),
-          const SizedBox(height: AppSpace.sm),
-          // Büyük 112 düğmesi (dokun-ara, P2-23): telefon uygulamasını 112 yazılı açar; açılamazsa numara + kopyala (kuru mod).
-          EmergencyCallButton(launcher: widget.dialLauncher),
-          const SizedBox(height: AppSpace.md),
-          const _HelplineLine(
-            name: 'ALO 183 Sosyal Destek Hattı',
-            detail: 'Ücretsiz, 7 gün 24 saat destek ve yönlendirme',
-          ),
-          const _HelplineLine(
-            name: 'KADES uygulaması',
-            detail: 'Emniyetin Kadın Acil Destek uygulaması',
-          ),
-          const _HelplineLine(
-            name: 'ŞÖNİM',
-            detail:
-                'Şiddet Önleme ve İzleme Merkezi: danışmanlık ve barınma desteği',
-          ),
-          const SizedBox(height: AppSpace.sm),
-          Text(
-            'Bu uygulama polisin ya da mahkemenin yerine geçmez. Uzaklaştırma ya da koruma kararınız varsa belgeyi site yönetimine bildirin.',
-            style: th.bodySmall?.copyWith(color: context.palette.textSecondary),
-          ),
-          const SizedBox(height: AppSpace.sm),
-          _act(
-            'Site yönetimine gizli talep gönder',
-            Icons.shield_outlined,
-            _busy ? null : () => unawaited(_safety(apt)),
-          ),
-          const SizedBox(height: AppSpace.sm),
-        ],
-      ),
-    );
-  }
-}
-
-class _HelplineLine extends StatelessWidget {
-  const _HelplineLine({required this.name, required this.detail});
-
-  final String name;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final th = Theme.of(context).textTheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: AppSpace.xs),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(
-              text: name,
-              style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-            TextSpan(text: ' - $detail', style: th.bodyMedium),
-          ],
-        ),
-      ),
-    );
   }
 }

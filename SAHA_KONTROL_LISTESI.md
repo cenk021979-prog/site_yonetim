@@ -5491,3 +5491,17 @@ Süper kullanıcının ana panelinde (`HomePage` -> `_selectedMenu == SirketMenu
     4. "Bluetooth Wi-Fi"ye dokunun -> Saha BLE Wi-Fi kurulum aracı açılır.
   - **Beklenen Sonuç:** En sık kullanılan operasyonel işlemler tek dokunuşla başlatılır.
 
+---
+
+## 189. 🛡️ Dairem Ekranından 'Güvenlik ve Destek' (112, KADES, ALO 183, ŞÖNİM) Bölümünün Kaldırılması (2026-11-16)
+
+Daire sakinlerinin "Dairem" (`MyApartmentView`) ekranından alakasız "Güvenlik ve destek" (112 Acil Çağrı, ALO 183, KADES, ŞÖNİM) akordeon bölümü tamamen kaldırılmıştır.
+
+- [ ] **189.1. Daire ve Sakinler Kartının Sadeleşmesi:**
+  - **Nasıl Test Edilir:**
+    1. Daire sakini veya daire yöneticisi (`APARTMENT_ADMIN`) rolündeki bir kullanıcıyla giriş yapın.
+    2. Sol menüden veya panelden "Dairem" ekranını açın.
+    3. Sol sütundaki "Daire ve Sakinler" kartının en altına kaydırın ("Bu daireden ayrıl" butonunun altına bakın).
+  - **Beklenen Sonuç:** "Güvenlik ve destek" akordeonu, kırmızı büyük 112 butonu, ALO 183, KADES, ŞÖNİM ve mahkeme uyarıları KESİNLİKLE YER ALMAZ. Daire ekranı sade, amaca uygun ve ferah kalır.
+
+

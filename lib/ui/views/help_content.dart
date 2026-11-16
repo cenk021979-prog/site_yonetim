@@ -298,21 +298,6 @@ abstract final class HelpContent {
         'Dairenize en fazla 4 araç kaydedilebilir; daha fazlası için site yönetimine başvurun. Eklediğiniz plaka, sitede plaka tanıma açıksa yetkili araç sayılır; bu yüzden yalnızca kendi dairenizin araçlarını ekleyin. Aynı plaka başka bir kayıtta varsa site yönetimiyle görüşün.',
   );
 
-  /// Güvenlik ve destek: yardım hatları, gizli talep, koruma kararı.
-  static const HelpTopic _apartmentSafety = HelpTopic(
-    id: 'apartment_safety',
-    title: 'Güvenlik ve destek',
-    icon: Icons.shield_outlined,
-    steps: <String>[
-      '“Dairem” ekranında dairenizin kartında “Güvenlik ve destek” bölümünü açın.',
-      'Acil tehlikede bölümün başındaki kırmızı 112 düğmesine dokunun; telefon uygulaması 112 yazılı açılır (aramayı siz başlatırsınız). Cihazınız aramayı açamazsa numara ekranda görünür ve kopyalanabilir. ALO 183 Sosyal Destek Hattı, KADES uygulaması ve ŞÖNİM destek verir.',
-      'İsterseniz “Site yönetimine gizli talep gönder” ile durumunuzu yalnızca site yöneticisine iletin; daire yöneticisi, malik ve diğer üyeler görmez ve haberdar edilmez.',
-      'Uzaklaştırma ya da koruma kararınız varsa belgeyi site yönetimine bildirin; site yöneticisi gerekirse kişinin kapı erişimini askıya alabilir.',
-    ],
-    note:
-        'Uygulama polisin ya da mahkemenin yerine geçmez. Sistem iddiayı doğrulayamaz ve otomatik kilitleme yapmaz; kararı site yöneticisi verir.',
-  );
-
   /// Acil durum (P2-24): 112, yangın ve asansör arızası; arama kanalı yoksa numaralar ve adres kopyalanabilir metin olarak verilir.
   static const HelpTopic _emergency = HelpTopic(
     id: 'emergency',
@@ -474,7 +459,6 @@ abstract final class HelpContent {
   static const List<HelpTopic> _resident = <HelpTopic>[
     _apartmentManagement,
     _myVehicles,
-    _apartmentSafety,
     _emergency,
     HelpTopic(
       id: 'payment_notice_resident',
@@ -577,7 +561,6 @@ abstract final class HelpContent {
   static const List<HelpTopic> _individual = <HelpTopic>[
     _apartmentManagement,
     _myVehicles,
-    _apartmentSafety,
     _emergency,
     _panelIndividual,
     _navigationIndividual,
