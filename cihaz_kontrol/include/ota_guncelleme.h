@@ -29,7 +29,7 @@
 // DEGISTIRILMEZ; imzasiz / yanlis imzali paket reddedilir (ota_failed, "imza: ..."). Bu surum KOPRU surumdur: imza bilmeyen eski
 // cihazlara eski yolla (manifest + sha256) ulasir; calismaya basladiktan sonra SONRAKI her guncelleme imzali olmak ZORUNDADIR. Bu
 // zorunluluk derleme bayragi, manifest alani ya da NVS ayariyla kapatilamaz. Ayrinti: docs/OTA_IMZA_CIHAZ.md
-inline constexpr char OTA_VERSION_C3[] = "4.4.0";
+inline constexpr char OTA_VERSION_C3[] = "4.4.2";
 inline constexpr char OTA_VERSION_WROOM[] = "5.3.0";
 
 #if defined(BOARD_ESP32_WROOM_RELAY) || defined(BOARD_ESP32_WROOM)

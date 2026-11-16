@@ -573,7 +573,7 @@ class BleWifiProvisionService {
 
     final String mqttHost = (mqttCredentials['mqtt_host'] ?? '').toString();
     final int mqttPort =
-        (mqttCredentials['mqtt_port'] as num?)?.toInt() ?? 8883;
+        (mqttCredentials['mqtt_port'] as num?)?.toInt() ?? 443;
     final String mqttUsername = (mqttCredentials['mqtt_username'] ?? '')
         .toString();
     final String mqttPassword = (mqttCredentials['mqtt_password'] ?? '')

@@ -22,7 +22,9 @@ extern PubSubClient client;
 extern WiFiClientSecure espClientSecure;
 
 inline const char* MQTT_DEFAULT_SERVER = "mqtt.gudeteknoloji.com.tr";
-constexpr uint16_t MQTT_DEFAULT_PORT = 8883;
+// Standart TLS portu: saha aglari ve kurumsal modemler 8883'u engelleyebiliyor.
+// Sunucu 443'u SNI ile HTTPS/MQTT olarak ayirir.
+constexpr uint16_t MQTT_DEFAULT_PORT = 443;
 inline const char* MQTT_DEFAULT_USER = "";
 inline const char* MQTT_DEFAULT_PASS = "";
 
@@ -32,6 +34,7 @@ inline constexpr uint32_t MQTT_TLS_TIMEOUT_S = 5;
 inline constexpr uint32_t MQTT_TLS_HANDSHAKE_TIMEOUT_S = 10;
 inline constexpr uint16_t MQTT_SOCKET_TIMEOUT_S = 5;
 inline constexpr uint16_t MQTT_KEEPALIVE_S = 15;
+inline constexpr unsigned long MQTT_CANLI_DURUM_ARALIGI_MS = 60UL * 1000UL;
 inline constexpr unsigned long MQTT_RECONNECT_MIN_MS = 2000;
 inline constexpr unsigned long MQTT_RECONNECT_MAX_MS = 60000;
 inline constexpr unsigned long MQTT_UNAUTH_BEKLEME_MS = 5UL * 60UL * 1000UL;   // rc=4/5 (yetkisiz): uzun bekleme
@@ -55,6 +58,7 @@ inline uint8_t gMqttOnKontrolHataSayac = 0;      // son tam connect'ten beri art
 inline unsigned long gMqttSaglikliMs = 0;        // son "MQTT bagli / bagli olmasi beklenmeyen" an (kendini toparlama sayaci)
 inline uint8_t gMqttBootNedeni = 0;              // 1: onceki acilis MQTT kendini toparlama yeniden baslatmasiydi
 inline uint8_t gMqttYayinHataArdisik = 0;
+inline unsigned long gMqttSonCanliDurumMs = 0;
 inline String gMqttConfiguredHost = MQTT_DEFAULT_SERVER;
 inline uint16_t gMqttConfiguredPort = MQTT_DEFAULT_PORT;
 
@@ -487,6 +491,7 @@ inline bool mqttReconnect() {
     }
     mqttPublishAvailability("online");
     mqttPublishState(gDoorLocked);
+    gMqttSonCanliDurumMs = millis();
     mqttPublishEvent("device_connected");
     if (gMqttBootNedeni != 0) {
       // Onceki acilis MQTT kendini toparlama yeniden baslatmasiydi: bir kez raporla (saha tanilamasi)
@@ -586,6 +591,11 @@ inline void mqttSetup() {
   espClientSecure.setHandshakeTimeout(MQTT_TLS_HANDSHAKE_TIMEOUT_S);    // SANIYE
   gMqttConfiguredHost = wifiMqttHost(MQTT_DEFAULT_SERVER);
   gMqttConfiguredPort = wifiMqttPort(MQTT_DEFAULT_PORT);
+  // Eski BLE kayitlarinda kalan 8883'u resmi broker icin otomatik tasir.
+  if (gMqttConfiguredHost == MQTT_DEFAULT_SERVER && gMqttConfiguredPort == 8883) {
+    gMqttConfiguredPort = MQTT_DEFAULT_PORT;
+    Serial.println("MQTT portu 8883 -> 443 olarak gecirildi.");
+  }
   client.setServer(gMqttConfiguredHost.c_str(), gMqttConfiguredPort);
   client.setCallback(mqttCallback);
   if (!client.setBufferSize(MQTT_BUFFER_SIZE)) {
@@ -628,6 +638,11 @@ inline void mqttLoopHandler() {
   }
 
   client.loop();
+  if (client.connected() && millis() - gMqttSonCanliDurumMs >= MQTT_CANLI_DURUM_ARALIGI_MS) {
+    gMqttSonCanliDurumMs = millis();
+    mqttPublishAvailability("online");
+    mqttPublishState(gDoorLocked);
+  }
 }
 
 // Role birakildi: durum yayini (MQTT bagli degilse atlanir; gDoorLocked guncellemesi cagiranin gorevidir)

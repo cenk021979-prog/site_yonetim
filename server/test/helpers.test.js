@@ -13,6 +13,7 @@ import {
   blockNameFromIndex,
   buildBlockApartmentCounts,
   formatDurationTurkish,
+  mapDeviceMqttCredentialsRow,
 } from '../src/utils/helpers.js';
 
 describe('Server Helpers Tests', () => {
@@ -52,6 +53,19 @@ describe('Server Helpers Tests', () => {
 
     it('constructs correct MQTT username for devices', () => {
       assert.equal(mqttUsernameForDevice('aabb1122'), 'device_AABB1122');
+    });
+
+    it('cihaza standart TLS 443 portunu verir; API koprusu ic MQTT_PORT degerinden ayridir', () => {
+      const previous = process.env.MQTT_PUBLIC_PORT;
+      delete process.env.MQTT_PUBLIC_PORT;
+      try {
+        assert.equal(mapDeviceMqttCredentialsRow({ device_uid: 'AA', mqtt_username: 'u', mqtt_password: 'p' }).mqtt_port, 443);
+        process.env.MQTT_PUBLIC_PORT = '8443';
+        assert.equal(mapDeviceMqttCredentialsRow({ device_uid: 'AA', mqtt_username: 'u', mqtt_password: 'p' }).mqtt_port, 8443);
+      } finally {
+        if (previous === undefined) delete process.env.MQTT_PUBLIC_PORT;
+        else process.env.MQTT_PUBLIC_PORT = previous;
+      }
     });
   });
 

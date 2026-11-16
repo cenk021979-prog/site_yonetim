@@ -353,7 +353,8 @@ export function mapDeviceMqttCredentialsRow(row) {
   return {
     device_uid: row.device_uid,
     mqtt_host: String(process.env.MQTT_HOST || 'mqtt.gudeteknoloji.com.tr'),
-    mqtt_port: Number(process.env.MQTT_PORT || 8883),
+    // Cihazlar dis agdan standart TLS 443'e baglanir; API koprusu iceride MQTT_PORT (8883) kullanmaya devam eder.
+    mqtt_port: Number(process.env.MQTT_PUBLIC_PORT || 443),
     mqtt_username: row.mqtt_username,
     mqtt_password: row.mqtt_password,
     local_control_token: row.local_control_token,

@@ -3,6 +3,10 @@
 
 ## 184. Cihaz OTA Manifest İsteklerinin Çevrimdışı Yapmasının Önlenmesi ve MQTT Port 8883 Ağ Kontrolü (2026-11-16)
 
+- [ ] **184.3. MQTT TLS 443 ağ uyumluluğu:** SmartKeyPass cihazını 8883 çıkışını engelleyen bir Wi-Fi ağına bağlayın. Firmware 4.4.1 ve sonrasında eski kayıtlı 8883 portunu otomatik 443'e taşımalı; `mqtt.gudeteknoloji.com.tr:443` üzerinden bağlanmalı, online görünmeli ve kapı açma komutunu almalıdır. Aynı anda API ve diğer HTTPS siteleri 443 üzerinden kesintisiz çalışmalıdır.
+
+- [ ] **184.4. MQTT canlı durum yenilemesi:** Cihaz broker'a bağlıyken yalnız API/MQTT köprüsünü yeniden başlatın. En geç 60 saniye içinde cihazdan yeni `availability/state` yayını gelmeli ve panel, cihazı yeniden başlatmadan çevrimiçi göstermelidir.
+
 - [ ] **184.0. Eski retained MQTT paketi çevrimdışı cihazı online göstermemeli:** Cihazı kapatın, API/MQTT köprüsünü yeniden başlatın ve kapı durumunu yenileyin. Brokerda eski retained `online`/`state` bulunsa bile cihaz çevrimdışı görünmeli; cihaz yeniden bağlanıp canlı paket gönderince otomatik online olmalıdır.
 
 - [ ] **184.1. OTA Manifest HTTP İsteklerinde Çevrimiçi Durumun Korunması:**

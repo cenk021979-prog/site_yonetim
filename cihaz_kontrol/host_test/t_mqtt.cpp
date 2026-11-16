@@ -168,13 +168,13 @@ int main() {
   test_anahtarini_kur(g_yayinci.genel);
 
   // ------------------------------------------------------------------------------------------------ E surumler
-  { printf("E sürümler (OTA_VERSION_C3 4.4.0, OTA_VERSION_WROOM 5.3.0: OTA imza dogrulamasi / kopru surumu)\n");
-    CHECK(std::string(OTA_VERSION_C3) == "4.4.0", "OTA_VERSION_C3 = 4.4.0");
+  { printf("E sürümler (OTA_VERSION_C3 4.4.2, OTA_VERSION_WROOM 5.3.0: OTA imza dogrulamasi / kopru surumu)\n");
+    CHECK(std::string(OTA_VERSION_C3) == "4.4.2", "OTA_VERSION_C3 = 4.4.2");
     CHECK(std::string(OTA_VERSION_WROOM) == "5.3.0", "OTA_VERSION_WROOM = 5.3.0");
 #if defined(BOARD_ESP32_WROOM_RELAY)
     CHECK(std::string(OTA_CURRENT_VERSION) == "5.3.0" && std::string(OTA_TARGET) == "esp32-wroom", "WROOM derlemesi: 5.3.0 / esp32-wroom");
 #else
-    CHECK(std::string(OTA_CURRENT_VERSION) == "4.4.0" && std::string(OTA_TARGET) == "esp32-c3", "C3 derlemesi: 4.4.0 / esp32-c3");
+    CHECK(std::string(OTA_CURRENT_VERSION) == "4.4.2" && std::string(OTA_TARGET) == "esp32-c3", "C3 derlemesi: 4.4.2 / esp32-c3");
 #endif
     // Onceki surumler (AHBU adli 4.3.1 / 5.2.0, ara surumler 4.3.2 / 5.2.1, SmartKeyPass adli 4.3.3 / 5.2.2): kopru surum bunlardan
     // BUYUK olmali (artan-surum kurali: imza bilmeyen sahadaki cihazlar bu surume OTA ile gecebilir).
@@ -184,6 +184,7 @@ int main() {
   // ------------------------------------------------------------------------------------------------ acilis: gercek mqttSetup/otaSetup/baglanma
   { printf("0 acilis: mqttSetup + otaSetup + MQTT baglantisi (gercek kod)\n");
     mqttSetup(); otaSetup();
+    CHECK(mqttAktifPort() == 443, "resmi MQTT broker standart TLS 443 portunu kullanir");
 #if defined(BOARD_ESP32_WROOM_RELAY)
     adminPinBaslat();
 #endif
@@ -193,6 +194,15 @@ int main() {
     CHECK(client.connected(), "MQTT baglandi");
     CHECK(!olaylar().empty() && olaylar()[0].event == "device_connected", "device_connected olayi yayinlandi (is kimligi YOK)");
     CHECK(!olaylar()[0].jobVar, "device_connected olayinda ota_job_id yok");
+    const size_t canliMark = client.published.size();
+    g_fake_ms += MQTT_CANLI_DURUM_ARALIGI_MS - 1;
+    mqttLoopHandler();
+    CHECK(client.published.size() == canliMark, "60 saniyeden once canli durum tekrarlanmaz");
+    g_fake_ms += 1;
+    mqttLoopHandler();
+    CHECK(client.published.size() == canliMark + 2 &&
+          client.published[canliMark].topic == T_AVAIL && client.published[canliMark + 1].topic == T_STATE,
+          "60 saniyede availability ve state yeniden yayinlanir");
     otaCheckAndUpdate();   // ilk plan (gOtaIlkPlanYapildi) bir kez kurulsun
   }
 
