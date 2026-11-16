@@ -132,6 +132,8 @@ ICONS = {
     "history": "\uE81C",
     "chevron_down": "\uE70D",
     "broadcast": "\uE789",
+    "edit": "\uE70F",
+    "user": "\uE77B",
 }
 
 LABEL_KINDS = {

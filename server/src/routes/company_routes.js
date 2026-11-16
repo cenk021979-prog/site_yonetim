@@ -337,10 +337,63 @@ companyRouter.get('/qrcodes/:file', (req, res) => {
 companyRouter.get('/api/company/labeled-devices', async (_req, res) => {
   try {
     const devices = readLabeledDevices();
+    const dbMap = new Map();
+    try {
+      const dbRes = await pool.query(`
+        SELECT d.device_uid, d.hardware_type, d.assigned_user_code, d.site_code, d.gate_name,
+               d.claimed_at, d.is_defective, s.name as site_name
+        FROM devices d
+        LEFT JOIN sites s ON s.site_code = d.site_code
+      `);
+      for (const row of dbRes?.rows || []) {
+        dbMap.set(String(row.device_uid || '').toUpperCase(), row);
+      }
+    } catch (dbErr) {
+      console.warn('[company] DB cihaz bilgisi alinamadi, yalniz JSON donuluyor:', dbErr?.message);
+    }
+
+    const enriched = devices.map((dev) => {
+      const uid = String(dev.device_uid || '').toUpperCase();
+      const dbInfo = dbMap.get(uid);
+      return {
+        ...dev,
+        hardware_type: dbInfo?.hardware_type || (dev.chip ? resolveCompanyHardwareType({ chip: dev.chip }) : null) || 'esp32_c3',
+        owner_user_code: dbInfo?.assigned_user_code || null,
+        site_code: dbInfo?.site_code || null,
+        site_name: dbInfo?.site_name || null,
+        gate_name: dbInfo?.gate_name || null,
+        claimed_at: dbInfo?.claimed_at || null,
+        is_defective: dbInfo?.is_defective || false,
+      };
+    });
+
+    const knownUids = new Set(devices.map((d) => String(d.device_uid || '').toUpperCase()));
+    for (const [uid, row] of dbMap.entries()) {
+      if (!knownUids.has(uid)) {
+        enriched.push({
+          device_uid: uid,
+          chip: row.hardware_type === 'esp32_wroom' ? 'ESP32-WROOM' : 'ESP32-C3',
+          hardware_type: row.hardware_type || 'esp32_c3',
+          port: '',
+          description: row.gate_name ? `Kapı: ${row.gate_name}` : '',
+          created_at: row.claimed_at || new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+          qr_filename: `${uid}.png`,
+          qr_url: `/qrcodes/${uid}.png`,
+          owner_user_code: row.assigned_user_code || null,
+          site_code: row.site_code || null,
+          site_name: row.site_name || null,
+          gate_name: row.gate_name || null,
+          claimed_at: row.claimed_at || null,
+          is_defective: row.is_defective || false,
+        });
+      }
+    }
+
     return res.status(200).json({
       ok: true,
-      count: devices.length,
-      devices,
+      count: enriched.length,
+      devices: enriched,
     });
   } catch (err) {
     console.error('[company] etiketli cihazlar okunamadi:', err);

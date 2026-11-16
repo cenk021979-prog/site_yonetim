@@ -5258,3 +5258,35 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
   - **Nasıl Test Edilir:** Android uygulamasında süper kullanıcı dışındaki bir hesapla giriş yapın ve üst çubuktaki widget ikonuna dokunun.
   - **Beklenen Sonuç:** Android ana ekran widget ekleme akışı açılır; masaüstü/web platformlarında yanıltıcı ikon gösterilmez. Aynı işlem Ayarlar panelinden de yapılabilir.
 
+---
+
+## 182. 🏢 Şirket Aracı (company_qr_tool) Süper Kullanıcı Girişi, SSH Doğrulamalı Envanter Kaydı & Cihaz Düzenleme / Karekod İnceleme (2026-11-16)
+
+- [ ] **182.1. Yalnızca Süper Kullanıcıların Giriş Yapabilmesi (Login Modal & Yetki Kontrolü):**
+  - **Nasıl Test Edilir:**
+    1. `python company_qr_tool/app.py` çalıştırılarak uygulama başlatılır.
+    2. Karşılaşılacak `Şirket Aracı Girişi` penceresinde normal bir site yöneticisi veya sakin hesabı girilir.
+    3. Ardından `SUPER_USER` rolüne sahip yetkili hesapla giriş yapılır.
+  - **Beklenen Sonuç:** Süper kullanıcı harici rollerde `Giriş reddedildi: Bu araca yalnızca süper kullanıcılar giriş yapabilir` uyarısı verilmeli ve ana arayüz açılmamalıdır. Doğru süper kullanıcı girişinde ise oturum kaydedilmeli ve üst çubukta kullanıcının adı ve çıkış yap butonu görünmelidir.
+
+- [ ] **182.2. Karekod Hazırlama ve Cihaz Kaydında Pop-up SSH Şifre Doğrulaması & Şirket Stoğuna Kayıt:**
+  - **Nasıl Test Edilir:**
+    1. Cihaza bağlanıp UID okunduğunda veya yeni bir cihaz için "Karekod Oluştur" / "Sunucuya Kaydet" butonuna basıldığında ekrana gelen `VPS SSH Şifresi` pop-up diyalogu açılır.
+    2. Geçersiz bir şifre girildiğinde bağlantı hatası kontrol edilir; doğru VPS SSH şifresi girilerek onaylanır.
+  - **Beklenen Sonuç:** SSH şifresi yerel kodda sabit (hardcoded) tutulmaz, kullanıcıdan güvenli pop-up ile alınır ve SSH üzerinden şirket API anahtarı çekilir. Cihaz sunucuya kaydedilirken `claim_for_company: true` ve `owner_user_code: super_user` parametreleriyle otomatik olarak şirket stoğuna kaydedilir.
+
+- [ ] **182.3. Şirket Envanterinde Cihaz Listeleme, Canlı Durum ve Donanım Tipi / Not Düzenleme:**
+  - **Nasıl Test Edilir:**
+    1. Şirket aracında sol menüden `Şirket Envanteri` sekmesine geçilir.
+    2. Tabloda listelenen cihazlar ve durumları (Şirket Stoğunda vs. Siteye/Kapıya Atanmış) incelenir.
+    3. Bir cihaz seçilip `Cihazı Düzenle` (veya F2 / çift tıklama) butonuna basılır; donanım tipi (ESP32-C3 / ESP32-WROOM) veya açıklama güncellenip kaydedilir.
+  - **Beklenen Sonuç:** Sunucudan tüm etiketli ve kayıtlı cihazlar anlık çekilip zenginleştirilmiş bilgilerle (atanmış site/kapı adı, donanım tipi, durum) listelenmeli; yapılan düzenlemeler hem sunucuya (`POST /api/company/labeled-devices`) hem de yerel JSON dosyasına başarıyla işlenmeli ve liste anında güncellenmelidir.
+
+- [ ] **182.4. Yüksek Çözünürlüklü Karekod İnceleme, Yazdırma ve PNG Kaydetme:**
+  - **Nasıl Test Edilir:**
+    1. Şirket Envanteri tablosunda herhangi bir cihaza tıklanıp `Karekod İncele` butonuna basılır.
+    2. Açılan modal pencerede yüksek çözünürlüklü (300 DPI) karekod önizlemesi, cihaz UID'si ve bilgileri kontrol edilir.
+    3. `Karekodu Kaydet (PNG)` ve `Karekodu Yazdır` butonları test edilir.
+  - **Beklenen Sonuç:** Cihazın QR kodu net şekilde görüntülenmeli, UID tek tıkla panoya kopyalanabilmeli, PNG formatında bilgisayara kaydedilebilmeli ve sistem varsayılan yazdırma iletişim kutusuna gönderilebilmelidir.
+
+

@@ -172,14 +172,137 @@ def _is_key_safe_url(url: str) -> bool:
     return parsed.scheme == "http" and (parsed.hostname or "") in ("localhost", "127.0.0.1", "::1")
 
 
-def company_request_headers(url: str, extra: dict | None = None) -> dict:
+def company_request_headers(url: str, extra: dict | None = None, auth_token: str | None = None) -> dict:
     headers = {"User-Agent": "SmartKeyPass-Device-Tool/1.0"}
     if extra:
         headers.update(extra)
     key = get_company_api_key()
     if key and _is_key_safe_url(url):
         headers["X-Company-Key"] = key
+    if auth_token and _is_key_safe_url(url):
+        headers["Authorization"] = f"Bearer {auth_token}"
     return headers
+
+
+AUTH_SESSION_FILE = OUTPUT_DIR / ".auth_session.json"
+
+
+def save_auth_session(token: str, user: dict) -> None:
+    """Oturum bilgilerini yerel session dosyasina kaydeder."""
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    try:
+        data = {
+            "token": token,
+            "user": user,
+            "saved_at": datetime.now(timezone.utc).isoformat(),
+        }
+        AUTH_SESSION_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+    except Exception as exc:
+        print(f"[AUTH] Oturum kaydedilemedi: {exc}")
+
+
+def load_auth_session() -> tuple[str | None, dict | None]:
+    """Kaydedilmis oturumu okur; yoksa (None, None)."""
+    if not AUTH_SESSION_FILE.is_file():
+        return None, None
+    try:
+        data = json.loads(AUTH_SESSION_FILE.read_text(encoding="utf-8"))
+        token = data.get("token")
+        user = data.get("user")
+        if token and isinstance(user, dict):
+            return str(token), user
+    except Exception:
+        pass
+    return None, None
+
+
+def clear_auth_session() -> None:
+    """Kayitli oturumu siler."""
+    try:
+        if AUTH_SESSION_FILE.is_file():
+            AUTH_SESSION_FILE.unlink()
+    except Exception:
+        pass
+
+
+def verify_auth_token(token: str) -> tuple[bool, dict | None, str]:
+    """Token'i /me ucuyla sunucuda dogrular. (ok, user, error_msg)"""
+    url = f"{PUBLIC_API_URL}/me"
+    req = urllib.request.Request(
+        url,
+        headers={"User-Agent": "SmartKeyPass-Device-Tool/1.0", "Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            if resp.status == 200:
+                payload = json.loads(resp.read().decode("utf-8"))
+                user = payload.get("user")
+                if isinstance(user, dict):
+                    role = str(user.get("role", "")).lower()
+                    if role != "super_user":
+                        return False, user, f"Yetkisiz rol: {role}. Yalnizca Super Kullanicilar erisebilir."
+                    return True, user, ""
+            return False, None, f"Sunucu yaniti: HTTP {resp.status}"
+    except urllib.error.HTTPError as he:
+        return False, None, _company_http_error_text(he.code, _http_error_body(he))
+    except Exception as exc:
+        return False, None, f"Sunucuya baglanilamadi: {exc}"
+
+
+def login_super_user(identifier: str, password: str) -> tuple[bool, str | None, dict | None, str]:
+    """Sunucuya POST /auth/login istegi atar.
+
+    Donus: (success, token, user, error_message)
+    Yalnizca role == 'super_user' olan kullanicilara izin verir.
+    """
+    clean_id = str(identifier or "").strip()
+    clean_pw = str(password or "").strip()
+    if not clean_id or not clean_pw:
+        return False, None, None, "E-posta/kullanici adi ve sifre zorunludur."
+
+    url = f"{PUBLIC_API_URL}/auth/login"
+    payload = json.dumps({"identifier": clean_id, "password": clean_pw}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=payload,
+        headers={"Content-Type": "application/json", "User-Agent": "SmartKeyPass-Device-Tool/1.0"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            if resp.status == 200:
+                data = json.loads(resp.read().decode("utf-8"))
+                token = data.get("token")
+                user = data.get("user")
+                if not token or not isinstance(user, dict):
+                    return False, None, None, "Sunucudan gecersiz kullanici oturumu alindi."
+                role = str(user.get("role", "")).lower()
+                if role != "super_user":
+                    return (
+                        False,
+                        None,
+                        None,
+                        f"YETKISIZ ERISIM: Bu yonetim yazilimina yalnizca Super Kullanici (SUPER_USER) rolundeki hesaplar giris yapabilir.\n(Mevcut rolunuz: {role})",
+                    )
+                return True, str(token), user, ""
+            return False, None, None, f"Sunucu yaniti: HTTP {resp.status}"
+    except urllib.error.HTTPError as he:
+        err_body = _http_error_body(he)
+        err_msg = ""
+        try:
+            parsed = json.loads(err_body.decode("utf-8", errors="replace"))
+            if isinstance(parsed, dict) and parsed.get("error"):
+                err_msg = str(parsed["error"])
+        except Exception:
+            pass
+        if he.code == 401:
+            return False, None, None, err_msg or "Giris bilgileri hatali (E-posta veya sifre yanlis)."
+        if he.code in (423, 429):
+            return False, None, None, err_msg or "Cok fazla basarisiz deneme. Lutfen bir sure bekleyin."
+        return False, None, None, err_msg or f"Giris hatasi (HTTP {he.code})."
+    except Exception as exc:
+        return False, None, None, f"Sunucuya baglanilamadi: {exc}"
 
 
 def _http_error_body(error) -> bytes:
@@ -652,12 +775,12 @@ def save_local_labeled_device(device_info: dict, qr_image: Image.Image | None = 
     return devices
 
 
-def fetch_server_labeled_devices_with_status() -> tuple[list[dict], str]:
+def fetch_server_labeled_devices_with_status(auth_token: str | None = None) -> tuple[list[dict], str]:
     """(cihaz listesi, hata metni). Basariliysa hata metni bos doner."""
-    if not get_company_api_key():
+    if not get_company_api_key() and not auth_token:
         return [], f"{COMPANY_KEY_ENV} tanimli degil: sunucu listesi alinamadi, yalnizca yerel kayitlar kullaniliyor."
     url = f"{PUBLIC_API_URL}/api/company/labeled-devices"
-    req = urllib.request.Request(url, headers=company_request_headers(url))
+    req = urllib.request.Request(url, headers=company_request_headers(url, auth_token=auth_token))
     try:
         with urllib.request.urlopen(req, timeout=8) as response:
             if response.status == 200:
@@ -672,8 +795,8 @@ def fetch_server_labeled_devices_with_status() -> tuple[list[dict], str]:
         return [], f"Sunucuya ulasilamadi: {exc}"
 
 
-def fetch_server_labeled_devices() -> list[dict]:
-    devices, _error = fetch_server_labeled_devices_with_status()
+def fetch_server_labeled_devices(auth_token: str | None = None) -> list[dict]:
+    devices, _error = fetch_server_labeled_devices_with_status(auth_token=auth_token)
     return devices
 
 
@@ -696,14 +819,14 @@ def delete_local_labeled_device(device_uid: str) -> list[dict]:
     return devices
 
 
-def delete_server_labeled_device(device_uid: str) -> tuple[bool, str]:
+def delete_server_labeled_device(device_uid: str, auth_token: str | None = None) -> tuple[bool, str]:
     uid = str(device_uid).strip().upper()
     if not uid:
         return False, "Gecersiz cihaz UID."
-    if not get_company_api_key():
+    if not get_company_api_key() and not auth_token:
         return False, f"{COMPANY_KEY_ENV} tanimli degil; sunucudan silinemedi (yalnizca yerel kayit silindi)."
     url = f"{PUBLIC_API_URL}/api/company/labeled-devices/{urllib.parse.quote(uid)}"
-    req = urllib.request.Request(url, method="DELETE", headers=company_request_headers(url))
+    req = urllib.request.Request(url, method="DELETE", headers=company_request_headers(url, auth_token=auth_token))
     try:
         with urllib.request.urlopen(req, timeout=10) as response:
             if response.status == 200:
@@ -1223,6 +1346,522 @@ def suggest_env_for_chip(chip: str, envs: list[str]) -> str | None:
     return envs[0] if envs else None
 
 
+class LoginDialog:
+    """SmartKeyPass Süper Kullanıcı Giriş Penceresi."""
+
+    def __init__(
+        self,
+        root: tk.Tk,
+        kit: Kit,
+        logo_path: Path,
+        on_success: Callable[[str, dict], None],
+        on_cancel: Callable[[], None],
+    ) -> None:
+        self.root = root
+        self.kit = kit
+        self.on_success = on_success
+        self.on_cancel = on_cancel
+        self.is_success = False
+        px = kit.px
+
+        self.dialog = tk.Toplevel(root)
+        self.dialog.title("SmartKeyPass — Yönetici Girişi")
+        self.dialog.resizable(False, False)
+        self.dialog.configure(bg=C.PAGE_BG)
+        self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
+
+        self.dialog.transient(root)
+        try:
+            self.dialog.grab_set()
+        except Exception:
+            pass
+
+        dlg_w, dlg_h = px(440), px(550)
+        sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
+        x = max(0, (sw - dlg_w) // 2)
+        y = max(0, (sh - dlg_h) // 2)
+        self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
+
+        card = kit.card(self.dialog, padding=(px(28), px(24)))
+        card.pack(fill=tk.BOTH, expand=True, padx=px(16), pady=px(16))
+        card.columnconfigure(0, weight=1)
+
+        # Logo & Başlık
+        brand_frame = ttk.Frame(card, style="card.TFrame")
+        brand_frame.pack(fill=tk.X, pady=(0, px(16)))
+        try:
+            raw_logo = Image.open(logo_path)
+            logo_img = ImageOps.contain(raw_logo, (px(48), px(48)), Image.Resampling.LANCZOS)
+            self._logo_photo = ImageTk.PhotoImage(logo_img, master=self.dialog)
+            ttk.Label(brand_frame, image=self._logo_photo, style=kit.label_style("body")).pack(side=tk.LEFT, padx=(0, px(12)))
+        except Exception:
+            pass
+
+        txt_frame = ttk.Frame(brand_frame, style="card.TFrame")
+        txt_frame.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        kit.label(txt_frame, "SmartKeyPass", "title").pack(anchor="w")
+        kit.label(txt_frame, "Cihaz ve Karekod Yönetimi", "caption").pack(anchor="w")
+
+        kit.separator(card).pack(fill=tk.X, pady=(0, px(14)))
+
+        # Süper kullanıcı yetki rozeti
+        badge_frame = ttk.Frame(card, style="card.TFrame")
+        badge_frame.pack(fill=tk.X, pady=(0, px(16)))
+        Pill(badge_frame, kit, "YALNIZCA SÜPER KULLANICI GİRİŞİ", "info").pack(anchor="w")
+        kit.label(
+            badge_frame,
+            "Cihaz üretimi, yazılım yükleme ve envanter yönetimi için süper kullanıcı hesabınızla oturum açın.",
+            "caption",
+            wraplength=px(380),
+        ).pack(anchor="w", pady=(px(4), 0))
+
+        # Giriş formu
+        form = ttk.Frame(card, style="card.TFrame")
+        form.pack(fill=tk.X, pady=(0, px(12)))
+
+        kit.label(form, "E-POSTA VEYA KULLANICI ADI", "caps").pack(anchor="w", pady=(0, px(4)))
+        self.ident_var = tk.StringVar()
+        self.ident_entry = kit.entry(form, self.ident_var, placeholder="eposta@sirket.com veya kullanici_adi", icon="user")
+        self.ident_entry.pack(fill=tk.X, pady=(0, px(12)))
+
+        kit.label(form, "ŞİFRE", "caps").pack(anchor="w", pady=(0, px(4)))
+        self.pass_var = tk.StringVar()
+        self.pass_frame = ttk.Frame(form, style="card.TFrame")
+        self.pass_frame.pack(fill=tk.X, pady=(0, px(8)))
+        self.pass_entry = ttk.Entry(self.pass_frame, textvariable=self.pass_var, show="*", font=kit.fonts["body"])
+        self.pass_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._show_pass = False
+
+        def _toggle_pass():
+            self._show_pass = not self._show_pass
+            self.pass_entry.configure(show="" if self._show_pass else "*")
+            self.show_pass_btn.configure(text="Gizle" if self._show_pass else "Göster")
+
+        self.show_pass_btn = kit.button(self.pass_frame, "Göster", _toggle_pass, "ghost")
+        self.show_pass_btn.pack(side=tk.RIGHT, padx=(px(6), 0))
+
+        self.remember_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(form, text="Beni Hatırla (Bu bilgisayarda oturumu sakla)", variable=self.remember_var).pack(
+            anchor="w", pady=(px(4), 0)
+        )
+
+        # Hata mesajı etiketi
+        self.status_var = tk.StringVar()
+        self.status_label = ttk.Label(
+            card,
+            textvariable=self.status_var,
+            style=kit.label_style("caption"),
+            foreground=C.DANGER,
+            wraplength=px(380),
+            justify="left",
+        )
+        self.status_label.pack(fill=tk.X, pady=(px(6), px(12)))
+
+        # Düğmeler
+        btn_row = ttk.Frame(card, style="card.TFrame")
+        btn_row.pack(fill=tk.X, side=tk.BOTTOM)
+        btn_row.columnconfigure(0, weight=1)
+        btn_row.columnconfigure(1, weight=1)
+
+        self.cancel_btn = kit.button(btn_row, "Çıkış", self._on_close, "default")
+        self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
+
+        self.login_btn = kit.button(btn_row, "Giriş Yap", self._do_login, "primary", icon="unlock")
+        self.login_btn.grid(row=0, column=1, sticky="ew", padx=(px(6), 0))
+
+        self.dialog.bind("<Return>", lambda _e: self._do_login())
+        self.dialog.bind("<Escape>", lambda _e: self._on_close())
+        self.ident_entry.focus_set()
+
+    def _do_login(self) -> None:
+        ident = self.ident_var.get().strip()
+        pw = self.pass_var.get()
+        if not ident or not pw:
+            self.status_var.set("Lütfen e-posta / kullanıcı adı ve şifrenizi girin.")
+            return
+
+        self.status_var.set("Sunucuya bağlanılıyor ve yetkiler kontrol ediliyor…")
+        self.login_btn.configure(state=tk.DISABLED, text="Giriş yapılıyor…")
+        self.cancel_btn.configure(state=tk.DISABLED)
+
+        def _worker():
+            ok, token, user, err = login_super_user(ident, pw)
+
+            def _done():
+                if ok and token and user:
+                    self.is_success = True
+                    if self.remember_var.get():
+                        save_auth_session(token, user)
+                    else:
+                        clear_auth_session()
+                    self.dialog.destroy()
+                    self.on_success(token, user)
+                else:
+                    self.login_btn.configure(state=tk.NORMAL, text="Giriş Yap")
+                    self.cancel_btn.configure(state=tk.NORMAL)
+                    self.status_var.set(err or "Giriş başarısız.")
+
+            self.dialog.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+    def _on_close(self) -> None:
+        if not self.is_success:
+            self.dialog.destroy()
+            self.on_cancel()
+
+
+class SshPasswordDialog:
+    """Cihazı sunucuya kaydederken ve envantere eklerken SSH şifresi isteyen pop-up pencere."""
+
+    def __init__(
+        self,
+        parent: tk.Misc,
+        kit: Kit,
+        device_uid: str,
+        chip: str,
+        on_confirm: Callable[[str], None],
+    ) -> None:
+        self.parent = parent
+        self.kit = kit
+        self.device_uid = device_uid
+        self.chip = chip
+        self.on_confirm = on_confirm
+        px = kit.px
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title("Sunucu & Envanter Kaydı — SSH Doğrulaması")
+        self.dialog.resizable(False, False)
+        self.dialog.configure(bg=C.PAGE_BG)
+
+        self.dialog.transient(parent)
+        try:
+            self.dialog.grab_set()
+        except Exception:
+            pass
+
+        dlg_w, dlg_h = px(450), px(380)
+        sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
+        x = max(0, (sw - dlg_w) // 2)
+        y = max(0, (sh - dlg_h) // 2)
+        self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
+
+        card = kit.card(self.dialog, padding=(px(24), px(20)))
+        card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
+        card.columnconfigure(0, weight=1)
+
+        kit.label(card, "Sunucu ve Şirket Envanteri Kaydı", "title").pack(anchor="w")
+        kit.label(
+            card,
+            f"Cihaz: {device_uid} ({chip})\n"
+            f"Cihazı merkezi sunucuya kaydetmek ve şirket envanterinize (Süper Kullanıcı stoğuna) "
+            f"eklemek için {VPS_USER}@{VPS_HOST}:{VPS_PORT} SSH şifresini girin:",
+            "caption",
+            wraplength=px(390),
+        ).pack(anchor="w", pady=(px(6), px(12)))
+
+        kit.separator(card).pack(fill=tk.X, pady=(0, px(12)))
+
+        kit.label(card, "VPS SSH ŞİFRESİ", "caps").pack(anchor="w", pady=(0, px(4)))
+        self.pw_var = tk.StringVar()
+        self.pw_frame = ttk.Frame(card, style="card.TFrame")
+        self.pw_frame.pack(fill=tk.X, pady=(0, px(8)))
+        self.pw_entry = ttk.Entry(self.pw_frame, textvariable=self.pw_var, show="*", font=kit.fonts["body"])
+        self.pw_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self._show_pass = False
+
+        def _toggle_pass():
+            self._show_pass = not self._show_pass
+            self.pw_entry.configure(show="" if self._show_pass else "*")
+            self.show_btn.configure(text="Gizle" if self._show_pass else "Göster")
+
+        self.show_btn = kit.button(self.pw_frame, "Göster", _toggle_pass, "ghost")
+        self.show_btn.pack(side=tk.RIGHT, padx=(px(6), 0))
+
+        self.error_var = tk.StringVar()
+        self.error_label = ttk.Label(
+            card,
+            textvariable=self.error_var,
+            style=kit.label_style("caption"),
+            foreground=C.DANGER,
+            wraplength=px(390),
+        )
+        self.error_label.pack(fill=tk.X, pady=(px(4), px(12)))
+
+        btn_row = ttk.Frame(card, style="card.TFrame")
+        btn_row.pack(fill=tk.X, side=tk.BOTTOM)
+        btn_row.columnconfigure(0, weight=1)
+        btn_row.columnconfigure(1, weight=1)
+
+        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "default")
+        self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
+
+        self.confirm_btn = kit.button(btn_row, "Kaydet ve Envantere Ekle", self._do_confirm, "primary", icon="save")
+        self.confirm_btn.grid(row=0, column=1, sticky="ew", padx=(px(6), 0))
+
+        self.dialog.bind("<Return>", lambda _e: self._do_confirm())
+        self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
+        self.pw_entry.focus_set()
+
+    def _do_confirm(self) -> None:
+        pw = self.pw_var.get()
+        if not pw:
+            self.error_var.set("Lütfen SSH şifresini girin.")
+            return
+        self.dialog.destroy()
+        self.on_confirm(pw)
+
+
+class EditDeviceDialog:
+    """Şirket envanterindeki bir cihazın bilgilerini (donanım/çip, açıklama) düzenleme penceresi."""
+
+    def __init__(
+        self,
+        parent: tk.Misc,
+        kit: Kit,
+        device_info: dict,
+        auth_token: str | None,
+        on_success: Callable[[str, str, str], None],
+    ) -> None:
+        self.parent = parent
+        self.kit = kit
+        self.device_info = device_info
+        self.auth_token = auth_token
+        self.on_success = on_success
+        px = kit.px
+
+        self.dialog = tk.Toplevel(parent)
+        uid = str(device_info.get("device_uid", "")).upper()
+        self.dialog.title(f"Cihazı Düzenle — {uid}")
+        self.dialog.resizable(False, False)
+        self.dialog.configure(bg=C.PAGE_BG)
+
+        self.dialog.transient(parent)
+        try:
+            self.dialog.grab_set()
+        except Exception:
+            pass
+
+        dlg_w, dlg_h = px(480), px(440)
+        sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
+        x = max(0, (sw - dlg_w) // 2)
+        y = max(0, (sh - dlg_h) // 2)
+        self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
+
+        card = kit.card(self.dialog, padding=(px(24), px(20)))
+        card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
+        card.columnconfigure(0, weight=1)
+
+        kit.label(card, "Cihaz Envanter Kaydını Düzenle", "title").pack(anchor="w")
+        kit.label(
+            card,
+            f"Seçili cihazın donanım tipini ve açıklamasını güncelleyin. "
+            f"Değişiklikler hem sunucu veritabanına hem bu bilgisayara kaydedilir.",
+            "caption",
+            wraplength=px(420),
+        ).pack(anchor="w", pady=(px(4), px(12)))
+
+        kit.separator(card).pack(fill=tk.X, pady=(0, px(12)))
+
+        # UID (Salt okunur)
+        kit.label(card, "CİHAZ KİMLİĞİ (UID)", "caps").pack(anchor="w", pady=(0, px(2)))
+        uid_entry = ttk.Entry(card, font=kit.fonts["mono"])
+        uid_entry.insert(0, uid)
+        uid_entry.configure(state="readonly")
+        uid_entry.pack(fill=tk.X, pady=(0, px(10)))
+
+        # Donanım / Çip
+        kit.label(card, "DONANIM / ÇİP TÜRÜ", "caps").pack(anchor="w", pady=(0, px(2)))
+        curr_chip = str(device_info.get("chip", "ESP32-C3"))
+        curr_hw = str(device_info.get("hardware_type", "")).lower()
+        if "wroom" in curr_hw or "wroom" in curr_chip.lower():
+            default_choice = "ESP32-WROOM-32E"
+        elif "c3" in curr_hw or "c3" in curr_chip.lower():
+            default_choice = "ESP32-C3"
+        else:
+            default_choice = "ESP32"
+
+        self.chip_var = tk.StringVar(value=default_choice)
+        self.chip_combo = ttk.Combobox(
+            card,
+            textvariable=self.chip_var,
+            values=["ESP32-C3", "ESP32-WROOM-32E", "ESP32"],
+            state="readonly",
+            font=kit.fonts["body"],
+        )
+        self.chip_combo.pack(fill=tk.X, pady=(0, px(10)))
+
+        # Açıklama / Not
+        kit.label(card, "AÇIKLAMA / ETİKET / NOT", "caps").pack(anchor="w", pady=(0, px(2)))
+        self.desc_var = tk.StringVar(value=str(device_info.get("description", "")))
+        self.desc_entry = kit.entry(card, self.desc_var, placeholder="Örn: Blok A Giriş Kapısı, Yedek kart vb.")
+        self.desc_entry.pack(fill=tk.X, pady=(0, px(12)))
+
+        self.status_var = tk.StringVar()
+        self.status_label = ttk.Label(
+            card,
+            textvariable=self.status_var,
+            style=kit.label_style("caption"),
+            foreground=C.DANGER,
+            wraplength=px(420),
+        )
+        self.status_label.pack(fill=tk.X, pady=(0, px(12)))
+
+        btn_row = ttk.Frame(card, style="card.TFrame")
+        btn_row.pack(fill=tk.X, side=tk.BOTTOM)
+        btn_row.columnconfigure(0, weight=1)
+        btn_row.columnconfigure(1, weight=1)
+
+        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "default")
+        self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
+
+        self.save_btn = kit.button(btn_row, "Güncelle ve Kaydet", self._do_save, "primary", icon="save")
+        self.save_btn.grid(row=0, column=1, sticky="ew", padx=(px(6), 0))
+
+        self.dialog.bind("<Return>", lambda _e: self._do_save())
+        self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
+
+    def _do_save(self) -> None:
+        new_chip = self.chip_var.get().strip()
+        new_desc = self.desc_var.get().strip()
+        hw_type = "esp32_wroom" if "WROOM" in new_chip.upper() else "esp32_c3"
+        uid = str(self.device_info.get("device_uid", "")).upper()
+
+        self.status_var.set("Cihaz güncelleniyor…")
+        self.save_btn.configure(state=tk.DISABLED, text="Kaydediliyor…")
+        self.cancel_btn.configure(state=tk.DISABLED)
+
+        def _worker():
+            url = f"{PUBLIC_API_URL}/api/company/labeled-devices"
+            payload = {
+                "device_uid": uid,
+                "chip": new_chip,
+                "hardware_type": hw_type,
+                "description": new_desc,
+                "claim_for_company": True,
+            }
+            data_bytes = json.dumps(payload).encode("utf-8")
+            headers = company_request_headers(url, {"Content-Type": "application/json"}, auth_token=self.auth_token)
+            server_ok = False
+            err_msg = ""
+            try:
+                req = urllib.request.Request(url, data=data_bytes, headers=headers, method="POST")
+                with urllib.request.urlopen(req, timeout=10) as resp:
+                    if resp.status == 200:
+                        server_ok = True
+                    else:
+                        err_msg = f"HTTP {resp.status}"
+            except urllib.error.HTTPError as he:
+                err_msg = _company_http_error_text(he.code, _http_error_body(he))
+            except Exception as exc:
+                err_msg = str(exc)
+
+            def _done():
+                if server_ok:
+                    self.dialog.destroy()
+                    self.on_success(new_chip, new_desc, hw_type)
+                else:
+                    self.save_btn.configure(state=tk.NORMAL, text="Güncelle ve Kaydet")
+                    self.cancel_btn.configure(state=tk.NORMAL)
+                    self.status_var.set(f"Sunucu güncelleme uyarısı: {err_msg}")
+
+            self.dialog.after(0, _done)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
+
+class QrViewDialog:
+    """Karekodu büyük formatta görüntüleme, inceleme, yazdırma ve kaydetme penceresi."""
+
+    def __init__(
+        self,
+        parent: tk.Misc,
+        kit: Kit,
+        device_uid: str,
+        chip: str,
+        qr_image: Image.Image,
+    ) -> None:
+        self.parent = parent
+        self.kit = kit
+        self.device_uid = device_uid
+        self.chip = chip
+        self.qr_image = qr_image
+        px = kit.px
+
+        self.dialog = tk.Toplevel(parent)
+        self.dialog.title(f"Karekod İncele — {device_uid}")
+        self.dialog.resizable(False, False)
+        self.dialog.configure(bg=C.PAGE_BG)
+
+        self.dialog.transient(parent)
+        try:
+            self.dialog.grab_set()
+        except Exception:
+            pass
+
+        dlg_w, dlg_h = px(440), px(520)
+        sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
+        x = max(0, (sw - dlg_w) // 2)
+        y = max(0, (sh - dlg_h) // 2)
+        self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
+
+        card = kit.card(self.dialog, padding=(px(20), px(20)))
+        card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
+        card.columnconfigure(0, weight=1)
+
+        # Başlık
+        kit.label(card, f"Cihaz Karekodu: {device_uid}", "title").pack(anchor="w")
+        kit.label(card, f"Model / Donanım: {chip}  ·  300 DPI Yüksek Çözünürlük", "caption").pack(anchor="w", pady=(px(2), px(12)))
+
+        # Büyük QR Görseli
+        qr_size = px(280)
+        framed = kit.framed(qr_image, qr_size)
+        self._photo = ImageTk.PhotoImage(framed, master=self.dialog)
+        lbl = ttk.Label(card, image=self._photo, style=kit.label_style("body"), anchor="center")
+        lbl.pack(pady=(px(4), px(14)))
+
+        # UID ve Kopyala
+        uid_row = ttk.Frame(card, style="card.TFrame")
+        uid_row.pack(pady=(0, px(14)))
+        kit.label(uid_row, device_uid, "uid").pack(side=tk.LEFT)
+
+        def _copy():
+            self.dialog.clipboard_clear()
+            self.dialog.clipboard_append(device_uid)
+            kit.toast(f"Kopyalandı: {device_uid}", "info", 2000)
+
+        kit.icon_button(uid_row, "copy", _copy, "Panoya kopyala").pack(side=tk.LEFT, padx=(px(8), 0))
+
+        # Düğmeler
+        btn_row = ttk.Frame(card, style="card.TFrame")
+        btn_row.pack(fill=tk.X, side=tk.BOTTOM)
+        btn_row.columnconfigure(0, weight=1)
+        btn_row.columnconfigure(1, weight=1)
+        btn_row.columnconfigure(2, weight=1)
+
+        def _print():
+            if os.name != "nt":
+                messagebox.showerror("Yazdırma", "Yalnızca Windows işletim sisteminde desteklenir.", parent=self.dialog)
+                return
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            path = OUTPUT_DIR / f"print_{sanitize_filename(device_uid)}.png"
+            qr_image.save(path, format="PNG")
+            os.startfile(str(path), "print")
+            kit.toast("Yazdırmaya gönderildi.", "success")
+
+        def _save():
+            OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+            path = OUTPUT_DIR / f"{sanitize_filename(device_uid)}.png"
+            qr_image.save(path, format="PNG")
+            kit.toast(f"Kaydedildi: output\\{path.name}", "success")
+
+        kit.button(btn_row, "Yazdır", _print, "default", icon="print").grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
+        kit.button(btn_row, "PNG Kaydet", _save, "default", icon="save").grid(row=0, column=1, sticky="ew", padx=px(4))
+        kit.button(btn_row, "Kapat", self.dialog.destroy, "primary").grid(row=0, column=2, sticky="ew", padx=(px(4), 0))
+
+        self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
+
+
 class App:
     def __init__(self) -> None:
         enable_dpi_awareness()
@@ -1286,6 +1925,8 @@ class App:
         self.screen_window: ScreenFirmwarePage | None = None
         self.device_tester: DeviceTesterPage | None = None
         self.labeled_page: LabeledDevicesPage | None = None
+        self.current_user: dict | None = None
+        self.auth_token: str | None = None
         self.pages: dict[str, ttk.Frame] = {}
         self.current_page: ttk.Frame | None = None
         self.current_key = ""
@@ -1304,6 +1945,7 @@ class App:
         self.root.after(120, lambda: self.scan_devices(manual=False))
         self.root.after(PORT_POLL_MS, self._poll_ports)
         self.root.after(200, self._tick_busy)
+        self.root.after(50, self._check_auth_and_start)
 
     def _load_brand(self, size: int) -> ImageTk.PhotoImage | None:
         try:
@@ -1329,11 +1971,23 @@ class App:
         self.sidebar.grid(row=0, column=0, sticky="nsw")
         self.sidebar.add_group("ÜRETİM")
         self.sidebar.add_item("label", "Etiketle", "qr", "Ctrl+1")
-        self.sidebar.add_item("devices", "Kayıtlı cihazlar", "library", "Ctrl+2")
+        self.sidebar.add_item("devices", "Şirket envanteri", "library", "Ctrl+2")
         self.sidebar.add_group("BAKIM")
         self.sidebar.add_item("tester", "Cihaz testi", "diag", "Ctrl+3")
         self.sidebar.add_item("firmware", "Cihaz yazılımı", "chip", "Ctrl+4")
         self.sidebar.add_item("screen", "Ekran yazılımı", "monitor", "Ctrl+5")
+
+        self.user_frame = tk.Frame(self.sidebar.footer, bg=C.NAVY)
+        self.user_frame.pack(fill=tk.X, pady=(0, px(10)))
+        self.user_name_label = kit.label(self.user_frame, "Giriş yapılıyor…", "body_sb", "nav")
+        self.user_name_label.pack(anchor="w")
+        self.user_role_pill = Pill(self.user_frame, kit, "Süper Kullanıcı", "success")
+        self.user_role_pill.pack(anchor="w", pady=(px(2), px(4)))
+        self.logout_btn = kit.button(self.user_frame, "Çıkış Yap", self._on_logout, variant="nav", surface="nav")
+        self.logout_btn.pack(anchor="w")
+
+        kit.separator(self.sidebar.footer).pack(fill=tk.X, pady=(0, px(8)))
+
         key_ok = bool(get_company_api_key())
         self.key_label = kit.label(
             self.sidebar.footer,
@@ -1411,7 +2065,85 @@ class App:
             self._sync_fw_device_choices()
 
     def _build_devices_page(self, page: ttk.Frame) -> None:
-        self.labeled_page = LabeledDevicesPage(page, self.kit, self.logo_path, self.download_pdf_report)
+        self.labeled_page = LabeledDevicesPage(page, self.kit, self.logo_path, self.download_pdf_report, app=self)
+
+    def _check_auth_and_start(self) -> None:
+        saved_token, saved_user = load_auth_session()
+        if saved_token and saved_user:
+            ok, user, _err = verify_auth_token(saved_token)
+            if ok and user:
+                self.auth_token = saved_token
+                self.current_user = user
+                self._update_user_profile_ui()
+                self.toast(f"Hoş geldiniz, {user.get('full_name') or user.get('email')}", "success")
+                return
+
+        self.root.withdraw()
+        LoginDialog(
+            root=self.root,
+            kit=self.kit,
+            logo_path=self.logo_path,
+            on_success=self._on_login_success,
+            on_cancel=self._on_login_cancel,
+        )
+
+    def _on_login_success(self, token: str, user: dict) -> None:
+        self.auth_token = token
+        self.current_user = user
+        self._update_user_profile_ui()
+        self.root.deiconify()
+        self.root.lift()
+        try:
+            self.root.state("zoomed")
+        except Exception:
+            pass
+        self.root.focus_force()
+        self.toast(f"Giriş başarılı: {user.get('full_name') or user.get('email')}", "success")
+        if self.labeled_page:
+            self.labeled_page.refresh_devices()
+
+    def _on_login_cancel(self) -> None:
+        self.root.destroy()
+        sys.exit(0)
+
+    def _on_logout(self) -> None:
+        confirm = messagebox.askyesno(
+            "Oturumu Kapat",
+            "Oturumunuzu kapatmak istediğinize emin misiniz?",
+            parent=self.root,
+        )
+        if not confirm:
+            return
+        clear_auth_session()
+        self.auth_token = None
+        self.current_user = None
+        self._update_user_profile_ui()
+        self.root.withdraw()
+        LoginDialog(
+            root=self.root,
+            kit=self.kit,
+            logo_path=self.logo_path,
+            on_success=self._on_login_success,
+            on_cancel=self._on_login_cancel,
+        )
+
+    def _update_user_profile_ui(self) -> None:
+        if not hasattr(self, "user_name_label"):
+            return
+        if self.current_user:
+            name = (
+                self.current_user.get("full_name")
+                or self.current_user.get("name")
+                or self.current_user.get("email")
+                or "Süper Kullanıcı"
+            )
+            self.user_name_label.configure(text=f"👤 {name[:18]}")
+            self.user_role_pill.set("Süper Kullanıcı", "success")
+            self.logout_btn.pack(anchor="w")
+        else:
+            self.user_name_label.configure(text="Oturum Yok")
+            self.user_role_pill.set("Giriş Yapılmadı", "warning")
+            self.logout_btn.pack_forget()
 
     def _build_tester_page(self, page: ttk.Frame) -> None:
         self.device_tester = DeviceTesterPage(page, self.kit)
@@ -2133,28 +2865,51 @@ class App:
             return
         d = self.selected_device()
         if d is None:
-            messagebox.showinfo("Seçim gerekli", "Lütfen listeden bir cihaz seçin.")
+            messagebox.showinfo("Seçim gerekli", "Lütfen listeden bir cihaz seçin.", parent=self.root)
             return
         if not d.unique_id:
-            messagebox.showinfo("Kimlik gerekli", "Önce seçili cihazın kimliğini okuyun.")
+            messagebox.showinfo("Kimlik gerekli", "Önce seçili cihazın kimliğini okuyun.", parent=self.root)
             return
 
-        if not get_company_api_key():
-            key = self._prompt_ssh_for_api_key()
-            if not key:
-                messagebox.showwarning(
-                    "Sunucu anahtarı gerekli",
-                    "Cihazı sunucuya kaydetmek için VPS SSH şifresi veya şirket anahtarı gereklidir.",
-                )
-                return
+        if not self.current_user:
+            messagebox.showwarning(
+                "Giriş gerekli",
+                "Cihazı şirket envanterine kaydetmek için önce süper kullanıcı girişi yapmalısınız.",
+                parent=self.root,
+            )
+            return
 
         if self.latest_qr is None or self.latest_uid != d.unique_id:
             self.make_qr()
 
         if self.latest_qr is None:
-            messagebox.showerror("Karekod hatası", "Karekod oluşturulamadı.")
+            messagebox.showerror("Karekod hatası", "Karekod oluşturulamadı.", parent=self.root)
             return
 
+        # SSH şifresini pop-up diyalog ile iste ve doğrula
+        def _on_ssh_confirmed(password: str):
+            self.set_status("SSH bağlantısı doğrulanıyor…")
+            self.root.update_idletasks()
+            key, err = fetch_company_key_via_ssh(password=password)
+            if not key:
+                messagebox.showerror(
+                    "SSH Doğrulama Hatası",
+                    f"Sunucuya bağlanılamadı veya SSH şifresi hatalı:\n{err}",
+                    parent=self.root,
+                )
+                return
+            self._save_company_api_key(key, "Sunucu anahtarı SSH şifresiyle doğrulandı.")
+            self._execute_server_device_save(d)
+
+        SshPasswordDialog(
+            parent=self.root,
+            kit=self.kit,
+            device_uid=d.unique_id,
+            chip=d.chip,
+            on_confirm=_on_ssh_confirmed,
+        )
+
+    def _execute_server_device_save(self, d: EspDevice) -> None:
         # 1. Yerel veritabanına ve klasöre kaydet
         save_local_labeled_device(
             {
@@ -2167,13 +2922,14 @@ class App:
             self.latest_qr,
         )
 
-        self.set_status(f"Cihaz sunucuya gönderiliyor: {d.unique_id}…")
+        self.set_status(f"Cihaz sunucuya ve şirket envanterine gönderiliyor: {d.unique_id}…")
 
         # 2. QR görselini base64 formatına çevir
         buffer = io.BytesIO()
         self.latest_qr.save(buffer, format="PNG")
         qr_b64 = base64.b64encode(buffer.getvalue()).decode("utf-8")
 
+        user_code = self.current_user.get("user_code") if self.current_user else None
         payload = {
             "device_uid": d.unique_id,
             "chip": d.chip,
@@ -2181,10 +2937,10 @@ class App:
             "description": d.description,
             "qr_image_base64": qr_b64,
             "claim_for_company": True,
+            "owner_user_code": user_code,
         }
         hardware_type = chip_to_hardware_type(d.chip)
         if hardware_type:
-            # Sunucu hardware_type/hardware_target/chip alanlarindan donanim turunu okur (OTA hedef izolasyonu icin).
             payload["hardware_type"] = hardware_type
 
         self.saving_device = True
@@ -2201,8 +2957,10 @@ class App:
         if ok:
             self.saved_uids.add(dev.unique_id)
             self._render_devices()
-            self.set_status(f"Cihaz sunucuya kaydedildi: {dev.unique_id}  ·  {info}")
-            self.toast(f"Sunucuya kaydedildi: {dev.unique_id}", "success")
+            self.set_status(f"Cihaz sunucuya ve şirket envanterine kaydedildi: {dev.unique_id}  ·  {info}")
+            self.toast(f"Şirket envanterine eklendi: {dev.unique_id}", "success")
+            if self.labeled_page:
+                self.labeled_page.refresh_devices()
             return
         self._refresh_label_ui()
         self.set_status(f"Sunucu kayıt uyarısı: {info}")
@@ -2210,6 +2968,7 @@ class App:
             "Yerel kayıt tamam, sunucuya gönderilemedi",
             f"Cihaz bu bilgisayara kaydedildi ancak sunucu API'sine ulaşılamadı:\n{info}\n\n"
             f"Cihaz kimliği: {dev.unique_id}",
+            parent=self.root,
         )
 
     def _server_device_save_worker(self, dev: EspDevice, payload: dict) -> None:
@@ -2220,8 +2979,8 @@ class App:
         if API_FALLBACK_URL:
             api_endpoints.append(f"{API_FALLBACK_URL}/api/company/labeled-devices")
 
-        if not get_company_api_key():
-            # Anahtar yokken sunucu 401 dondurecegi icin ag istegi hic yapilmaz.
+        if not get_company_api_key() and not self.auth_token:
+            # Anahtar veya token yokken sunucu 401 dondurecegi icin ag istegi hic yapilmaz.
             error_msg = COMPANY_KEY_MISSING_MESSAGE
         else:
             data_bytes = json.dumps(payload).encode("utf-8")
@@ -2231,7 +2990,11 @@ class App:
                     req = urllib.request.Request(
                         endpoint,
                         data=data_bytes,
-                        headers=company_request_headers(endpoint, {"Content-Type": "application/json"}),
+                        headers=company_request_headers(
+                            endpoint,
+                            {"Content-Type": "application/json"},
+                            auth_token=self.auth_token,
+                        ),
                         method="POST",
                     )
                     with urllib.request.urlopen(req, timeout=10) as resp:
@@ -2999,12 +3762,19 @@ Paket icerigi:
 
 
 class LabeledDevicesPage:
-    def __init__(self, parent: ttk.Frame, kit: Kit, logo_path: Path, on_download_pdf: Callable[[], None]) -> None:
-        # Ana penceredeki sayfa cercevesi; eski kodla uyum icin adi 'window' kaldi.
+    def __init__(
+        self,
+        parent: ttk.Frame,
+        kit: Kit,
+        logo_path: Path,
+        on_download_pdf: Callable[[], None],
+        app: object = None,
+    ) -> None:
         self.window = parent
         self.kit = kit
         self.logo_path = logo_path
         self.on_download_pdf = on_download_pdf
+        self.app = app
 
         self.devices: list[dict] = []
         self.filtered_devices: list[dict] = []
@@ -3031,8 +3801,8 @@ class LabeledDevicesPage:
 
         header, slot = kit.page_header(
             main,
-            "Kayıtlı cihazlar",
-            "Etiketlenmiş tüm cihazlar ve karekodları. Sunucudaki kayıtlar ile bu bilgisayardakiler birlikte listelenir.",
+            "Şirket Cihaz Envanteri",
+            "Üretilmiş ve etiketlenmiş tüm cihazlar, şirket envanteri ve karekodları. Cihazları düzenleyebilir, karekodlarını inceleyip yazdırabilirsiniz.",
             icon="library",
         )
         header.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, px(18)))
@@ -3057,16 +3827,20 @@ class LabeledDevicesPage:
         box, self.tree = kit.tree(
             left,
             [
-                ("device_uid", "Cihaz kimliği (UID)", 180, "w", False),
-                ("chip", "Çip", 110, "w", False),
-                ("created_at", "Kayıt tarihi", 140, "w", False),
-                ("description", "Açıklama", 200, "w", True),
+                ("device_uid", "Cihaz kimliği (UID)", 160, "w", False),
+                ("chip", "Donanım / Çip", 120, "w", False),
+                ("status", "Envanter Durumu", 160, "w", False),
+                ("created_at", "Kayıt tarihi", 120, "w", False),
+                ("description", "Açıklama / Not", 200, "w", True),
             ],
             height=14,
         )
         box.grid(row=1, column=0, sticky="nsew")
         self.tree.bind("<<TreeviewSelect>>", self._on_select, add="+")
         self.tree.bind("<Delete>", lambda _e: self._delete_selected_device())
+        self.tree.bind("<Double-Button-1>", lambda _e: self._on_edit_selected_device())
+        self.tree.bind("<F2>", lambda _e: self._on_edit_selected_device())
+
         self.empty = kit.empty_state(
             box,
             "library",
@@ -3078,6 +3852,8 @@ class LabeledDevicesPage:
 
         # Sag tik menusu
         self.context_menu = tk.Menu(self.window, tearoff=0, font=kit.fonts["body"])
+        self.context_menu.add_command(label="Cihazı düzenle… (F2)", command=self._on_edit_selected_device)
+        self.context_menu.add_command(label="Karekodu incele / büyüt", command=self._on_view_large_qr)
         self.context_menu.add_command(label="Karekodu yazdır", command=self._print_selected_qr)
         self.context_menu.add_command(label="Karekodu PNG kaydet", command=self._save_selected_qr)
         self.context_menu.add_command(label="Kimliği kopyala", command=self._copy_uid_to_clipboard)
@@ -3095,16 +3871,20 @@ class LabeledDevicesPage:
         right = kit.card(main)
         right.grid(row=1, column=1, sticky="nsew")
         right.columnconfigure(0, weight=1)
-        kit.label(right, "Karekod", "title").grid(row=0, column=0, sticky="w")
-        self.preview_label = ttk.Label(right, style=kit.label_style("body"), anchor="center")
+        kit.label(right, "Karekod Önizleme", "title").grid(row=0, column=0, sticky="w")
+        self.preview_label = ttk.Label(right, style=kit.label_style("body"), anchor="center", cursor="hand2")
         self.preview_label.grid(row=1, column=0, pady=(px(16), px(12)))
+        self.preview_label.bind("<Button-1>", lambda _e: self._on_view_large_qr())
+        Tooltip(self.preview_label, "Karekodu büyük boyutta incelemek ve yazdırmak için tıklayın.", kit, side="top")
+
         uid_row = ttk.Frame(right, style="card.TFrame")
         uid_row.grid(row=2, column=0)
         kit.label(uid_row, textvariable=self.selected_uid_var, kind="uid").pack(side=tk.LEFT)
         self.copy_btn = kit.icon_button(uid_row, "copy", self._copy_uid_to_clipboard, "Kimliği panoya kopyala")
         self.copy_btn.pack(side=tk.LEFT, padx=(px(6), 0))
         kit.label(right, textvariable=self.meta_var, kind="caption", justify="center").grid(row=3, column=0, pady=(px(2), 0))
-        kit.separator(right).grid(row=4, column=0, sticky="ew", pady=px(16))
+        kit.separator(right).grid(row=4, column=0, sticky="ew", pady=px(14))
+
         row2 = ttk.Frame(right, style="card.TFrame")
         row2.grid(row=5, column=0, sticky="ew")
         row2.columnconfigure(0, weight=1, uniform="lq")
@@ -3113,21 +3893,31 @@ class LabeledDevicesPage:
         self.print_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
         self.save_btn = kit.button(row2, "PNG kaydet", self._save_selected_qr, icon="save")
         self.save_btn.grid(row=0, column=1, sticky="ew", padx=(px(4), 0))
+
+        row3 = ttk.Frame(right, style="card.TFrame")
+        row3.grid(row=6, column=0, sticky="ew", pady=(px(6), 0))
+        row3.columnconfigure(0, weight=1, uniform="lq")
+        row3.columnconfigure(1, weight=1, uniform="lq")
+        self.edit_btn = kit.button(row3, "Cihazı düzenle", self._on_edit_selected_device, "primary", icon="edit")
+        self.edit_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
+        self.view_qr_btn = kit.button(row3, "Karekod incele", self._on_view_large_qr, "default", icon="qr")
+        self.view_qr_btn.grid(row=0, column=1, sticky="ew", padx=(px(4), 0))
+
         self.delete_btn = kit.button(right, "Cihazı sil", self._delete_selected_device, "danger_soft", icon="delete")
-        self.delete_btn.grid(row=6, column=0, sticky="ew", pady=(px(8), 0))
+        self.delete_btn.grid(row=7, column=0, sticky="ew", pady=(px(8), 0))
         kit.label(
             right,
             "Silme, cihazı sunucudan ve bu bilgisayardan kalıcı olarak kaldırır.",
             "caption",
             wraplength=px(290),
             justify="left",
-        ).grid(row=7, column=0, sticky="w", pady=(px(12), 0))
+        ).grid(row=8, column=0, sticky="w", pady=(px(10), 0))
         self._set_preview(None)
 
     def _set_preview(self, img: Image.Image | None, uid: str | None = None) -> None:
         size = self.kit.px(QR_PREVIEW_PX)
         state = tk.NORMAL if img is not None else tk.DISABLED
-        for b in (self.print_btn, self.save_btn, self.delete_btn, self.copy_btn):
+        for b in (self.print_btn, self.save_btn, self.edit_btn, self.view_qr_btn, self.delete_btn, self.copy_btn):
             b.configure(state=state)
         if img is None:
             self._preview_uid = None
@@ -3154,7 +3944,8 @@ class LabeledDevicesPage:
         threading.Thread(target=self._fetch_worker, daemon=True).start()
 
     def _fetch_worker(self) -> None:
-        server_devices, server_error = fetch_server_labeled_devices_with_status()
+        auth_token = getattr(self.app, "auth_token", None) if self.app else None
+        server_devices, server_error = fetch_server_labeled_devices_with_status(auth_token=auth_token)
         local_devices = load_local_labeled_devices()
 
         device_map: dict[str, dict] = {}
@@ -3189,6 +3980,8 @@ class LabeledDevicesPage:
                 if q in str(d.get("device_uid", "")).upper()
                 or q in str(d.get("chip", "")).upper()
                 or q in str(d.get("description", "")).upper()
+                or q in str(d.get("site_name", "")).upper()
+                or q in str(d.get("gate_name", "")).upper()
             ]
 
         for x in self.tree.get_children():
@@ -3197,15 +3990,37 @@ class LabeledDevicesPage:
         for i, d in enumerate(self.filtered_devices):
             uid = str(d.get("device_uid", "")).upper()
             chip = str(d.get("chip", "ESP32"))
+            hw_type = str(d.get("hardware_type", "")).lower()
+            if "wroom" in hw_type:
+                disp_chip = f"{chip} (WROOM)"
+            elif "c3" in hw_type:
+                disp_chip = f"{chip} (C3)"
+            else:
+                disp_chip = chip
+
+            gate = str(d.get("gate_name") or "").strip()
+            site = str(d.get("site_name") or "").strip()
+            owner_code = d.get("owner_user_code")
+            if gate and site:
+                status_val = f"{site} · {gate}"
+            elif gate:
+                status_val = f"Kapı: {gate}"
+            elif site:
+                status_val = f"Site: {site}"
+            elif owner_code:
+                status_val = f"Şirket Stoğu (#{owner_code})"
+            else:
+                status_val = "Şirket Stoğu"
+
             date_val = format_when(d.get("created_at", "-"))
             desc = str(d.get("description", ""))
-            self.tree.insert("", tk.END, iid=str(i), values=(uid, chip, date_val, desc))
+            self.tree.insert("", tk.END, iid=str(i), values=(uid, disp_chip, status_val, date_val, desc))
 
         total = len(self.devices)
         shown = len(self.filtered_devices)
         self.count_pill.set(f"{shown} / {total} cihaz" if q else f"{total} cihaz", "info" if total else "neutral")
         if not self._server_note:
-            self.status_var.set("Sağ tık: yazdır, kaydet, kopyala, sil. Delete tuşu seçili cihazı siler.")
+            self.status_var.set("Çift tık / F2: Düzenle  ·  Karekod incele  ·  Sağ tık: Yazdır, PNG, Sil")
 
         if self.filtered_devices:
             self.empty.place_forget()
@@ -3235,10 +4050,151 @@ class LabeledDevicesPage:
         uid = str(dev.get("device_uid", "")).upper()
         self.selected_uid_var.set(uid or "—")
         chip = str(dev.get("chip", "ESP32"))
-        self.meta_var.set(f"{chip}  ·  {format_when(dev.get('created_at', '-'))}")
+        hw_type = str(dev.get("hardware_type", "")).lower()
+        sub_chip = f"{chip} ({'WROOM' if 'wroom' in hw_type else 'C3'})" if hw_type else chip
+        self.meta_var.set(f"{sub_chip}  ·  {format_when(dev.get('created_at', '-'))}")
         if uid == self._preview_uid and self.selected_qr is not None:
             return
         qr_img = generate_qr(uid, self.logo_path)
+        self.selected_qr = qr_img
+        self._set_preview(qr_img, uid)
+
+    def _on_edit_selected_device(self) -> None:
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Seçim Gerekli", "Lütfen düzenlemek istediğiniz cihazı tablodan seçin.", parent=self.window)
+            return
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(self.filtered_devices):
+            return
+        target_dev = self.filtered_devices[idx]
+        uid = str(target_dev.get("device_uid", "")).strip().upper()
+        if not uid:
+            return
+
+        def _on_saved(new_chip: str, new_desc: str, new_hw: str):
+            target_dev["chip"] = new_chip
+            target_dev["description"] = new_desc
+            target_dev["hardware_type"] = new_hw
+            save_local_labeled_device(target_dev)
+            self.refresh_devices()
+            self.kit.toast(f"{uid} cihaz bilgileri güncellendi.", "success")
+
+        auth_token = getattr(self.app, "auth_token", None) if self.app else None
+        EditDeviceDialog(
+            parent=self.window,
+            kit=self.kit,
+            device_info=target_dev,
+            auth_token=auth_token,
+            on_success=_on_saved,
+        )
+
+    def _on_view_large_qr(self) -> None:
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Seçim Gerekli", "Lütfen bir cihaz seçin.", parent=self.window)
+            return
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(self.filtered_devices):
+            return
+        dev = self.filtered_devices[idx]
+        uid = str(dev.get("device_uid", "")).strip().upper()
+        if not uid:
+            return
+        qr_img = self.selected_qr or generate_qr(uid, self.logo_path)
+        QrViewDialog(
+            parent=self.window,
+            kit=self.kit,
+            device_uid=uid,
+            chip=str(dev.get("chip", "ESP32")),
+            qr_image=qr_img,
+        )
+
+    def _delete_selected_device(self) -> None:
+        sel = self.tree.selection()
+        if not sel:
+            messagebox.showinfo("Seçim Gerekli", "Lütfen silmek istediğiniz cihazı tablodan seçin.", parent=self.window)
+            return
+
+        idx = int(sel[0])
+        if idx < 0 or idx >= len(self.filtered_devices):
+            return
+
+        target_dev = self.filtered_devices[idx]
+        uid = str(target_dev.get("device_uid", "")).strip().upper()
+        if not uid:
+            return
+
+        confirm = messagebox.askyesno(
+            "Cihazı Sil",
+            f"'{uid}' kodlu cihazı kalıcı olarak silmek istediğinize emin misiniz?\n\n"
+            f"• Cihaz yerel envanter listesinden silinecektir.\n"
+            f"• Cihaz merkezi sunucudan ve varsa tanımlı kapısından tamamen silinecektir.\n"
+            f"• Cihaza ait yerel karekod görseli silinecektir.\n\n"
+            f"Bu işlem geri alınamaz!",
+            icon="warning",
+            parent=self.window,
+        )
+        if not confirm:
+            return
+
+        self.status_var.set(f"'{uid}' siliniyor…")
+        self.count_pill.set("Siliniyor", "busy")
+
+        def _delete_worker():
+            # 1. Yerel JSON ve QR dosyasından sil
+            delete_local_labeled_device(uid)
+            # 2. Sunucudan ve DB'den sil
+            auth_token = getattr(self.app, "auth_token", None) if self.app else None
+            server_ok, server_msg = delete_server_labeled_device(uid, auth_token=auth_token)
+
+            def _done():
+                self.refresh_devices()
+                if server_ok:
+                    self.kit.toast(f"{uid} hem bu bilgisayardan hem sunucudan silindi.", "success")
+                else:
+                    messagebox.showwarning("Kısmi Silme", f"'{uid}' yerelden silindi fakat sunucu bildirimi:\n{server_msg}", parent=self.window)
+
+            self.window.after(0, _done)
+
+        threading.Thread(target=_delete_worker, daemon=True).start()
+
+    def _copy_uid_to_clipboard(self) -> None:
+        sel = self.tree.selection()
+        if not sel:
+            return
+        idx = int(sel[0])
+        if 0 <= idx < len(self.filtered_devices):
+            uid = str(self.filtered_devices[idx].get("device_uid", "")).upper()
+            self.window.clipboard_clear()
+            self.window.clipboard_append(uid)
+            self.kit.toast(f"Kopyalandı: {uid}", "info", 2200)
+
+    def _print_selected_qr(self) -> None:
+        if self.selected_qr is None:
+            messagebox.showinfo("Seçim Gerekli", "Lütfen bir cihaz seçin.", parent=self.window)
+            return
+        if os.name != "nt":
+            messagebox.showerror("Yazdırma", "Yalnızca Windows işletim sisteminde desteklenir.", parent=self.window)
+            return
+        sel = self.tree.selection()
+        uid = self.filtered_devices[int(sel[0])].get("device_uid", "device") if sel else "device"
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        path = OUTPUT_DIR / f"print_{sanitize_filename(uid)}.png"
+        self.selected_qr.save(path, format="PNG")
+        os.startfile(str(path), "print")
+        self.kit.toast("Karekod yazdırmaya gönderildi.", "success")
+
+    def _save_selected_qr(self) -> None:
+        if self.selected_qr is None:
+            messagebox.showinfo("Seçim Gerekli", "Lütfen bir cihaz seçin.", parent=self.window)
+            return
+        sel = self.tree.selection()
+        uid = self.filtered_devices[int(sel[0])].get("device_uid", "device") if sel else "device"
+        OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+        path = OUTPUT_DIR / f"{sanitize_filename(uid)}.png"
+        self.selected_qr.save(path, format="PNG")
+        self.kit.toast(f"Karekod kaydedildi: output\\{path.name}", "success")
         self.selected_qr = qr_img
         self._set_preview(qr_img, uid)
 
