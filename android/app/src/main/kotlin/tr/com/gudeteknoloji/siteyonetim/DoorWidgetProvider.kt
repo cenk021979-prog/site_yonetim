@@ -138,7 +138,7 @@ class DoorWidgetProvider : HomeWidgetProvider() {
 
                 if (canQr && currentDoorId > 0) {
                     setViewVisibility(R.id.widget_btn_qr, View.VISIBLE)
-                    setCharSequence(R.id.widget_btn_qr, "setText", "QR KOD")
+                    setCharSequence(R.id.widget_btn_qr, "setText", "QR")
                     val qrIntent = HomeWidgetLaunchIntent.getActivity(
                         context,
                         MainActivity::class.java,

@@ -121,23 +121,32 @@ export function validateCreateInput({
   return null;
 }
 
-// Kullanıcı (giriş) adı kuralı modules/people_common.js normalizeLoginName / LOGIN_NAME_PATTERN ile AYNIDIR: kırp + küçük harfe çevir, sonra
-// /^[a-z0-9._-]{3,40}$/ ('@' YOK: giriş sorgusu e-posta VE kullanıcı adıyla eşleşir; kullanıcı adı başkasının e-postasına benzeyemesin).
-// people_common ağır bağımlılıklar (db, mailer) çektiği için buraya içe aktarılmaz; iki kuralın eşitliği test/validators.test.js'te denetlenir.
+// Kullanıcı (giriş) adı kuralı: e-posta girilmişse geçerli bir e-posta adresi (<=100 karakter),
+// kullanıcı adı girilmişse /^[a-z0-9._-]{3,50}$/ biçiminde sade bir kullanıcı adı kabul edilir.
 const LOGIN_NAME_MIN_LENGTH = 3;
-const LOGIN_NAME_MAX_LENGTH = 40;
-const LOGIN_NAME_RULE = /^[a-z0-9._-]{3,40}$/;
+const LOGIN_NAME_MAX_LENGTH = 100;
+const LOGIN_NAME_RULE = /^[a-z0-9._-]{3,50}$/;
+const EMAIL_LOGIN_RULE = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 
 export function validateLoginName(loginName) {
   const name = typeof loginName === 'string' ? loginName.trim().toLowerCase() : '';
+  if (!name) {
+    return 'Kullanici adi en az 3 karakter olmali.';
+  }
+  if (name.includes('@')) {
+    if (!EMAIL_LOGIN_RULE.test(name) || name.length > 100) {
+      return 'Gecerli bir e-posta adresi girin.';
+    }
+    return null;
+  }
   if (name.length < LOGIN_NAME_MIN_LENGTH) {
     return 'Kullanici adi en az 3 karakter olmali.';
   }
-  if (name.length > LOGIN_NAME_MAX_LENGTH) {
-    return `Kullanici adi en fazla ${LOGIN_NAME_MAX_LENGTH} karakter olabilir.`;
+  if (name.length > 50) {
+    return 'Kullanici adi en fazla 50 karakter olabilir.';
   }
   if (!LOGIN_NAME_RULE.test(name)) {
-    return 'Kullanici adi yalnizca kucuk harf, rakam, nokta, alt tire ve tire icerebilir (@ kullanilamaz).';
+    return 'Kullanici adi yalnizca kucuk harf, rakam, nokta, alt tire ve tire icerebilir.';
   }
   return null;
 }
@@ -275,9 +284,12 @@ export function validateApartmentResidentInput({
   if (!fullName || fullName.length < 3) {
     return 'Ad Soyad en az 3 karakter olmali.';
   }
-  const loginError = validateLoginName(loginName);
-  if (loginError) {
-    return loginError;
+  // Kullanıcı adı isteğe bağlıdır; boşsa e-posta veya ad soyaddan otomatik üretilir
+  if (loginName && String(loginName).trim()) {
+    const loginError = validateLoginName(loginName);
+    if (loginError) {
+      return loginError;
+    }
   }
   // Sifre: bos birakilabilir (mevcut sakin duzenlemede "degistirme" sayilir); verilmisse 4 haneli sayisal olmali.
   // Yeni sakin olusturulurken sifre zorunlulugu apartment_service.provisionApartmentResident'ta uygulanir.

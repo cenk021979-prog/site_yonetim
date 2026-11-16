@@ -204,10 +204,10 @@ export function normalizePersonEmail(value, field = 'email') {
 }
 
 export const LOGIN_NAME_MIN = 3;
-export const LOGIN_NAME_MAX = 40;
-// Kullanıcı (giriş) adı: yalnız küçük harf, rakam, nokta, alt çizgi, tire. '@' YOK: giriş sorgusu e-posta VE kullanıcı adıyla eşleşir; kullanıcı adı
-// başkasının e-postasına benzeyemesin (hesap ele geçirme / belirsiz eşleşme).
-export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,40}$/;
+export const LOGIN_NAME_MAX = 50;
+// Kullanıcı (giriş) adı: e-posta verilmişse e-posta (<=100 karakter), kullanıcı adı verilmişse /^[a-z0-9._-]{3,50}$/.
+export const LOGIN_NAME_PATTERN = /^[a-z0-9._-]{3,50}$/;
+const EMAIL_LOGIN_PATTERN = /^[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}$/i;
 
 /** Kullanıcı adı: kırpılır, küçük harfe çevrilir; boş/yok -> null; biçim uymazsa 400 INVALID_BODY. */
 export function normalizeLoginName(value, field = 'login_name') {
@@ -221,10 +221,16 @@ export function normalizeLoginName(value, field = 'login_name') {
   if (text === '') {
     return null;
   }
+  if (text.includes('@')) {
+    if (!EMAIL_LOGIN_PATTERN.test(text) || text.length > 100) {
+      throw invalidBody(field, `${field} geçerli bir e-posta adresi olmalıdır.`);
+    }
+    return text;
+  }
   if (!LOGIN_NAME_PATTERN.test(text)) {
     throw invalidBody(
       field,
-      `${field} ${LOGIN_NAME_MIN}-${LOGIN_NAME_MAX} karakter olmalı; yalnız küçük harf, rakam, nokta, alt çizgi ve tire kullanılabilir (@ kullanılamaz).`,
+      `${field} ${LOGIN_NAME_MIN}-${LOGIN_NAME_MAX} karakter olmalı; yalnız küçük harf, rakam, nokta, alt çizgi ve tire kullanılabilir.`,
     );
   }
   return text;

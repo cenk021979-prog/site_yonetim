@@ -116,12 +116,11 @@
         </receiver>
 
         <!-- Widget düğmeleri HomeWidgetBackgroundIntent.getBroadcast ile AÇIK (explicit) bir
-             PendingIntent oluşturur; PendingIntent uygulamanın kendi kimliğiyle çalıştığı için
-             receiver exported=false iken de tetiklenir. Böylece başka uygulamalar bu receiver'a
-             sahte widget eylemi gönderemez. -->
+             PendingIntent oluşturur; ana ekran başlatıcısından (launcher) gelen tıklamaları
+             karşılayabilmesi için receiver exported=true olmalıdır. -->
         <receiver
             android:name="es.antonborri.home_widget.HomeWidgetBackgroundReceiver"
-            android:exported="false">
+            android:exported="true">
             <intent-filter>
                 <action android:name="es.antonborri.home_widget.action.BACKGROUND" />
             </intent-filter>

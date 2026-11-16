@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/app.dart';
 import 'package:site_kapi_kontrol/services/crash_reporter.dart';
+import 'package:site_kapi_kontrol/services/door_widget_service.dart';
 import 'package:site_kapi_kontrol/services/easy_view_service.dart';
 import 'package:site_kapi_kontrol/services/plate_camera_snapshot.dart';
 import 'package:site_kapi_kontrol/services/push_firebase_gateway.dart';
@@ -16,6 +17,7 @@ export 'package:site_kapi_kontrol/app.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await DoorWidgetService.instance.initialize();
   PlateRtspVideoSurface.ensureMediaKitInitialized();
   unawaited(PlateCameraSnapshot.loadPersistedCredentials());
   // Canli kamera ve goruntu akislarinda bellek sizintisini onlemek icin ImageCache sinirlandirilir (OOM korumasi)

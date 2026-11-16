@@ -214,13 +214,16 @@ appDoorsRouter.post('/app/doors/:id/open', authRequired, doorCommandRateLimiter,
           door_id: Number(door.id),
           site_code: Number(door.site_code),
           device_uid: door.assigned_device_uid,
+          source: body.source === 'widget' ? 'widget' : (body.source || 'cloud_app'),
         });
 
         const apartmentLabel = await apartmentLabelForUser(req.authUser, ['apartment_owner']);
 
         const triggerType = body.source === 'voice'
           ? 'voice'
-          : (body.source === 'screen_qr' ? 'screen_qr' : 'cloud_app');
+          : (body.source === 'screen_qr'
+            ? 'screen_qr'
+            : (body.source === 'widget' ? 'widget' : 'cloud_app'));
         await recordDoorAccessLog({
           siteCode: Number(door.site_code),
           doorId: Number(door.id),

@@ -1,6 +1,11 @@
 # 📋 SAHA KONTROL LİSTESİ (FIELD VERIFICATION CHECKLIST)
 
 
+## 185. Ana Ekran Kapi Widgeti (Home Screen Door Widget) Acma Onarimi ve Arka Plan Iletisimi (2026-11-17)
+
+- [ ] **185.1. Android Ana Ekran Widgetindan KAPIYI AC Tetiklemesi:** Android cihazda widget butonuna dokununca komut gonderilmeli, kapi rolesi acilmali ve sunucuda trigger_type=widget olarak kaydedilmelidir.
+- [ ] **185.2. Oturum Acilisinda ve Super Kullanicida Otomatik Kapi Senkronizasyonu:** Super kullanici dahil tum oturumlarda kapi ve token widgeta aktarilmali, widget Giris Yapin veya Kapi Tanimli Degil hatasinda kalmamalidir.
+
 ## 184. Cihaz OTA Manifest İsteklerinin Çevrimdışı Yapmasının Önlenmesi ve MQTT Port 8883 Ağ Kontrolü (2026-11-16)
 
 - [ ] **184.3. MQTT TLS 443 ağ uyumluluğu:** SmartKeyPass cihazını 8883 çıkışını engelleyen bir Wi-Fi ağına bağlayın. Firmware 4.4.1 ve sonrasında eski kayıtlı 8883 portunu otomatik 443'e taşımalı; `mqtt.gudeteknoloji.com.tr:443` üzerinden bağlanmalı, online görünmeli ve kapı açma komutunu almalıdır. Aynı anda API ve diğer HTTPS siteleri 443 üzerinden kesintisiz çalışmalıdır.
@@ -5536,6 +5541,13 @@ Yeni kayıt olan veya daireye eklenen sakinlere kullanıcı adı atanırken `318
   - **Nasıl Test Edilir:**
     1. Yalnızca ad-soyad (örn: "Elif CEYLAN") ve daire seçerek e-postasız sakin ekleyin veya hesap tanımlayın.
   - **Beklenen Sonuç:** Kullanıcı adı `elif.ceylan` olarak üretilir; `3183983743_...` gibi karmaşık kodlar ASLA verilmez.
+
+---
+
+## 192. Daire Kullanıcısı Karşılama Ekranı ve SmartKeyPass Widget (2026-11-17)
+
+- [ ] **192.1. Modern sakin karşılama alanı:** Daire kullanıcısıyla giriş yapın; karşılama alanında ad, site/daire, yetkili kapı sayısı, çevrimiçi kapı sayısı ve bekleyen talep sayısının güncel göründüğünü doğrulayın. Ana kapı düğmesine dokununca seçili kapının açılması; QR ve Misafir Geçişi eylemlerinin doğru akışları açması beklenir. 320 px genişlikte ve büyük yazı ayarında taşma olmamalıdır.
+- [ ] **192.2. Android ana ekran widget'ı:** SmartKeyPass widget'ını ana ekrana 3×2 boyutta ekleyin. Site ve kapı adının kesilmeden/üç noktayla, çevrimiçi durumun doğru renkle, kapı sayacının ve önceki/sonraki düğmelerin doğru çalıştığını doğrulayın. `KAPIYI AÇ` mevcut kapıyı açmalı; QR destekli kapıda `QR` uygulamadaki doğru QR ekranını açmalıdır. Çevrimdışı kapı yeşil görünmemeli ve `ÇEVRİMDIŞI - DENE` yazmalıdır.
 
 
 

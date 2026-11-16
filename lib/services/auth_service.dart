@@ -170,6 +170,7 @@ class AuthService extends ChangeNotifier {
     // Çevrimdışı açılışı engellememek için beklenmez.
     if (_session != null) {
       unawaited(refreshSession(force: true));
+      unawaited(listMyDoors().catchError((_) => (null, null)));
     }
   }
 
@@ -299,6 +300,7 @@ class AuthService extends ChangeNotifier {
       }
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -358,6 +360,7 @@ class AuthService extends ChangeNotifier {
       }
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -422,6 +425,7 @@ class AuthService extends ChangeNotifier {
       }
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -489,6 +493,7 @@ class AuthService extends ChangeNotifier {
       _session = await api.redeemTrialCode(code: code);
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -503,6 +508,7 @@ class AuthService extends ChangeNotifier {
       _session = await api.verifySmsCode(phone: phone, code: code);
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -546,6 +552,7 @@ class AuthService extends ChangeNotifier {
       );
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -770,6 +777,7 @@ class AuthService extends ChangeNotifier {
       );
       _lastSessionCheckAt = DateTime.now();
       await _persist();
+      unawaited(listMyDoors().catchError((_) => (null, null)));
       _notifySafely();
       return null;
     } on ApiException catch (e) {
@@ -3302,10 +3310,10 @@ class AuthService extends ChangeNotifier {
     }
   }
 
-  /// Masaüstü widget'ının kapı listesi için TEK kaynak: kullanıcının erişebildiği kapılar
-  /// (listMyDoors). Liste boşsa widget temizlenir. Süper kullanıcı için widget kullanılmaz.
+  /// Ana ekran / masaüstü widget'ının kapı listesi için TEK kaynak: kullanıcının erişebildiği kapılar
+  /// (listMyDoors). Liste boşsa widget temizlenir.
   void _syncDoorWidget(UserSession active, List<DoorRecord> doors) {
-    if (kIsWeb || active.role == UserRole.superUser) {
+    if (kIsWeb) {
       return;
     }
     _lastMyDoors = List<DoorRecord>.unmodifiable(doors);
@@ -3327,7 +3335,7 @@ class AuthService extends ChangeNotifier {
   /// seçtiği kapı korunur.
   void selectWidgetDoor(DoorRecord door, {bool? isOnline}) {
     final active = _session;
-    if (kIsWeb || active == null || active.role == UserRole.superUser) {
+    if (kIsWeb || active == null) {
       return;
     }
     final doors = _lastMyDoors;

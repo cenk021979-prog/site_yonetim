@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -552,9 +553,28 @@ void main() {
       expect(requests.single.method, 'POST');
       expect(requests.single.url.toString(), 'https://api.example.com/app/doors/7/open');
       expect(requests.single.headers['Authorization'], 'Bearer jwt-token');
+      expect(requests.single.body, jsonEncode({'source': 'widget'}));
       expect(statusHistory, containsAllInOrder(['Açılıyor... ⏳', 'Komut gönderildi ✅']));
       // geçici durum normale döner
       expect(store['door_status'], 'Çevrimiçi / Hazır');
+    });
+
+    test('open action handles string or numeric door_id safely', () async {
+      await seedSession(online: true);
+      store['door_id'] = '7';
+      final requests = <http.Request>[];
+      final client = MockClient((request) async {
+        requests.add(request);
+        return http.Response('{"ok":true}', 202);
+      });
+
+      await http.runWithClient(
+        () => doorWidgetBackgroundCallback(Uri.parse('sitekapi://open_door_action')),
+        () => client,
+      );
+
+      expect(requests, hasLength(1));
+      expect(requests.single.url.toString(), 'https://api.example.com/app/doors/7/open');
     });
 
     test('offline view can still attempt; server 409 marks the door offline', () async {

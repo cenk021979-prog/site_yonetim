@@ -37,6 +37,7 @@ import 'package:site_kapi_kontrol/ui/widgets/dynamic_qr_pass_modal.dart';
 import 'package:site_kapi_kontrol/ui/widgets/individual_apartment_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/individual_door_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/join_request_card.dart';
+import 'package:site_kapi_kontrol/ui/widgets/resident_welcome_hero.dart';
 import 'package:site_kapi_kontrol/ui/widgets/setup_option_card.dart';
 import 'package:site_kapi_kontrol/ui/widgets/workspace_split_shell.dart';
 
@@ -160,7 +161,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
   bool _isRefreshActive() {
     if (!mounted) return false;
     final lifecycle = WidgetsBinding.instance.lifecycleState;
-    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) return false;
+    if (lifecycle != null && lifecycle != AppLifecycleState.resumed) {
+      return false;
+    }
     return TickerMode.getValuesNotifier(context).value.enabled;
   }
 
@@ -222,7 +225,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
   Future<void> _loadRequests() async {
     JoinRequestTracker.ensureLoaded(() {
       if (mounted && _myRequests.isNotEmpty) {
-        setState(() => _myRequests = JoinRequestTracker.filterVisible(_myRequests));
+        setState(
+          () => _myRequests = JoinRequestTracker.filterVisible(_myRequests),
+        );
       }
     });
     final (list, _) = await widget.authService.getMyJoinRequests();
@@ -347,7 +352,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
               ),
             ],
             child: Text(
-              result.errorMessage ?? 'Kapı çevresinde olmadığınız tespit edildi.',
+              result.errorMessage ??
+                  'Kapı çevresinde olmadığınız tespit edildi.',
             ),
           ),
         );
@@ -360,10 +366,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => DynamicQrPassModal(
-        door: door,
-        authService: widget.authService,
-      ),
+      builder: (ctx) =>
+          DynamicQrPassModal(door: door, authService: widget.authService),
     );
   }
 
@@ -375,7 +379,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
       MaterialPageRoute(
         builder: (_) => const QrScanPage(
           title: 'Kapı Ekranından QR Oku',
-          instructionText: 'Cihazın 2.4" ekranındaki karekodu kameranıza gösterin.',
+          instructionText:
+              'Cihazın 2.4" ekranındaki karekodu kameranıza gösterin.',
         ),
       ),
     );
@@ -391,7 +396,10 @@ class IndividualHomeViewState extends State<IndividualHomeView>
             SizedBox(
               width: 18,
               height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
             ),
             SizedBox(width: 12),
             Text('Karekod doğrulanıyor, kapı açılıyor...'),
@@ -451,7 +459,10 @@ class IndividualHomeViewState extends State<IndividualHomeView>
     );
   }
 
-  Future<void> _confirmRemoveMember(MyApartmentRecord apt, ApartmentMemberRecord member) async {
+  Future<void> _confirmRemoveMember(
+    MyApartmentRecord apt,
+    ApartmentMemberRecord member,
+  ) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AppDialog(
@@ -465,12 +476,17 @@ class IndividualHomeViewState extends State<IndividualHomeView>
           ),
           FilledButton(
             // Ön plan da verilir: sade temada ana eylem metni koyu temada koyudur (mercan üstünde 3,80:1 kalırdı).
-            style: FilledButton.styleFrom(backgroundColor: AppTone.danger.a, foregroundColor: Colors.white),
+            style: FilledButton.styleFrom(
+              backgroundColor: AppTone.danger.a,
+              foregroundColor: Colors.white,
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: const Text('Çıkar'),
           ),
         ],
-        child: Text('${member.fullName} isimli sakin "${apt.fullDisplayName}" dairesinden çıkarılsın mı?'),
+        child: Text(
+          '${member.fullName} isimli sakin "${apt.fullDisplayName}" dairesinden çıkarılsın mı?',
+        ),
       ),
     );
 
@@ -492,7 +508,10 @@ class IndividualHomeViewState extends State<IndividualHomeView>
   }
 
   Future<void> _openClaimDialog() async {
-    final claimedUid = await ClaimDeviceDialog.show(context, widget.authService);
+    final claimedUid = await ClaimDeviceDialog.show(
+      context,
+      widget.authService,
+    );
     if (!mounted) return;
     if (claimedUid != null && claimedUid.isNotEmpty) {
       await loadAll();
@@ -519,9 +538,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
       } else if (assignResult?.outcome == ClaimDeviceAssignOutcome.createDoor) {
         final site = assignResult?.site;
         if (site != null) {
-          final availableDevices = await widget.authService.getAssignableDevices(
-            siteCode: site.id,
-          );
+          final availableDevices = await widget.authService
+              .getAssignableDevices(siteCode: site.id);
           if (!mounted) return;
           final created = await DoorEditDialog.show(
             context,
@@ -650,7 +668,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                   label: entry.value,
                   count:
                       _myDoors.where((d) => d.siteCode == entry.key).length +
-                      _myApartments.where((a) => a.siteCode == entry.key).length,
+                      _myApartments
+                          .where((a) => a.siteCode == entry.key)
+                          .length,
                   isSelected: _selectedSiteCode == entry.key,
                   onTap: () => setState(() => _selectedSiteCode = entry.key),
                 ),
@@ -667,7 +687,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
     // panelde görünmez; sandwich menüdeki "Daireye Katıl" menüsünden erişilir.
     // Başvuru akışında (applications != null: bireysel / daire kullanıcısı) cihaz sahiplenmek kullanıcıyı
     // yönetici yapmaz; cihazı olan kişi de "Site Kur" ile başvurabilmelidir: cihaz kartları gizlemez.
-    final hasTransitioned = widget.session.role == UserRole.siteManager ||
+    final hasTransitioned =
+        widget.session.role == UserRole.siteManager ||
         widget.session.role == UserRole.superUser ||
         widget.session.role == UserRole.apartmentOwner ||
         (_claimedDevices.isNotEmpty && widget.applications == null) ||
@@ -676,7 +697,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
       return const SizedBox.shrink();
     }
 
-    final hasNoContent = _myApartments.isEmpty &&
+    final hasNoContent =
+        _myApartments.isEmpty &&
         _myDoors.isEmpty &&
         _claimedDevices.isEmpty &&
         _myRequests.isEmpty;
@@ -719,7 +741,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
               icon: Icons.add_to_photos_rounded,
               title: 'Cihaz',
               badge: 'CİHAZ',
-              description: 'Yeni cihazınızı kutu QR koduyla hesabınıza ekleyin.',
+              description:
+                  'Yeni cihazınızı kutu QR koduyla hesabınıza ekleyin.',
               action: PrimaryActionButton(
                 label: 'Cihaz Ekle',
                 icon: Icons.add_to_photos_rounded,
@@ -776,28 +799,74 @@ class IndividualHomeViewState extends State<IndividualHomeView>
 
     // İlk yükleme: hiçbir bölüm gelmediyse içerik yerine iskelet. Yenilemede (içerik varken) mevcut
     // liste kalır ve alttaki küçük yükleme göstergesi sürer.
-    final hasContent = _myDoors.isNotEmpty ||
+    final hasContent =
+        _myDoors.isNotEmpty ||
         _myApartments.isNotEmpty ||
         _claimedDevices.isNotEmpty ||
         _myRequests.isNotEmpty;
     final showSkeleton = _isLoading && !hasContent;
 
-    final quickActions = !showSkeleton ? _buildQuickActions() : const SizedBox.shrink();
-    final hasDoorsSection = displayedDoors.isNotEmpty ||
+    final quickActions = !showSkeleton
+        ? _buildQuickActions()
+        : const SizedBox.shrink();
+    final hasDoorsSection =
+        displayedDoors.isNotEmpty ||
         (_selectedSiteCode != null &&
             displayedDoors.isEmpty &&
             _myDoors.isNotEmpty);
-    final hasRightContent = displayedApartments.isNotEmpty ||
+    final hasRightContent =
+        displayedApartments.isNotEmpty ||
         _myRequests.isNotEmpty ||
         _claimedDevices.isNotEmpty ||
         (!showSkeleton && quickActions is! SizedBox);
 
-    final headerWidget = (widget.applications != null ||
+    final showResidentWelcome =
+        widget.session.role == UserRole.apartmentOwner ||
+        displayedApartments.isNotEmpty;
+    final primaryDoor = displayedDoors.isEmpty ? null : displayedDoors.first;
+    final primaryApartment = displayedApartments.isEmpty
+        ? null
+        : displayedApartments.first;
+
+    final headerWidget =
+        (showResidentWelcome ||
+            widget.applications != null ||
             _availableSites.length >= 2 ||
             showSkeleton)
         ? Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              if (showResidentWelcome && !showSkeleton) ...[
+                ResidentWelcomeHero(
+                  fullName: widget.session.fullName,
+                  homeLabel:
+                      primaryApartment?.fullDisplayName ??
+                      primaryDoor?.siteName ??
+                      '',
+                  apartmentCount: displayedApartments.length,
+                  doorCount: displayedDoors.length,
+                  onlineDoorCount: displayedDoors
+                      .where((door) => door.assignedDeviceIsOnline == true)
+                      .length,
+                  pendingRequestCount: _myRequests
+                      .where((request) => request.isPending)
+                      .length,
+                  primaryDoor: primaryDoor,
+                  isOpening:
+                      primaryDoor != null &&
+                      _openingDoorIds.contains(primaryDoor.id),
+                  onOpenDoor: primaryDoor == null
+                      ? null
+                      : () => _handleOpenDoor(primaryDoor),
+                  onShowQr: primaryDoor == null
+                      ? null
+                      : () => _openQrModal(primaryDoor),
+                  onGuestPass: primaryDoor == null
+                      ? null
+                      : () => _openGuestPassDialog(primaryDoor),
+                ),
+                const SizedBox(height: AppSpace.lg),
+              ],
               // Site başvurusu durumu (bekleyen / reddedildi / iptal / onaylandı): yalnız bireysel ve daire
               // kullanıcısında; durum alınamazsa hata + "Tekrar Dene" (asla "başvuru yok" denmez).
               if (widget.applications != null)
@@ -806,7 +875,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                   onReapply: _openApplicationForm,
                   onRefreshAccount: widget.onRefreshAccount,
                   // Onaylandı kartı yalnız henüz yöneticiye yükselmemiş rollerde; durum-alınamadı hatası her başvuran rolde.
-                  showApproved: showsApprovedApplicationCard(widget.session.role),
+                  showApproved: showsApprovedApplicationCard(
+                    widget.session.role,
+                  ),
                   showLoadFailure: canApplyForSite(widget.session.role),
                 ),
 
@@ -996,8 +1067,8 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                   if (widget.canAddDevice)
                     TextButton.icon(
                       onPressed: () => (widget.onClaimDevice != null
-                    ? widget.onClaimDevice!()
-                    : _openClaimDialog()),
+                          ? widget.onClaimDevice!()
+                          : _openClaimDialog()),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Cihaz Ekle'),
                     ),
@@ -1172,11 +1243,7 @@ class _WelcomeCard extends StatelessWidget {
     return AppCard(
       child: Row(
         children: [
-          const IconOrb(
-            icon: Icons.waving_hand_rounded,
-            tone: tone,
-            size: 48,
-          ),
+          const IconOrb(icon: Icons.waving_hand_rounded, tone: tone, size: 48),
           const SizedBox(width: AppSpace.md),
           Expanded(
             child: Column(
@@ -1281,7 +1348,11 @@ class _DoorCardSkeleton extends StatelessWidget {
 /// Cihaz kartındaki "Siteyi Kur" düğmesi. Başvuran rolde bekleyen başvuru varken ya da başvuru durumu
 /// bilinmezken pasiftir; nedeni ipucu ve ekran okuyucu ipucuyla söylenir.
 class _SetupSiteButton extends StatelessWidget {
-  const _SetupSiteButton({required this.uid, required this.onSetupSite, this.tracker});
+  const _SetupSiteButton({
+    required this.uid,
+    required this.onSetupSite,
+    this.tracker,
+  });
 
   final String uid;
   final ValueChanged<String> onSetupSite;
@@ -1318,7 +1389,11 @@ class _SetupSiteButton extends StatelessWidget {
 
 /// "Sahiplendiğim Cihazlar" listesindeki bir cihaz kartı.
 class _ClaimedDeviceCard extends StatelessWidget {
-  const _ClaimedDeviceCard({required this.device, required this.onSetupSite, this.tracker});
+  const _ClaimedDeviceCard({
+    required this.device,
+    required this.onSetupSite,
+    this.tracker,
+  });
 
   final Map<String, dynamic> device;
 
@@ -1426,7 +1501,11 @@ class _ClaimedDeviceCard extends StatelessWidget {
                 if (siteCode != null)
                   StatusChip(label: 'Site: $siteCode', tone: AppTone.success)
                 else
-                  _SetupSiteButton(uid: uid, onSetupSite: onSetupSite, tracker: tracker),
+                  _SetupSiteButton(
+                    uid: uid,
+                    onSetupSite: onSetupSite,
+                    tracker: tracker,
+                  ),
               ],
             ),
           ],

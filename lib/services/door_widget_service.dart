@@ -305,11 +305,39 @@ Future<void> _handleOpenAction() async {
 }
 
 Future<DoorWidgetOpenOutcome> _performOpen() async {
-  final doorId = await HomeWidget.getWidgetData<int>('door_id');
+  int? doorId;
+  try {
+    final rawDoorId = await HomeWidget.getWidgetData<dynamic>('door_id');
+    if (rawDoorId is int) {
+      doorId = rawDoorId;
+    } else if (rawDoorId is String) {
+      doorId = int.tryParse(rawDoorId);
+    } else if (rawDoorId is num) {
+      doorId = rawDoorId.toInt();
+    }
+  } catch (_) {
+    doorId = await HomeWidget.getWidgetData<int>('door_id');
+  }
 
-  final token = await HomeWidget.getWidgetData<String>('auth_token');
+  String? token;
+  try {
+    final rawToken = await HomeWidget.getWidgetData<dynamic>('auth_token');
+    token = rawToken?.toString();
+  } catch (_) {
+    token = await HomeWidget.getWidgetData<String>('auth_token');
+  }
 
-  final baseUrl = await HomeWidget.getWidgetData<String>('api_base_url');
+  String? baseUrl;
+  try {
+    final rawBaseUrl = await HomeWidget.getWidgetData<dynamic>('api_base_url');
+    baseUrl = rawBaseUrl?.toString();
+  } catch (_) {
+    baseUrl = await HomeWidget.getWidgetData<String>('api_base_url');
+  }
+
+  if (baseUrl == null || baseUrl.isEmpty) {
+    baseUrl = AppConfig.baseUrl;
+  }
 
   final apiBase = normalizeWidgetApiBase(baseUrl);
 
@@ -333,6 +361,7 @@ Future<DoorWidgetOpenOutcome> _performOpen() async {
             'Authorization': 'Bearer $token',
             'Content-Type': 'application/json',
           },
+          body: jsonEncode({'source': 'widget'}),
         )
         .timeout(kDoorWidgetOpenTimeout);
 
@@ -364,7 +393,19 @@ Future<void> _cycleDoor({required int step}) async {
   final newIndex = currentIndex + step;
   if (newIndex < 0 || newIndex >= count) return;
 
-  final doorId = await HomeWidget.getWidgetData<int>('door_${newIndex}_id');
+  int? doorId;
+  try {
+    final raw = await HomeWidget.getWidgetData<dynamic>('door_${newIndex}_id');
+    if (raw is int) {
+      doorId = raw;
+    } else if (raw is String) {
+      doorId = int.tryParse(raw);
+    } else if (raw is num) {
+      doorId = raw.toInt();
+    }
+  } catch (_) {
+    doorId = await HomeWidget.getWidgetData<int>('door_${newIndex}_id');
+  }
 
   final doorName =
       await HomeWidget.getWidgetData<String>('door_${newIndex}_name') ?? 'Kapı';
