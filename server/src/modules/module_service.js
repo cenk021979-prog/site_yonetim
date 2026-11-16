@@ -65,7 +65,7 @@ async function loadPendingRequestCodes(siteCode, db) {
  *
  * @param {{ canToggle?: boolean }} [options]  canToggle: çağıranın modül açıp kapatma yetkisi (süper kullanıcı)
  */
-export async function getSiteModulesView(siteCode, db = pool, { canToggle = false } = {}) {
+export async function getSiteModulesView(siteCode, db = pool, { canToggle = false, isSuper = false } = {}) {
   const code = toPositiveInt(siteCode);
   if (code === null) {
     return null;
@@ -85,7 +85,7 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
 
   const rawList = computeSiteModuleList(rows);
   // Süper kullanıcı haricinde platformda pasif olan modülleri kesinlikle gösterme
-  const filteredList = canToggle
+  const filteredList = isSuper
     ? rawList
     : rawList.filter((entry) => platformMap.get(entry.code) !== false);
 
@@ -94,14 +94,23 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
     site_name: site.name,
     management_type: managementType,
     management_type_label: managementTypeLabel(managementType),
-    modules: filteredList.map((entry) => ({
-      ...entry,
-      ...(canToggle ? { is_platform_active: platformMap.get(entry.code) !== false } : {}),
-      can_toggle: canToggle === true && entry.toggleable === true && platformMap.get(entry.code) !== false,
-      request_status: pendingCodes.has(entry.code) ? 'pending' : null,
-      // F9 (ekleyici): bu modül bu yönetim türü için önerilir mi?
-      recommended: isRecommendedModule(managementType, entry.code),
-    })),
+    modules: filteredList.map((entry) => {
+      const isPlatformActive = platformMap.get(entry.code) !== false;
+      const isCore = entry.core === true;
+      const entryCanToggle = canToggle === true &&
+        entry.toggleable === true &&
+        isPlatformActive &&
+        (isSuper || isCore);
+
+      return {
+        ...entry,
+        ...(isSuper ? { is_platform_active: isPlatformActive } : {}),
+        can_toggle: entryCanToggle,
+        request_status: pendingCodes.has(entry.code) ? 'pending' : null,
+        // F9 (ekleyici): bu modül bu yönetim türü için önerilir mi?
+        recommended: isRecommendedModule(managementType, entry.code),
+      };
+    }),
     // F9 (ekleyici): türe özgü terimler.
     management_terms: managementTerms(managementType),
   };

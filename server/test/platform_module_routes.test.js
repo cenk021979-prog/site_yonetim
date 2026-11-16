@@ -786,6 +786,36 @@ describe('PUT modul: onay zorunlulugu ve denetim kaydi', () => {
     assert.equal(state.rotations.length, 0);
   });
 
+  it('site yöneticisi kendi sitesinde temel modülleri açıp kapatabilir (finance enabled: false/true)', async () => {
+    // Başka sitenin yöneticisi kapatamaz
+    const resForbidden = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
+      user: users.mgrB,
+      body: { enabled: false },
+    });
+    assert.equal(resForbidden.status, 403);
+    assert.equal(resForbidden.body.code, 'FORBIDDEN_SITE');
+
+    // Kendi sitesinin yöneticisi kapatabilir
+    const resOff = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
+      user: users.mgrA,
+      body: { enabled: false },
+    });
+    assert.equal(resOff.status, 200);
+    const financeOff = resOff.body.modules.find((m) => m.code === 'finance');
+    assert.equal(financeOff.enabled, false);
+    assert.equal(financeOff.can_toggle, true);
+
+    // Kendi sitesinin yöneticisi tekrar açabilir
+    const resOn = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
+      user: users.mgrA,
+      body: { enabled: true },
+    });
+    assert.equal(resOn.status, 200);
+    const financeOn = resOn.body.modules.find((m) => m.code === 'finance');
+    assert.equal(financeOn.enabled, true);
+    assert.equal(financeOn.can_toggle, true);
+  });
+
   it('sakin ve STAFF: mevcut requireSiteManager 403\'u (code YOK); hicbir sey yazilmaz', async () => {
     for (const user of [users.resident, users.staff]) {
       const res = await call('PUT', moduleUrl(), { user, body: { enabled: false, confirm: true } });

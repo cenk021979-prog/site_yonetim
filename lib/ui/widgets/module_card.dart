@@ -151,7 +151,8 @@ class ModuleCard extends StatelessWidget {
     }
 
     Widget? control;
-    if (!requestMode && module.canToggle) {
+    final canShowSwitch = module.canToggle && (!requestMode || module.core);
+    if (canShowSwitch) {
       control = busy
           ? const SizedBox(
               width: 52,

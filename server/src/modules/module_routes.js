@@ -21,7 +21,7 @@ import { INT32_MAX, parseId } from '../utils/ids.js';
 import { clampAuditLimit, listAuditLog, recordAudit, actorFromAuthUser } from './audit_service.js';
 import { publicCatalog, MODULE_CATALOG, getModuleDefinition } from './catalog.js';
 import { getSiteModulesView, listMySiteModules, setSiteModuleEnabled } from './module_service.js';
-import { getPlatformModulesMap, updatePlatformModuleStatus, cleanupUndeployedModulesFromDatabase } from './platform_modules_schema.js';
+import { getPlatformModulesMap, updatePlatformModuleStatus, cleanupUndeployedModulesFromDatabase, isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import { listManagementTypesView } from './management_type_terms.js';
 import {
   HOUR_MS,
@@ -107,8 +107,8 @@ moduleRouter.get('/manager/sites/:siteCode/modules', authRequired, requireSiteMa
     if (siteCode === null) {
       return undefined;
     }
-    // can_toggle: yalnız süper kullanıcı için (ve katalogda açılıp kapanabilen modüllerde) true
-    const view = await getSiteModulesView(siteCode, undefined, { canToggle: req.authUser?.role === 'super_user' });
+    const isSuper = req.authUser?.role === 'super_user';
+    const view = await getSiteModulesView(siteCode, undefined, { canToggle: true, isSuper });
     if (!view) {
       return res.status(404).json(SITE_NOT_FOUND_BODY);
     }
@@ -125,23 +125,40 @@ moduleRouter.put(
   moduleToggleLimiter,
   async (req, res) => {
     try {
-      // Faz 1.1: site yöneticisi modül açıp kapatmaz (satın alma/tanımlama sistem yöneticisindedir); talep eder.
-      if (req.authUser?.role !== 'super_user') {
-        return res.status(403).json(MODULE_ADMIN_ONLY_BODY);
+      const isSuper = req.authUser?.role === 'super_user';
+      const moduleCode = String(req.params.moduleCode ?? '');
+      const definition = getModuleDefinition(moduleCode);
+
+      // Site yöneticisi (süper kullanıcı olmayan yetkili):
+      // Yalnızca temel modülleri açıp kapatabilir. Ek modüller satın alma/onay gerektirdiği için talep edilir.
+      if (!isSuper) {
+        if (!definition || !definition.core) {
+          return res.status(403).json(MODULE_ADMIN_ONLY_BODY);
+        }
       }
+
       const siteCode = await resolveManagedSite(req, res);
       if (siteCode === null) {
         return undefined;
       }
+
+      if (!isSuper) {
+        // Devrede olmayan modüller site yöneticisi tarafından açılamaz / değiştirilemez
+        const isPlatformActive = await isModuleActiveOnPlatform(moduleCode);
+        if (!isPlatformActive) {
+          return res.status(404).json({ error: 'Modül bulunamadı.', code: 'MODULE_NOT_FOUND' });
+        }
+      }
+
       const body = req.body && typeof req.body === 'object' ? req.body : {};
       await setSiteModuleEnabled({
         siteCode,
-        moduleCode: String(req.params.moduleCode ?? ''),
+        moduleCode,
         enabled: body.enabled,
         confirm: body.confirm === true,
         actor: req.authUser,
       });
-      const view = await getSiteModulesView(siteCode, undefined, { canToggle: true });
+      const view = await getSiteModulesView(siteCode, undefined, { canToggle: true, isSuper });
       if (!view) {
         return res.status(404).json(SITE_NOT_FOUND_BODY);
       }
