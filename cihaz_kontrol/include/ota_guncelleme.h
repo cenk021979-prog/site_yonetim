@@ -60,8 +60,8 @@ inline constexpr char OTA_PREF_LAST_VERSION[] = "last_version";
 inline constexpr char OTA_PREF_TRY_VERSION[] = "try_ver";
 inline constexpr char OTA_PREF_TRY_COUNT[] = "try_cnt";
 // OTA_KURULUM.txt: acilista Wi-Fi oturduktan ~90 sn + cihaz bazli (MAC) rastgele gecikme; sonra 24 saatte bir.
-inline constexpr unsigned long OTA_BOOT_CHECK_DELAY_MS = 90UL * 1000UL;
-inline constexpr unsigned long OTA_BOOT_JITTER_MS = 60UL * 1000UL;
+inline constexpr unsigned long OTA_BOOT_CHECK_DELAY_MS = 5UL * 1000UL;
+inline constexpr unsigned long OTA_BOOT_JITTER_MS = 2UL * 1000UL;
 inline constexpr unsigned long OTA_PERIODIC_CHECK_MS = 24UL * 60UL * 60UL * 1000UL;
 inline constexpr unsigned long OTA_MIN_RETRY_MS = 10UL * 60UL * 1000UL;
 inline constexpr unsigned long OTA_MIN_INTERVAL_MS = 60UL * 60UL * 1000UL;

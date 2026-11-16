@@ -11,6 +11,10 @@
 
 - [ ] **184.6. SmartKeyPass ve OTA Sürüm Oluşturma/Yükleme Engellerinin Kalkması (Kural 27 Kaldırıldı):** SmartKeyPass uygulamasında bir firmware sürümü için (örn. 4.4.2) "Sürüm oluştur" butonuna basın. Yer tutucu anahtar veya imza engeliyle karşılaşmadan sürüm paketinin sorunsuz üretildiğini doğrulayın. Ardından "Sunucuya gönder (OTA)" ile VPS'e aktarın ve sunucunun manifesti 200 ile dağıttığını teyit edin.
 
+- [ ] **184.7. Açılışta ve Uygulamadan Komutla Anında OTA Kontrolü:**
+  - **Açılışta OTA Testi:** Cihazı yeniden başlatın. Wi-Fi ve NTP saat senkronizasyonu sağlandıktan 5-7 saniye içinde cihazın seri portunda "OTA kontrolu basladi." yazmalı ve sunucudaki sürüm mevcut sürümden yüksekse indirmeye başlayarak otomatik güncellenmelidir.
+  - **Uygulamadan Komutla OTA Testi:** Cihaz açıkken uygulamadan/panelden OTA kontrol sinyali gönderildiğinde cihaz gecikme (jitter) olmadan anında "OTA kontrolu basladi." adımına geçmeli ve güncellemeyi icra etmelidir.
+
 - [ ] **184.0. Eski retained MQTT paketi çevrimdışı cihazı online göstermemeli:** Cihazı kapatın, API/MQTT köprüsünü yeniden başlatın ve kapı durumunu yenileyin. Brokerda eski retained `online`/`state` bulunsa bile cihaz çevrimdışı görünmeli; cihaz yeniden bağlanıp canlı paket gönderince otomatik online olmalıdır.
 
 - [ ] **184.1. OTA Manifest HTTP İsteklerinde Çevrimiçi Durumun Korunması:**

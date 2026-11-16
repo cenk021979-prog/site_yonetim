@@ -360,9 +360,9 @@ inline void mqttCallback(char* topic, byte* payload, unsigned int length) {
     // Is kimligi (ota_job_id; metin/pozitif tamsayi, <=40 karakter) RAM'de saklanir ve OTA olaylarina (ota_*) yansitilir; yok/gecersizse
     // onceki kimlik temizlenir. Sunucu olay JSON'unda ota_job_id'yi bekler (mqtt_bridge.js recordOtaJobDeviceEvent).
     otaIsKimligiAyarla(doc["ota_job_id"]);
-    // Toplu is (ota_job_id var): cihazlar ayni anda manifest + 1,8 MB indirmeye girmesin; MAC tabanli 0-120 sn gecikmeyle planlanir.
-    // Tekil/elle talepte (ota_job_id null/yok) kontrol hemen calisir.
-    otaTalepEt("mqtt", !doc["ota_job_id"].isNull());
+    // Uygulama ve panelden gelen OTA kontrol komutu hemen calissin (dagit: true ozellikle istenmedikce aninda gunceller)
+    const bool dagit = (doc["dagit"] | false);
+    otaTalepEt("mqtt", dagit);
     mqttPublishEvent("ota_check_requested");
   } else if (action == "local_control_config") {
     // C4: yerel kontrol anahtari NVS'e yazilir (MQTT parolasindan ayri)
