@@ -1377,10 +1377,21 @@ class LoginDialog:
             pass
 
         dlg_w, dlg_h = px(440), px(550)
-        sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
-        x = max(0, (sw - dlg_w) // 2)
-        y = max(0, (sh - dlg_h) // 2)
+        root.update_idletasks()
+        if root.winfo_ismapped() and root.winfo_width() > 100:
+            rx = root.winfo_rootx()
+            ry = root.winfo_rooty()
+            rw = root.winfo_width()
+            rh = root.winfo_height()
+            x = max(0, rx + (rw - dlg_w) // 2)
+            y = max(0, ry + (rh - dlg_h) // 2)
+        else:
+            sw, sh = self.dialog.winfo_screenwidth(), self.dialog.winfo_screenheight()
+            x = max(0, (sw - dlg_w) // 2)
+            y = max(0, (sh - dlg_h) // 2)
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
+        self.dialog.lift()
+        self.dialog.focus_force()
 
         card = kit.card(self.dialog, padding=24)
         card.pack(fill=tk.BOTH, expand=True, padx=px(16), pady=px(16))
@@ -2078,7 +2089,6 @@ class App:
                 self.toast(f"Hoş geldiniz, {user.get('full_name') or user.get('email')}", "success")
                 return
 
-        self.root.withdraw()
         LoginDialog(
             root=self.root,
             kit=self.kit,
@@ -2091,12 +2101,7 @@ class App:
         self.auth_token = token
         self.current_user = user
         self._update_user_profile_ui()
-        self.root.deiconify()
         self.root.lift()
-        try:
-            self.root.state("zoomed")
-        except Exception:
-            pass
         self.root.focus_force()
         self.toast(f"Giriş başarılı: {user.get('full_name') or user.get('email')}", "success")
         if self.labeled_page:
@@ -2118,7 +2123,6 @@ class App:
         self.auth_token = None
         self.current_user = None
         self._update_user_profile_ui()
-        self.root.withdraw()
         LoginDialog(
             root=self.root,
             kit=self.kit,
