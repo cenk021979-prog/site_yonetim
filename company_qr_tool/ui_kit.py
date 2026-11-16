@@ -28,6 +28,7 @@ class C:
     """Renkler. Marka: lacivert #283848, camgöbeği #088890 (SmartKeyPass logosu)."""
 
     BG = "#F3F6F8"
+    PAGE_BG = BG
     SURFACE = "#FFFFFF"
     SURFACE_ALT = "#F6F8FA"
     FILL = "#EDF1F4"
@@ -140,6 +141,7 @@ LABEL_KINDS = {
     "heading": ("heading", C.TEXT),
     "title": ("title", C.TEXT),
     "body": ("body", C.TEXT),
+    "body_sb": ("body_sb", C.TEXT),
     "body2": ("body", C.TEXT_2),
     "muted": ("small", C.TEXT_2),
     "caption": ("small", C.TEXT_3),
@@ -152,7 +154,7 @@ LABEL_KINDS = {
 
 # Koyu zeminlerde (yan menu, konsol, bildirim) yazi renkleri.
 DARK_FG = {
-    "nav": {"caption": C.NAV_MUTED, "caps": C.NAV_MUTED, "muted": C.NAV_MUTED, "body": C.NAV_TEXT, "body2": C.NAV_TEXT},
+    "nav": {"caption": C.NAV_MUTED, "caps": C.NAV_MUTED, "muted": C.NAV_MUTED, "body": C.NAV_TEXT, "body_sb": C.NAV_TEXT, "body2": C.NAV_TEXT, "value": C.NAV_TEXT},
     "console": {"mono": C.CONSOLE_TEXT, "caption": C.CONSOLE_DIM},
     "toast": {"body": C.TOAST_TEXT, "body2": C.TOAST_TEXT, "caption": "#B6C3CF"},
 }
@@ -162,8 +164,11 @@ PILLS = {
     "info": (C.PRIMARY_SOFT, C.PRIMARY_SOFT_TEXT, C.TEAL),
     "busy": (C.PRIMARY_SOFT, C.PRIMARY_SOFT_TEXT, C.TEAL),
     "ok": (C.SUCCESS_SOFT, C.SUCCESS, "#22A55A"),
+    "success": (C.SUCCESS_SOFT, C.SUCCESS, "#22A55A"),
     "warn": (C.WARNING_SOFT, C.WARNING, "#E19A1C"),
+    "warning": (C.WARNING_SOFT, C.WARNING, "#E19A1C"),
     "error": (C.DANGER_SOFT, C.DANGER, "#DC3B3B"),
+    "danger": (C.DANGER_SOFT, C.DANGER, "#DC3B3B"),
 }
 
 TOAST_KINDS = {
@@ -177,6 +182,7 @@ TOAST_KINDS = {
 BUTTONS = {
     "primary": (C.PRIMARY, C.PRIMARY_HOVER, C.PRIMARY_PRESSED, C.PRIMARY_DISABLED, "#FFFFFF", "#F2F8F8", C.FOCUS),
     "secondary": (C.FILL, C.FILL_HOVER, C.FILL_PRESSED, "#F1F4F6", C.TEXT, C.TEXT_DISABLED, C.PRIMARY),
+    "default": (C.FILL, C.FILL_HOVER, C.FILL_PRESSED, "#F1F4F6", C.TEXT, C.TEXT_DISABLED, C.PRIMARY),
     "danger": (C.DANGER, C.DANGER_HOVER, C.DANGER_PRESSED, "#EBC1C1", "#FFFFFF", "#FBEFEF", "#5C1010"),
     "danger_soft": (C.DANGER_SOFT, C.DANGER_SOFT_HOVER, C.DANGER_SOFT_PRESSED, "#F7F0F0", C.DANGER, "#D9A3A3", C.DANGER),
     "ghost": (None, C.FILL, C.FILL_HOVER, None, C.TEXT_2, C.TEXT_DISABLED, C.PRIMARY),
@@ -336,7 +342,9 @@ class Kit:
         self.toasts = ToastManager(self)
 
     # -- olcek ve yazi tipleri ------------------------------------------------
-    def px(self, value: float) -> int:
+    def px(self, value: float | tuple[float, ...]) -> int | tuple[int, ...]:
+        if isinstance(value, (tuple, list)):
+            return tuple(int(round(v * self.scale)) for v in value)
         return int(round(value * self.scale))
 
     def _find_icon_font(self) -> Path | None:
@@ -692,13 +700,15 @@ class Kit:
         return im.resize((w, h), Image.Resampling.LANCZOS)
 
     def button_style(self, variant: str = "secondary", surface: str = "card", compact: bool = False) -> str:
+        if variant not in BUTTONS:
+            variant = "secondary"
         name = f"Kit.{variant}.{surface}{'.c' if compact else ''}.TButton"
         if name in self._styles:
             return name
         self._styles.add(name)
         px = self.px
         fill, hover, pressed, dis, fg, dis_fg, ring = BUTTONS[variant]
-        bg = SURFACES[surface]
+        bg = SURFACES.get(surface, C.SURFACE)
         fill = fill or bg
         dis = dis or bg
         r = px(8)
@@ -755,22 +765,25 @@ class Kit:
         name = f"{kind}.{surface}{'.' + fg.lstrip('#') if fg else ''}.TLabel"
         if name not in self._styles:
             self._styles.add(name)
-            font_key, color = LABEL_KINDS[kind]
+            font_key, color = LABEL_KINDS.get(kind, ("body_sb" if (kind == "body_sb" or kind in self.fonts) else "body", C.TEXT))
             color = fg or DARK_FG.get(surface, {}).get(kind, color)
-            self.style.configure(name, background=SURFACES[surface], foreground=color, font=self.fonts[font_key])
+            self.style.configure(name, background=SURFACES.get(surface, C.SURFACE), foreground=color, font=self.fonts.get(font_key, self.fonts["body"]))
         return name
 
     def pill_style(self, kind: str, surface: str = "card") -> str:
+        if kind not in PILLS:
+            kind = "ok" if kind == "success" else ("warn" if kind == "warning" else ("error" if kind == "danger" else "neutral"))
         name = f"Kit.pill.{kind}.{surface}.TLabel"
         if name in self._styles:
             return name
         self._styles.add(name)
         px = self.px
-        fill, fg, _dot = PILLS[kind]
+        fill, fg, _dot = PILLS.get(kind, PILLS["neutral"])
         r = px(11)
         size = 2 * r + TILE
         elem = f"Kit.pill.{kind}.{surface}.bg"
-        image = self._photo(("pill", fill, SURFACES[surface], size), lambda: _layers_image((size, size), [(0, r, fill)], SURFACES[surface]))
+        bg_surface = SURFACES.get(surface, C.SURFACE)
+        image = self._photo(("pill", fill, bg_surface, size), lambda: _layers_image((size, size), [(0, r, fill)], bg_surface))
         self._elem(elem, image, [], border=r + 1, sticky="nsew")
         self.style.layout(
             name,
@@ -828,8 +841,11 @@ class Kit:
             spec = (self.icon(info["icon"], size, fg, gap), "disabled", self.icon(info["icon"], size, dis_fg, gap))
         b.configure(image=spec, compound="left" if has_text else "image")
 
-    def card(self, parent: tk.Misc, padding: float = 18) -> ttk.Frame:
-        p = self.px(padding) + self.card_margin
+    def card(self, parent: tk.Misc, padding: float | tuple[float, ...] = 18) -> ttk.Frame:
+        if isinstance(padding, (tuple, list)):
+            p = tuple((int(v) if isinstance(v, (int, float)) and v > 50 else self.px(v)) + self.card_margin for v in padding)
+        else:
+            p = self.px(padding) + self.card_margin
         return ttk.Frame(parent, style="Card.TFrame", padding=p)
 
     def inset(self, parent: tk.Misc, padding: float = 12) -> ttk.Frame:

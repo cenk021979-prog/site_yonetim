@@ -1367,7 +1367,7 @@ class LoginDialog:
         self.dialog = tk.Toplevel(root)
         self.dialog.title("SmartKeyPass — Yönetici Girişi")
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg=C.PAGE_BG)
+        self.dialog.configure(bg=C.BG)
         self.dialog.protocol("WM_DELETE_WINDOW", self._on_close)
 
         self.dialog.transient(root)
@@ -1382,7 +1382,7 @@ class LoginDialog:
         y = max(0, (sh - dlg_h) // 2)
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
 
-        card = kit.card(self.dialog, padding=(px(28), px(24)))
+        card = kit.card(self.dialog, padding=24)
         card.pack(fill=tk.BOTH, expand=True, padx=px(16), pady=px(16))
         card.columnconfigure(0, weight=1)
 
@@ -1463,7 +1463,7 @@ class LoginDialog:
         btn_row.columnconfigure(0, weight=1)
         btn_row.columnconfigure(1, weight=1)
 
-        self.cancel_btn = kit.button(btn_row, "Çıkış", self._on_close, "default")
+        self.cancel_btn = kit.button(btn_row, "Çıkış", self._on_close, "secondary")
         self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
 
         self.login_btn = kit.button(btn_row, "Giriş Yap", self._do_login, "primary", icon="unlock")
@@ -1532,7 +1532,7 @@ class SshPasswordDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title("Sunucu & Envanter Kaydı — SSH Doğrulaması")
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg=C.PAGE_BG)
+        self.dialog.configure(bg=C.BG)
 
         self.dialog.transient(parent)
         try:
@@ -1546,7 +1546,7 @@ class SshPasswordDialog:
         y = max(0, (sh - dlg_h) // 2)
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
 
-        card = kit.card(self.dialog, padding=(px(24), px(20)))
+        card = kit.card(self.dialog, padding=20)
         card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
         card.columnconfigure(0, weight=1)
 
@@ -1593,7 +1593,7 @@ class SshPasswordDialog:
         btn_row.columnconfigure(0, weight=1)
         btn_row.columnconfigure(1, weight=1)
 
-        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "default")
+        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "secondary")
         self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
 
         self.confirm_btn = kit.button(btn_row, "Kaydet ve Envantere Ekle", self._do_confirm, "primary", icon="save")
@@ -1634,7 +1634,7 @@ class EditDeviceDialog:
         uid = str(device_info.get("device_uid", "")).upper()
         self.dialog.title(f"Cihazı Düzenle — {uid}")
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg=C.PAGE_BG)
+        self.dialog.configure(bg=C.BG)
 
         self.dialog.transient(parent)
         try:
@@ -1648,7 +1648,7 @@ class EditDeviceDialog:
         y = max(0, (sh - dlg_h) // 2)
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
 
-        card = kit.card(self.dialog, padding=(px(24), px(20)))
+        card = kit.card(self.dialog, padding=20)
         card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
         card.columnconfigure(0, weight=1)
 
@@ -1712,7 +1712,7 @@ class EditDeviceDialog:
         btn_row.columnconfigure(0, weight=1)
         btn_row.columnconfigure(1, weight=1)
 
-        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "default")
+        self.cancel_btn = kit.button(btn_row, "İptal", self.dialog.destroy, "secondary")
         self.cancel_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(6)))
 
         self.save_btn = kit.button(btn_row, "Güncelle ve Kaydet", self._do_save, "primary", icon="save")
@@ -1791,7 +1791,7 @@ class QrViewDialog:
         self.dialog = tk.Toplevel(parent)
         self.dialog.title(f"Karekod İncele — {device_uid}")
         self.dialog.resizable(False, False)
-        self.dialog.configure(bg=C.PAGE_BG)
+        self.dialog.configure(bg=C.BG)
 
         self.dialog.transient(parent)
         try:
@@ -1805,7 +1805,7 @@ class QrViewDialog:
         y = max(0, (sh - dlg_h) // 2)
         self.dialog.geometry(f"{dlg_w}x{dlg_h}+{x}+{y}")
 
-        card = kit.card(self.dialog, padding=(px(20), px(20)))
+        card = kit.card(self.dialog, padding=20)
         card.pack(fill=tk.BOTH, expand=True, padx=px(14), pady=px(14))
         card.columnconfigure(0, weight=1)
 
@@ -1855,8 +1855,8 @@ class QrViewDialog:
             qr_image.save(path, format="PNG")
             kit.toast(f"Kaydedildi: output\\{path.name}", "success")
 
-        kit.button(btn_row, "Yazdır", _print, "default", icon="print").grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
-        kit.button(btn_row, "PNG Kaydet", _save, "default", icon="save").grid(row=0, column=1, sticky="ew", padx=px(4))
+        kit.button(btn_row, "Yazdır", _print, "secondary", icon="print").grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
+        kit.button(btn_row, "PNG Kaydet", _save, "secondary", icon="save").grid(row=0, column=1, sticky="ew", padx=px(4))
         kit.button(btn_row, "Kapat", self.dialog.destroy, "primary").grid(row=0, column=2, sticky="ew", padx=(px(4), 0))
 
         self.dialog.bind("<Escape>", lambda _e: self.dialog.destroy())
@@ -1979,9 +1979,9 @@ class App:
 
         self.user_frame = tk.Frame(self.sidebar.footer, bg=C.NAVY)
         self.user_frame.pack(fill=tk.X, pady=(0, px(10)))
-        self.user_name_label = kit.label(self.user_frame, "Giriş yapılıyor…", "body_sb", "nav")
+        self.user_name_label = kit.label(self.user_frame, "Giriş yapılıyor…", "body", "nav")
         self.user_name_label.pack(anchor="w")
-        self.user_role_pill = Pill(self.user_frame, kit, "Süper Kullanıcı", "success")
+        self.user_role_pill = Pill(self.user_frame, kit, "Süper Kullanıcı", "ok", surface="nav")
         self.user_role_pill.pack(anchor="w", pady=(px(2), px(4)))
         self.logout_btn = kit.button(self.user_frame, "Çıkış Yap", self._on_logout, variant="nav", surface="nav")
         self.logout_btn.pack(anchor="w")
@@ -2138,11 +2138,11 @@ class App:
                 or "Süper Kullanıcı"
             )
             self.user_name_label.configure(text=f"👤 {name[:18]}")
-            self.user_role_pill.set("Süper Kullanıcı", "success")
+            self.user_role_pill.set("Süper Kullanıcı", "ok")
             self.logout_btn.pack(anchor="w")
         else:
             self.user_name_label.configure(text="Oturum Yok")
-            self.user_role_pill.set("Giriş Yapılmadı", "warning")
+            self.user_role_pill.set("Giriş Yapılmadı", "warn")
             self.logout_btn.pack_forget()
 
     def _build_tester_page(self, page: ttk.Frame) -> None:
@@ -3900,7 +3900,7 @@ class LabeledDevicesPage:
         row3.columnconfigure(1, weight=1, uniform="lq")
         self.edit_btn = kit.button(row3, "Cihazı düzenle", self._on_edit_selected_device, "primary", icon="edit")
         self.edit_btn.grid(row=0, column=0, sticky="ew", padx=(0, px(4)))
-        self.view_qr_btn = kit.button(row3, "Karekod incele", self._on_view_large_qr, "default", icon="qr")
+        self.view_qr_btn = kit.button(row3, "Karekod incele", self._on_view_large_qr, "secondary", icon="qr")
         self.view_qr_btn.grid(row=0, column=1, sticky="ew", padx=(px(4), 0))
 
         self.delete_btn = kit.button(right, "Cihazı sil", self._delete_selected_device, "danger_soft", icon="delete")
