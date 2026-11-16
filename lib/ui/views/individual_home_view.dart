@@ -16,7 +16,9 @@ import 'package:site_kapi_kontrol/ui/design/motion_widgets.dart';
 import 'package:site_kapi_kontrol/ui/design/skeleton.dart';
 import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/claim_device_assign_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/create_guest_pass_dialog.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/door_edit_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/setup_site_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/submit_join_request_dialog.dart';
 import 'package:site_kapi_kontrol/models/join_request_record.dart';
@@ -47,6 +49,7 @@ class IndividualHomeView extends StatefulWidget {
     this.applications,
     this.onRefreshAccount,
     this.canAddDevice = false,
+    this.onClaimDevice,
   });
 
   final UserSession session;
@@ -63,6 +66,9 @@ class IndividualHomeView extends StatefulWidget {
   /// "Cihaz Ekle" düğmeleri görünsün mü? Yalnız site yöneticisi (Geçiş Kontrol modülü açık sitede) ya da süper kullanıcı cihaz
   /// ekleyebilir (bkz. [canAddDevice]); varsayılan false: bireysel / daire kullanıcısı cihaz ekleyemez, mevcut cihazları listelenir.
   final bool canAddDevice;
+
+  /// Cihaz ekleme akışını üst seviyeden yürütme (ana ekrandaki [_openClaimDeviceFlow]).
+  final Future<void> Function()? onClaimDevice;
 
   @override
   State<IndividualHomeView> createState() => IndividualHomeViewState();
@@ -492,25 +498,50 @@ class IndividualHomeViewState extends State<IndividualHomeView>
       await loadAll();
       widget.onRefreshAll();
       if (!mounted) return;
-      final role = widget.authService.session?.role ?? widget.session.role;
-      if (canApplyForSite(role)) {
-        // Cihaz sahiplenmek kullanıcıyı site yöneticisi YAPMAZ (rol değişmez): bilgi + "Site Kur" eylemi.
-        if (_openingSetup) return;
-        _openingSetup = true;
-        try {
-          await offerSiteApplicationAfterClaim(
+
+      final assignResult = await ClaimDeviceAssignDialog.show(
+        context,
+        authService: widget.authService,
+        deviceUid: claimedUid,
+      );
+
+      if (!mounted) return;
+
+      if (assignResult?.outcome == ClaimDeviceAssignOutcome.assigned) {
+        final doorName = assignResult?.assignedDoor?.doorName ?? 'Kapı';
+        AppSnack.show(
+          context,
+          'Cihaz $doorName kapısına başarıyla atandı.',
+          kind: AppSnackKind.success,
+        );
+        await loadAll();
+        widget.onRefreshAll();
+      } else if (assignResult?.outcome == ClaimDeviceAssignOutcome.createDoor) {
+        final site = assignResult?.site;
+        if (site != null) {
+          final availableDevices = await widget.authService.getAssignableDevices(
+            siteCode: site.id,
+          );
+          if (!mounted) return;
+          final created = await DoorEditDialog.show(
             context,
             authService: widget.authService,
-            deviceUid: claimedUid,
-            tracker: widget.applications,
+            siteCode: site.id,
+            initialDeviceUid: claimedUid,
+            availableDevices: availableDevices,
           );
-        } finally {
-          _openingSetup = false;
+          if (created == true) {
+            await loadAll();
+            widget.onRefreshAll();
+          }
         }
-        return;
+      } else {
+        AppSnack.show(
+          context,
+          'Cihaz ($claimedUid) hesabınıza eklendi.',
+          kind: AppSnackKind.success,
+        );
       }
-      // Yönetici / süper kullanıcı: eski akış, kullanıcıyı doğrudan Site Kurulum Sihirbazı'na yönlendir
-      await _openSetupSite(claimedUid);
     }
   }
 
@@ -693,7 +724,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                 label: 'Cihaz Ekle',
                 icon: Icons.add_to_photos_rounded,
                 tone: AppTone.primary,
-                onPressed: _openClaimDialog,
+                onPressed: () => (widget.onClaimDevice != null
+                    ? widget.onClaimDevice!()
+                    : _openClaimDialog()),
               ),
             ),
           ),
@@ -962,7 +995,9 @@ class IndividualHomeViewState extends State<IndividualHomeView>
                 children: [
                   if (widget.canAddDevice)
                     TextButton.icon(
-                      onPressed: _openClaimDialog,
+                      onPressed: () => (widget.onClaimDevice != null
+                    ? widget.onClaimDevice!()
+                    : _openClaimDialog()),
                       icon: const Icon(Icons.add_rounded, size: 18),
                       label: const Text('Cihaz Ekle'),
                     ),

@@ -829,7 +829,6 @@ void main() {
           'Daire Sakinleri',
           'Site Yönetimi',
           'Kişiler',
-          'Daireye Katıl',
           'Borçlar',
           'Finans',
           'İletişim',

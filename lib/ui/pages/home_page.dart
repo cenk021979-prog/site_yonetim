@@ -91,6 +91,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/apartment_resident_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/create_guest_pass_dialog.dart';
 
 import 'package:site_kapi_kontrol/ui/dialogs/device_dialog.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/claim_device_assign_dialog.dart';
 import 'package:site_kapi_kontrol/ui/widgets/claim_device_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/door_device_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/door_edit_dialog.dart';
@@ -670,7 +671,15 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   bool _isLoadingPendingSiteApprovals = false;
 
-  bool _isResidentMode = false;
+  bool _internalResidentMode = false;
+  bool get _isResidentMode =>
+      (widget.authService.session?.role == UserRole.superUser)
+          ? false
+          : _internalResidentMode;
+  set _isResidentMode(bool val) {
+    _internalResidentMode =
+        (widget.authService.session?.role == UserRole.superUser) ? false : val;
+  }
 
   bool _shareOpen = false;
 
@@ -794,9 +803,8 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   bool get _canToggleDualMode {
     final session = widget.authService.session;
-    if (session == null) return false;
-    if (session.role == UserRole.superUser ||
-        session.role == UserRole.siteManager) {
+    if (session == null || session.role == UserRole.superUser) return false;
+    if (session.role == UserRole.siteManager) {
       return true;
     }
     return (_doorControlSitesPage?.sites.isNotEmpty ?? false);
@@ -2684,6 +2692,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     }
     if (item == SirketMenuItem.katilimVeKurulum ||
         item == SirketMenuItem.yeniSite) {
+      if (role == UserRole.superUser) return false;
       return true;
     }
 
@@ -3226,6 +3235,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
 
   /// "Sakin Modu / Yönetici Paneli" geçişi (AppBar hapı ve çekmece): yönetici paneline dönüşte menü Panel'e alınır.
   void _toggleResidentMode() {
+    if (widget.authService.session?.role == UserRole.superUser) return;
     _requestMenuChange(SirketMenuItem.dashboard, () {
       if (!mounted) return;
       _jumpBodyToTop();
@@ -5285,47 +5295,42 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
     if (claimedUid != null && claimedUid.isNotEmpty) {
       await _loadCompanyDevices(force: true);
       await _loadDoorControlSites();
+      await _loadSites(force: true);
       if (!mounted) return;
-      // Cihaz sahiplenmek bireysel / daire kullanıcısını site yöneticisi YAPMAZ (rol değişmez): bilgi
-      // metni + "Site Kur" (başvuru) eylemi sunulur; yönetici görünümüne geçiş beklenmez.
-      if (usesSiteApplicationFlow(
-        widget.authService.session?.role,
-        _siteApplications,
-      )) {
-        await offerSiteApplicationAfterClaim(
-          context,
-          authService: widget.authService,
-          deviceUid: claimedUid,
-          tracker: _siteApplications,
-        );
-        return;
-      }
-      final hasSites = _doorControlSitesPage?.sites.isNotEmpty ?? false;
-      if (!hasSites) {
-        // Yönetici / süper kullanıcı: anlık site kurulum sihirbazı.
-        final result = await SetupSiteDialog.show(
-          context,
-          authService: widget.authService,
-          deviceUid: claimedUid,
-        );
-        if (result == SetupSiteOutcome.created) {
-          _loadInitialData();
-        } else if (result == SetupSiteOutcome.applied) {
-          unawaited(_siteApplications.noteChanged());
+
+      final sites = _sitesPage?.sites ??
+          _doorControlSitesPage?.sites ??
+          const <SiteRecord>[];
+      final assignResult = await ClaimDeviceAssignDialog.show(
+        context,
+        authService: widget.authService,
+        deviceUid: claimedUid,
+        sites: sites,
+        initialSite: _selectedSite ?? _doorControlSite,
+      );
+
+      if (!mounted) return;
+
+      if (assignResult?.outcome == ClaimDeviceAssignOutcome.assigned) {
+        final doorName = assignResult?.assignedDoor?.doorName ?? 'Kapı';
+        _showMessage('Cihaz $doorName kapısına başarıyla atandı.');
+        if (assignResult?.site != null) {
+          _selectSite(assignResult!.site!);
         }
+        _loadSites(force: true);
+        _loadDoorControlSites();
+        _loadCompanyDevices(force: true);
+      } else if (assignResult?.outcome == ClaimDeviceAssignOutcome.createDoor) {
+        await _openDoorDialog(
+          initialDeviceUid: claimedUid,
+          siteOverride: assignResult?.site,
+        );
       } else {
-        if (mounted) {
-          AppSnack.show(
-            context,
-            'Cihaz ($claimedUid) hesabınıza bağlandı.',
-            kind: AppSnackKind.success,
-            duration: const Duration(seconds: 8),
-            action: SnackBarAction(
-              label: 'Kapı Oluştur',
-              onPressed: () => _openDoorDialog(initialDeviceUid: claimedUid),
-            ),
-          );
-        }
+        AppSnack.show(
+          context,
+          'Cihaz ($claimedUid) hesabınıza eklendi.',
+          kind: AppSnackKind.success,
+        );
       }
     }
   }
@@ -7446,6 +7451,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
       onRefreshAccount: () => _refreshAccountAfterApproval(),
       // Cihaz ekleme: yalnız Geçiş Kontrol modülü açık sitenin yöneticisi (ya da süper kullanıcı).
       canAddDevice: _canAddDevice(session),
+      onClaimDevice: _openClaimDeviceFlow,
     );
     if (_isDoorControlClosed(session)) {
       return Column(

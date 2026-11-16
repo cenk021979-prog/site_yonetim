@@ -1605,8 +1605,6 @@ List<SirketMenuItem> _itemsForRole(
         SirketMenuItem.moduller,
         SirketMenuItem.modulTalepleri,
         SirketMenuItem.siteBasvurulari,
-        SirketMenuItem.katilimVeKurulum,
-        SirketMenuItem.yeniSite,
         SirketMenuItem.cihazEkle,
         SirketMenuItem.kayitliCihazlar,
         SirketMenuItem.bluetoothWifiKur,

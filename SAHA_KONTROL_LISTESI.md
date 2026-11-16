@@ -5320,3 +5320,29 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     1. Henüz platform genelinde devreye alınmamış bir modülün (`Acil Durum ve SOS`) durumunu kontrol edin.
     2. Normal bir sitenin modül listesine ve menüsüne bakın.
   - **Beklenen Sonuç:** Platform anahtarı kapalı (`is_platform_active = false`) olan modüller hiçbir sitede görünmez, menüye eklenmez ve açılamaz. Süper kullanıcı platformdan aktif edene kadar gizli kalır.
+
+---
+
+## 184. 🚪 Cihaz Ekleme Sonrası Akıllı Kapı Atama & Site Kur Ekranı İptali (2026-11-16)
+
+- [ ] **184.1. Cihaz Eklendiğinde Site Kurulumuna Atılmaması ve Mevcut Kapılara Atama Yapılabilmesi:**
+  - **Nasıl Test Edilir:**
+    1. Site yöneticisi hesabıyla sisteme giriş yapın.
+    2. "Cihaz Ekle" / "Yeni Cihaz Kaydet" butonuna tıklayıp geçerli bir cihaz UID'si veya QR kodu ile cihazı sahiplenin.
+    3. Cihaz başarıyla eklendiğinde açılan onay penceresini inceleyin.
+    4. Sitede mevcut kapılar varsa listeden bir kapı seçin ve "Kapıya Ata" butonuna dokunun.
+    5. İstenirse "Yeni Kapı Oluştur" veya "Daha Sonra" seçeneklerini test edin.
+  - **Beklenen Sonuç:** Kullanıcı kesinlikle "Site Kur" ekranına yönlendirilmemelidir. Cihazın başarıyla eklendiği bildirilerek sitedeki mevcut kapıların listesi sunulmalı; seçilen kapıya anında atanabilmeli, istenirse doğrudan yeni kapı açılabilmeli ya da "Daha Sonra" ile sadece cihaz eklenmiş olarak işlem tamamlanmalıdır.
+
+---
+
+## 185. 🛡️ Süper Kullanıcı Arayüzü Sadeleştirme & Daire/Site Başvuru Kısıtlaması (2026-11-16)
+
+- [ ] **185.1. Süper Kullanıcı Ekranından Daire Sakini ve Site Başvurusu Menü/Ekran/Butonlarının Kaldırılması:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı (`UserRole.superUser`) hesabıyla oturum açın.
+    2. AppBar üst çubuğunu inceleyin: "Yönetici Görünümü / Sakin Görünümü" veya "Sakin Moduna Geç" geçiş hap butonunun olmadığını teyit edin.
+    3. Sol çekmeceyi (`Drawer`) açın: "Daireye Katıl" ve "Yeni Site Oluştur (Başvuru)" menü öğelerinin kaldırıldığını, mod geçiş switch'inin olmadığını teyit edin.
+    4. Çekmecede süper kullanıcının yönetim öğelerinin ("Panel", "Site Yönetimi", "Kişiler", "Daire Sakinleri", "Kullanıcı Yönetimi", "Modüller", "Cihazlar" vb.) eksiksiz yer aldığını doğrulayın.
+    5. Sağ üstteki ayarlar panelini (`EndDrawer`) açın: Sakin moduna geçiş düğmesinin olmadığını doğrulayın.
+  - **Beklenen Sonuç:** Süper kullanıcı asla daire sakini veya site sahibi olamaz; bu nedenle gereksiz tüm sakin modu butonları, daireye katılma ve yeni site başvurusu ekranları süper kullanıcı arayüzünden tamamen kaldırılmıştır. Süper kullanıcı tüm siteleri, daireleri, kişileri, kullanıcıları ve cihazları merkezi olarak yönetir.

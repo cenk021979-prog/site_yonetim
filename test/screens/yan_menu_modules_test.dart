@@ -97,8 +97,8 @@ List<String> _titles(WidgetTester t) {
 
 void main() {
   group('yeni öğeler ve sayılar', () {
-    testWidgets('süper kullanıcı: 21 öğe = çekmecede 6 + Ayarlar panelinde 15; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
-      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(21));
+    testWidgets('süper kullanıcı: 19 öğe = çekmecede 4 + Ayarlar panelinde 15; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
+      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(19));
       await _pumpMenu(t, UserRole.superUser, height: 1200);
       final drawer = _titles(t);
       expect(drawer, <String>[
@@ -106,8 +106,6 @@ void main() {
         'Site Yönetimi',
         'Kişiler',
         'Daire Sakinleri',
-        'Daireye Katıl',
-        'Yeni Site Oluştur',
         'Çıkış Yap',
       ]);
       expect(drawer.indexOf('Kişiler'), drawer.indexOf('Site Yönetimi') + 1);
