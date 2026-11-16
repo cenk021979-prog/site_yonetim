@@ -1186,6 +1186,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// Tanımsız veya aktif olmayan (kapalı) hiçbir modül sol menüde görünmez.
   /// Bkz. [hiddenMenuItemsFor] ve [menuModuleCodes].
   Set<SirketMenuItem> _hiddenMenuItems(UserRole role) {
+    if (role == UserRole.superUser) return const <SirketMenuItem>{};
     final session = widget.authService.session;
     final hidden = <SirketMenuItem>{
       ...hiddenMenuItemsFor(role, _moduleAccess, hasDoors: _hasResidentSignal),
@@ -1359,6 +1360,7 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   /// (daire sakini, yönetici / süper kullanıcı, kurul üyesi) "Duyurular".
   /// KURAL: Tanımsız veya aktif olmayan (kapalı) hiçbir modül sol menüye eklenmez.
   Set<SirketMenuItem> _extraMenuItems(UserRole role) {
+    if (role == UserRole.superUser) return const <SirketMenuItem>{};
     final session = widget.authService.session;
     return <SirketMenuItem>{
       // Kapı paneli: Süper kullanıcıda her zaman görünür (kapalıysa DoorControlDisabledCard gösterilir);

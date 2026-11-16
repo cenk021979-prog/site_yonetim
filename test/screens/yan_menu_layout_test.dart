@@ -59,10 +59,10 @@ class _Cfg {
       );
 
   /// Çekmecedeki öğeler, ekrandaki (gruplu) sırayla; ayar öğeleri burada değil.
-  List<SirketMenuItem> get drawerOrder => YanMenu.drawerItems(_visible);
+  List<SirketMenuItem> get drawerOrder => YanMenu.drawerItems(_visible, role);
 
   /// Çekmecedeki başlık (grup) sayısı.
-  int get headerCount => YanMenu.drawerSections(_visible).length;
+  int get headerCount => YanMenu.drawerSections(_visible, role).length;
 
   /// Menü öğesi sayısı (mod geçişi ve "Çıkış Yap" hariç).
   int get itemCount => drawerOrder.length;
@@ -82,26 +82,11 @@ const String _longName = 'Muhammet Alperen Yıldırım Kaya';
 const String _longEmail =
     'muhammet.alperen.yildirim.kaya@ornek-alan-adi.com.tr';
 
-/// Süper kullanıcının modülleri açık sitelerdeki gibi uzun çekmecesi (kaydırma ve kademe testleri için).
-const Set<SirketMenuItem> _superExtras = <SirketMenuItem>{
-  SirketMenuItem.kapilar,
-  SirketMenuItem.duyurular,
-  SirketMenuItem.finans,
-  SirketMenuItem.belgeler,
-  SirketMenuItem.talepler,
-  SirketMenuItem.rezervasyonlar,
-  SirketMenuItem.anketler,
-  SirketMenuItem.kararDefteri,
-  SirketMenuItem.ziyaretciKayitlari,
-  SirketMenuItem.sozlesmeler,
-};
-
 const List<_Cfg> _cfgs = <_Cfg>[
   _Cfg(
-    'süper kullanıcı (modüllerle uzun çekmece)',
+    'süper kullanıcı',
     UserRole.superUser,
     selected: SirketMenuItem.siteler,
-    extras: _superExtras,
   ),
   _Cfg(
     'site yöneticisi + mod geçişi',
@@ -820,48 +805,37 @@ void main() {
         expect(find.text('Yönetici Paneline Geç'), findsOneWidget);
         expect(find.text('Sakin Moduna Geç'), findsNothing);
 
-        // Süper kullanıcı (modüllerle): çekmece başlıkları ve öğeleri; yönetim / ayar ekranları dişlide.
+        // Süper kullanıcı: çekmece başlıkları ve öğeleri; kırmızı kutulu öğeler kaldırıldı, ayarlardaki komutlar çekmecede.
         await _pumpMenu(t, _cfgs[0], width: 360, height: 1400, scale: 1.0);
         for (final title in const <String>[
           'Ana sayfa',
           'Panel',
-          'Daireler',
-          'Daire Sakinleri',
           'Site Yönetimi',
-          'Kişiler',
-          'Borçlar',
-          'Finans',
-          'İletişim',
-          'Duyurular',
-          'Talepler',
-          'Anket ve Oylama',
-          'Site hizmetleri',
-          'Kapılar',
-          'Dosya Deposu',
-          'Rezervasyonlar',
-          'Ziyaretçi ve Kargo',
-          'Sözleşmeler',
-          'Karar Defteri',
+          'Kullanıcı Yönetimi',
+          'Siteye Göre Kişilerin Yönetimi',
+          'Tüm Kullanıcı Yönetimi',
+          'Modül Geliştirme',
+          'Modül Yönetimi(Siteye Göre)',
+          'Modül Talepleri',
+          'Site Başvuruları',
+          'Şirket Cihaz Envanteri',
+          'Bluetooth ile Wi-Fi Kur',
           'Çıkış Yap',
         ]) {
           expect(find.text(title), findsOneWidget, reason: title);
         }
-        for (final settings in const <String>[
-          'Profilim',
-          'Kullanıcı Yönetimi',
-          'Süper Kullanıcı Yönetimi',
-          'Site Yöneticileri Yönetimi',
-          'Modüller',
-          'Modül Talepleri',
-          'Site Başvuruları',
-          'Şirket Cihazı Kaydet',
-          'Şirket Cihaz Envanteri',
-          'Bluetooth ile Wi-Fi Kur',
-          'Denetim Kaydı',
-          'Platform Ayarları',
-          'İstemci Hataları',
+        for (final removed in const <String>[
+          'Daireler',
+          'Daire Sakinleri',
+          'Borçlar',
+          'Finans',
+          'İletişim',
+          'Duyurular',
+          'Site hizmetleri',
+          'Kapılar',
+          'Dosya Deposu',
         ]) {
-          expect(find.text(settings), findsNothing, reason: '$settings Ayarlar panelinde');
+          expect(find.text(removed), findsNothing, reason: '$removed kaldırıldı');
         }
       },
     );

@@ -5396,3 +5396,46 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     3. Açılan seçim menüsünden "Karekod (QR) ile Kaydet" veya "Unique ID ile Elle Kaydet" seçeneklerini test edin.
     4. Yeni bir cihaz eklendiğinde envanter listesinde anında göründüğünü teyit edin.
   - **Beklenen Sonuç:** Ayrı bir cihaz kaydetme sayfasına gitmeye gerek kalmadan tüm cihaz envanteri, OTA yayınlama, PDF raporu ve yeni cihaz ekleme (QR ve Unique ID) tek bir "Şirket Cihaz Envanteri" ekranından yürütülebilir.
+
+---
+
+## 187. 📱 Süper Kullanıcı Sol Menü (Drawer) ve Ayarlar Paneli Revizyonu (2026-11-16)
+
+- [ ] **187.1. Sol Menüden Gereksiz Başlık ve Modüllerin Kaldırılması:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı (`UserRole.superUser`) hesabıyla oturum açın ve sol menüyü (çekmeceyi) açın.
+    2. Menüde site sakini/yönetici seviyesindeki "Daireler" başlığı, "Daire Sakinleri", "Borçlar" başlığı, "Finans", "İletişim" başlığı, "Duyurular", "Site hizmetleri" başlığı, "Kapılar" ve "Dosya Deposu" öğelerinin yer ALMADIĞINI doğrulayın.
+  - **Beklenen Sonuç:** Süper kullanıcı ekranı, geliştirici ve sistem yöneticisi yetkilerine uygun olarak sadeleşir; sitedeki modül verilerinden etkilenmez ve gereksiz bölümler gösterilmez.
+
+- [ ] **187.2. Kullanıcı Yönetimi Açılır/Katlanır Menüsü (Expansion):**
+  - **Nasıl Test Edilir:**
+    1. Sol çekmecede "Site Yönetimi"nin hemen altında **"Kullanıcı Yönetimi"** menüsünün yer aldığını ve varsayılan olarak açık olduğunu görün.
+    2. Altında iki alt menünün bulunduğunu doğrulayın:
+       - **"Siteye Göre Kişilerin Yönetimi"** (eski Kişiler menüsü): Dokunulduğunda site seçicili kişiler ekranının açıldığını doğrulayın.
+       - **"Tüm Kullanıcı Yönetimi"** (eski Ayarlardaki kullanıcı yönetimi): Dokunulduğunda tüm platform kullanıcıları ekranının açıldığını doğrulayın.
+    3. "Kullanıcı Yönetimi" başlığına dokunulduğunda listenin akıcı bir animasyonla açılıp kapandığını teyit edin.
+  - **Beklenen Sonuç:** Kullanıcı yönetimi tek bir grup altında hem site bazlı hem platform geneli olarak hiyerarşik ve düzenli sunulur.
+
+- [ ] **187.3. Yönetim Komutlarının Ana Sol Menüye Alınması ve Ayarlar Panelinin Sadeleşmesi:**
+  - **Nasıl Test Edilir:**
+    1. Sol çekmecede sırasıyla şu öğelerin yer aldığını doğrulayın:
+       - Panel
+       - Site Yönetimi
+       - Kullanıcı Yönetimi (Siteye Göre Kişilerin Yönetimi, Tüm Kullanıcı Yönetimi)
+       - Modül Geliştirme
+       - Modül Yönetimi(Siteye Göre)
+       - Modül Talepleri
+       - Site Başvuruları
+       - Şirket Cihaz Envanteri
+       - Bluetooth ile Wi-Fi Kur
+       - Tüm işlemler
+       - Yardım ve Destek
+       - Geri bildirim
+       - Çıkış Yap
+    2. Sağ üstteki dişli simgesine ("Ayarlar") dokunun.
+    3. Ayarlar panelinde yalnız şu 4 öğenin kaldığını doğrulayın:
+       - Profilim
+       - Sistem Logları
+       - Platform Ayarları
+       - İstemci Hataları
+  - **Beklenen Sonuç:** Tüm operasyonel süper kullanıcı komutları ana sol menüde kolay erişilebilir duruma gelir; Ayarlar paneli ise yalnızca sistem ayarları ve profili barındırır.

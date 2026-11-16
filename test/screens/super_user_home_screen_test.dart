@@ -105,7 +105,7 @@ void main() {
     final visibleItems = YanMenu.visibleItems(role: UserRole.superUser);
     expect(visibleItems.contains(SirketMenuItem.katilimVeKurulum), isFalse);
     expect(visibleItems.contains(SirketMenuItem.yeniSite), isFalse);
-    expect(visibleItems.length, 15);
+    expect(visibleItems.length, 14);
     expect(visibleItems.contains(SirketMenuItem.kullaniciYonetimi), isTrue);
     expect(visibleItems.contains(SirketMenuItem.modulGelistirme), isTrue);
     expect(visibleItems.contains(SirketMenuItem.kayitliCihazlar), isTrue);
@@ -114,6 +114,7 @@ void main() {
     expect(visibleItems.contains(SirketMenuItem.devreyeAlinanModuller), isFalse);
     expect(visibleItems.contains(SirketMenuItem.pasifModuller), isFalse);
     expect(visibleItems.contains(SirketMenuItem.cihazEkle), isFalse);
+    expect(visibleItems.contains(SirketMenuItem.daireKullanicilariYonetimi), isFalse);
 
     // 3. Sol çekmeceyi aç ve kontrol et
     tester.state<ScaffoldState>(find.byType(Scaffold).first).openDrawer();
@@ -132,8 +133,10 @@ void main() {
     final drawer = find.byType(Drawer);
     expect(find.descendant(of: drawer, matching: find.text('Panel')), findsOneWidget);
     expect(find.descendant(of: drawer, matching: find.text('Site Yönetimi')), findsOneWidget);
-    expect(find.descendant(of: drawer, matching: find.text('Kişiler')), findsOneWidget);
-    expect(find.descendant(of: drawer, matching: find.text('Daire Sakinleri')), findsOneWidget);
+    expect(find.descendant(of: drawer, matching: find.text('Kullanıcı Yönetimi')), findsOneWidget);
+    expect(find.descendant(of: drawer, matching: find.text('Siteye Göre Kişilerin Yönetimi')), findsOneWidget);
+    expect(find.descendant(of: drawer, matching: find.text('Tüm Kullanıcı Yönetimi')), findsOneWidget);
+    expect(find.descendant(of: drawer, matching: find.text('Daire Sakinleri')), findsNothing);
 
     await tester.pumpWidget(const SizedBox());
     await tester.pump();

@@ -272,10 +272,29 @@ enum SirketMenuGroup {
 
 /// Menü öğesinin grubu (sözleşme 2.4). Yeni ekran eklemek = [SirketMenuItem] değeri + buradaki eşleme + görünürlük
 /// kuralı (`HomePage._extraMenuItems` / `_canAccessMenu`); `switch` ifadesi eşlemesi yazılmamış öğeyi derletmez.
-/// Tahsilat, Giderler ve Raporlar bugün boştur (başlıkları görünmez): dekont / banka dosyası Tahsilat'a, gider analizi
-/// Giderler'e, faaliyet raporu / icra dökümü Raporlar'a eklenecektir. Talepler ve anketler yönetimle sakin arasındaki
-/// yazışma kanalı olduğundan İletişim'dedir (karar G2'nin "Site hizmetleri" listesinde yoklar).
-SirketMenuGroup menuGroupOf(SirketMenuItem item) => switch (item) {
+/// Süper kullanıcı için tüm sol menü öğeleri doğrudan ana dizinde ([SirketMenuGroup.anaSayfa]) toplanır.
+SirketMenuGroup menuGroupOf(SirketMenuItem item, [UserRole? role]) {
+  if (role == UserRole.superUser) {
+    if (item == SirketMenuItem.dashboard ||
+        item == SirketMenuItem.siteler ||
+        item == SirketMenuItem.kisiler ||
+        item == SirketMenuItem.kullaniciYonetimi ||
+        item == SirketMenuItem.modulGelistirme ||
+        item == SirketMenuItem.moduller ||
+        item == SirketMenuItem.modulTalepleri ||
+        item == SirketMenuItem.siteBasvurulari ||
+        item == SirketMenuItem.kayitliCihazlar ||
+        item == SirketMenuItem.bluetoothWifiKur) {
+      return SirketMenuGroup.anaSayfa;
+    }
+    if (item == SirketMenuItem.profilim ||
+        item == SirketMenuItem.denetimKaydi ||
+        item == SirketMenuItem.platformAyarlari ||
+        item == SirketMenuItem.istemciHatalari) {
+      return SirketMenuGroup.ayarlar;
+    }
+  }
+  return switch (item) {
       SirketMenuItem.dashboard || SirketMenuItem.acilDurum => SirketMenuGroup.anaSayfa,
       SirketMenuItem.siteler ||
       SirketMenuItem.daireKullanicilariYonetimi ||
@@ -332,6 +351,7 @@ SirketMenuGroup menuGroupOf(SirketMenuItem item) => switch (item) {
       SirketMenuItem.istemciHatalari =>
         SirketMenuGroup.ayarlar,
     };
+}
 
 /// Çekmecenin bir bölümü: başlık + o başlıktaki görünür öğeler (menü sırasıyla). Boş bölüm üretilmez.
 @immutable
@@ -492,44 +512,60 @@ class YanMenu extends StatelessWidget {
           ? items.where((item) => item != SirketMenuItem.odemeKamera).toList(growable: false)
           : items;
 
+  static UserRole? _inferRole(List<SirketMenuItem> items, [UserRole? role]) {
+    if (role != null) return role;
+    if (items.contains(SirketMenuItem.modulGelistirme) ||
+        items.contains(SirketMenuItem.siteBasvurulari) ||
+        items.contains(SirketMenuItem.platformAyarlari)) {
+      return UserRole.superUser;
+    }
+    return null;
+  }
+
   /// Görünür öğelerin ([visibleItems]) çekmece bölümleri: [SirketMenuGroup.drawerGroups] sırasıyla, yalnız öğesi olan
   /// başlıklar; grup içinde menü sırası korunur. Ayarlar öğeleri burada YOKTUR ([settingsItems]).
-  static List<YanMenuSection> drawerSections(List<SirketMenuItem> items) => <YanMenuSection>[
-        for (final group in SirketMenuGroup.drawerGroups)
-          if (items.any((item) => menuGroupOf(item) == group))
-            YanMenuSection(group, <SirketMenuItem>[
-              for (final item in items)
-                if (menuGroupOf(item) == group) item,
-            ]),
-      ];
+  static List<YanMenuSection> drawerSections(List<SirketMenuItem> items, [UserRole? role]) {
+    final effectiveRole = _inferRole(items, role);
+    return <YanMenuSection>[
+      for (final group in SirketMenuGroup.drawerGroups)
+        if (items.any((item) => menuGroupOf(item, effectiveRole) == group))
+          YanMenuSection(group, <SirketMenuItem>[
+            for (final item in items)
+              if (menuGroupOf(item, effectiveRole) == group) item,
+          ]),
+    ];
+  }
 
   /// Çekmecede çizilen öğeler, ekrandaki sırayla (bölümler art arda).
-  static List<SirketMenuItem> drawerItems(List<SirketMenuItem> items) => <SirketMenuItem>[
-        for (final section in drawerSections(items)) ...section.items,
+  static List<SirketMenuItem> drawerItems(List<SirketMenuItem> items, [UserRole? role]) => <SirketMenuItem>[
+        for (final section in drawerSections(items, role)) ...section.items,
       ];
 
   /// K8 KOMPAKT MENÜ: [items] (görünür öğeler) içinden çekmecede öne çıkanlar. [featured] null ise hepsi (kompakt menü yok). "Panel" ve
   /// Ayarlar grubu (dişli paneli) hiçbir koşulda kümeden düşmez. Bu yalnız YERLEŞİMDİR: kümede olmayan öğe görünür listede
   /// ([visibleItems]) ve "Tüm işlemler"de durur.
-  static List<SirketMenuItem> compactItems(List<SirketMenuItem> items, Set<SirketMenuItem>? featured) =>
-      featured == null
-          ? items
-          : <SirketMenuItem>[
-              for (final item in items)
-                if (item == SirketMenuItem.dashboard ||
-                    menuGroupOf(item) == SirketMenuGroup.ayarlar ||
-                    featured.contains(item))
-                  item,
-            ];
+  static List<SirketMenuItem> compactItems(List<SirketMenuItem> items, Set<SirketMenuItem>? featured, [UserRole? role]) {
+    final effectiveRole = _inferRole(items, role);
+    return featured == null
+        ? items
+        : <SirketMenuItem>[
+            for (final item in items)
+              if (item == SirketMenuItem.dashboard ||
+                  menuGroupOf(item, effectiveRole) == SirketMenuGroup.ayarlar ||
+                  featured.contains(item))
+                item,
+          ];
+  }
 
   /// Kompakt menüde ÖNE ÇIKMAYAN görünür öğeler (yalnız "Tüm işlemler"den erişilenler), menü sırasıyla. "Panel" ve Ayarlar grubu
   /// (dişli paneli) hiçbir zaman bunlara dahil değildir: onlar kompakt menüden etkilenmez. [featured] null ise boştur.
-  static List<SirketMenuItem> itemsBeyondCompact(List<SirketMenuItem> items, Set<SirketMenuItem>? featured) {
+  static List<SirketMenuItem> itemsBeyondCompact(List<SirketMenuItem> items, Set<SirketMenuItem>? featured, [UserRole? role]) {
     if (featured == null) return const <SirketMenuItem>[];
+    final effectiveRole = _inferRole(items, role);
     return <SirketMenuItem>[
       for (final item in items)
         if (item != SirketMenuItem.dashboard &&
-            menuGroupOf(item) != SirketMenuGroup.ayarlar &&
+            menuGroupOf(item, effectiveRole) != SirketMenuGroup.ayarlar &&
             !featured.contains(item))
           item,
     ];
@@ -546,10 +582,13 @@ class YanMenu extends StatelessWidget {
   }
 
   /// Sağ üstteki dişliden açılan "Ayarlar" panelinin öğeleri (menü sırasıyla). Çekmece + Ayarlar = görünür öğeler.
-  static List<SirketMenuItem> settingsItems(List<SirketMenuItem> items) => <SirketMenuItem>[
-        for (final item in items)
-          if (menuGroupOf(item) == SirketMenuGroup.ayarlar) item,
-      ];
+  static List<SirketMenuItem> settingsItems(List<SirketMenuItem> items, [UserRole? role]) {
+    final effectiveRole = _inferRole(items, role);
+    return <SirketMenuItem>[
+      for (final item in items)
+        if (menuGroupOf(item, effectiveRole) == SirketMenuGroup.ayarlar) item,
+    ];
+  }
 
   /// Öğenin çekmecedeki başlığı (vitrin kartı aynı metni kullanır).
   static String titleFor(SirketMenuItem item, [UserRole? role, BuildContext? context]) => _titleForItem(item, role, context);
@@ -571,8 +610,8 @@ class YanMenu extends StatelessWidget {
     );
     // İP-1D / G2: öğeler başlıklar altında (boş başlık yok); Ayarlar öğeleri çekmecede değil dişli panelindedir.
     // K8: kompakt menüde yalnız öne çıkan öğeler çizilir; öne çıkmayanlar "Tüm işlemler"de durur (görünürlük kuralı değişmez).
-    final sections = drawerSections(compactItems(items, featuredItems));
-    final allActionsBadge = badgeTotalOf(itemsBeyondCompact(items, featuredItems), badgeCounts);
+    final sections = drawerSections(compactItems(items, featuredItems, role), role);
+    final allActionsBadge = badgeTotalOf(itemsBeyondCompact(items, featuredItems, role), badgeCounts);
     final drawerOrder = <SirketMenuItem>[for (final section in sections) ...section.items];
     // Ek eylemler (kapı komutları) "Kapılar"ın, o çekmecede yoksa "Panel"in hemen altına gelir.
     final extrasAnchor =
@@ -624,19 +663,108 @@ class YanMenu extends StatelessWidget {
         ),
       if (site != null || showToggle) const _MenuDivider(),
     ];
-    for (var s = 0; s < sections.length; s++) {
-      final section = sections[s];
+
+    if (role == UserRole.superUser) {
+      // Süper Kullanıcı Özel Çekmece Düzeni:
+      // 1. Ana sayfa grup başlığı
       rows.add(
         entry(
-          ValueKey<String>('yan_menu_grup_${section.group.name}'),
+          const ValueKey<String>('yan_menu_grup_anaSayfa'),
           _GroupHeader(
-            title: section.group.localizedTitle(context),
-            first: s == 0,
+            title: SirketMenuGroup.anaSayfa.localizedTitle(context),
+            first: true,
             tone: tone,
           ),
         ),
       );
-      for (final item in section.items) {
+
+      // 2. Panel
+      rows.add(
+        entry(
+          const ValueKey<SirketMenuItem>(SirketMenuItem.dashboard),
+          _MenuTile(
+            icon: _iconForItem(SirketMenuItem.dashboard),
+            title: _titleForItem(SirketMenuItem.dashboard, role, context),
+            selected: selectedItem == SirketMenuItem.dashboard,
+            tone: tone,
+            badge: badgeCounts[SirketMenuItem.dashboard] ?? 0,
+            badgeNoun: badgeNouns[SirketMenuItem.dashboard] ?? 'bekleyen',
+            onTap: () => onSelect(SirketMenuItem.dashboard),
+          ),
+        ),
+      );
+
+      // 3. Site Yönetimi
+      rows.add(
+        entry(
+          const ValueKey<SirketMenuItem>(SirketMenuItem.siteler),
+          _MenuTile(
+            icon: _iconForItem(SirketMenuItem.siteler),
+            title: _titleForItem(SirketMenuItem.siteler, role, context),
+            selected: selectedItem == SirketMenuItem.siteler,
+            tone: tone,
+            badge: badgeCounts[SirketMenuItem.siteler] ?? 0,
+            badgeNoun: badgeNouns[SirketMenuItem.siteler] ?? 'bekleyen',
+            onTap: () => onSelect(SirketMenuItem.siteler),
+          ),
+        ),
+      );
+
+      // 4. Kullanıcı Yönetimi (Açılır Menü / Expansion)
+      final userMgmtSelected = selectedItem == SirketMenuItem.kisiler ||
+          selectedItem == SirketMenuItem.kullaniciYonetimi;
+      final userMgmtBadge = (badgeCounts[SirketMenuItem.kisiler] ?? 0) +
+          (badgeCounts[SirketMenuItem.kullaniciYonetimi] ?? 0);
+
+      rows.add(
+        _MenuExpansionTile(
+          icon: PhosphorIconsRegular.usersThree,
+          title: 'Kullanıcı Yönetimi',
+          tone: tone,
+          initiallyExpanded: true,
+          selected: userMgmtSelected,
+          badge: userMgmtBadge,
+          badgeNoun: 'bekleyen',
+          children: [
+            entry(
+              const ValueKey<SirketMenuItem>(SirketMenuItem.kisiler),
+              _MenuTile(
+                icon: _iconForItem(SirketMenuItem.kisiler),
+                title: _titleForItem(SirketMenuItem.kisiler, role, context),
+                selected: selectedItem == SirketMenuItem.kisiler,
+                tone: tone,
+                badge: badgeCounts[SirketMenuItem.kisiler] ?? 0,
+                badgeNoun: badgeNouns[SirketMenuItem.kisiler] ?? 'bekleyen',
+                onTap: () => onSelect(SirketMenuItem.kisiler),
+              ),
+            ),
+            entry(
+              const ValueKey<SirketMenuItem>(SirketMenuItem.kullaniciYonetimi),
+              _MenuTile(
+                icon: _iconForItem(SirketMenuItem.kullaniciYonetimi),
+                title: _titleForItem(SirketMenuItem.kullaniciYonetimi, role, context),
+                selected: selectedItem == SirketMenuItem.kullaniciYonetimi,
+                tone: tone,
+                badge: badgeCounts[SirketMenuItem.kullaniciYonetimi] ?? 0,
+                badgeNoun: badgeNouns[SirketMenuItem.kullaniciYonetimi] ?? 'bekleyen',
+                onTap: () => onSelect(SirketMenuItem.kullaniciYonetimi),
+              ),
+            ),
+          ],
+        ),
+      );
+
+      // 5. Ayarlardan ana dizine taşınan komutlar (İkinci resim):
+      const superUserDirectItems = <SirketMenuItem>[
+        SirketMenuItem.modulGelistirme,
+        SirketMenuItem.moduller,
+        SirketMenuItem.modulTalepleri,
+        SirketMenuItem.siteBasvurulari,
+        SirketMenuItem.kayitliCihazlar,
+        SirketMenuItem.bluetoothWifiKur,
+      ];
+
+      for (final item in superUserDirectItems) {
         rows.add(
           entry(
             ValueKey<SirketMenuItem>(item),
@@ -651,21 +779,51 @@ class YanMenu extends StatelessWidget {
             ),
           ),
         );
-        if (item != extrasAnchor) continue;
-        // Ek eylemler "Kapılar"ın (o yoksa "Panel"in) hemen altında.
-        for (var k = 0; k < extraActions.length; k++) {
+      }
+    } else {
+      for (var s = 0; s < sections.length; s++) {
+        final section = sections[s];
+        rows.add(
+          entry(
+            ValueKey<String>('yan_menu_grup_${section.group.name}'),
+            _GroupHeader(
+              title: section.group.localizedTitle(context),
+              first: s == 0,
+              tone: tone,
+            ),
+          ),
+        );
+        for (final item in section.items) {
           rows.add(
             entry(
-              ValueKey<String>('yan_menu_ek_$k'),
+              ValueKey<SirketMenuItem>(item),
               _MenuTile(
-                icon: extraActions[k].icon,
-                title: extraActions[k].title,
-                selected: false,
+                icon: _iconForItem(item),
+                title: _titleForItem(item, role, context),
+                selected: selectedItem == item,
                 tone: tone,
-                onTap: extraActions[k].onTap,
+                badge: badgeCounts[item] ?? 0,
+                badgeNoun: badgeNouns[item] ?? 'bekleyen',
+                onTap: () => onSelect(item),
               ),
             ),
           );
+          if (item != extrasAnchor) continue;
+          // Ek eylemler "Kapılar"ın (o yoksa "Panel"in) hemen altında.
+          for (var k = 0; k < extraActions.length; k++) {
+            rows.add(
+              entry(
+                ValueKey<String>('yan_menu_ek_$k'),
+                _MenuTile(
+                  icon: extraActions[k].icon,
+                  title: extraActions[k].title,
+                  selected: false,
+                  tone: tone,
+                  onTap: extraActions[k].onTap,
+                ),
+              ),
+            );
+          }
         }
       }
     }
@@ -827,13 +985,14 @@ class YanMenuAyarlar extends StatelessWidget {
           additionalItems: additionalItems,
           hiddenItems: hiddenItems,
         ),
+        role,
       );
 
   /// Dişli düğmesinin rozeti: [items] içindeki AYAR öğelerinin rozet toplamı (bekleyen sayılar dişlinin arkasında
   /// kaybolmasın). Çekmecedeki öğelerin rozetleri sayılmaz (onlar çekmecede görünür).
-  static int badgeTotal(List<SirketMenuItem> items, Map<SirketMenuItem, int> badgeCounts) {
+  static int badgeTotal(List<SirketMenuItem> items, Map<SirketMenuItem, int> badgeCounts, [UserRole? role]) {
     var total = 0;
-    for (final item in YanMenu.settingsItems(items)) {
+    for (final item in YanMenu.settingsItems(items, role)) {
       final count = badgeCounts[item] ?? 0;
       if (count > 0) total += count;
     }
@@ -1599,8 +1758,6 @@ List<SirketMenuItem> _itemsForRole(
         SirketMenuItem.dashboard,
         SirketMenuItem.siteler,
         SirketMenuItem.kisiler,
-        SirketMenuItem.daireKullanicilariYonetimi,
-        SirketMenuItem.profilim,
         SirketMenuItem.kullaniciYonetimi,
         SirketMenuItem.modulGelistirme,
         SirketMenuItem.moduller,
@@ -1608,6 +1765,7 @@ List<SirketMenuItem> _itemsForRole(
         SirketMenuItem.siteBasvurulari,
         SirketMenuItem.kayitliCihazlar,
         SirketMenuItem.bluetoothWifiKur,
+        SirketMenuItem.profilim,
         SirketMenuItem.denetimKaydi,
         SirketMenuItem.platformAyarlari,
         SirketMenuItem.istemciHatalari,
@@ -1666,6 +1824,7 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
       case SirketMenuItem.siteOnayTalepleri:
         return l.menuSiteApprovalRequests;
       case SirketMenuItem.kullaniciYonetimi:
+        if (role == UserRole.superUser) return 'Tüm Kullanıcı Yönetimi';
         return l.menuUserManagement;
       case SirketMenuItem.superUserYonetimi:
         return l.menuSuperUserManagement;
@@ -1701,6 +1860,7 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
       case SirketMenuItem.modulTalepleri:
         return l.menuModuleRequests;
       case SirketMenuItem.kisiler:
+        if (role == UserRole.superUser) return 'Siteye Göre Kişilerin Yönetimi';
         return l.menuPeople;
       case SirketMenuItem.duyurular:
         return l.menuAnnouncements;
@@ -1775,6 +1935,7 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
     case SirketMenuItem.siteOnayTalepleri:
       return 'Site Onay Talepleri';
     case SirketMenuItem.kullaniciYonetimi:
+      if (role == UserRole.superUser) return 'Tüm Kullanıcı Yönetimi';
       return 'Kullanıcı Yönetimi';
     case SirketMenuItem.superUserYonetimi:
       return 'Süper Kullanıcı Yönetimi';
@@ -1810,6 +1971,7 @@ String _titleForItem(SirketMenuItem item, [UserRole? role, BuildContext? context
     case SirketMenuItem.modulTalepleri:
       return 'Modül Talepleri';
     case SirketMenuItem.kisiler:
+      if (role == UserRole.superUser) return 'Siteye Göre Kişilerin Yönetimi';
       return 'Kişiler';
     case SirketMenuItem.duyurular:
       return 'Duyurular';
@@ -2155,6 +2317,148 @@ class _MenuTile extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Süper kullanıcı çekmecesinde "Kullanıcı Yönetimi" açılır/katlanır menüsü.
+class _MenuExpansionTile extends StatefulWidget {
+  const _MenuExpansionTile({
+    required this.icon,
+    required this.title,
+    required this.tone,
+    required this.children,
+    this.initiallyExpanded = true,
+    this.badge = 0,
+    this.badgeNoun = 'bekleyen',
+    this.selected = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final AppTone tone;
+  final List<Widget> children;
+  final bool initiallyExpanded;
+  final int badge;
+  final String badgeNoun;
+  final bool selected;
+
+  @override
+  State<_MenuExpansionTile> createState() => _MenuExpansionTileState();
+}
+
+class _MenuExpansionTileState extends State<_MenuExpansionTile> {
+  late bool _expanded;
+
+  @override
+  void initState() {
+    super.initState();
+    _expanded = widget.initiallyExpanded || widget.selected;
+  }
+
+  @override
+  void didUpdateWidget(covariant _MenuExpansionTile oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.selected && !oldWidget.selected) {
+      _expanded = true;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final p = context.palette;
+    final ink = widget.tone.ink(p);
+    final tint = widget.tone.tint(p);
+    final duration = AppMotion.of(context, AppMotion.base);
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnimatedContainer(
+            duration: duration,
+            curve: AppMotion.standard,
+            decoration: BoxDecoration(
+              color: widget.selected ? tint.withValues(alpha: 0.35) : tint.withValues(alpha: 0),
+              borderRadius: BorderRadius.circular(AppRadius.md),
+              border: Border.all(
+                color: widget.selected
+                    ? widget.tone.hue.withValues(alpha: p.isDark ? 0.34 : 0.24)
+                    : Colors.transparent,
+                width: 1,
+              ),
+            ),
+            child: Material(
+              type: MaterialType.transparency,
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    _expanded = !_expanded;
+                  });
+                },
+                borderRadius: BorderRadius.circular(AppRadius.md),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 48),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          widget.icon,
+                          size: 22,
+                          color: widget.selected ? ink : p.textSecondary,
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Text(
+                            widget.title,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: widget.selected ? FontWeight.w800 : FontWeight.w600,
+                              color: widget.selected ? p.text : p.textSecondary,
+                            ),
+                          ),
+                        ),
+                        if (widget.badge > 0) ...[
+                          _CountBadge(count: widget.badge, noun: widget.badgeNoun),
+                          const SizedBox(width: 4),
+                        ],
+                        AnimatedRotation(
+                          turns: _expanded ? 0.5 : 0.0,
+                          duration: duration,
+                          curve: AppMotion.standard,
+                          child: Icon(
+                            PhosphorIconsRegular.caretDown,
+                            size: 16,
+                            color: p.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          AnimatedCrossFade(
+            firstChild: Padding(
+              padding: const EdgeInsets.only(left: 12),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: widget.children,
+              ),
+            ),
+            secondChild: const SizedBox.shrink(),
+            crossFadeState: _expanded ? CrossFadeState.showFirst : CrossFadeState.showSecond,
+            duration: duration,
+          ),
+        ],
       ),
     );
   }

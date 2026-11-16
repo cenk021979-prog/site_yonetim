@@ -97,36 +97,35 @@ List<String> _titles(WidgetTester t) {
 
 void main() {
   group('yeni öğeler ve sayılar', () {
-    testWidgets('süper kullanıcı: 15 öğe = çekmecede 4 + Ayarlar panelinde 11; Kişiler Site Yönetimi\'nin altında; panelde Modül Talepleri Modüller\'in, Site Başvuruları Modül Talepleri\'nin altında; sonda Denetim Kaydı, Platform Ayarları, İstemci Hataları', (t) async {
-      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(15));
+    testWidgets('süper kullanıcı: 14 öğe = çekmecede 10 + Ayarlar panelinde 4; Kullanıcı Yönetimi altında Siteye Göre ve Tüm Kullanıcı; çekmecede Modül Geliştirme, Modül Talepleri, Site Başvuruları; ayarlar panelinde Profilim, Sistem Logları, Platform Ayarları, İstemci Hataları', (t) async {
+      expect(YanMenu.visibleItems(role: UserRole.superUser), hasLength(14));
       await _pumpMenu(t, UserRole.superUser, height: 1200);
       final drawer = _titles(t);
       expect(drawer, <String>[
         'Panel',
         'Site Yönetimi',
-        'Kişiler',
-        'Daire Sakinleri',
+        'Siteye Göre Kişilerin Yönetimi',
+        'Tüm Kullanıcı Yönetimi',
+        'Modül Geliştirme',
+        'Modül Yönetimi(Siteye Göre)',
+        'Modül Talepleri',
+        'Site Başvuruları',
+        'Şirket Cihaz Envanteri',
+        'Bluetooth ile Wi-Fi Kur',
         'Çıkış Yap',
       ]);
-      expect(drawer.indexOf('Kişiler'), drawer.indexOf('Site Yönetimi') + 1);
+      expect(find.text('Kullanıcı Yönetimi'), findsOneWidget);
+      expect(drawer.indexOf('Siteye Göre Kişilerin Yönetimi'), drawer.indexOf('Site Yönetimi') + 1);
 
       await _pumpSettings(t, UserRole.superUser, height: 1200);
       final settings = _titles(t);
-      expect(settings, hasLength(11));
-      expect(settings.first, 'Profilim');
-      expect(settings.contains('Kullanıcı Yönetimi'), isTrue);
-      expect(settings.contains('Modül Geliştirme'), isTrue);
-      expect(settings.contains('Şirket Cihaz Envanteri'), isTrue);
-      expect(settings.contains('Süper Kullanıcı Yönetimi'), isFalse);
-      expect(settings.contains('Site Yöneticileri Yönetimi'), isFalse);
-      expect(settings.contains('Devreye Alınmış Modüller'), isFalse);
-      expect(settings.contains('Devreye Alınmamış Modüller'), isFalse);
-      expect(settings.contains('Şirket Cihazı Kaydet'), isFalse);
-      expect(settings.indexOf('Modül Talepleri'), settings.indexOf('Modül Yönetimi(Siteye Göre)') + 1);
-      expect(settings.indexOf('Site Başvuruları'), settings.indexOf('Modül Talepleri') + 1);
-      expect(settings[settings.length - 3], 'Sistem Logları');
-      expect(settings[settings.length - 2], 'Platform Ayarları');
-      expect(settings.last, 'İstemci Hataları');
+      expect(settings, hasLength(4));
+      expect(settings, <String>[
+        'Profilim',
+        'Sistem Logları',
+        'Platform Ayarları',
+        'İstemci Hataları',
+      ]);
     });
 
     testWidgets('site yöneticisi (yönetici modu): 9 öğe, Kişiler ve Modüller var; Denetim Kaydı ve Modül Talepleri YOK', (t) async {
@@ -170,7 +169,7 @@ void main() {
     final badgeFinder = find.byKey(const ValueKey<String>('yan_menu_rozet'));
 
     testWidgets('sayı > 0 ise yalnız o öğede rozet; 0 ya da yoksa rozet yok; 99 üstü "99+"', (t) async {
-      await _pumpSettings(
+      await _pumpMenu(
         t,
         UserRole.superUser,
         height: 1400,
@@ -181,7 +180,7 @@ void main() {
       expect(find.descendant(of: tile, matching: find.text('3')), findsOneWidget);
       expect(find.descendant(of: tile, matching: badgeFinder), findsOneWidget);
 
-      await _pumpSettings(
+      await _pumpMenu(
         t,
         UserRole.superUser,
         height: 1400,
@@ -189,10 +188,10 @@ void main() {
       );
       expect(badgeFinder, findsNothing);
 
-      await _pumpSettings(t, UserRole.superUser, height: 1400);
+      await _pumpMenu(t, UserRole.superUser, height: 1400);
       expect(badgeFinder, findsNothing);
 
-      await _pumpSettings(
+      await _pumpMenu(
         t,
         UserRole.superUser,
         height: 1400,
@@ -203,7 +202,7 @@ void main() {
 
     testWidgets('rozet beyaz metin / tehlike tonu zemini >= 4,5:1 ve ekran okuyucuya "N bekleyen" der', (t) async {
       final handle = t.ensureSemantics();
-      await _pumpSettings(
+      await _pumpMenu(
         t,
         UserRole.superUser,
         height: 1400,
@@ -219,8 +218,8 @@ void main() {
 
     for (final (w, h, s) in const <(double, double, double)>[(320, 640, 2.0), (360, 640, 1.5)]) {
       for (final dark in const <bool>[false, true]) {
-        testWidgets('rozetli Ayarlar paneli taşmaz: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}', (t) async {
-          await _pumpSettings(
+        testWidgets('rozetli çekmece taşmaz: ${w.toInt()}x${h.toInt()} x$s ${dark ? 'koyu' : 'açık'}', (t) async {
+          await _pumpMenu(
             t,
             UserRole.superUser,
             width: w,
