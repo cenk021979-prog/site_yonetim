@@ -5306,12 +5306,14 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
     2. Modül kartlarının listelenme sırasını kontrol edin (Örn: Aidat ve Finans, Anket ve Oylama, Dosya Deposu, Ekipman ve Bakım, ... Rehber, Rezervasyon, Ziyaretçi ve Kargo).
   - **Beklenen Sonuç:** Modüller Türkçe karakter duyarlı (Ç, Ğ, I, İ, Ö, Ş, Ü) olarak A'dan Z'ye alfabetik sırada listelenmelidir.
 
-- [ ] **183.2. Seçilen Site İçin Temel Modüllerin Switch ile Pasife Alınabilmesi (Aktif/Pasif):**
+- [ ] **183.2. Seçilen Site İçin Temel Modüllerin Switch ile Pasife Alınabilmesi (Aktif/Pasif - Süper Kullanıcı & Site Yöneticisi):**
   - **Nasıl Test Edilir:**
-    1. Bir sitenin modül yönetimi ekranında temel modüllerden birinin (örn: `Anket ve Oylama` veya `Ekipman ve Bakım`) yanındaki açma/kapama switch'ine dokunun.
-    2. Modülü pasife (kapalı) duruma getirin. Sayfayı yenileyin veya menüye bakın.
-    3. Switch'i tekrar açık duruma getirin.
-  - **Beklenen Sonuç:** Temel modüller varsayılan olarak her sitede açık gelir, ancak site bazında switch ile kapatılabilir. Kapatıldığında durum rozeti "Kapalı"ya döner, site sakinlerinin ve yöneticisinin menüsünden modül kaldırılır. Tekrar açıldığında "Her sitede açık" olur ve menüye geri gelir.
+    1. İlgili sitenin **Site Yöneticisi** (`site_manager`) veya **Süper Kullanıcı** hesabıyla "Site Modülleri" ekranına gidin.
+    2. Temel modüllerden birinin (örn: `Anket ve Oylama`, `Komşu Panosu` veya `Ekipman ve Bakım`) yanındaki açma/kapama switch'ine dokunun.
+    3. Modülü pasife (kapalı) duruma getirin. Sayfayı yenileyin veya yan menüye bakın.
+    4. Switch'i tekrar açık duruma getirin.
+    5. Bir ek modülün (örn. Geçiş Kontrol) yanına bakın; tanımlı değilse switch yerine "Modül Talep Et" butonu çıkmalıdır.
+  - **Beklenen Sonuç:** Temel modüller varsayılan olarak her sitede açık gelir; hem Süper Kullanıcı hem de Site Yöneticisi tarafından site bazında switch ile kapatılabilir. Kapatıldığında durum rozeti "Kapalı"ya döner, site sakinlerinin ve yöneticisinin menüsünden modül kaldırılır. Tekrar açıldığında "Her sitede açık" olur ve menüye geri gelir. Ek modüllerde ise site yöneticisi için onay/satın alma koruması sürer ("Modül Talep Et").
 
 - [ ] **183.3. Platformda Devre Dışı Olan Modüllerin Sitede Görünmemesi:**
   - **Nasıl Test Edilir:**
