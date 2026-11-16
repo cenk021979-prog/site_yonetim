@@ -409,4 +409,16 @@ describe('kayitli cihaz denetimi (durum haritasi sismesin)', () => {
     assert.equal(afterEvent.mqtt_connected, true);
     assert.equal(afterEvent.last_event, 'button_pulse_started');
   });
+
+  it('retained online ve state eski cihaz kaydini cevrimici yapmaz; canli state yapar', () => {
+    const testUid = 'D1D2D3D4D5D6';
+    assert.equal(getDeviceRuntimeStatus(testUid).mqtt_connected, false);
+
+    applyStatusMessage(`device/${testUid}/availability`, 'online', { retain: true });
+    applyStatusMessage(`device/${testUid}/state`, JSON.stringify({ locked: true }), { retain: true });
+    assert.equal(getDeviceRuntimeStatus(testUid).mqtt_connected, false);
+
+    applyStatusMessage(`device/${testUid}/state`, JSON.stringify({ locked: true }), { retain: false });
+    assert.equal(getDeviceRuntimeStatus(testUid).mqtt_connected, true);
+  });
 });

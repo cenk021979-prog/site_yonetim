@@ -772,12 +772,16 @@ export function applyStatusMessage(topic, payload, meta = {}) {
 
   const status = ensureStatus(match[1]);
   const text = String(payload || '').trim();
-  status.last_payload_at = new Date().toISOString();
+  // Broker aboneliginde yeniden oynatilan retained paket cihazdan o anda gelmis sayilmaz.
+  // Aksi halde brokerda kalmis eski "online"/state paketi kapali cihazi cevrimici gosterir.
+  if (!retained) {
+    status.last_payload_at = new Date().toISOString();
+  }
 
   // availability harici tum konularda (state, event, logs, qr_verify, screen_qr) cihaz broker uzerinden
   // mesaj yayinladigina gore MQTT baglantisi aktiftir; availability mesaji gecikmis/dusmus olsa bile
   // cihaz cevrimici olarak terfi ettirilir.
-  if (kind !== 'availability' && status.mqtt_connected !== true) {
+  if (!retained && kind !== 'availability' && status.mqtt_connected !== true) {
     status.mqtt_connected = true;
     status.online_since = new Date();
     void syncLocalControlConfigFromDb(status.device_uid);
@@ -852,6 +856,11 @@ export function applyStatusMessage(topic, payload, meta = {}) {
   }
 
   if (kind === 'availability') {
+    // Retained "online" yalniz son ilan edilen degerdir; aktif MQTT oturumunun kaniti degildir.
+    // Retained "offline" ise guvenle uygulanabilir. Canli paketlerde retain bayragi false gelir.
+    if (retained && text.toLowerCase() === 'online') {
+      return;
+    }
     const isNowOnline = text.toLowerCase() === 'online';
     const wasOnline = status.mqtt_connected === true;
 
@@ -963,10 +972,10 @@ export async function loadInitialDeviceRuntimeStatuses() {
     for (const row of res.rows) {
       const normalizedUid = normalizeDeviceTopicUid(row.device_uid);
       const existing = ensureStatus(normalizedUid);
-      existing.mqtt_connected = Boolean(row.mqtt_connected);
-      if (existing.mqtt_connected && row.last_online_at) {
-        existing.online_since = new Date(row.last_online_at);
-      }
+      // Surec yeniden basladiginda DB'deki true gecmis bilgidir. Yalniz bu calisma
+      // sirasinda alinmis canli (retained olmayan) MQTT paketi cihazi online yapabilir.
+      existing.mqtt_connected = false;
+      existing.online_since = null;
       existing.door_locked = row.door_locked;
       existing.firmware_version = row.firmware_version;
       existing.hardware_target = row.hardware_target;
@@ -983,6 +992,12 @@ export async function loadInitialDeviceRuntimeStatuses() {
       existing.last_seen_at = row.last_seen_at ? new Date(row.last_seen_at).toISOString() : null;
       existing.last_payload_at = row.last_payload_at ? new Date(row.last_payload_at).toISOString() : null;
     }
+    await pool.query(`
+      UPDATE device_runtime_status SET mqtt_connected = FALSE, updated_at = NOW()
+      WHERE mqtt_connected IS DISTINCT FROM FALSE;
+      UPDATE devices SET is_online = FALSE, last_offline_at = NOW()
+      WHERE is_online IS DISTINCT FROM FALSE;
+    `);
   } catch (error) {
     console.warn('Initial device runtime statuses yuklenemedi:', error.message);
   }
@@ -1023,14 +1038,14 @@ export async function updateDevicePublicIp(deviceUid, publicIp) {
   }
 }
 
-export function startMqttBridge() {
+export async function startMqttBridge() {
   if (connectStarted) {
     return;
   }
   connectStarted = true;
 
   // Veritabanındaki son bilinen durumları hafızaya yükle
-  loadInitialDeviceRuntimeStatuses().catch(() => {});
+  await loadInitialDeviceRuntimeStatuses();
 
   const config = mqttConfig();
   if (!config.host || !config.username || !config.password) {

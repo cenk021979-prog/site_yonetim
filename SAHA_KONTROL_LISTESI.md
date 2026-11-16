@@ -3,6 +3,8 @@
 
 ## 184. Cihaz OTA Manifest İsteklerinin Çevrimdışı Yapmasının Önlenmesi ve MQTT Port 8883 Ağ Kontrolü (2026-11-16)
 
+- [ ] **184.0. Eski retained MQTT paketi çevrimdışı cihazı online göstermemeli:** Cihazı kapatın, API/MQTT köprüsünü yeniden başlatın ve kapı durumunu yenileyin. Brokerda eski retained `online`/`state` bulunsa bile cihaz çevrimdışı görünmeli; cihaz yeniden bağlanıp canlı paket gönderince otomatik online olmalıdır.
+
 - [ ] **184.1. OTA Manifest HTTP İsteklerinde Çevrimiçi Durumun Korunması:**
   - **Nasıl Test Edilir:** Cihaz Wi-Fi'ye bağlandığında otomatik olarak HTTP üzerinden firmware manifestini (`GET /firmware/esp32-c3/manifest.json`) sorgular.
   - **Beklenen Sonuç:** Sunucuda `updateDevicePublicIp` artık `persistRuntimeStatus` üzerinden `devices.is_online` alanını `false` yapmaz ve `last_offline_at` değerini sıfırlamaz. Cihazın `public_ip` bilgisi kaydedilir, çevrimdışı olma hatası oluşmaz. Ayrıca MQTT üzerinden `state` veya `event` mesajı geldiğinde cihaz otomatik olarak çevrimiçi duruma geçirilir.

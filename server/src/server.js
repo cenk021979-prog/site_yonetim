@@ -417,7 +417,7 @@ async function startServer() {
   try {
     checkEnvOrExit();
     await ensureDbSchema();
-    startMqttBridge();
+    void startMqttBridge();
     // Telefon bildirimi (Faz 3b-B): hizmet hesabi BIR KEZ yuklenir (sir loglanmaz; okunamazsa configured:false, sunucu yine acilir) + push bakimi
     // (tek calisan advisory kilidi). Kuyruk turlari zamanlayici tikinde / yayindan sonra tetiklenir. ANNOUNCEMENT_SCHEDULER_DISABLED=1 ile bakim kapali.
     startPushWorker();
