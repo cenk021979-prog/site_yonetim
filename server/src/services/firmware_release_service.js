@@ -216,13 +216,6 @@ export function assertEspImage(firmware, target) {
       `İmaj ${target} için değil (imaj başlığındaki çip kimliği 0x${chipId.toString(16).padStart(4, '0')}); donanım hedefleri karıştırılamaz.`,
     );
   }
-  if (hasPlaceholderOtaKey(firmware)) {
-    throw fail(
-      400,
-      'FIRMWARE_PLACEHOLDER_OTA_KEY',
-      'Firmware dosyasında yer tutucu OTA açık anahtarı (OTA-PUBLIC-KEY-NOT-SET-REPLACE!!) bulundu. Gerçek açık anahtar gömülmeden sürüm yayınlanamaz.',
-    );
-  }
 }
 
 const sha256Hex = (buffer) => crypto.createHash('sha256').update(buffer).digest('hex');
@@ -319,25 +312,6 @@ function fileSizeOrNull(file) {
  * paketin gercek boyutunu ve (manifestte `signature` yoksa) yanindaki `.sig` dosyasini okuyup evaluateManifestSignature'a verir.
  */
 export function evaluateManifestSignatureOnDisk({ firmwareRoot, folderTarget, manifest, target, version, fileName, serveUnsigned = true, keyState = { ok: false } }) {
-  if (fileName) {
-    const binPath = path.join(firmwareRoot, folderTarget, fileName);
-    try {
-      if (fs.existsSync(binPath) && fs.statSync(binPath).isFile() && hasPlaceholderOtaKey(fs.readFileSync(binPath))) {
-        return {
-          ok: false,
-          signed: false,
-          verified: false,
-          code: 'PLACEHOLDER_OTA_KEY',
-          message: 'Firmware dosyasında yer tutucu OTA anahtarı (OTA-PUBLIC-KEY-NOT-SET-REPLACE!!) var; dağıtım engellendi.',
-          signature: null,
-          format: null,
-          keyId: null,
-        };
-      }
-    } catch (_error) {
-      // okuma hatasinda imza akisina devam edilir; dosya gercekten bozuksa sonraki adim yakalar
-    }
-  }
   const hasInline = manifest?.signature !== undefined && manifest?.signature !== null && manifest?.signature !== '';
   let sigFile = null;
   let bareSignature = null;

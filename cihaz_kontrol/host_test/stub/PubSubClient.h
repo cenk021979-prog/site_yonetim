@@ -18,6 +18,7 @@ class PubSubClient {
   bool allowConnect = true;
   bool failPublish = false;
   size_t bufSize = 256;                 // PubSubClient varsayilani (MQTT_MAX_PACKET_SIZE)
+  uint16_t keepAliveSeconds = 0;
   int connectCalls = 0;
   void (*cb)(char*, uint8_t*, unsigned int) = nullptr;
 
@@ -26,7 +27,7 @@ class PubSubClient {
   PubSubClient& setCallback(void (*c)(char*, uint8_t*, unsigned int)) { cb = c; return *this; }
   bool setBufferSize(uint16_t s) { bufSize = s; return true; }
   PubSubClient& setSocketTimeout(uint16_t) { return *this; }
-  PubSubClient& setKeepAlive(uint16_t) { return *this; }
+  PubSubClient& setKeepAlive(uint16_t seconds) { keepAliveSeconds = seconds; return *this; }
   bool connect(const char*, const char*, const char*, const char*, uint8_t, bool, const char*) {
     connectCalls++;
     if (!allowConnect) { state_ = 5; return false; }

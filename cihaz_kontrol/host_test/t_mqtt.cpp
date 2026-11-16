@@ -168,13 +168,13 @@ int main() {
   test_anahtarini_kur(g_yayinci.genel);
 
   // ------------------------------------------------------------------------------------------------ E surumler
-  { printf("E sürümler (OTA_VERSION_C3 4.4.2, OTA_VERSION_WROOM 5.3.0: OTA imza dogrulamasi / kopru surumu)\n");
-    CHECK(std::string(OTA_VERSION_C3) == "4.4.2", "OTA_VERSION_C3 = 4.4.2");
-    CHECK(std::string(OTA_VERSION_WROOM) == "5.3.0", "OTA_VERSION_WROOM = 5.3.0");
+  { printf("E sürümler (OTA_VERSION_C3 4.4.3, OTA_VERSION_WROOM 5.3.1: hizli LWT / kopru surumu)\n");
+    CHECK(std::string(OTA_VERSION_C3) == "4.4.3", "OTA_VERSION_C3 = 4.4.3");
+    CHECK(std::string(OTA_VERSION_WROOM) == "5.3.1", "OTA_VERSION_WROOM = 5.3.1");
 #if defined(BOARD_ESP32_WROOM_RELAY)
-    CHECK(std::string(OTA_CURRENT_VERSION) == "5.3.0" && std::string(OTA_TARGET) == "esp32-wroom", "WROOM derlemesi: 5.3.0 / esp32-wroom");
+    CHECK(std::string(OTA_CURRENT_VERSION) == "5.3.1" && std::string(OTA_TARGET) == "esp32-wroom", "WROOM derlemesi: 5.3.1 / esp32-wroom");
 #else
-    CHECK(std::string(OTA_CURRENT_VERSION) == "4.4.2" && std::string(OTA_TARGET) == "esp32-c3", "C3 derlemesi: 4.4.2 / esp32-c3");
+    CHECK(std::string(OTA_CURRENT_VERSION) == "4.4.3" && std::string(OTA_TARGET) == "esp32-c3", "C3 derlemesi: 4.4.3 / esp32-c3");
 #endif
     // Onceki surumler (AHBU adli 4.3.1 / 5.2.0, ara surumler 4.3.2 / 5.2.1, SmartKeyPass adli 4.3.3 / 5.2.2): kopru surum bunlardan
     // BUYUK olmali (artan-surum kurali: imza bilmeyen sahadaki cihazlar bu surume OTA ile gecebilir).
@@ -185,6 +185,7 @@ int main() {
   { printf("0 acilis: mqttSetup + otaSetup + MQTT baglantisi (gercek kod)\n");
     mqttSetup(); otaSetup();
     CHECK(mqttAktifPort() == 443, "resmi MQTT broker standart TLS 443 portunu kullanir");
+    CHECK(client.keepAliveSeconds == 5, "MQTT keepalive 5 sn: guc kesintisi hizli LWT/offline olur");
 #if defined(BOARD_ESP32_WROOM_RELAY)
     adminPinBaslat();
 #endif

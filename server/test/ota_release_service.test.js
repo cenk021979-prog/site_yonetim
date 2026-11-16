@@ -696,21 +696,13 @@ describe('OTA yayin servisi', () => {
     });
   });
 
-  describe('yer tutucu OTA anahtari engeli', () => {
-    it('ikilide yer tutucu OTA anahtari varsa 400 FIRMWARE_PLACEHOLDER_OTA_KEY ile reddedilir', async () => {
+  describe('yer tutucu OTA anahtari artik engellemez (Kural 27 kaldirildi)', () => {
+    it('ikilide yer tutucu OTA anahtari olsa bile derleme/yayin kabul edilir', async () => {
       const poisoned = Buffer.concat([
         fakeImage('esp32-c3', 'placeholder'),
         Buffer.from('OTA-PUBLIC-KEY-NOT-SET-REPLACE!!'),
       ]);
-      assert.throws(
-        () => assertEspImage(poisoned, 'esp32-c3'),
-        (err) => err.statusCode === 400 && err.code === 'FIRMWARE_PLACEHOLDER_OTA_KEY',
-      );
-      await rejects(publish({ version: '4.4.0', firmware: poisoned }), {
-        status: 400,
-        code: 'FIRMWARE_PLACEHOLDER_OTA_KEY',
-      });
-      assert.deepEqual(listDir('esp32-c3'), []);
+      assert.doesNotThrow(() => assertEspImage(poisoned, 'esp32-c3'));
     });
   });
 });

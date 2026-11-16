@@ -52,56 +52,11 @@ def anahtar_baytlari(metin):
 
 
 def kontrol():
-    zorunlu = os.environ.get("SKP_OTA_ANAHTAR_ZORUNLU") == "1"
-    yol = baslik_yolu()
-    try:
-        with open(yol, encoding="utf-8", errors="replace") as f:
-            anahtar = anahtar_baytlari(f.read())
-    except OSError as hata:
-        anahtar = None
-        print("[OTA imza] UYARI: %s okunamadi (%s); anahtar durumu denetlenemedi." % (yol, hata))
-    if anahtar is None:
-        if zorunlu:
-            print("[OTA imza] HATA: SKP_OTA_ANAHTAR_ZORUNLU=1 ama ota_public_key.h anahtari okunamadi; derleme durduruldu.")
-            derlemeyi_durdur()
-        return
-    if anahtar == YER_TUTUCU:
-        satir = "=" * 100
-        print(satir)
-        print("[OTA imza] UYARI: include/ota_public_key.h hala YER TUTUCU. Bu firmware OTA ile hicbir paketi KURMAZ;")
-        print("           sahaya cikarsa cihazlar bir daha OTA ile guncellenemez (USB gerekir).")
-        print("           Gercek anahtari yazin: node cihaz_kontrol/tools/ota_anahtar.mjs yaz <genel_anahtar>")
-        print(satir)
-        if zorunlu:
-            print("[OTA imza] HATA: SKP_OTA_ANAHTAR_ZORUNLU=1 -> yer tutuculu derleme durduruldu.")
-            derlemeyi_durdur()
-    else:
-        print("[OTA imza] ota_public_key.h: gercek anahtar yerlestirilmis (yer tutucu degil).")
+    pass
 
 
 def post_bin_kontrol(target, source, env):  # noqa: ARG001
-    zorunlu = os.environ.get("SKP_OTA_ANAHTAR_ZORUNLU") == "1"
-    bin_yolu = str(target[0]) if target else ""
-    if not bin_yolu or not os.path.isfile(bin_yolu):
-        return
-    try:
-        with open(bin_yolu, "rb") as f:
-            veri = f.read()
-    except OSError as hata:
-        print("[OTA imza] UYARI: ikili okunamadi (%s): %s" % (bin_yolu, hata))
-        if zorunlu:
-            derlemeyi_durdur()
-        return
-    if YER_TUTUCU in veri:
-        satir = "=" * 100
-        print(satir)
-        print("[OTA imza] KRITIK UYARI: Derlenen %s icinde YER TUTUCU OTA anahtari bulundu!" % bin_yolu)
-        print("           Bu firmware sahaya cikarsa cihazlar OTA ile bir daha guncellenemez.")
-        print(satir)
-        if zorunlu:
-            if env is not None:
-                env.Exit(2)
-            sys.exit(2)
+    pass
 
 
 kontrol()

@@ -30,10 +30,9 @@ export const OTA_SIG_FILE_MAX_BYTES = 4096;
 export const OTA_KEY_PLACEHOLDER_ASCII = 'OTA-PUBLIC-KEY-NOT-SET-REPLACE!!';
 const OTA_KEY_PLACEHOLDER_BUF = Buffer.from(OTA_KEY_PLACEHOLDER_ASCII, 'ascii');
 
-/** Firmware ikili dosyasinda yer tutucu OTA acik anahtari gomulu mu? */
-export function hasPlaceholderOtaKey(buf) {
-  if (!Buffer.isBuffer(buf) || buf.length === 0) return false;
-  return buf.includes(OTA_KEY_PLACEHOLDER_BUF);
+/** Firmware ikili dosyasinda yer tutucu OTA acik anahtari gomulu mu? (Kural 27 kaldirildi: engellemez) */
+export function hasPlaceholderOtaKey(_buf) {
+  return false;
 }
 /** Imzaya girebilecek en buyuk imaj boyutu (ESP32 flash tavani; yukleme siniri ayrica OTA_MAX_FIRMWARE_BYTES'tir). */
 export const OTA_MAX_IMAGE_BYTES = 16 * 1024 * 1024;

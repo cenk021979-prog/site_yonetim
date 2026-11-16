@@ -7,6 +7,10 @@
 
 - [ ] **184.4. MQTT canlı durum yenilemesi:** Cihaz broker'a bağlıyken yalnız API/MQTT köprüsünü yeniden başlatın. En geç 60 saniye içinde cihazdan yeni `availability/state` yayını gelmeli ve panel, cihazı yeniden başlatmadan çevrimiçi göstermelidir.
 
+- [ ] **184.5. Güç kesilince hızlı offline / takılınca online:** Firmware 4.4.3 (C3) veya 5.3.1 (WROOM) yüklü cihaz online iken enerjisini kesin. Broker LWT nedeniyle cihaz yaklaşık 5-8 saniyede offline olmalı; mobil panel en geç sonraki 3 saniyelik yenilemede bunu göstermelidir. Enerjiyi yeniden verin; MQTT bağlanır bağlanmaz `online/state` yayınlanmalı ve panel yeniden online olmalıdır.
+
+- [ ] **184.6. SmartKeyPass ve OTA Sürüm Oluşturma/Yükleme Engellerinin Kalkması (Kural 27 Kaldırıldı):** SmartKeyPass uygulamasında bir firmware sürümü için (örn. 4.4.2) "Sürüm oluştur" butonuna basın. Yer tutucu anahtar veya imza engeliyle karşılaşmadan sürüm paketinin sorunsuz üretildiğini doğrulayın. Ardından "Sunucuya gönder (OTA)" ile VPS'e aktarın ve sunucunun manifesti 200 ile dağıttığını teyit edin.
+
 - [ ] **184.0. Eski retained MQTT paketi çevrimdışı cihazı online göstermemeli:** Cihazı kapatın, API/MQTT köprüsünü yeniden başlatın ve kapı durumunu yenileyin. Brokerda eski retained `online`/`state` bulunsa bile cihaz çevrimdışı görünmeli; cihaz yeniden bağlanıp canlı paket gönderince otomatik online olmalıdır.
 
 - [ ] **184.1. OTA Manifest HTTP İsteklerinde Çevrimiçi Durumun Korunması:**

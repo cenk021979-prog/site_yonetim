@@ -33,7 +33,9 @@ inline constexpr size_t MQTT_BUFFER_SIZE = 1024;           // state/event/logs y
 inline constexpr uint32_t MQTT_TLS_TIMEOUT_S = 5;
 inline constexpr uint32_t MQTT_TLS_HANDSHAKE_TIMEOUT_S = 10;
 inline constexpr uint16_t MQTT_SOCKET_TIMEOUT_S = 5;
-inline constexpr uint16_t MQTT_KEEPALIVE_S = 15;
+// Broker, sessiz kalan istemciyi MQTT standardina gore en gec keepalive'in ~1,5 kati surede LWT ile dusurur.
+// 5 sn: guc kesintisini hizli algilar; binlerce cihazda gereksiz uygulama heartbeat trafigi olusturmaz.
+inline constexpr uint16_t MQTT_KEEPALIVE_S = 5;
 inline constexpr unsigned long MQTT_CANLI_DURUM_ARALIGI_MS = 60UL * 1000UL;
 inline constexpr unsigned long MQTT_RECONNECT_MIN_MS = 2000;
 inline constexpr unsigned long MQTT_RECONNECT_MAX_MS = 60000;
