@@ -5295,3 +5295,26 @@ Bu maddeler yeni gelen sürümün açık kabul kontrolleridir; tamamlanmış sah
   - **Beklenen Sonuç:** Cihazın QR kodu net şekilde görüntülenmeli, UID tek tıkla panoya kopyalanabilmeli, PNG formatında bilgisayara kaydedilebilmeli ve sistem varsayılan yazdırma iletişim kutusuna gönderilebilmelidir.
 
 
+
+---
+
+## 183. 🧩 Modül Yönetimi: Türkçe Alfabetik Sıralama & Site Bazında Temel Modül Pasife Alma (2026-11-16)
+
+- [ ] **183.1. Modüllerin Türkçe Alfabetik Sıralı Listelenmesi:**
+  - **Nasıl Test Edilir:**
+    1. Hem Platform Modülleri yönetim ekranına (Süper Kullanıcı) hem de Site Modülleri ekranına (Site Yöneticisi) gidin.
+    2. Modül kartlarının listelenme sırasını kontrol edin (Örn: Aidat ve Finans, Anket ve Oylama, Dosya Deposu, Ekipman ve Bakım, ... Rehber, Rezervasyon, Ziyaretçi ve Kargo).
+  - **Beklenen Sonuç:** Modüller Türkçe karakter duyarlı (Ç, Ğ, I, İ, Ö, Ş, Ü) olarak A'dan Z'ye alfabetik sırada listelenmelidir.
+
+- [ ] **183.2. Seçilen Site İçin Temel Modüllerin Switch ile Pasife Alınabilmesi (Aktif/Pasif):**
+  - **Nasıl Test Edilir:**
+    1. Bir sitenin modül yönetimi ekranında temel modüllerden birinin (örn: `Anket ve Oylama` veya `Ekipman ve Bakım`) yanındaki açma/kapama switch'ine dokunun.
+    2. Modülü pasife (kapalı) duruma getirin. Sayfayı yenileyin veya menüye bakın.
+    3. Switch'i tekrar açık duruma getirin.
+  - **Beklenen Sonuç:** Temel modüller varsayılan olarak her sitede açık gelir, ancak site bazında switch ile kapatılabilir. Kapatıldığında durum rozeti "Kapalı"ya döner, site sakinlerinin ve yöneticisinin menüsünden modül kaldırılır. Tekrar açıldığında "Her sitede açık" olur ve menüye geri gelir.
+
+- [ ] **183.3. Platformda Devre Dışı Olan Modüllerin Sitede Görünmemesi:**
+  - **Nasıl Test Edilir:**
+    1. Henüz platform genelinde devreye alınmamış bir modülün (`Acil Durum ve SOS`) durumunu kontrol edin.
+    2. Normal bir sitenin modül listesine ve menüsüne bakın.
+  - **Beklenen Sonuç:** Platform anahtarı kapalı (`is_platform_active = false`) olan modüller hiçbir sitede görünmez, menüye eklenmez ve açılamaz. Süper kullanıcı platformdan aktif edene kadar gizli kalır.
