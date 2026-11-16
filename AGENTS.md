@@ -333,6 +333,20 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - `MyApartmentView` içerisine veya daire kullanıcılarının mülk/daire ekranlarına "Güvenlik ve destek", büyük kırmızı 112 acil çağrı butonu, KADES, ALO 183, ŞÖNİM veya "Site yönetimine gizli talep gönder" bölümlerini ASLA geri ekleme.
       - Dairem ekranı yalnızca daire yönetimi, sakinler, aile üyeleri, vekalet, çıkış ve araç yönetimiyle sınırlı ve sade tutulacaktır.
 
+38. **Cihaz Kesintisiz Çevrimiçi (Uptime) Süresi ve Bağlantı Başlangıcı Korunumu (Kural 38):**
+    - **Neden Yapıldı:**
+      - Sahadaki cihazların (ESP32-C3 ve ESP32-WROOM) bağlantı başlangıcı (`last_online_at`), daha önce MQTT durum mesajları (`persistRuntimeStatus`) her geldiğinde (her 30-50 saniyede bir `NOW()` ile) güncelleniyordu; bu nedenle cihaz saatlerdir bağlı olmasına rağmen ekranda sürekli "Uptime: 50 sn" gibi yanlış ve sahte bir süre görünüyordu.
+      - Ayrıca sunucu (PM2) yeniden başladığında bellekteki `online_since` sıfırlanıp ilk kalp atışında `new Date()` olarak eziliyordu.
+      - Yapılan geliştirmeyle:
+        1. `server/src/mqtt_bridge.js` içindeki `persistRuntimeStatus` sorgusu düzeltildi: `last_online_at` yalnızca cihaz çevrimdışı iken çevrimiçi duruma geçtiğinde (`WHEN $2 = TRUE AND (is_online IS NOT TRUE OR last_online_at IS NULL)`) güncellenir; zaten çevrimiçi olan cihazın rutin paketlerinde başlangıç zamanı ASLA ezilmez.
+        2. `loadInitialDeviceRuntimeStatuses` sürecinde veritabanındaki `devices.last_online_at` okunarak bellekteki `existing.online_since` başlangıç zamanı korunur.
+        3. `server/src/services/device_service.js` içindeki `getDeviceConnectivityLogs` fonksiyonu, cihaz çevrimiçi ise `device_connectivity_logs` tablosundaki en son `offline` kopma anını kontrol eder ve süreyi son kopmadan itibaren geçen gerçek kesintisiz zaman (`effectiveOnlineSince`) üzerinden hesaplar.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - `saveDeviceStatusToDb` veya `persistRuntimeStatus` içinde cihaz çevrimiçi iken `last_online_at = NOW()` çalıştıran kodlar ASLA yazma.
+      - Cihazın kesintisiz bağlantı başlangıç tarihini rutin kalp atışı mesajlarıyla ileriye öteleyen mekanizmalar kurma.
+      - `getDeviceConnectivityLogs` içindeki `effectiveOnlineSince` doğrulama mantığını bozma.
+
+
 
 
 

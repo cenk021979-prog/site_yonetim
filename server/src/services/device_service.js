@@ -791,14 +791,39 @@ export async function getDeviceConnectivityLogs({
 
   const dev = devRes.rows[0];
   const isOnline = dev.mqtt_connected === true || (dev.mqtt_connected !== false && dev.is_online === true);
-  const lastOnlineAt = dev.last_online_at ? new Date(dev.last_online_at).toISOString() : null;
+  let effectiveOnlineSince = dev.last_online_at ? new Date(dev.last_online_at) : null;
   const lastOfflineAt = dev.last_offline_at ? new Date(dev.last_offline_at).toISOString() : null;
+
+  // En son kopma (offline) kaydını kontrol et:
+  // Eğer cihaz şu an online ise ve son bir offline log kaydı varsa:
+  // Cihaz bu son kopmanın ardından tekrar bağlanmış ve kesintisiz online kalmıştır.
+  // Rutin heartbeat paketleri veya sunucu yeniden başlatmaları dev.last_online_at'i
+  // yanlışlıkla son kopmadan sonraya (yakın bir zamana) ötelemiş olsa bile,
+  // gerçek kesintisiz bağlantı son kopma anından (offline_at) hemen sonra başlamıştır.
+  if (isOnline) {
+    const latestOfflineRes = await pool.query(
+      `
+        SELECT offline_at
+        FROM device_connectivity_logs
+        WHERE device_uid = $1 AND event_type = 'offline'
+        ORDER BY id DESC
+        LIMIT 1
+      `,
+      [normalizedUid],
+    );
+    if (latestOfflineRes.rowCount > 0 && latestOfflineRes.rows[0]?.offline_at) {
+      const lastDisconnectTime = new Date(latestOfflineRes.rows[0].offline_at);
+      if (!effectiveOnlineSince || effectiveOnlineSince > lastDisconnectTime) {
+        effectiveOnlineSince = lastDisconnectTime;
+      }
+    }
+  }
 
   let currentOnlineDurationSeconds = null;
   let currentOnlineDurationText = null;
 
-  if (isOnline && dev.last_online_at) {
-    const diffMs = Date.now() - new Date(dev.last_online_at).getTime();
+  if (isOnline && effectiveOnlineSince) {
+    const diffMs = Date.now() - effectiveOnlineSince.getTime();
     if (diffMs >= 0) {
       currentOnlineDurationSeconds = Math.floor(diffMs / 1000);
       currentOnlineDurationText = formatDurationTurkish(currentOnlineDurationSeconds);
@@ -855,7 +880,7 @@ export async function getDeviceConnectivityLogs({
   return {
     device_uid: normalizedUid,
     is_online: isOnline,
-    current_online_since: isOnline ? lastOnlineAt : null,
+    current_online_since: isOnline && effectiveOnlineSince ? effectiveOnlineSince.toISOString() : null,
     current_online_duration_seconds: currentOnlineDurationSeconds,
     current_online_duration_text: currentOnlineDurationText,
     last_offline_at: lastOfflineAt,

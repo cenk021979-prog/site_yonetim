@@ -398,11 +398,18 @@ async function persistRuntimeStatus(status) {
         UPDATE devices
         SET
           is_online = $2,
-          last_online_at = CASE WHEN $2 = TRUE THEN NOW() ELSE last_online_at END,
-          last_offline_at = CASE WHEN $2 = FALSE THEN NOW() ELSE last_offline_at END
+          last_online_at = CASE
+            WHEN $2 = TRUE AND (is_online IS NOT TRUE OR last_online_at IS NULL)
+              THEN COALESCE($3, NOW())
+            ELSE last_online_at
+          END,
+          last_offline_at = CASE
+            WHEN $2 = FALSE AND is_online IS TRUE THEN NOW()
+            ELSE last_offline_at
+          END
         WHERE device_uid = $1
       `,
-      [status.device_uid, Boolean(status.mqtt_connected)],
+      [status.device_uid, Boolean(status.mqtt_connected), status.online_since || null],
     );
     await syncDeviceHardwareTypeFromReport(status);
   } catch (error) {
@@ -783,7 +790,7 @@ export function applyStatusMessage(topic, payload, meta = {}) {
   // cihaz cevrimici olarak terfi ettirilir.
   if (!retained && kind !== 'availability' && status.mqtt_connected !== true) {
     status.mqtt_connected = true;
-    status.online_since = new Date();
+    status.online_since = status.online_since || new Date();
     void syncLocalControlConfigFromDb(status.device_uid);
   }
 
@@ -870,7 +877,7 @@ export function applyStatusMessage(topic, payload, meta = {}) {
       : status.last_seen_at;
 
     if (isNowOnline && !wasOnline) {
-      status.online_since = new Date();
+      status.online_since = status.online_since || new Date();
       void syncLocalControlConfigFromDb(status.device_uid);
     } else if (!isNowOnline && wasOnline) {
       void recordDeviceOfflineTransition(status, 'Wi-Fi/MQTT Bağlantısı Kesildi (LWT)');
@@ -973,9 +980,11 @@ export async function loadInitialDeviceRuntimeStatuses() {
       const normalizedUid = normalizeDeviceTopicUid(row.device_uid);
       const existing = ensureStatus(normalizedUid);
       // Surec yeniden basladiginda DB'deki true gecmis bilgidir. Yalniz bu calisma
-      // sirasinda alinmis canli (retained olmayan) MQTT paketi cihazi online yapabilir.
+      // sirasinda alinmis canli MQTT paketi cihazi online yapabilir. Ancak cihazin DB'deki
+      // gercek kesintisiz baglanti baslangic zamani (last_online_at) korunur; boylece sunucu
+      // yeniden baslatildiginda veya ilk kalp atisi geldiginde uptime sifirlanmaz.
       existing.mqtt_connected = false;
-      existing.online_since = null;
+      existing.online_since = row.last_online_at ? new Date(row.last_online_at) : null;
       existing.door_locked = row.door_locked;
       existing.firmware_version = row.firmware_version;
       existing.hardware_target = row.hardware_target;
@@ -995,8 +1004,6 @@ export async function loadInitialDeviceRuntimeStatuses() {
     await pool.query(`
       UPDATE device_runtime_status SET mqtt_connected = FALSE, updated_at = NOW()
       WHERE mqtt_connected IS DISTINCT FROM FALSE;
-      UPDATE devices SET is_online = FALSE, last_offline_at = NOW()
-      WHERE is_online IS DISTINCT FROM FALSE;
     `);
   } catch (error) {
     console.warn('Initial device runtime statuses yuklenemedi:', error.message);

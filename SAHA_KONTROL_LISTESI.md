@@ -5504,4 +5504,19 @@ Daire sakinlerinin "Dairem" (`MyApartmentView`) ekranından alakasız "Güvenlik
     3. Sol sütundaki "Daire ve Sakinler" kartının en altına kaydırın ("Bu daireden ayrıl" butonunun altına bakın).
   - **Beklenen Sonuç:** "Güvenlik ve destek" akordeonu, kırmızı büyük 112 butonu, ALO 183, KADES, ŞÖNİM ve mahkeme uyarıları KESİNLİKLE YER ALMAZ. Daire ekranı sade, amaca uygun ve ferah kalır.
 
+---
+
+## 190. ⏱️ Cihaz Kesintisiz Çevrimiçi (Uptime) Süresi ve Bağlantı Başlangıcı Doğrulaması (2026-11-16)
+
+Sahadaki cihazların rutin durum ve kalp atışı (heartbeat/state) mesajları aldığında veya sunucu (PM2) yeniden başladığında, cihazın kesintisiz bağlantı başlangıç zamanının (`last_online_at` / `current_online_since`) ve aktif çalışma süresinin (uptime) sıfırlanması sorunu kalıcı olarak çözülmüştür.
+
+- [ ] **190.1. Kesintisiz Çevrimiçi Uptime ve Bağlantı Başlangıcı Doğrulaması:**
+  - **Nasıl Test Edilir:**
+    1. Süper kullanıcı veya site yöneticisi hesabıyla "Şirket Cihaz Envanteri" veya "Cihazlar" ekranına gidin.
+    2. Sahada saatlerdir online olan bir cihazın (örn: `B86D72A172E0`) "Bağlantı & Kopma Geçmişi" akordeonunu açın.
+    3. Üstteki yeşil "Kesintisiz Çevrimiçi (Uptime)" kartındaki süreye ve "Bağlantı başlangıcı" saatine bakın.
+    4. Hemen alttaki "Kopma / Çevrimdışı Logları" listesindeki en son kopma kaydının tarih/saati ile karşılaştırın.
+  - **Beklenen Sonuç:** Uptime süresi "50 sn" gibi sahte kısa süreler göstermez; cihazın son koptuğu andan itibaren geçen gerçek kesintisiz süreyi (örn: "4 saat 21 dk") gösterir. Bağlantı başlangıcı son kopma anıyla birebir örtüşür ve rutin heartbeat paketleriyle ileri kaymaz.
+
+
 
