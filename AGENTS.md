@@ -346,6 +346,20 @@ Bu kurallar projede geliştirme yapılırken MUTLAKA ve İSTİSNASIZ olarak uygu
       - Cihazın kesintisiz bağlantı başlangıç tarihini rutin kalp atışı mesajlarıyla ileriye öteleyen mekanizmalar kurma.
       - `getDeviceConnectivityLogs` içindeki `effectiveOnlineSince` doğrulama mantığını bozma.
 
+39. **Yeni Sakin ve Daire Hesaplarında Kullanıcı Adı Belirleme İlkesi (Kural 39):**
+    - **Neden Yapıldı:**
+      - Daireye yeni sakin kaydedildiğinde veya hesap tanımlandığında sakine `3183983743_ABlok_Daire23` gibi uzun, karmaşık, site kodlu ve akılda tutulması imkansız kullanıcı adları veriliyordu ve e-posta bildiriminde de bu ad gönderiliyordu.
+      - Kullanıcı talimatı doğrultusunda şu kural getirildi:
+        1. **E-posta adresi girilmişse:** Kullanıcı adı (`login_name`) doğrudan sakinin e-posta adresi olur (örn: `elifzeynephabibeahmet@gmail.com`). Giriş ekranında ve sakine giden e-postada kullanıcı adı olarak doğrudan kendi e-postası bildirilir.
+        2. **E-posta adresi girilmemişse:** Kişinin ad-soyadından yola çıkılarak Türkçe karakterlerden arındırılmış, nokta ayırıcılı ve sistemde benzersiz sade bir kullanıcı adı verilir (örn: `elif.ceylan`, mükerrerlikte `elif.ceylan2`).
+        3. **Ad ve e-posta yoksa:** Temiz blok ve daire etiketi verilir (örn: `a.blok.d23` veya `daire23`).
+        4. `/auth/login` sorgusu hem `users.email` ve `users.login_name` hem de `apartments.resident_email` ile eşleşecek şekilde genişletildi.
+    - **Gelecek Ajanlar İçin Kesin Yasaklar ve Koruma İlkeleri:**
+      - Yeni sakinlere `3183983743_ABlok_Daire23` veya site kodu ön eki içeren karmaşık kullanıcı adları türeten mekanizmalara ASLA geri dönme.
+      - Sakinin e-posta adresi varsa bunu kullanıcı adı olarak atama kuralını bozma.
+      - `ensureUniqueLoginName` ve `generateUniqueApartmentLoginName` içindeki e-posta ve ad-soyad hiyerarşisini kaldırma.
+
+
 
 
 

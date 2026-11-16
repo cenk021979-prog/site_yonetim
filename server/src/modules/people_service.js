@@ -1830,9 +1830,6 @@ export async function provisionPersonAccount({
     }
 
     // 2. Kişinin hesabı yoksa (hesapsız): Yeni kullanıcı hesabı oluştur
-    const personFullName = (person.full_name || '').trim();
-    const candidateName = requestedLoginName ?? suggestLoginName(personFullName, id);
-
     // Hesap e-postası: istekte verilen, yoksa kişi kaydındaki (CRM) adres; normalize edilir, dahili / sistem adresleri kullanılmaz. Başka bir hesapta
     // zaten kayıtlıysa o adres KULLANILMAZ (dahili adrese düşülür): hesabın var olup olmadığı yönetici yanıtından anlaşılamaz.
     if (requestedEmail === null && person.email) {
@@ -1852,6 +1849,15 @@ export async function provisionPersonAccount({
         accountEmail = null;
       }
     }
+
+    const personFullName = (person.full_name || '').trim();
+    // 1. Mail adresi girilmişse mail adresi kullanıcı adı olsun
+    // 2. Girilmemişse kişinin ad soyadından sade kullanıcı adı verilsin
+    const candidateName = requestedLoginName ?? (
+      accountEmail
+        ? accountEmail
+        : suggestLoginName(personFullName, id)
+    );
 
     let finalLoginName = null;
     const insertUser = (chosenLoginName) => {

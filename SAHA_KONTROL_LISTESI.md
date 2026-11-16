@@ -5518,5 +5518,25 @@ Sahadaki cihazların rutin durum ve kalp atışı (heartbeat/state) mesajları a
     4. Hemen alttaki "Kopma / Çevrimdışı Logları" listesindeki en son kopma kaydının tarih/saati ile karşılaştırın.
   - **Beklenen Sonuç:** Uptime süresi "50 sn" gibi sahte kısa süreler göstermez; cihazın son koptuğu andan itibaren geçen gerçek kesintisiz süreyi (örn: "4 saat 21 dk") gösterir. Bağlantı başlangıcı son kopma anıyla birebir örtüşür ve rutin heartbeat paketleriyle ileri kaymaz.
 
+---
+
+## 191. 👤 Yeni Sakin ve Daire Hesaplarında Kullanıcı Adı Belirleme İlkesi (2026-11-16)
+
+Yeni kayıt olan veya daireye eklenen sakinlere kullanıcı adı atanırken `3183983743_ABlok_Daire23` gibi uzun, karmaşık ve kullanışsız kodlar tamamen kaldırılmıştır.
+1. Sakin e-posta adresi girmişse, kullanıcının doğrudan e-posta adresi kullanıcı adı (`login_name`) olur (örn: `elifzeynephabibeahmet@gmail.com`).
+2. Sakin e-posta adresi girmemişse, ad-soyadından yola çıkılarak sade, Türkçe karakterlerden arındırılmış ve sistemde benzersiz bir kullanıcı adı atanır (örn: `elif.ceylan`, mükerrerlikte `elif.ceylan2`).
+3. Her iki bilgi de yoksa temiz bir daire etiketi atanır (örn: `a.blok.d23` veya `daire23`).
+
+- [ ] **191.1. E-posta İle Sakin Kaydı ve Bilgilendirme E-postası:**
+  - **Nasıl Test Edilir:**
+    1. Site yöneticisi olarak "Kişi Ekle" formundan bir sakin ekleyin; ad-soyad, daire ve geçerli bir e-posta adresi girin.
+    2. Sakine iletilen e-postayı (veya sunucu yanıtındaki `login_name` alanını) kontrol edin.
+  - **Beklenen Sonuç:** Gönderilen e-postada "Kullanici adi: <sakinin_epostasi>" olarak görünür. Sakin bu e-posta adresi ve geçici PIN ile doğrudan sisteme giriş yapabilir.
+- [ ] **191.2. E-postasız Sakin Kaydı:**
+  - **Nasıl Test Edilir:**
+    1. Yalnızca ad-soyad (örn: "Elif CEYLAN") ve daire seçerek e-postasız sakin ekleyin veya hesap tanımlayın.
+  - **Beklenen Sonuç:** Kullanıcı adı `elif.ceylan` olarak üretilir; `3183983743_...` gibi karmaşık kodlar ASLA verilmez.
+
+
 
 

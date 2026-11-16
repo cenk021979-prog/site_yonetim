@@ -6,6 +6,7 @@ import { clearAccountLocks } from '../middlewares/login_throttle.js';
 import { recordAudit } from '../modules/audit_service.js';
 import { INTERNAL_EMAIL_SUFFIX } from '../modules/people_sync_sql.js';
 import { revokeCredentialAccess } from '../modules/credential_revocation.js';
+import { slugifyLoginName } from '../modules/bulk_import_login_names.js';
 import {
   apartmentBaseLoginName,
   apartmentResidentFullName,
@@ -127,9 +128,19 @@ export async function ensureUniqueLoginName({
   let attempt = 0;
 
   while (attempt < 100) {
-    const candidate = attempt === 0
-      ? desiredLoginName
-      : `${desiredLoginName}_${attempt + 1}`;
+    let candidate;
+    if (attempt === 0) {
+      candidate = desiredLoginName;
+    } else {
+      if (desiredLoginName.includes('@')) {
+        const atIdx = desiredLoginName.indexOf('@');
+        const userPart = desiredLoginName.slice(0, atIdx);
+        const domainPart = desiredLoginName.slice(atIdx);
+        candidate = `${userPart}${attempt + 1}${domainPart}`;
+      } else {
+        candidate = `${desiredLoginName}${attempt + 1}`;
+      }
+    }
     const existing = await db.query(
       `
         SELECT user_code
@@ -156,12 +167,34 @@ export async function ensureUniqueLoginName({
 
 export async function generateUniqueApartmentLoginName({
   db,
-  blockName,
-  sortOrder,
-  siteCode,
+  blockName = '',
+  sortOrder = 1,
+  siteCode = null,
   excludeUserCode = null,
+  fullName = null,
+  email = null,
 }) {
-  const baseLoginName = apartmentBaseLoginName({ siteCode, blockName, sortOrder });
+  const cleanEmail = typeof email === 'string' && email.trim() && !email.toLowerCase().endsWith(INTERNAL_EMAIL_SUFFIX)
+    ? email.trim().toLowerCase()
+    : null;
+
+  // 1. Mail adresi girilmişse mail adresi kullanıcı adı olsun
+  if (cleanEmail) {
+    return ensureUniqueLoginName({
+      db,
+      desiredLoginName: cleanEmail,
+      siteCode,
+      excludeUserCode,
+    });
+  }
+
+  // 2. Girilmemişse kişinin ad soyadından faydalanılarak sistemde olmayan sade bir kullanıcı adı verilsin
+  // (olabildiğince karmaşık olmaktan uzak, ahmet.yilmaz / ahmet.yilmaz2 gibi)
+  const cleanFullName = typeof fullName === 'string' ? fullName.trim() : '';
+  const baseLoginName = cleanFullName
+    ? slugifyLoginName(cleanFullName)
+    : (blockName ? `${slugifyLoginName(blockName)}.d${sortOrder || 1}` : `daire${sortOrder || 1}`);
+
   return ensureUniqueLoginName({
     db,
     desiredLoginName: baseLoginName,
@@ -266,13 +299,17 @@ export async function provisionApartmentResident({
 
     const apartment = apartmentResult.rows[0];
 
+    const residentEmail = email === undefined
+      ? apartment.resident_email
+      : email;
+
     let userCode = apartment.resident_user_code == null
       ? null
       : Number(apartment.resident_user_code);
-    const finalLoginName = loginName
+    const finalLoginName = (loginName && String(loginName).trim())
       ? await ensureUniqueLoginName({
           db: client,
-          desiredLoginName: loginName,
+          desiredLoginName: String(loginName).trim().toLowerCase(),
           siteCode: Number(apartment.site_code),
           excludeUserCode: userCode,
         })
@@ -282,15 +319,14 @@ export async function provisionApartmentResident({
           sortOrder: Number(apartment.sort_order),
           siteCode: Number(apartment.site_code),
           excludeUserCode: userCode,
+          fullName,
+          email: residentEmail,
         });
     const internalEmail = generateInternalApartmentEmail({
       loginName: finalLoginName,
       apartmentId: Number(apartment.id),
       siteCode: Number(apartment.site_code),
     });
-    const residentEmail = email === undefined
-      ? apartment.resident_email
-      : email;
 
     if (userCode == null) {
       // Yeni sakin olusturulurken 4 haneli sayisal sifre ZORUNLUDUR. (Mevcut sakin duzenlemede sifre bos

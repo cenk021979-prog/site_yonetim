@@ -801,8 +801,15 @@ authRouter.post('/auth/login', loginRateLimiter, async (req, res) => {
           SELECT 1 FROM apartments a WHERE a.resident_user_code = users.user_code AND a.resident_pin_issued = TRUE
         ) AS pin_issued
       FROM users
-      WHERE LOWER(email) = LOWER($1) OR LOWER(login_name) = LOWER($1)
-      ORDER BY (LOWER(email) = LOWER($1)) DESC, user_code ASC
+      WHERE LOWER(email) = LOWER($1)
+         OR LOWER(login_name) = LOWER($1)
+         OR EXISTS (
+           SELECT 1 FROM apartments a
+           WHERE a.resident_user_code = users.user_code
+             AND a.resident_email IS NOT NULL
+             AND LOWER(a.resident_email) = LOWER($1)
+         )
+      ORDER BY (LOWER(email) = LOWER($1) OR LOWER(login_name) = LOWER($1)) DESC, user_code ASC
       LIMIT 1
       `,
       [identifier],

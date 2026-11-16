@@ -72,9 +72,15 @@ class _PersonAccountDialogState extends State<PersonAccountDialog> {
   @override
   void initState() {
     super.initState();
+    final cleanEmail = (widget.initialEmail != null &&
+            widget.initialEmail!.trim().isNotEmpty &&
+            !widget.initialEmail!.toLowerCase().endsWith('@ahbu.local'))
+        ? widget.initialEmail!.trim().toLowerCase()
+        : null;
+
     final defaultLogin = widget.initialUsername?.isNotEmpty == true
         ? widget.initialUsername!
-        : generateUsernameFromFullName(widget.personName);
+        : (cleanEmail ?? generateUsernameFromFullName(widget.personName));
 
     _loginNameController = TextEditingController(text: defaultLogin);
     _passwordController = TextEditingController(text: '1234');
