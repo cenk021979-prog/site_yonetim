@@ -6,6 +6,7 @@
 // adresi ya da firması ASLA dönmez. Süper kullanıcı: boş liste (site bağı yoktur). Hata yanıtları bilgi sızdırmaz.
 
 import { pool } from '../db.js';
+import { assertEmergencyModuleActive, isEmergencyModuleActive } from './emergency_alarm_common.js';
 import { cleanText, clipChars } from '../utils/safe_text.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
 import { PlatformError } from './errors.js';
@@ -108,6 +109,7 @@ const textOrNull = (value) => {
  * elevator_firm_name, elevator_firm_phone, can_edit }] }. `can_edit`: o sitenin yöneticisi (kurul / görevli / sakin değil).
  */
 export async function listEmergencySites(authUser, db = pool) {
+  if (!(await isEmergencyModuleActive())) return { sites: [] };
   if (authUser?.role === 'super_user') return { sites: [] };
   const userCode = positiveInt(authUser?.user_code ?? authUser?.userCode ?? authUser?.id);
   if (userCode === null) return { sites: [] };
@@ -145,6 +147,7 @@ async function rollbackQuietly(client) {
 
 /** PUT /manager/sites/:siteCode/emergency: asansör bakım firmasını yazar (ikisi de boşsa kaydı siler) ve denetim kaydı düşer. Yetki rotada denetlenir. */
 export async function saveElevatorFirm({ siteCode, input, actor }) {
+  await assertEmergencyModuleActive();
   const code = positiveInt(siteCode);
   if (code === null) throw new PlatformError(404, 'SITE_NOT_FOUND', 'Site bulunamadı.');
   const { name, phone } = input;

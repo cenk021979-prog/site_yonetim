@@ -30,7 +30,7 @@ import { managementTerms } from '../src/modules/management_type_terms.js';
 const def = (code) => getModuleDefinition(code);
 
 describe('platform katalog: sozlesme tablosu', () => {
-  it('21 modul, sozlesmedeki sirayla ve alanlarla (Kart Odemesi Aidat ve Finans a, Belgeler Dosya Deposu na katildi: 083, 084)', () => {
+  it('22 modul, sozlesmedeki sirayla ve alanlarla', () => {
     assert.deepEqual(MODULE_CODES, [
       'people',
       'door_control',
@@ -53,6 +53,7 @@ describe('platform katalog: sozlesme tablosu', () => {
       'annual_report',
       'hgs_access',
       'equipment',
+      'emergency',
     ]);
     const table = Object.fromEntries(MODULE_CATALOG.map((m) => [m.code, [m.core, m.status]]));
     assert.deepEqual(table, {
@@ -77,6 +78,7 @@ describe('platform katalog: sozlesme tablosu', () => {
       plate_recognition: [false, 'available'], // Plaka Tanima (073): kullanilabilir, varsayilan KAPALI; kapi acmaz (would_open)
       hgs_access: [false, 'coming_soon'],
       equipment: [true, 'available'], // Kural 25 (2026-10-28): Ekipman ve Bakim (068) TEMEL modul
+      emergency: [true, 'available'],
     });
     assert.equal(def('door_control').name, 'Geçiş Kontrol (SmartKeyPass)');
     assert.equal(def('people').name, 'Kişi ve Daire Kayıtları');
@@ -93,7 +95,7 @@ describe('platform katalog: sozlesme tablosu', () => {
 
   it('publicCatalog yalnizca { code, name, description, core, status } alanlarini dondurur', () => {
     const catalog = publicCatalog();
-    assert.equal(catalog.length, 21);
+    assert.equal(catalog.length, 22);
     for (const entry of catalog) {
       assert.deepEqual(Object.keys(entry), ['code', 'name', 'description', 'core', 'status']);
     }
@@ -111,7 +113,7 @@ describe('platform katalog: sozlesme tablosu', () => {
     const core = MODULE_CATALOG.filter((m) => m.core);
     assert.deepEqual(
       core.map((m) => m.code),
-      ['people', 'finance', 'announcements', 'reservation', 'work_tracking', 'survey', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment'],
+      ['people', 'finance', 'announcements', 'reservation', 'work_tracking', 'survey', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment', 'emergency'],
     );
     for (const m of core) {
       assert.equal(m.status, 'available', m.code);
@@ -259,7 +261,7 @@ describe('platform katalog: enabled hesabi', () => {
     const list = computeSiteModuleList([
       { module_code: 'door_control', enabled: false, updated_at: when, updated_by_name: 'Ali Veli' },
     ]);
-    assert.equal(list.length, 21);
+    assert.equal(list.length, 22);
     const door = list.find((m) => m.code === 'door_control');
     assert.deepEqual(door, {
       code: 'door_control',

@@ -2,8 +2,10 @@
 import { pool } from '../db.js';
 import { pushDeviceHooks } from './push_devices.js';
 import { alarmAccountEligibleSql, isManagerSql, recipientAccessSql } from './emergency_alarm_access.js';
+import { isEmergencyModuleActive } from './emergency_alarm_common.js';
 
 async function notify(alarm, db, managersOnly) {
+  if (!(await isEmergencyModuleActive())) return { available: false, accepted: 0 };
   try {
     if (!pushDeviceHooks.available()) return { available: false, accepted: 0 };
     const devices = await db.query(`SELECT d.fcm_token, r.role FROM emergency_alarm_recipients r

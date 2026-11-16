@@ -1,5 +1,14 @@
 // Site içi acil alarm sözleşmesi; telefon araması veya resmi yardım hattı değildir.
 import { PlatformError } from './errors.js';
+import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
+
+export const EMERGENCY_MODULE = 'emergency';
+export const emergencyModuleDisabled = () =>
+  new PlatformError(403, 'MODULE_DISABLED', 'Acil Durum ve SOS modulu kapali.', { module: EMERGENCY_MODULE });
+export const isEmergencyModuleActive = () => isModuleActiveOnPlatform(EMERGENCY_MODULE);
+export async function assertEmergencyModuleActive() {
+  if (!(await isEmergencyModuleActive())) throw emergencyModuleDisabled();
+}
 
 export const ALARM_KINDS = Object.freeze(['elevator', 'fire']);
 export const RESPONDER_ROLES = Object.freeze(['security', 'elevator_service']);

@@ -206,6 +206,14 @@ export const MODULE_CATALOG = Object.freeze([
     status: MODULE_STATUS_AVAILABLE,
     defaultEnabled: true,
   }),
+  defineModule({
+    code: 'emergency',
+    name: 'Acil Durum ve SOS',
+    description: 'Yangin ve asansor olaylarinda site ici alarm, sesli alici ve bildirim akisi.',
+    core: true,
+    status: MODULE_STATUS_AVAILABLE,
+    defaultEnabled: true,
+  }),
 ]);
 
 export const MODULE_CODES = Object.freeze(MODULE_CATALOG.map((definition) => definition.code));

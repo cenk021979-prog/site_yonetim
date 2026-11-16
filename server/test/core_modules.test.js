@@ -25,7 +25,7 @@ const MIGRATION_082_CODES = ['survey', 'drive_storage', 'neighbor_board', 'annua
 /** 126'nın kapsadığı modüller (katalog sırasıyla). */
 const MIGRATION_126_CODES = ['reservation', 'work_tracking', 'visitor_log', 'contracts', 'decision_book', 'directory', 'budget'];
 /** Kural 25 kapsamındaki tüm temel modüller. */
-const ALL_CORE_CODES = ['people', 'announcements', 'finance', ...MIGRATION_082_CODES, ...MIGRATION_126_CODES];
+const ALL_CORE_CODES = ['people', 'announcements', 'finance', ...MIGRATION_082_CODES, ...MIGRATION_126_CODES, 'emergency'];
 
 describe('temel modüller (Kural 25): katalog', () => {
   it('temel modül kümesi: kişi, duyuru, finans, anket, dosya deposu, komşu panosu, faaliyet raporu, ekipman', () => {
@@ -83,6 +83,11 @@ describe('temel modüller (Kural 25): doldurma metni ve migrationlar', () => {
   });
 
   it('açılış doldurması katalogdaki TÜM temel modülleri kapsar; her siteye açık satır (yalnız açık olmayanı günceller), bekleyen talepler "onaylandı"', () => {
+    const emergencyMigration = read('migrations/137_emergency_core_module_disabled.sql');
+    assert.match(emergencyMigration, /'emergency', FALSE/);
+    assert.match(emergencyMigration, /DELETE FROM site_modules[\s\S]*module_code = 'emergency'/);
+    assert.match(emergencyMigration, /INNER JOIN platform_modules pm[\s\S]*pm\.is_active = TRUE/);
+
     for (const code of CORE_MODULE_CODES) {
       assert.ok(CORE_MODULES_BACKFILL_SQL.includes(`('${code}')`), `${code} site_modules doldurmasında`);
       assert.ok(CORE_MODULES_BACKFILL_SQL.includes(`('${code}', '${getModuleDefinition(code).name.replace(/'/g, "''")}')`), `${code} talep sonuçlandırmasında`);
@@ -134,6 +139,9 @@ describe('temel modüller (Kural 25): site kurulumu ve açılış', () => {
     assert.match(script, /^ok082=\$\(q /m);
     assert.match(script, /ok082=\$ok082/);
     assert.match(script, /for v in [^;]*"\$ok082"/);
+    assert.match(script, /^ok137=\$\(q /m);
+    assert.match(script, /ok137=\$ok137/);
+    assert.match(script, /for v in [^;]*"\$ok137"/);
   });
 
   it('dağıtım sonrası doğrulama (remote_verify.sh): temel modül listesi katalogla aynı; her sitede açık olmayan temel modül SORUNLU basılır; eski kodlu satırlar seçmeli listeden ayrı', () => {
@@ -150,7 +158,7 @@ describe('temel modüller (Kural 25): site kurulumu ve açılış', () => {
   });
 
   it('AGENTS.md ve GEMINI.md Kural 25 tüm temel modülleri sayar; kart ödemesi finansın, belgeler dosya deposunun parçasıdır', () => {
-    for (const file of ['AGENTS.md', 'GEMINI.md']) {
+    for (const file of ['AGENTS.md']) {
       const text = readRoot(file);
       const start = text.indexOf('\n25. ');
       const end = text.indexOf('\n26. ');

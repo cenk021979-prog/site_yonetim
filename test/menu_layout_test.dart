@@ -192,6 +192,7 @@ void main() {
         PlatformModuleCodes.annualReport,
         PlatformModuleCodes.plateCameras,
         PlatformModuleCodes.plateRecognition,
+        PlatformModuleCodes.emergency,
       };
       expect(menuModuleCodes.values.toSet(), known);
     });

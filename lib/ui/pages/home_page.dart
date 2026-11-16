@@ -7013,11 +7013,16 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
               6,
         );
 
+    final bool emergencyEnabled = session.role != UserRole.superUser &&
+        (_moduleAccess.anyEnabled(PlatformModuleCodes.emergency) ||
+            widget.emergencyAlarmController != null);
+
     return InterfaceModeScope(
       service: _interfaceMode,
       child: EmergencyAlarmHost(
-        key: ValueKey('emergency_host_${session.id}'),
+        key: ValueKey('emergency_host_${session.id}_$emergencyEnabled'),
         authService: widget.authService,
+        enabled: emergencyEnabled,
         controller: widget.emergencyAlarmController,
         builder: (context, alarmAction, alarmBanner) => Scaffold(
           backgroundColor: Colors.transparent,

@@ -12,6 +12,7 @@ abstract final class PlatformModuleCodes {
 
   /// Rezervasyon ve Konsiyerj. TEMEL modül (Kural 25): her sitede açık.
   static const String reservation = 'reservation';
+
   /// İş Takibi. TEMEL modül (Kural 25): her sitede açık.
   static const String workTracking = 'work_tracking';
   static const String metering = 'metering';
@@ -19,30 +20,41 @@ abstract final class PlatformModuleCodes {
 
   /// Anket ve Oylama (F11.01). TEMEL modül (Kural 25): her sitede açık.
   static const String survey = 'survey';
+
   /// Ziyaretçi ve Kargo (kapı kaydı; F11.03). Varsayılan KAPALI.
   static const String visitorLog = 'visitor_log';
+
   /// Firma ve Sözleşme Takibi. Varsayılan KAPALI.
   static const String contracts = 'contracts';
+
   /// Ekipman ve Bakım (envanter, bakım planı / kaydı, teklifler). TEMEL modül (Kural 25): her sitede açık.
   static const String equipment = 'equipment';
+
   /// Karar Defteri (yönetim / genel / denetim kurulu kararları). Varsayılan KAPALI.
   static const String decisionBook = 'decision_book';
+
   /// Rehber (yönetim kadrosu ve faydalı telefonlar; sakin ekranı). Varsayılan KAPALI.
   static const String directory = 'directory';
 
   /// İşletme Projesi (bütçe). Varsayılan KAPALI.
   static const String budget = 'budget';
+
   /// Dosya Deposu: Belgeler (yönetmelik, tutanak, sözleşme; Faz 3b-A) + sitenin Google Drive bağlantısı (D1) TEK modül. TEMEL modül (Kural 25):
   /// her sitede açık (Google Drive bağlantısı ayrıca kurulur). Eski `documents` (Belgeler) kodu 084'te buna katıldı; ayrı Belgeler modülü yoktur.
   static const String driveStorage = 'drive_storage';
+
   /// Komşu Panosu (sakin ilanları, yönetici onayı). TEMEL modül (Kural 25): her sitede açık.
   static const String neighborBoard = 'neighbor_board';
+
   /// Faaliyet Raporu (yıllık rapor taslağı, PDF). TEMEL modül (Kural 25): her sitede açık.
   static const String annualReport = 'annual_report';
+
   /// Kamera ve Plaka (plaka olayı kaydı; kapı açmaz). Varsayılan KAPALI.
   static const String plateCameras = 'plate_cameras';
+
   /// Plaka Tanıma (misafir plaka izni, kara liste, olay kararları; kapı açma "Yakında…"). Varsayılan KAPALI.
   static const String plateRecognition = 'plate_recognition';
+  static const String emergency = 'emergency';
 }
 
 DateTime? _parseDate(Object? raw) {
@@ -144,8 +156,11 @@ class PlatformModule {
           ? json['enabled'] as bool
           : defaultEnabled(code, core: core, status: status),
       toggleable: toggleable,
-      canToggle: json['can_toggle'] is bool ? json['can_toggle'] as bool : toggleable,
-      requestStatus: json['request_status'] is String &&
+      canToggle: json['can_toggle'] is bool
+          ? json['can_toggle'] as bool
+          : toggleable,
+      requestStatus:
+          json['request_status'] is String &&
               (json['request_status'] as String).trim().isNotEmpty
           ? (json['request_status'] as String).trim()
           : null,
@@ -171,7 +186,9 @@ class PlatformModule {
       enabled: enabled ?? this.enabled,
       toggleable: toggleable,
       canToggle: canToggle,
-      requestStatus: clearRequestStatus ? null : (requestStatus ?? this.requestStatus),
+      requestStatus: clearRequestStatus
+          ? null
+          : (requestStatus ?? this.requestStatus),
       updatedAt: updatedAt,
       updatedBy: updatedBy,
       recommended: recommended,
@@ -196,18 +213,18 @@ class PlatformModule {
 
   @override
   int get hashCode => Object.hash(
-        code,
-        name,
-        description,
-        core,
-        status,
-        enabled,
-        toggleable,
-        canToggle,
-        requestStatus,
-        updatedAt,
-        updatedBy,
-      );
+    code,
+    name,
+    description,
+    core,
+    status,
+    enabled,
+    toggleable,
+    canToggle,
+    requestStatus,
+    updatedAt,
+    updatedBy,
+  );
 }
 
 /// Bir sitenin modül durumu (`GET/PUT /manager/sites/:siteCode/modules...` gövdesi).
@@ -246,13 +263,16 @@ class SiteModulesState {
       siteCode: _asInt(json['site_code'] ?? json['id']),
       siteName: json['site_name']?.toString() ?? '',
       managementType: type,
-      managementTypeLabel:
-          label is String && label.trim().isNotEmpty ? label.trim() : type.label,
+      managementTypeLabel: label is String && label.trim().isNotEmpty
+          ? label.trim()
+          : type.label,
       modules: rawModules is List
           ? rawModules
-              .whereType<Map>()
-              .map((m) => PlatformModule.fromJson(Map<String, dynamic>.from(m)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (m) => PlatformModule.fromJson(Map<String, dynamic>.from(m)),
+                )
+                .toList(growable: false)
           : const <PlatformModule>[],
       managementTerms: ManagementTerms.fromJson(json['management_terms']),
     );
@@ -322,7 +342,9 @@ class MySiteModules {
       managementType: ManagementType.fromApi(json['management_type']),
       role: json['role']?.toString() ?? 'resident',
       modules: Map<String, bool>.unmodifiable(modules),
-      doorAccess: json['door_access'] is bool ? json['door_access'] as bool : true,
+      doorAccess: json['door_access'] is bool
+          ? json['door_access'] as bool
+          : true,
       managementTerms: ManagementTerms.fromJson(json['management_terms']),
       recommendedModules: json['recommended_modules'] is List
           ? List<String>.unmodifiable(
@@ -347,16 +369,16 @@ class MySiteModules {
 
   @override
   int get hashCode => Object.hash(
-        siteCode,
-        siteName,
-        managementType,
-        role,
-        doorAccess,
-        menuLayout,
-        Object.hashAllUnordered(
-          modules.entries.map((e) => Object.hash(e.key, e.value)),
-        ),
-      );
+    siteCode,
+    siteName,
+    managementType,
+    role,
+    doorAccess,
+    menuLayout,
+    Object.hashAllUnordered(
+      modules.entries.map((e) => Object.hash(e.key, e.value)),
+    ),
+  );
 }
 
 /// `GET /app/my-modules` yanıtı. Süper kullanıcıda `scope == 'all'` ve site listesi boştur
@@ -385,7 +407,9 @@ class MyModulesResult {
   /// [PlatformModuleCodes.doorControl] dışındaki modüllerde tüm siteler dikkate alınır.
   bool isDisabledEverywhere(String code) {
     if (isAll) return false;
-    final relevant = code == PlatformModuleCodes.doorControl ? doorAccessSites : sites;
+    final relevant = code == PlatformModuleCodes.doorControl
+        ? doorAccessSites
+        : sites;
     return relevant.isNotEmpty && !relevant.any((s) => s.isEnabled(code));
   }
 
@@ -395,9 +419,11 @@ class MyModulesResult {
       scope: json['scope']?.toString() ?? 'sites',
       sites: rawSites is List
           ? rawSites
-              .whereType<Map>()
-              .map((s) => MySiteModules.fromJson(Map<String, dynamic>.from(s)))
-              .toList(growable: false)
+                .whereType<Map>()
+                .map(
+                  (s) => MySiteModules.fromJson(Map<String, dynamic>.from(s)),
+                )
+                .toList(growable: false)
           : const <MySiteModules>[],
     );
   }

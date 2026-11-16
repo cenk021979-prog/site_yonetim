@@ -537,7 +537,7 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
     assert.equal(res.body.site_name, 'Gül Sitesi');
     assert.equal(res.body.management_type, 'apartment_site');
     assert.equal(res.body.management_type_label, 'Apartman ve Site');
-    assert.equal(res.body.modules.length, 21);
+    assert.equal(res.body.modules.length, 22);
     assert.deepEqual(doorOf(res.body), {
       code: 'door_control',
       name: 'Geçiş Kontrol (SmartKeyPass)',
@@ -1887,7 +1887,7 @@ describe('F9: yonetim turu terimleri', () => {
     // mevcut alanlar degismez
     assert.equal(res.body.management_type, 'apartment_site');
     assert.equal(res.body.management_type_label, 'Apartman ve Site');
-    assert.equal(res.body.modules.length, 21);
+    assert.equal(res.body.modules.length, 22);
     assert.equal(typeof doorOf(res.body).can_toggle, 'boolean');
   });
 
@@ -1900,7 +1900,7 @@ describe('F9: yonetim turu terimleri', () => {
     assert.equal(res.body.management_terms.unit, 'Ofis');
     assert.equal(res.body.management_terms.resident_plural, 'Firmalar');
     assert.equal(res.body.management_terms.fee, 'Ortak gider');
-    assert.equal(res.body.modules.length, 21);
+    assert.equal(res.body.modules.length, 22);
     assert.deepEqual(
       res.body.modules.filter((m) => m.recommended).map((m) => m.code).sort(),
       ['drive_storage', 'finance', 'visitor_log', 'work_tracking'],

@@ -73,12 +73,20 @@ class _HomeAuth extends PeopleFakeAuth {
   void selectWidgetDoor(DoorRecord door, {bool? isOnline}) {}
 }
 
-MySiteModules _my(String role, {int code = 11, String name = 'Gül Sitesi'}) =>
+MySiteModules _my(
+  String role, {
+  int code = 11,
+  String name = 'Gül Sitesi',
+  bool emergency = true,
+}) =>
     MySiteModules(
       siteCode: code,
       siteName: name,
       role: role,
-      modules: const <String, bool>{'door_control': true},
+      modules: <String, bool>{
+        'door_control': true,
+        if (emergency) PlatformModuleCodes.emergency: true,
+      },
       doorAccess: !(role == 'staff' || role == 'board_member'),
     );
 

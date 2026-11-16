@@ -1,0 +1,36 @@
+# Gemini context optimization ignore
+**/node_modules/
+**/.dart_tool/
+**/build/
+**/.gradle/
+**/.pio/
+**/coverage/
+**/.pub-cache/
+**/.pub/
+**/dist/
+**/.cache/
+
+# Version control & IDE
+.git/
+.svn/
+.idea/
+.vscode/
+
+# Binaries & large archives
+**/*.bin
+**/*.bin.sig
+**/*.exe
+**/*.dll
+**/*.iso
+**/*.tar
+**/*.zip
+**/*.7z
+**/*.apk
+**/*.aab
+**/*.ipa
+
+# Generated & temporary
+*.log
+*.tmp
+*.temp
+migrate_working_dir/

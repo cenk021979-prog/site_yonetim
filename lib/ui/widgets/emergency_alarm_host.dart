@@ -15,10 +15,12 @@ class EmergencyAlarmHost extends StatefulWidget {
   const EmergencyAlarmHost({
     super.key,
     required this.authService,
+    this.enabled = true,
     this.controller,
     this.builder,
   });
   final AuthService authService;
+  final bool enabled;
   final EmergencyAlarmController? controller;
 
   /// Tek alıcı yaşam döngüsü; eylem başlığa, gerçek alarm uyarısı gövdeye yerleşir.
@@ -62,6 +64,7 @@ class _EmergencyAlarmHostState extends State<EmergencyAlarmHost>
   @override
   void initState() {
     super.initState();
+    if (!widget.enabled) return;
     WidgetsBinding.instance.addObserver(this);
     _receiverScope = _scope;
     _receiverEligible = _controller.canReceive;
@@ -102,6 +105,16 @@ class _EmergencyAlarmHostState extends State<EmergencyAlarmHost>
 
   @override
   void dispose() {
+    if (!widget.enabled) {
+      if (widget.controller == null) {
+        _controller.dispose();
+        _service?.close();
+      }
+      _uiChanges.dispose();
+      _panelChanges.dispose();
+      super.dispose();
+      return;
+    }
     unawaited(_pushForeground?.cancel());
     _push.changes.removeListener(_changed);
     _push.unbindEmergencyOpener(_openPushAlarm);
@@ -209,13 +222,15 @@ class _EmergencyAlarmHostState extends State<EmergencyAlarmHost>
       context,
       message,
       kind: kind,
-      action: needsSettings ? SnackBarAction(
-        label: 'Telefon ayarlarını aç',
-        onPressed: () {
-          if (!mounted || scope == null || scope != _scope) return;
-          unawaited(_push.openSettingsToEnable(widget.authService));
-        },
-      ) : null,
+      action: needsSettings
+          ? SnackBarAction(
+              label: 'Telefon ayarlarını aç',
+              onPressed: () {
+                if (!mounted || scope == null || scope != _scope) return;
+                unawaited(_push.openSettingsToEnable(widget.authService));
+              },
+            )
+          : null,
     );
   }
 
@@ -389,6 +404,10 @@ class _EmergencyAlarmHostState extends State<EmergencyAlarmHost>
 
   @override
   Widget build(BuildContext context) {
+    if (!widget.enabled) {
+      const empty = SizedBox.shrink();
+      return widget.builder?.call(context, empty, empty) ?? empty;
+    }
     // Feed poll'ları yalnız iki küçük slotu yeniler; Scaffold ve sayfa içeriği
     // aynı ağaçta kalır, kapı yoklaması/scroll/giriş animasyonu etkilenmez.
     final action = AnimatedBuilder(

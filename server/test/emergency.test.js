@@ -84,8 +84,10 @@ describe('107 şema', () => {
     assert.match(SERVER_SOURCE, /app\.use\(emergencyRouter\)/);
   });
 
-  it('modül DEĞİLDİR: katalogda acil durum kodu yok (kapatılamaz, talep edilemez)', () => {
-    assert.equal(MODULE_CATALOG.some((m) => /emergency|acil/i.test(m.code)), false);
+  it('Acil Durum ve SOS temel moduldur', () => {
+    const module = MODULE_CATALOG.find((m) => m.code === 'emergency');
+    assert.equal(module?.core, true);
+    assert.equal(module?.defaultEnabled, true);
   });
 });
 

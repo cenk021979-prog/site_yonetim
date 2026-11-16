@@ -1,7 +1,7 @@
 // Explicit alarm assignments grant only alarm access; never a general site/door role.
 import { pool } from '../db.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
-import { alarmError, alarmId, RESPONDER_ROLES } from './emergency_alarm_common.js';
+import { alarmError, alarmId, assertEmergencyModuleActive, RESPONDER_ROLES } from './emergency_alarm_common.js';
 import { alarmAccountEligibleSql, isAlarmResidentSql, isManagerSql, isSecuritySql, validVendorSql } from './emergency_alarm_access.js';
 
 export const alarmSiteLock = async (db, siteCode) => db.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`emergency_site:${siteCode}`]);
@@ -43,6 +43,7 @@ export async function selectAlarmRecipients(db, { siteCode, kind, vendorId, loca
 }
 
 export async function getAlarmResponders(siteCode, db = pool) {
+  await assertEmergencyModuleActive();
   const responders = await db.query(`SELECT er.id, er.user_code, u.full_name AS user_name, u.login_name, er.role, er.vendor_id, v.name AS vendor_name,
     (${alarmAccountEligibleSql()} AND NOT ${isManagerSql('er.site_code', 'er.user_code')} AND
       ((er.role = 'security' AND ${isSecuritySql('er.site_code', 'er.user_code')}) OR (er.role = 'elevator_service' AND ${validVendorSql('er.site_code', 'er.vendor_id')}))) AS eligible
@@ -59,6 +60,7 @@ export async function getAlarmResponders(siteCode, db = pool) {
 }
 
 export async function saveAlarmResponders({ siteCode, body, actor }, db = pool) {
+  await assertEmergencyModuleActive();
   if (!Array.isArray(body?.responders) || body.responders.length > 30) throw alarmError(400, 'INVALID_BODY', 'En çok 30 alarm alıcısı gönderilebilir.');
   const input = body.responders.map((r) => {
     if (!r || !RESPONDER_ROLES.includes(r.role)) throw alarmError(400, 'INVALID_BODY', 'Alarm alıcısının görevi geçersiz.');

@@ -1,5 +1,5 @@
 import { pool } from '../db.js';
-import { alarmError, alarmUserCode } from './emergency_alarm_common.js';
+import { alarmError, alarmUserCode, assertEmergencyModuleActive, isEmergencyModuleActive } from './emergency_alarm_common.js';
 
 // authRequired rejects false/NULL verification and exact pending/rejected states. NULL legacy approval is allowed.
 // The global super-user feed is deliberately empty, so it can never be an actual alarm recipient.
@@ -52,12 +52,14 @@ export const recipientAccessSql = (a = 'a', r = 'r') => `EXISTS (SELECT 1 FROM u
 )`;
 
 export async function listAlarmSites(authUser, db = pool) {
+  if (!(await isEmergencyModuleActive())) return { sites: [] };
   if (authUser?.role === 'super_user') return { sites: [] };
   const result = await db.query(RESIDENT_SITES_SQL, [alarmUserCode(authUser)]);
   return { sites: (result.rows ?? []).filter((r) => !authUser?.trial || Number(r.site_code) === Number(authUser.trial.siteCode))
     .map((r) => ({ ...r, site_code: Number(r.site_code), can_create: !authUser?.trial, can_edit: false })) };
 }
 export async function assertAlarmResident(db, authUser, siteCode) {
+  await assertEmergencyModuleActive();
   const { sites } = await listAlarmSites(authUser, db);
   const site = sites.find((s) => s.site_code === siteCode);
   if (!site) throw alarmError(403, 'NOT_A_RESIDENT', 'Yalnız bağlı olduğunuz sitede sakin olarak alarm oluşturabilirsiniz.');

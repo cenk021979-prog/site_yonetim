@@ -37,6 +37,7 @@ const Map<SirketMenuItem, String> menuModuleCodes = <SirketMenuItem, String>{
   SirketMenuItem.komsuPanosu: PlatformModuleCodes.neighborBoard,
   SirketMenuItem.faaliyetRaporu: PlatformModuleCodes.annualReport,
   SirketMenuItem.ekipmanBakim: PlatformModuleCodes.equipment,
+  SirketMenuItem.acilDurum: PlatformModuleCodes.emergency,
 };
 
 /// [item]'ın bağlı olduğu modül kodu; sabit öğede null.
@@ -44,9 +45,9 @@ String? menuModuleCodeOf(SirketMenuItem item) => menuModuleCodes[item];
 
 /// [code] modülünün menü öğeleri (yönetim + sakin ekranı olabilir); menü yüzeyi olmayan modülde boş.
 List<SirketMenuItem> menuItemsOfModule(String code) => <SirketMenuItem>[
-      for (final entry in menuModuleCodes.entries)
-        if (entry.value == code) entry.key,
-    ];
+  for (final entry in menuModuleCodes.entries)
+    if (entry.value == code) entry.key,
+];
 
 /// Menü düzeni ekranında seçilebilen modül kodları: menü yüzeyi (en az bir menü öğesi) olanlar, eşleme sırasıyla.
 List<String> get selectableMenuModules {
@@ -79,9 +80,13 @@ Set<SirketMenuItem>? featuredMenuItems({
 bool _isFeatured(SirketMenuItem item, List<MySiteModules> sites) {
   final code = menuModuleCodeOf(item);
   if (code == null || menuGroupOf(item) == SirketMenuGroup.ayarlar) return true;
-  final open = sites.where((site) => site.isEnabled(code)).toList(growable: false);
+  final open = sites
+      .where((site) => site.isEnabled(code))
+      .toList(growable: false);
   if (open.isEmpty) return true;
-  return open.any((site) => site.menuLayout == null || site.menuLayout!.features(code));
+  return open.any(
+    (site) => site.menuLayout == null || site.menuLayout!.features(code),
+  );
 }
 
 // Öne çıkmayan ("Tüm işlemler"e giden) öğeler ve rozet toplamı `YanMenu.itemsBeyondCompact` / `YanMenu.badgeTotalOf`'tadır: çekmece ve
@@ -97,14 +102,22 @@ class AllActionsSection {
 
 /// Görünür TÜM öğelerin ([visible]) kategorili listesi: Panel hariç, çekmece başlıkları sırasıyla, en sonda Ayarlar. Kompakt küme
 /// BURADA etkili değildir (tam liste); boş kategori üretilmez.
-List<AllActionsSection> allActionsSections(List<SirketMenuItem> visible) => <AllActionsSection>[
-      for (final group in <SirketMenuGroup>[...SirketMenuGroup.drawerGroups, SirketMenuGroup.ayarlar])
-        if (visible.any((item) => item != SirketMenuItem.dashboard && menuGroupOf(item) == group))
-          AllActionsSection(group, <SirketMenuItem>[
-            for (final item in visible)
-              if (item != SirketMenuItem.dashboard && menuGroupOf(item) == group) item,
-          ]),
-    ];
+List<AllActionsSection> allActionsSections(
+  List<SirketMenuItem> visible,
+) => <AllActionsSection>[
+  for (final group in <SirketMenuGroup>[
+    ...SirketMenuGroup.drawerGroups,
+    SirketMenuGroup.ayarlar,
+  ])
+    if (visible.any(
+      (item) => item != SirketMenuItem.dashboard && menuGroupOf(item) == group,
+    ))
+      AllActionsSection(group, <SirketMenuItem>[
+        for (final item in visible)
+          if (item != SirketMenuItem.dashboard && menuGroupOf(item) == group)
+            item,
+      ]),
+];
 
 /// Arama karşılaştırma metni: küçük harf + Türkçe katlama (ç→c, ğ→g, ı/İ→i, ö→o, ş→s, ü→u); noktalama ve fazla boşluk tek boşluk.
 String foldSearchText(String value) {
@@ -153,18 +166,27 @@ List<AllActionsSection> filterAllActions({
   required String Function(SirketMenuItem item) titleOf,
   required String Function(SirketMenuItem item) descriptionOf,
 }) {
-  final words = foldSearchText(query).split(' ').where((w) => w.isNotEmpty).toList(growable: false);
+  final words = foldSearchText(
+    query,
+  ).split(' ').where((w) => w.isNotEmpty).toList(growable: false);
   if (words.isEmpty) return sections;
   final result = <AllActionsSection>[];
   for (final section in sections) {
     final groupText = foldSearchText(section.group.title);
     final matched = <SirketMenuItem>[
       for (final item in section.items)
-        if (_matchesAll(words, '${foldSearchText(titleOf(item))} ${foldSearchText(descriptionOf(item))} $groupText')) item,
+        if (_matchesAll(
+          words,
+          '${foldSearchText(titleOf(item))} ${foldSearchText(descriptionOf(item))} $groupText',
+        ))
+          item,
     ];
-    if (matched.isNotEmpty) result.add(AllActionsSection(section.group, matched));
+    if (matched.isNotEmpty) {
+      result.add(AllActionsSection(section.group, matched));
+    }
   }
   return result;
 }
 
-bool _matchesAll(List<String> words, String haystack) => words.every(haystack.contains);
+bool _matchesAll(List<String> words, String haystack) =>
+    words.every(haystack.contains);

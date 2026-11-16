@@ -1,5 +1,10 @@
 # 📋 SAHA KONTROL LİSTESİ (FIELD VERIFICATION CHECKLIST)
 
+
+## 183. Acil Durum ve SOS Temel Modülü (2026-11-16)
+
+- [ ] **183.1. Platform kapalıyken SOS tamamen gizli:** Süper kullanıcıda `emergency` platform modülü kapalıyken uygulamayı yönetici ve sakin hesaplarıyla açın. Üst çubukta SOS bulunmamalı; alarm alıcısı başlamamalı ve acil durum API'leri boş/kapalı yanıt vermelidir.
+- [ ] **183.2. Platform açılınca tüm sitelerde geri gelir:** Süper kullanıcı modül yönetiminden `Acil Durum ve SOS` modülünü açın, uygulamayı yenileyin. SOS düğmesi görünmeli, modül her sitede açık olmalı ve site yöneticisi tarafından kapatılamamalıdır.
 Bu kontrol listesi; son bir hafta içerisinde geliştirilen, düzeltilen ve sahada/uygulamada test edilmeye hazır tüm özellikleri adım adım içermektedir.  
 Sahada veya uygulamada test ettikçe ilgili kutucukları `- [x]` olarak işaretleyebilirsiniz.
 

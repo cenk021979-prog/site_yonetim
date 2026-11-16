@@ -30,6 +30,7 @@ VALUES
   ('card_access', FALSE, NOW()),
   ('online_payment', FALSE, NOW()),
   ('metering', FALSE, NOW()),
+  ('emergency', FALSE, NOW()),
   ('people', TRUE, NOW()),
   ('finance', TRUE, NOW()),
   ('announcements', TRUE, NOW()),

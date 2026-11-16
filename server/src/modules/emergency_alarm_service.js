@@ -1,6 +1,6 @@
 import { pool } from '../db.js';
 import { actorFromAuthUser, recordAudit } from './audit_service.js';
-import { alarmError, alarmId, alarmNotFound, alarmUserCode, mapAlarm, parseAlarmInput } from './emergency_alarm_common.js';
+import { alarmError, alarmId, alarmNotFound, alarmUserCode, assertEmergencyModuleActive, isEmergencyModuleActive, mapAlarm, parseAlarmInput } from './emergency_alarm_common.js';
 import { alarmAccountEligibleSql, assertAlarmResident, isAlarmResidentSql, isManagerSql, isSecuritySql, recipientAccessSql, validVendorSql } from './emergency_alarm_access.js';
 import { alarmSiteLock, selectAlarmRecipients } from './emergency_alarm_recipients.js';
 import { notifyAlarmRecipients } from './emergency_alarm_push.js';
@@ -105,6 +105,7 @@ export const ALARM_FEED_SQL = `SELECT a.*, s.name AS site_name, (r.role <> 'mana
   ORDER BY a.id DESC LIMIT 101`;
 
 export async function listEmergencyAlarms(authUser, db = pool) {
+  if (!(await isEmergencyModuleActive())) return { alarms: [], can_receive: false, can_sound: false, has_more: false };
   if (authUser?.trial) return { alarms: [], can_receive: false, can_sound: false, has_more: false };
   const userCode = alarmUserCode(authUser);
   if (authUser?.role === 'super_user') return { alarms: [], can_receive: false, can_sound: false, has_more: false };
@@ -115,6 +116,7 @@ export async function listEmergencyAlarms(authUser, db = pool) {
 }
 
 export async function listEmergencyAlarmHistory({ authUser, beforeId }, db = pool) {
+  if (!(await isEmergencyModuleActive())) return { alarms: [], has_more: false };
   if (authUser?.trial || authUser?.role === 'super_user') return { alarms: [], has_more: false };
   const userCode = alarmUserCode(authUser);
   const before = beforeId == null ? null : alarmId(beforeId, 'before_id');
@@ -130,6 +132,7 @@ export async function listEmergencyAlarmHistory({ authUser, beforeId }, db = poo
 }
 
 export async function markEmergencyAlarm({ authUser, rawId, action }, db = pool) {
+  await assertEmergencyModuleActive();
   if (authUser?.trial) throw alarmError(403, 'TRIAL_ACTION_DENIED', 'Deneme oturumunda acil alarm işlemi yapılamaz.');
   const userCode = alarmUserCode(authUser);
   const id = alarmId(rawId);
