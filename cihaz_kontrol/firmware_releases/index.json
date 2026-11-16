@@ -2949,6 +2949,60 @@
         }
       },
       "manifest": "firmware_releases\\20261113_195600_v4_4_0\\manifest.json"
+    },
+    {
+      "id": "20261116_180456_v4_4_3",
+      "version": "4.4.3",
+      "env": "lolin_c3_mini",
+      "target": "esp32-c3",
+      "created_at": "2026-11-16T15:04:56.407800+00:00",
+      "files": {
+        "firmware_bin": "firmware_releases\\20261116_180456_v4_4_3\\firmware.bin",
+        "bootloader_bin": "firmware_releases\\20261116_180456_v4_4_3\\bootloader.bin",
+        "partitions_bin": "firmware_releases\\20261116_180456_v4_4_3\\partitions.bin"
+      },
+      "hashes": {
+        "firmware_bin": {
+          "sha256": "270ee79c393aa5e2d027d14405170d58b472917d65c90194fb245293ad6df4cf",
+          "md5": "5e4498dd81fcc79a2945851f47359f4b"
+        },
+        "bootloader_bin": {
+          "sha256": "b800a76c85c19db0bf5e40331d11736feae2c783d70d36f4d2b6fd8bda0ec32e",
+          "md5": "7a15dc571f53efe9b125f3d334517243"
+        },
+        "partitions_bin": {
+          "sha256": "0a8b5720e7b77ff11f1462458c3a509dee79224e5279898f26d6a2e3ae0517b7",
+          "md5": "2ddc2d5f85b2c5288013adbe45d9cb7b"
+        }
+      },
+      "manifest": "firmware_releases\\20261116_180456_v4_4_3\\manifest.json"
+    },
+    {
+      "id": "20261116_180613_v5_0_0",
+      "version": "5.0.0",
+      "env": "lolin_c3_mini",
+      "target": "esp32-c3",
+      "created_at": "2026-11-16T15:06:13.180685+00:00",
+      "files": {
+        "firmware_bin": "firmware_releases\\20261116_180613_v5_0_0\\firmware.bin",
+        "bootloader_bin": "firmware_releases\\20261116_180613_v5_0_0\\bootloader.bin",
+        "partitions_bin": "firmware_releases\\20261116_180613_v5_0_0\\partitions.bin"
+      },
+      "hashes": {
+        "firmware_bin": {
+          "sha256": "b261dbf44a099ff63bf1ddceabc356be080b35ced243c885cb6a9c2737c1285f",
+          "md5": "777b2c1ac02c97dcf8cb4adc28a8d221"
+        },
+        "bootloader_bin": {
+          "sha256": "b800a76c85c19db0bf5e40331d11736feae2c783d70d36f4d2b6fd8bda0ec32e",
+          "md5": "7a15dc571f53efe9b125f3d334517243"
+        },
+        "partitions_bin": {
+          "sha256": "0a8b5720e7b77ff11f1462458c3a509dee79224e5279898f26d6a2e3ae0517b7",
+          "md5": "2ddc2d5f85b2c5288013adbe45d9cb7b"
+        }
+      },
+      "manifest": "firmware_releases\\20261116_180613_v5_0_0\\manifest.json"
     }
   ]
 }

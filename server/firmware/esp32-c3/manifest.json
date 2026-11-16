@@ -1,14 +1,14 @@
 {
   "enabled": true,
   "target": "esp32-c3",
-  "version": "4.4.0",
+  "version": "5.0.0",
   "filename": "firmware.bin",
   "force": true,
   "usb_required": false,
   "partition_scheme": "ota_4mb_littlefs_v1",
   "interval_hours": 1,
   "allowed_uids": [],
-  "sha256": "64abe0fbac68ff188e4658b4376d9358cae49790ccd40739ae29e11c60c2d596",
-  "md5": "2e6c4e423d72d8422f8f6d6ee68bee4e",
-  "notes": "SmartKeyPass firmware v4.4.0 (esp32-c3)."
+  "sha256": "b261dbf44a099ff63bf1ddceabc356be080b35ced243c885cb6a9c2737c1285f",
+  "md5": "777b2c1ac02c97dcf8cb4adc28a8d221",
+  "notes": "SmartKeyPass firmware v5.0.0 (esp32-c3)."
 }
