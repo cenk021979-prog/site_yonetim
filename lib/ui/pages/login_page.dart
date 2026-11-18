@@ -544,28 +544,43 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: AppSpace.xs),
                       // Yasal belgeler: oturum açmadan da okunabilir (mağaza ve KVKK gereği).
                       if (kIsWeb) ...[
-                        OutlinedButton.icon(
-                          onPressed: () => launchUrl(
-                            Uri.parse(defaultTargetPlatform == TargetPlatform.windows
-                                ? '/download/windows'
-                                : '/site_yonetim.apk'),
-                            mode: LaunchMode.externalApplication,
-                          ),
-                          icon: Icon(
-                            defaultTargetPlatform == TargetPlatform.windows
-                                ? Icons.desktop_windows_rounded
-                                : Icons.download_rounded,
-                            size: 18,
-                          ),
-                          label: Text(
-                            defaultTargetPlatform == TargetPlatform.windows
-                                ? 'Windows Uygulamasını İndir (.ZIP)'
-                                : 'Android Uygulamasını İndir (.APK)',
-                          ),
-                          style: OutlinedButton.styleFrom(
-                            visualDensity: VisualDensity.compact,
-                            padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
-                          ),
+                        Wrap(
+                          spacing: AppSpace.sm,
+                          runSpacing: AppSpace.xs,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            OutlinedButton.icon(
+                              onPressed: () => launchUrl(
+                                Uri.parse('/site_yonetim.apk'),
+                                mode: LaunchMode.externalApplication,
+                              ),
+                              icon: const Icon(
+                                Icons.android_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Android Uygulamasını İndir (.APK)'),
+                              style: OutlinedButton.styleFrom(
+                                visualDensity: VisualDensity.compact,
+                                padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+                              ),
+                            ),
+                            if (defaultTargetPlatform == TargetPlatform.windows)
+                              OutlinedButton.icon(
+                                onPressed: () => launchUrl(
+                                  Uri.parse('/download/windows'),
+                                  mode: LaunchMode.externalApplication,
+                                ),
+                                icon: const Icon(
+                                  Icons.desktop_windows_rounded,
+                                  size: 18,
+                                ),
+                                label: const Text('Windows Uygulaması (.ZIP)'),
+                                style: OutlinedButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.sm),
+                                ),
+                              ),
+                          ],
                         ),
                         const SizedBox(height: AppSpace.sm),
                       ],

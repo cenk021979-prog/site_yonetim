@@ -1,6 +1,11 @@
 # 📋 SAHA KONTROL LİSTESİ (FIELD VERIFICATION CHECKLIST)
 
 
+## 187. Web Arayüzü APK ve Windows İndirme Düğmeleri İyileştirmesi (2026-11-18)
+
+- [ ] **187.1. Web Arayüzünde Android APK İndir Düğmesinin Her Zaman Görünmesi:** Web arayüzüne ister Windows/PC ister mobil cihazdan girilsin; giriş ekranında, yan menüde ve akıllı kurulum şeridinde 'Android APK İndir' düğmesi her zaman görünür olmalı; Windows cihazlarda bu düğmenin yerine Windows düğmesi geçmemeli, her iki indirme seçeneği de birlikte sunulmalıdır.
+- [ ] **187.2. Doğrudan APK ve Windows ZIP İndirme Doğrulaması:** Giriş sayfasında 'Android Uygulamasını İndir (.APK)' butonuna basıldığında `site_yonetim.apk` dosyası, 'Windows Uygulaması (.ZIP)' butonuna basıldığında `site_yonetim_windows.zip` dosyası tarayıcıdan doğrudan inmelidir.
+
 ## 186. Kişiler Ekranı Daire Kullanıcı Adları İndirme ve CRM Dışa Aktarma İyileştirmeleri (2026-11-18)
 
 - [ ] **186.1. Daire Kullanıcı Adlarını İndir (Excel) Butonu ve İletişim Kutusu:** Kişiler ekranında sol menüde veya kişiler sekmesi üstünde "Kullanıcı Adlarını İndir (Excel)" butonuna basıldığında açılan pencerede isteğe bağlı daire no filtresi girilerek Excel dosyası indirilebilmeli; dosya Blok, Daire No, Ad Soyad, Kullanıcı Adı ve Başlangıç Şifresi (1234) sütunlarını içermelidir.

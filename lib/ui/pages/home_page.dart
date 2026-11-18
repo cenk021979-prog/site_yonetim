@@ -6721,24 +6721,31 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   List<YanMenuAction> _settingsExtraActions(
     UserSession session,
   ) => <YanMenuAction>[
-    if (kIsWeb)
+    if (kIsWeb) ...[
       YanMenuAction(
-        icon: Icons.desktop_windows_rounded,
-        title: defaultTargetPlatform == TargetPlatform.windows
-            ? 'Windows Uygulamasını İndir (.ZIP)'
-            : 'Masaüstü / Mobil İndir',
+        icon: Icons.android_rounded,
+        title: 'Android Uygulamasını İndir (.APK)',
         onTap: () {
           Navigator.of(context).pop();
           launchUrl(
-            Uri.parse(
-              defaultTargetPlatform == TargetPlatform.windows
-                  ? '/download/windows'
-                  : '/site_yonetim.apk',
-            ),
+            Uri.parse('/site_yonetim.apk'),
             mode: LaunchMode.externalApplication,
           );
         },
       ),
+      if (defaultTargetPlatform == TargetPlatform.windows)
+        YanMenuAction(
+          icon: Icons.desktop_windows_rounded,
+          title: 'Windows Uygulamasını İndir (.ZIP)',
+          onTap: () {
+            Navigator.of(context).pop();
+            launchUrl(
+              Uri.parse('/download/windows'),
+              mode: LaunchMode.externalApplication,
+            );
+          },
+        ),
+    ],
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows)
       YanMenuAction(
         icon: Icons.system_update_rounded,

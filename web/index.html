@@ -168,6 +168,26 @@
     #pwa-install-btn:active {
       transform: scale(0.96);
     }
+    #pwa-win-btn {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.15s ease;
+      text-decoration: none;
+      display: inline-block;
+    }
+    #pwa-win-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+    }
+    #pwa-win-btn:active {
+      transform: scale(0.96);
+    }
     #pwa-dismiss-btn {
       background: transparent;
       border: none;
@@ -308,6 +328,7 @@
       </div>
       <div class="pwa-actions">
         <button id="pwa-install-btn" type="button">APK İndir</button>
+        <button id="pwa-win-btn" type="button" style="display: none;">Windows İndir</button>
         <button id="pwa-dismiss-btn" type="button" aria-label="Kapat" title="Kapat">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
@@ -336,6 +357,7 @@
       var pillLabel = document.getElementById('pill-label');
       var pillDismissBtn = document.getElementById('pill-dismiss-btn');
       var installBtn = document.getElementById('pwa-install-btn');
+      var winBtn = document.getElementById('pwa-win-btn');
       var dismissBtn = document.getElementById('pwa-dismiss-btn');
       var titleEl = document.getElementById('pwa-banner-title');
       var descEl = document.getElementById('pwa-banner-desc');
@@ -555,15 +577,22 @@
         document.body.removeChild(link);
       }
 
+      if (winBtn) {
+        winBtn.onclick = triggerWindowsDownload;
+      }
+
       if (isWindows) {
-        if (titleEl) titleEl.textContent = 'Site Yönetim (Windows)';
-        if (descEl) descEl.textContent = 'Kamera ve Plaka Tanıma destekli resmi Windows uygulamasını indirin.';
+        if (titleEl) titleEl.textContent = 'Site Yönetim';
+        if (descEl) descEl.textContent = 'Android APK ve Windows uygulamasını doğrudan indirin.';
         if (installBtn) {
-          installBtn.textContent = 'Windows Uygulamasını İndir';
-          installBtn.onclick = triggerWindowsDownload;
+          installBtn.textContent = 'APK İndir';
+          installBtn.onclick = triggerApkDownload;
+        }
+        if (winBtn) {
+          winBtn.style.display = 'inline-block';
         }
         if (pillLabel) {
-          pillLabel.textContent = 'Windows İndir';
+          pillLabel.textContent = 'Android APK İndir';
         }
         setTimeout(function () {
           if (!sessionStorage.getItem('banner_dismissed_session')) {
