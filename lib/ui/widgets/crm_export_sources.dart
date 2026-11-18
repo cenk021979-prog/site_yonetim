@@ -44,7 +44,7 @@ List<ExportSource> buildCombinedCrmSources(BulkService service, int siteCode) {
       () => service.exportData(
         siteCode,
         kind: kind,
-        filters: const BulkExportFilters(status: 'all'),
+        filters: const BulkExportFilters(status: 'active'),
         format: format,
       ),
     ),
@@ -53,12 +53,21 @@ List<ExportSource> buildCombinedCrmSources(BulkService service, int siteCode) {
             () => service.exportData(
               siteCode,
               kind: kind,
-              filters: const BulkExportFilters(status: 'all'),
+              filters: const BulkExportFilters(status: 'active'),
               format: format,
               includeNotes: includeNotes,
             ),
           )
         : null,
+    fetchWithOptions: (format, {String? status, bool includeNotes = false}) => guarded(
+      () => service.exportData(
+        siteCode,
+        kind: kind,
+        filters: BulkExportFilters(status: status ?? 'active'),
+        format: format,
+        includeNotes: includeNotes,
+      ),
+    ),
   );
   return [
     table('people', 'Kişiler', Icons.groups_2_rounded, notes: true),

@@ -7,6 +7,7 @@ import 'package:site_kapi_kontrol/models/announcement.dart';
 import 'package:site_kapi_kontrol/models/apartment_pin_issue.dart';
 import 'package:site_kapi_kontrol/models/apartment_record.dart';
 import 'package:site_kapi_kontrol/models/audit_log.dart';
+import 'package:site_kapi_kontrol/models/bulk_import.dart';
 import 'package:site_kapi_kontrol/models/device_connectivity_log.dart';
 import 'package:site_kapi_kontrol/models/device_page.dart';
 import 'package:site_kapi_kontrol/models/device_record.dart';
@@ -1691,6 +1692,26 @@ class AuthApi {
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
     return _parsePayload('Kişiler', () => PersonPage.fromJson(payload));
+  }
+
+  /// Daire kullanıcı adları dışa aktarma (XLSX zarfı).
+  Future<ExportEnvelope> exportResidentUsernames({
+    required String token,
+    required int siteCode,
+    String? query,
+  }) async {
+    final trimmed = query?.trim();
+    final response = await _authorizedRequest(
+      method: 'GET',
+      path: _peoplePath(siteCode, 'resident-usernames/export', {
+        if (trimmed != null && trimmed.isNotEmpty) 'q': trimmed,
+        'format': 'xlsx',
+      }),
+      token: token,
+    );
+    _ensureStatus(response, 200);
+    final payload = _decodePayload(response);
+    return _parsePayload('Kullanıcı adları listesi', () => ExportEnvelope.fromJson(payload));
   }
 
   Future<PersonDetail> getPerson({

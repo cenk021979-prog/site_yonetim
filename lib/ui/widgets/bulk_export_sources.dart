@@ -44,6 +44,20 @@ List<ExportSource> buildCrmExportSources({
         format: format,
         includeNotes: notes,
       ),
+      fetchWithOptions: (format, {String? status, bool includeNotes = false}) => service.exportData(
+        siteCode,
+        kind: 'people',
+        filters: BulkExportFilters(
+          status: status ?? personFilters.status,
+          relation: personFilters.relation,
+          apartmentId: personFilters.apartmentId,
+          blockId: personFilters.blockId,
+          personId: personFilters.personId,
+          query: personFilters.query,
+        ),
+        format: format,
+        includeNotes: includeNotes,
+      ),
     ),
     ExportSource(
       label: 'Daireler',

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/models/person_record.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/status_chip.dart';
@@ -47,6 +48,7 @@ class PersonCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final secondary = th.bodyMedium?.copyWith(color: p.textSecondary);
     final phone = formatPhoneDisplay(person.phone);
     final email = person.email ?? '';
@@ -112,6 +114,59 @@ class PersonCard extends StatelessWidget {
                           icon: Icons.history_rounded,
                         ),
                     ],
+                  ),
+                ],
+                if (person.hasAccount && person.loginName != null && person.loginName!.trim().isNotEmpty) ...[
+                  const SizedBox(height: AppSpace.xs),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF1F5F9),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: isDark ? const Color(0xFF334155) : const Color(0xFFCBD5E1),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.account_circle_outlined,
+                          size: 14,
+                          color: isDark ? Colors.lightBlueAccent : Colors.blue.shade700,
+                        ),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            'Kullanıcı Adı: ${person.loginName!.trim()}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white : Colors.blueGrey.shade900,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 4),
+                        InkWell(
+                          onTap: () {
+                            Clipboard.setData(ClipboardData(text: person.loginName!.trim()));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Kullanıcı adı panoya kopyalandı.'),
+                                duration: Duration(seconds: 2),
+                              ),
+                            );
+                          },
+                          child: Icon(
+                            Icons.copy_rounded,
+                            size: 13,
+                            color: isDark ? Colors.white70 : Colors.blueGrey.shade700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
                 // Ad soyadın hemen altında: Hesapsız kişiye tek tıkla hesap tanımlama / şifre verme butonu

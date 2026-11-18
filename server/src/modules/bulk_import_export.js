@@ -29,7 +29,12 @@ export const EXPORT_FORMATS = Object.freeze(['csv', 'xlsx']);
 
 const RELATION_TR = Object.freeze({ owner: 'Malik', tenant: 'Kiracı', family_member: 'Aile Üyesi', resident: 'Sakin' });
 const RESPONSIBLE_TR = Object.freeze({ owner: 'Malik', tenant: 'Kiracı', both: 'İkisi' });
-const KIND_WORD = Object.freeze({ people: 'kisiler', apartments: 'daireler', vehicles: 'araclar' });
+const KIND_WORD = Object.freeze({
+  people: 'kisiler',
+  apartments: 'daireler',
+  vehicles: 'araclar',
+  resident_usernames: 'daire_kullanici_adlari',
+});
 
 const tooLarge = () => new PlatformError(422, 'EXPORT_TOO_LARGE', 'Çok fazla kayıt var. Süzgeçle daraltın.');
 const invalidQuery = () => new PlatformError(400, 'INVALID_QUERY', 'Geçersiz sorgu parametresi.');
@@ -408,12 +413,92 @@ async function exportVehicles(siteCode, f) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
+// Daire Kullanıcı Adları
+// ---------------------------------------------------------------------------------------------------------------
+
+export async function exportResidentUsernames(siteCode, f) {
+  const params = [siteCode];
+  const clauses = ['a.site_code = $1'];
+  if (f.blockId) {
+    params.push(f.blockId);
+    clauses.push(`a.block_id = $${params.length}`);
+  }
+  if (f.apartmentId) {
+    params.push(f.apartmentId);
+    clauses.push(`a.id = $${params.length}`);
+  }
+  if (f.q) {
+    params.push(`%${escapeLike(foldText(f.q))}%`);
+    const term = `$${params.length}`;
+    clauses.push(`(
+      ${foldSql("b.block_name || ' - ' || a.unit_label")} LIKE ${term} ESCAPE '\\'
+      OR ${foldSql("a.unit_label")} LIKE ${term} ESCAPE '\\'
+      OR ${foldSql("b.block_name")} LIKE ${term} ESCAPE '\\'
+      OR EXISTS (
+        SELECT 1
+        FROM apartment_residencies r
+        INNER JOIN site_people sp ON sp.id = r.person_id
+        LEFT JOIN users u ON u.user_code = sp.user_code
+        WHERE r.apartment_id = a.id AND r.is_current = TRUE
+          AND (
+            ${foldSql("COALESCE(NULLIF(u.full_name, ''), sp.full_name)")} LIKE ${term} ESCAPE '\\'
+            OR ${foldSql("COALESCE(u.login_name, '')")} LIKE ${term} ESCAPE '\\'
+          )
+      )
+    )`);
+  }
+
+  const querySql = `
+    SELECT
+      b.block_name,
+      a.unit_label,
+      COALESCE(NULLIF(u.full_name, ''), sp.full_name) AS full_name,
+      u.login_name,
+      u.user_code,
+      sp.is_active,
+      r.relation
+    FROM apartments a
+    INNER JOIN site_blocks b ON b.id = a.block_id
+    LEFT JOIN apartment_residencies r ON r.apartment_id = a.id AND r.is_current = TRUE
+    LEFT JOIN site_people sp ON sp.id = r.person_id
+    LEFT JOIN users u ON u.user_code = sp.user_code
+    WHERE ${clauses.join(' AND ')}
+    ORDER BY ${naturalOrderSql('b.block_name')}, ${naturalOrderSql('a.unit_label')}, a.id, sp.id
+    LIMIT ${EXPORT_MAX_ROWS + 1}
+  `;
+
+  const result = await pool.query(querySql, params);
+  if (result.rows.length > EXPORT_MAX_ROWS) throw tooLarge();
+
+  const rows = [];
+  for (const r of result.rows) {
+    rows.push([
+      r.block_name || '-',
+      unitNumber(r.unit_label) || r.unit_label || '-',
+      r.full_name || '-',
+      r.login_name || (r.user_code ? 'Giriş adı atanmamış' : 'Hesap yok'),
+      '1234',
+    ]);
+  }
+
+  const columns = [
+    { key: 'blok', label: 'Blok', type: 'text' },
+    { key: 'daire_no', label: 'Daire No', type: 'text' },
+    { key: 'ad_soyad', label: 'Ad Soyad', type: 'text' },
+    { key: 'kullanici_adi', label: 'Kullanıcı Adı', type: 'text' },
+    { key: 'baslangic_sifresi', label: 'İlk Şifre', type: 'text' },
+  ];
+
+  return { columns, rows };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
 
 /**
  * GET exports/:kind -> ExportEnvelope. Yalnız yönetici/süper çağırır (rota denetler). `export` audit satırı yazar (arama metni YOK, yalnız has_q).
  */
 export async function buildExport({ siteCode, kind, query, actor }) {
-  if (kind !== 'people' && kind !== 'apartments' && kind !== 'vehicles') {
+  if (kind !== 'people' && kind !== 'apartments' && kind !== 'vehicles' && kind !== 'resident_usernames') {
     throw new PlatformError(404, 'IMPORT_KIND_NOT_FOUND', 'Bu tür için dışa aktarma yok.');
   }
   const filters = parseExportQuery(query);
@@ -422,7 +507,14 @@ export async function buildExport({ siteCode, kind, query, actor }) {
   if (!site.rows[0]) {
     throw new PlatformError(404, 'SITE_NOT_FOUND', 'Site bulunamadı.');
   }
-  const built = kind === 'people' ? await exportPeople(siteCode, filters) : kind === 'apartments' ? await exportApartments(siteCode, filters) : await exportVehicles(siteCode, filters);
+  const built =
+    kind === 'people'
+      ? await exportPeople(siteCode, filters)
+      : kind === 'apartments'
+      ? await exportApartments(siteCode, filters)
+      : kind === 'vehicles'
+      ? await exportVehicles(siteCode, filters)
+      : await exportResidentUsernames(siteCode, filters);
   const stamp = todayIso().replace(/-/g, '');
   const envelope = {
     kind,
@@ -454,4 +546,8 @@ export async function buildExport({ siteCode, kind, query, actor }) {
     },
   });
   return envelope;
+}
+
+export async function buildResidentUsernamesExport({ siteCode, query, actor }) {
+  return buildExport({ siteCode, kind: 'resident_usernames', query, actor });
 }

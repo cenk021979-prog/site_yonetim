@@ -61,6 +61,7 @@ class PersonSummary {
     this.vehicleCount = 0,
     this.accountKind,
     this.isAdmin = false,
+    this.loginName,
   });
 
   final int id;
@@ -70,6 +71,7 @@ class PersonSummary {
   final bool hasAccount;
   final bool isActive;
   final bool isAdmin;
+  final String? loginName;
 
   /// Hesap türü: `internal` (dahili @ahbu.local hesabı), `registered` (kayıtlı kullanıcı), `none`.
   /// Alan yoksa null (eski sunucu): `hasAccount` true ise tüm kimlik alanları salt okunur sayılır.
@@ -120,6 +122,7 @@ class PersonSummary {
       vehicleCount: crmInt(json['vehicle_count']),
       accountKind: crmText(json['account_kind']),
       isAdmin: isDaireAdmin,
+      loginName: crmText(json['login_name']),
     );
   }
 }

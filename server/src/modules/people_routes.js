@@ -43,6 +43,7 @@ import { executePeopleBulkAction, sendPersonPasswordReset } from './people_bulk_
 import { isModuleEnabled } from './module_service.js';
 import { isModuleActiveOnPlatform } from './platform_modules_schema.js';
 import { PlatformError } from './errors.js';
+import { buildResidentUsernamesExport } from './bulk_import_export.js';
 
 export const peopleRouter = express.Router();
 
@@ -102,6 +103,15 @@ peopleRouter.get(
   peopleReadLimiter,
   handler({ context: 'people_list', fallback: 'Kişiler yüklenemedi.' }, async ({ req, access }) => ({
     body: await listPeople(access.siteCode, req.query),
+  })),
+);
+
+peopleRouter.get(
+  '/manager/sites/:siteCode/resident-usernames/export',
+  authRequired,
+  peopleReadLimiter,
+  handler({ context: 'resident_usernames_export', fallback: 'Kullanıcı adları listesi hazırlanamadı.' }, async ({ req, access }) => ({
+    body: await buildResidentUsernamesExport({ siteCode: access.siteCode, query: req.query, actor: req.authUser }),
   })),
 );
 

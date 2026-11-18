@@ -1,6 +1,13 @@
 # 📋 SAHA KONTROL LİSTESİ (FIELD VERIFICATION CHECKLIST)
 
 
+## 186. Kişiler Ekranı Daire Kullanıcı Adları İndirme ve CRM Dışa Aktarma İyileştirmeleri (2026-11-18)
+
+- [ ] **186.1. Daire Kullanıcı Adlarını İndir (Excel) Butonu ve İletişim Kutusu:** Kişiler ekranında sol menüde veya kişiler sekmesi üstünde "Kullanıcı Adlarını İndir (Excel)" butonuna basıldığında açılan pencerede isteğe bağlı daire no filtresi girilerek Excel dosyası indirilebilmeli; dosya Blok, Daire No, Ad Soyad, Kullanıcı Adı ve Başlangıç Şifresi (1234) sütunlarını içermelidir.
+- [ ] **186.2. Kişi Kartında Kullanıcı Adı Gösterimi ve Kopyalama:** Hesabı olan sakinlerin kişi kartında (PersonCard) kullanıcının `login_name` bilgisi tek tıkla panoya kopyalama butonuyla birlikte gösterilmelidir.
+- [ ] **186.3. CRM Dışa Aktarmada Aktif / Pasif Kayıt Seçimi:** "Dışa Aktar" butonuna tıklandığında açılan sayfada "Kayıt durumu" filtresi üzerinden Aktif kayıtlar (varsayılan), Pasif kayıtlar (eski sakinler) veya Tümü seçilebilmeli ve dışa aktarım buna göre filtrelenmelidir.
+- [ ] **186.4. CRM Dışa Aktarılan Excel'in Düzenli Sayfalar (Multi-Sheet) Olarak İnmesi:** Dışa aktarılan Excel dosyası dağınık/karman çorman tek sayfada yana ötelenmiş sütunlar yerine Kişiler, Daireler, Araçlar ve Kadro sekmeleri ayrı temiz sayfalar halinde inmeli; geçmiş/pasif sakinlerin de daire numaraları karşısında yer almalıdır.
+
 ## 185. Ana Ekran Kapi Widgeti (Home Screen Door Widget) Acma Onarimi ve Arka Plan Iletisimi (2026-11-17)
 
 - [ ] **185.1. Android Ana Ekran Widgetindan KAPIYI AC Tetiklemesi:** Android cihazda widget butonuna dokununca komut gonderilmeli, kapi rolesi acilmali ve sunucuda trigger_type=widget olarak kaydedilmelidir.

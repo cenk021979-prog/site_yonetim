@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/services/apartment_management_api.dart';
 import 'package:site_kapi_kontrol/services/bulk_api.dart' show BulkService;
 import 'package:site_kapi_kontrol/ui/dialogs/apartment_admin_dialogs.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/resident_usernames_download_dialog.dart';
 import 'package:site_kapi_kontrol/ui/design/action_bar.dart';
 import 'package:site_kapi_kontrol/ui/design/app_card.dart';
 import 'package:site_kapi_kontrol/ui/design/tokens.dart';
@@ -291,6 +292,14 @@ class PeopleViewState extends State<PeopleView> {
     );
   }
 
+  Future<void> _openDownloadUsernames(PeopleScope scope) {
+    return ResidentUsernamesDownloadDialog.show(
+      context,
+      siteCode: scope.siteCode,
+      authService: widget.authService,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final site = _site;
@@ -520,6 +529,12 @@ class PeopleViewState extends State<PeopleView> {
                   label: 'Dışa Aktar',
                   icon: Icons.download_rounded,
                   onPressed: () => unawaited(_openBulkExport(scope)),
+                ),
+                AppBarAction(
+                  actionKey: const ValueKey<String>('people_usernames_export'),
+                  label: 'Kullanıcı Adları',
+                  icon: Icons.badge_outlined,
+                  onPressed: () => unawaited(_openDownloadUsernames(scope)),
                 ),
               ],
             ),

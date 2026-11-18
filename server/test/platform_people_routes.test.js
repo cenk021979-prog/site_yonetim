@@ -199,7 +199,7 @@ const base = (site = SITE_1) => `/manager/sites/${site}`;
 // ---------------------------------------------------------------------------
 
 describe('people rotalari: zincir', () => {
-  it('25 rota (4 tanesi cok malik, 2 tanesi 360 ayrilma, 104); hepsi authRequired ile baslar; /manager uclari ve my-records hiz sinirli (okuma 1200/saat, yazma 120/saat)', () => {
+  it('26 rota (4 tanesi cok malik, 2 tanesi 360 ayrilma, 104, kullanici adlari export); hepsi authRequired ile baslar; /manager uclari ve my-records hiz sinirli (okuma 1200/saat, yazma 120/saat)', () => {
     const summary = ORIGINAL_ROUTES.map((r) => `${r.method.toUpperCase()} ${r.path}`).sort();
     assert.deepEqual(summary, [
       'DELETE /manager/sites/:siteCode/vehicles/:vehicleId',
@@ -211,6 +211,7 @@ describe('people rotalari: zincir', () => {
       'GET /manager/sites/:siteCode/history',
       'GET /manager/sites/:siteCode/people',
       'GET /manager/sites/:siteCode/people/:personId',
+      'GET /manager/sites/:siteCode/resident-usernames/export',
       'GET /manager/sites/:siteCode/vehicles',
       'PATCH /manager/sites/:siteCode/apartments/:apartmentId',
       'PATCH /manager/sites/:siteCode/people/:personId',
@@ -403,6 +404,7 @@ describe('GET people: sorgu, sayfalama, sabit sorgu sayisi', () => {
       has_account: true,
       account_kind: 'registered',
       is_active: true,
+      login_name: null,
       relations: ['owner', 'resident'],
       apartments: [
         { apartment_id: 9, label: 'A Blok - Daire 2', block_name: 'A Blok', relation: 'resident' },
@@ -418,6 +420,7 @@ describe('GET people: sorgu, sayfalama, sabit sorgu sayisi', () => {
       has_account: false,
       account_kind: 'none',
       is_active: true,
+      login_name: null,
       relations: [],
       apartments: [],
       vehicle_count: 0,
@@ -522,6 +525,7 @@ describe('GET people/:personId: PersonDetail', () => {
       has_account: true,
       account_kind: 'registered',
       is_active: true,
+      login_name: null,
       relations: ['owner'],
       apartments: [{ apartment_id: 9, label: 'A Blok - Daire 2', block_name: 'A Blok', relation: 'owner' }],
       vehicle_count: 1,

@@ -46,7 +46,7 @@ void main() {
     },
   );
   test(
-    'one worksheet retains independent column groups, sparse cells and no invented relationship',
+    'worksheets retain independent sheets with proper columns and rows without offset clutter',
     () {
       final tables = [
         const ExportEnvelope(
@@ -95,40 +95,27 @@ void main() {
       );
       expect(file.fileName, 'site_kayitlari.xlsx');
       final reader = XlsxReader.open(file.bytes);
-      expect(reader.sheets.map((s) => s.name), ['Site Kayıtları']);
-      final all = reader.readSheet(reader.sheets.single);
-      expect(all.rows, hasLength(4));
-      expect(all.rows[0].cells, [
-        'Kayıt Türü',
-        'Kişiler · Ad Soyad',
-        'Kişiler · Telefon',
-        'Daireler · Blok',
-        'Daireler · Daire No',
-        'Araçlar · Plaka',
-        'Kadro · Ad Soyad',
-        'Kadro · Görev',
-        'Kadro · İletişim Telefonu',
-      ]);
-      expect(all.rows[1].cells.take(3), ['Kişiler', '=SUM(A1)', '05320000000']);
-      expect(all.rows[2].cells.take(5), ['Daireler', null, null, 'A', '001']);
-      expect(all.rows[3].cells.take(6), [
-        'Araçlar',
-        null,
-        null,
-        null,
-        null,
-        '34 ABC 123',
-      ]);
+      expect(reader.sheets.map((s) => s.name), ['Kişiler', 'Daireler', 'Araçlar', 'Kadro']);
+      final peopleSheet = reader.readSheet(reader.sheets[0]);
+      expect(peopleSheet.rows, hasLength(2));
+      expect(peopleSheet.rows[0].cells, ['Ad Soyad', 'Telefon']);
+      expect(peopleSheet.rows[1].cells, ['=SUM(A1)', '05320000000']);
+
+      final aptSheet = reader.readSheet(reader.sheets[1]);
+      expect(aptSheet.rows, hasLength(2));
+      expect(aptSheet.rows[0].cells, ['Blok', 'Daire No']);
+      expect(aptSheet.rows[1].cells, ['A', '001']);
+
+      final vehicleSheet = reader.readSheet(reader.sheets[2]);
+      expect(vehicleSheet.rows, hasLength(2));
+      expect(vehicleSheet.rows[0].cells, ['Plaka']);
+      expect(vehicleSheet.rows[1].cells, ['34 ABC 123']);
+
       final archive = ZipDecoder().decodeBytes(file.bytes);
       final xml = utf8.decode(
         archive.findFile('xl/worksheets/sheet1.xml')!.content as List<int>,
       );
-      expect(RegExp(r'<c r="').allMatches(xml), hasLength(17));
-      expect(xml, contains('<c r="D3"'));
-      expect(xml, contains('<c r="F4"'));
-      expect(xml, isNot(contains('<c r="C3"')));
       expect(xml, isNot(contains('<f>')));
-      expect(xml, contains('<autoFilter ref="A1:I4"/>'));
     },
   );
 

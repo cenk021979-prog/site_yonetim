@@ -8,6 +8,7 @@ import 'package:site_kapi_kontrol/models/apartment_crm.dart';
 import 'package:site_kapi_kontrol/models/apartment_pin_issue.dart';
 import 'package:site_kapi_kontrol/models/apartment_record.dart';
 import 'package:site_kapi_kontrol/models/audit_log.dart';
+import 'package:site_kapi_kontrol/models/bulk_import.dart';
 import 'package:site_kapi_kontrol/models/device_connectivity_log.dart';
 import 'package:site_kapi_kontrol/models/device_page.dart';
 import 'package:site_kapi_kontrol/models/device_record.dart';
@@ -1670,6 +1671,17 @@ class AuthService extends ChangeNotifier {
         apartmentId: apartmentId,
         limit: limit,
         offset: offset,
+      ),
+    );
+  }
+
+  /// Daire kullanıcı adlarını dışa aktarır (XLSX zarfı).
+  Future<ExportEnvelope> exportResidentUsernames(int siteCode, {String? query}) {
+    return _runAuthorized(
+      (token) => api.exportResidentUsernames(
+        token: token,
+        siteCode: siteCode,
+        query: query,
       ),
     );
   }

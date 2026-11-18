@@ -29,6 +29,7 @@ class ExportSource {
     this.filterSummary,
     this.notesLabel,
     this.fetchWithNotes,
+    this.fetchWithOptions,
     this.sheetName,
     this.isCurrent,
   });
@@ -44,6 +45,12 @@ class ExportSource {
   final String? notesLabel;
   final Future<ExportEnvelope> Function(ExportFormat format, bool includeNotes)?
   fetchWithNotes;
+
+  final Future<ExportEnvelope> Function(
+    ExportFormat format, {
+    String? status,
+    bool includeNotes,
+  })? fetchWithOptions;
 
   /// XLSX sayfa adı (varsayılan: zarf türü).
   final String? sheetName;
@@ -118,6 +125,7 @@ class ExportSheet extends StatefulWidget {
 class _ExportSheetState extends State<ExportSheet> {
   late int _index = widget.initialIndex.clamp(0, widget.sources.length - 1);
   ExportFormat _format = ExportFormat.xlsx;
+  String _status = 'active';
   bool _includeNotes = false;
   bool _busy = false;
   String? _error;
@@ -194,9 +202,15 @@ class _ExportSheetState extends State<ExportSheet> {
       _checkScope();
       final envelopes = <ExportEnvelope>[];
       for (final item in widget.combineSources ? widget.sources : [source]) {
-        final envelope = item.hasNotesToggle
-            ? await item.fetchWithNotes!(format, notes)
-            : await item.fetch(format);
+        final envelope = item.fetchWithOptions != null
+            ? await item.fetchWithOptions!(
+                format,
+                status: _status,
+                includeNotes: notes,
+              )
+            : (item.hasNotesToggle
+                ? await item.fetchWithNotes!(format, notes)
+                : await item.fetch(format));
         if (!mounted || token != _token) return;
         _checkScope();
         envelopes.add(envelope);
@@ -299,9 +313,39 @@ class _ExportSheetState extends State<ExportSheet> {
           const SizedBox(height: AppSpace.sm),
           Text(
             widget.combineSources
-                ? 'Kişiler, daireler, araçlar ve kadro aynı Excel sayfasına kaydedilir. Bölümlerin sütunları ayrı, her kayıt kendi satırındadır.'
-                : 'Kayıtlar sunucudan alınır, dosya cihazınızda hazırlanır. Tüm sayfalardaki kayıtlar dahil edilir.',
+                ? 'Kişiler, daireler, araçlar ve kadro her biri kendi ayrı Excel sekmesine düzenli olarak kaydedilir.'
+                : 'Kayıtlar sunucudan alınır, dosya cihazınızda hazırlanır.',
             style: th.bodyMedium?.copyWith(color: p.textSecondary),
+          ),
+          const SizedBox(height: AppSpace.lg),
+          Semantics(
+            header: true,
+            child: Text('Kayıt durumu', style: th.titleSmall),
+          ),
+          const SizedBox(height: AppSpace.sm),
+          Wrap(
+            spacing: AppSpace.sm,
+            runSpacing: AppSpace.sm,
+            children: [
+              ChoiceChip(
+                key: const ValueKey<String>('export_status_active'),
+                label: const Text('Aktif kayıtlar (Varsayılan)'),
+                selected: _status == 'active',
+                onSelected: _busy ? null : (_) => setState(() => _status = 'active'),
+              ),
+              ChoiceChip(
+                key: const ValueKey<String>('export_status_inactive'),
+                label: const Text('Pasif kayıtlar (Eski sakinler)'),
+                selected: _status == 'inactive',
+                onSelected: _busy ? null : (_) => setState(() => _status = 'inactive'),
+              ),
+              ChoiceChip(
+                key: const ValueKey<String>('export_status_all'),
+                label: const Text('Tümü (Aktif + Pasif)'),
+                selected: _status == 'all',
+                onSelected: _busy ? null : (_) => setState(() => _status = 'all'),
+              ),
+            ],
           ),
           if (!widget.combineSources && widget.sources.length > 1) ...[
             const SizedBox(height: AppSpace.lg),

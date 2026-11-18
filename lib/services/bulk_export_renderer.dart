@@ -222,35 +222,12 @@ RenderedFile _buildExportWorkbook(
   if (envelopes.isEmpty || envelopes.length != sheetNames.length) {
     throw ArgumentError('Her dışa aktarma bölümü için bir başlık gerekir.');
   }
-  final columns = <XlsxColumn>[
-    const XlsxColumn('Kayıt Türü', format: XlsxFormat.text),
-  ];
-  final rows = <List<Object?>>[];
-  for (var section = 0; section < envelopes.length; section++) {
-    final envelope = envelopes[section];
-    final offset = columns.length;
-    columns.addAll([
-      for (final column in envelope.columns)
-        _xlsxColumn(column, label: '${sheetNames[section]} · ${column.label}'),
-    ]);
-    for (final row in envelope.rows) {
-      rows.add([
-        sheetNames[section],
-        ...List<Object?>.filled(offset - 1, null),
-        for (var i = 0; i < envelope.columns.length; i++)
-          _xlsxValue(envelope.columns[i], row[i]),
-      ]);
-    }
+  final sheets = <XlsxSheet>[];
+  for (var i = 0; i < envelopes.length; i++) {
+    sheets.add(_xlsxSheet(envelopes[i], sheetNames[i]));
   }
   return RenderedFile(
-    bytes: buildXlsx([
-      XlsxSheet(
-        name: 'Site Kayıtları',
-        columns: columns,
-        rows: rows,
-        autoFilter: true,
-      ),
-    ]),
+    bytes: buildXlsx(sheets),
     fileName: '${safeFileBase(filenameBase)}.xlsx',
     mimeType: ExportFormat.xlsx.mimeType,
     format: ExportFormat.xlsx,

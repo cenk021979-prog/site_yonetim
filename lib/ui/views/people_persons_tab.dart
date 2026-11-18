@@ -14,6 +14,7 @@ import 'package:site_kapi_kontrol/ui/dialogs/crm_confirm_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/person_account_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/person_card_dialog.dart';
 import 'package:site_kapi_kontrol/ui/dialogs/person_form_dialog.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/resident_usernames_download_dialog.dart';
 import 'package:site_kapi_kontrol/ui/helpers/paged_loader.dart';
 import 'package:site_kapi_kontrol/ui/helpers/people_scope.dart';
 import 'package:site_kapi_kontrol/ui/widgets/bulk_entry_buttons.dart' show BulkEmptyImportAction, BulkListImportButton;
@@ -195,6 +196,16 @@ class PeoplePersonsTabState extends State<PeoplePersonsTab> {
         kind: AppSnackKind.error,
       );
     }
+  }
+
+  Future<void> _openDownloadUsernames() async {
+    final query = _search.text.trim();
+    await ResidentUsernamesDownloadDialog.show(
+      context,
+      siteCode: widget.scope.siteCode,
+      authService: widget.scope.authService,
+      initialQuery: query.isNotEmpty ? query : null,
+    );
   }
 
   Future<void> _sendPasswordReset(PersonSummary person) async {
@@ -441,6 +452,14 @@ class PeoplePersonsTabState extends State<PeoplePersonsTab> {
               buttonKey: const ValueKey<String>('persons_list_excel_import'),
               onImport: widget.onImportRequested!,
               hint: 'Kişileri ve daire bilgilerini Excel ya da CSV dosyasından toplu yüklemek için sihirbazı açar.',
+            ),
+            const SizedBox(height: AppSpace.md),
+            PrimaryActionButton(
+              key: const ValueKey<String>('persons_list_download_usernames'),
+              label: 'Kullanıcı Adlarını İndir (Excel)',
+              icon: Icons.download_rounded,
+              variant: AppButtonVariant.tonal,
+              onPressed: _openDownloadUsernames,
             ),
             const SizedBox(height: AppSpace.md),
           ],

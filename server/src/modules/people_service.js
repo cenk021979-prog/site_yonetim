@@ -119,7 +119,8 @@ const PERSON_COLUMNS = `
     COALESCE(NULLIF(u.phone_number, ''), sp.phone) AS phone,
     ${CONTACT_EMAIL_SQL} AS email,
     ${HAS_ACCOUNT_SQL} AS has_account,
-    ${ACCOUNT_KIND_SQL} AS account_kind
+    ${ACCOUNT_KIND_SQL} AS account_kind,
+    u.login_name AS login_name
 `;
 
 const PERSON_SELECT = `
@@ -192,6 +193,7 @@ function mapPersonBase(row) {
     has_account: row.has_account === true,
     account_kind: row.account_kind ?? (row.has_account === true ? 'registered' : 'none'),
     is_active: row.is_active === true,
+    login_name: row.login_name ?? null,
   };
 }
 
