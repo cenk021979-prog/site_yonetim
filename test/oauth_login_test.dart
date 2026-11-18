@@ -256,6 +256,34 @@ void main() {
     }
   });
 
+  testWidgets('Windows masaustu ortaminda Google ve Apple butonlari gosterilmez (MissingPluginException onlenir)', (tester) async {
+    final auth = _FakeSocialAuth();
+    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+    try {
+      await pumpAt(
+        tester,
+        SizedBox(
+          width: 360,
+          height: 640,
+          child: LoginPage(
+            authService: auth,
+          ),
+        ),
+        width: 360,
+        height: 640,
+        scale: 1.0,
+      );
+
+      final googleBtn = find.byKey(const Key('social-auth-google-button'));
+      final appleBtn = find.byKey(const Key('social-auth-apple-button'));
+      expect(googleBtn, findsNothing);
+      expect(appleBtn, findsNothing);
+      expect(find.text('veya sosyal hesapla'), findsNothing);
+    } finally {
+      debugDefaultTargetPlatformOverride = null;
+    }
+  });
+
   testWidgets('Google ile giris dogrudan tek dokunusla calisir, id_token veya kod sormaz', (tester) async {
     final auth = _FakeSocialAuth();
     await pumpAt(

@@ -109,11 +109,16 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         return;
       }
 
-      // Web platformunda Google Client ID kontrolü
+      // Google Web Client ID: Sunucudan alinir; yoksa projenin tanimli web client id'si kullanilir.
       final status = await widget.authService.oauthStatus();
       final String? serverClientId = (status['google'] as Map?)?['client_id'] as String?;
+      const String defaultGoogleWebClientId =
+          '1062190295142-2lj8rc45844i81prg8rcb5u23uh2qlib.apps.googleusercontent.com';
+      final String effectiveClientId = (serverClientId != null && serverClientId.trim().isNotEmpty)
+          ? serverClientId.trim()
+          : defaultGoogleWebClientId;
 
-      if (kIsWeb && (serverClientId == null || serverClientId.trim().isEmpty)) {
+      if (kIsWeb && effectiveClientId.isEmpty) {
         _reportError(
           'Web tarayıcısında Google ile giriş yapabilmek için Google Web Client ID gereklidir. '
           'Lütfen sunucu .env dosyasına GOOGLE_CLIENT_ID ekleyiniz (Google Cloud Console OAuth 2.0 Web İstemcisi) '
@@ -122,9 +127,24 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         return;
       }
 
+      // Desteklenmeyen masaüstü ortamı kontrolü (Windows / Linux)
+      if (!kIsWeb &&
+          defaultTargetPlatform != TargetPlatform.android &&
+          defaultTargetPlatform != TargetPlatform.iOS &&
+          defaultTargetPlatform != TargetPlatform.macOS) {
+        _reportError(
+          'Google ile giriş Android, iOS ve Web tarayıcısında desteklenmektedir. '
+          'Windows uygulamasında kullanıcı adı/şifre veya telefon ile giriş yapınız.',
+        );
+        return;
+      }
+
       // Standart yerel Google hesap seçici (Android / iOS / Web)
+      // serverClientId: Android'de Google Play Services'in sunucu adına doğrulanabilir
+      // bir OpenID Connect idToken (JWT) üretmesi için ZORUNLUDUR (Web Client ID hedef alınır).
       final GoogleSignIn googleSignIn = GoogleSignIn(
-        clientId: kIsWeb ? serverClientId : null,
+        clientId: kIsWeb ? effectiveClientId : null,
+        serverClientId: effectiveClientId,
         scopes: const <String>['email', 'profile'],
       );
       final GoogleSignInAccount? account = await googleSignIn.signIn();
@@ -162,7 +182,19 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
       widget.onSuccess?.call();
     } catch (e) {
       if (!mounted) return;
-      _reportError('Google ile giriş yapılamadı: $e');
+      final errStr = e.toString();
+      if (errStr.contains('12500')) {
+        _reportError(
+          'Cihazda aktif bir Google hesabı bulunamadı veya oturum açılamadı. '
+          'Lütfen cihaz ayarlarına bir Google hesabı ekleyip tekrar deneyiniz.',
+        );
+      } else if (errStr.contains('10') && errStr.contains('ApiException')) {
+        _reportError(
+          'Google Cloud Console OAuth yapılandırması veya SHA-1 parmak izi eşleşmiyor (Hata: DEVELOPER_ERROR / 10).',
+        );
+      } else {
+        _reportError('Google ile giriş yapılamadı: $e');
+      }
     } finally {
       if (mounted) {
         setState(() => _busyProvider = null);
@@ -270,12 +302,26 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         ? 'iCloud ile Kaydol'
         : 'iCloud ile Giriş Yap / Kaydol';
 
+    // Google ile giriş resmi olarak Android, iOS, macOS ve Web platformlarında desteklenir.
+    // Windows ve Linux masaüstü ortamında resmi google_sign_in eklentisi bulunmadığı için
+    // MissingPluginException hatasını engellemek amacıyla bu platformlarda gösterilmez.
+    final bool isGoogleSupported = kIsWeb ||
+        defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS ||
+        defaultTargetPlatform == TargetPlatform.macOS;
+    final bool showGoogleButton =
+        widget.onProvideCredentials != null || isGoogleSupported;
+
     // Apple ile giriş (iCloud) yalnızca iOS ve macOS cihazlarında sunulur.
     // Android, Web veya Windows üzerinde gösterilmez (test mock'ları hariç).
     final bool showAppleButton = widget.onProvideCredentials != null ||
         (!kIsWeb &&
             (defaultTargetPlatform == TargetPlatform.iOS ||
                 defaultTargetPlatform == TargetPlatform.macOS));
+
+    if (!showGoogleButton && !showAppleButton) {
+      return const SizedBox.shrink();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -299,16 +345,18 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
           ],
         ),
         const SizedBox(height: AppSpace.md),
-        _SocialButton(
-          buttonKey: const Key('social-auth-google-button'),
-          provider: 'google',
-          label: googleLabel,
-          isLoading: _busyProvider == 'google',
-          enabled: widget.enabled && _busyProvider == null,
-          onPressed: _handleGoogleTap,
-        ),
-        if (showAppleButton) ...[
+        if (showGoogleButton)
+          _SocialButton(
+            buttonKey: const Key('social-auth-google-button'),
+            provider: 'google',
+            label: googleLabel,
+            isLoading: _busyProvider == 'google',
+            enabled: widget.enabled && _busyProvider == null,
+            onPressed: _handleGoogleTap,
+          ),
+        if (showGoogleButton && showAppleButton)
           const SizedBox(height: AppSpace.sm),
+        if (showAppleButton)
           _SocialButton(
             buttonKey: const Key('social-auth-apple-button'),
             provider: 'apple',
@@ -317,7 +365,6 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
             enabled: widget.enabled && _busyProvider == null,
             onPressed: _handleAppleTap,
           ),
-        ],
       ],
     );
   }

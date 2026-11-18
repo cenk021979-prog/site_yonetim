@@ -72,8 +72,17 @@ function parseClientIds(rawPrimary, rawList) {
   return [...new Set(combined)];
 }
 
+export const DEFAULT_GOOGLE_CLIENT_IDS = Object.freeze([
+  '1062190295142-2lj8rc45844i81prg8rcb5u23uh2qlib.apps.googleusercontent.com',
+  '1062190295142-4qum6of2c62unoriqh3pdnvou0rp4c68.apps.googleusercontent.com',
+  '1062190295142-qprijjhdg8sktbgn208rs9c2gdv2ksu3.apps.googleusercontent.com',
+]);
+
 export function getOAuthConfig(env = process.env) {
-  const googleClientIds = parseClientIds(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_IDS);
+  const parsedGoogle = parseClientIds(env.GOOGLE_CLIENT_ID, env.GOOGLE_CLIENT_IDS);
+  const googleClientIds = parsedGoogle.length > 0
+    ? [...new Set([...parsedGoogle, ...DEFAULT_GOOGLE_CLIENT_IDS])]
+    : [];
   const appleClientIds = parseClientIds(
     env.APPLE_CLIENT_ID || env.APPLE_SERVICE_ID || env.APPLE_BUNDLE_ID,
     env.APPLE_CLIENT_IDS,

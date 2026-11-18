@@ -55,16 +55,22 @@ class ResidentWelcomeHero extends StatelessWidget {
         : IndividualDoorCardModel.of(door, isOpening: isOpening);
     final largeText = MediaQuery.textScalerOf(context).scale(16) >= 21;
 
+    final cardBg = p.isDark ? const Color(0xFF162032) : p.surface;
+    final borderColor = Color.alphaBlend(
+      AppTone.primary.hue.withValues(alpha: p.isDark ? 0.34 : 0.24),
+      p.border,
+    );
+
     return Semantics(
       container: true,
       label: 'Daire kullanıcısı karşılama alanı',
       child: Container(
         key: const ValueKey('resident_welcome_hero'),
         decoration: BoxDecoration(
-          color: p.critical,
+          color: cardBg,
           borderRadius: BorderRadius.circular(AppRadius.xl),
-          border: Border.all(color: p.criticalBorder),
-          boxShadow: p.shadow(2),
+          border: Border.all(color: borderColor, width: 1.5),
+          boxShadow: p.shadow(p.isDark ? 2 : 1),
         ),
         padding: const EdgeInsets.all(AppSpace.xl),
         child: LayoutBuilder(
@@ -77,17 +83,13 @@ class ResidentWelcomeHero extends StatelessWidget {
               doorCount: doorCount,
               onlineDoorCount: onlineDoorCount,
               pendingRequestCount: pendingRequestCount,
-              foreground: p.onCritical,
+              palette: p,
               textTheme: th,
             );
             final keyPanel = _DoorKeyPanel(
               door: door,
               model: doorModel,
-              foreground: p.onCritical,
-              surface: p.surface,
-              surfaceText: p.text,
-              statusOk: p.statusOk,
-              statusCrit: p.statusCrit,
+              palette: p,
               onOpenDoor: onOpenDoor,
               onShowQr: onShowQr,
               onGuestPass: onGuestPass,
@@ -126,7 +128,7 @@ class _WelcomeIntro extends StatelessWidget {
     required this.doorCount,
     required this.onlineDoorCount,
     required this.pendingRequestCount,
-    required this.foreground,
+    required this.palette,
     required this.textTheme,
   });
 
@@ -136,11 +138,12 @@ class _WelcomeIntro extends StatelessWidget {
   final int doorCount;
   final int onlineDoorCount;
   final int pendingRequestCount;
-  final Color foreground;
+  final AppPalette palette;
   final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
+    final p = palette;
     final stats = <({IconData icon, String label})>[
       (icon: Icons.home_rounded, label: '$apartmentCount daire'),
       (icon: Icons.door_front_door_rounded, label: '$doorCount kapı'),
@@ -156,11 +159,15 @@ class _WelcomeIntro extends StatelessWidget {
           width: 48,
           height: 48,
           decoration: BoxDecoration(
-            color: foreground.withValues(alpha: 0.12),
+            color: AppTone.primary.tint(p),
             borderRadius: BorderRadius.circular(AppRadius.md),
-            border: Border.all(color: foreground.withValues(alpha: 0.24)),
+            border: Border.all(
+              color: AppTone.primary.hue.withValues(
+                alpha: p.isDark ? 0.34 : 0.24,
+              ),
+            ),
           ),
-          child: Icon(Icons.key_rounded, color: foreground),
+          child: Icon(Icons.key_rounded, color: AppTone.primary.ink(p)),
         ),
         const SizedBox(height: AppSpace.lg),
         Text(
@@ -168,7 +175,7 @@ class _WelcomeIntro extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: textTheme.headlineSmall?.copyWith(
-            color: foreground,
+            color: p.text,
             fontWeight: FontWeight.w800,
             letterSpacing: -0.4,
           ),
@@ -179,7 +186,7 @@ class _WelcomeIntro extends StatelessWidget {
           maxLines: 2,
           overflow: TextOverflow.ellipsis,
           style: textTheme.bodyLarge?.copyWith(
-            color: foreground,
+            color: p.textSecondary,
             fontWeight: FontWeight.w600,
             height: 1.35,
           ),
@@ -190,7 +197,11 @@ class _WelcomeIntro extends StatelessWidget {
           runSpacing: AppSpace.sm,
           children: [
             for (final stat in stats)
-              _HeroStat(icon: stat.icon, label: stat.label, color: foreground),
+              _HeroStat(
+                icon: stat.icon,
+                label: stat.label,
+                palette: p,
+              ),
           ],
         ),
       ],
@@ -202,25 +213,25 @@ class _HeroStat extends StatelessWidget {
   const _HeroStat({
     required this.icon,
     required this.label,
-    required this.color,
+    required this.palette,
   });
 
   final IconData icon;
   final String label;
-  final Color color;
+  final AppPalette palette;
 
   @override
   Widget build(BuildContext context) => Container(
     padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm, vertical: 6),
     decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.1),
+      color: palette.isDark ? const Color(0xFF0F172A) : palette.surfaceMuted,
       borderRadius: BorderRadius.circular(AppRadius.pill),
-      border: Border.all(color: color.withValues(alpha: 0.2)),
+      border: Border.all(color: palette.border),
     ),
     child: Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 15, color: color),
+        Icon(icon, size: 15, color: palette.textSecondary),
         const SizedBox(width: 6),
         Flexible(
           child: Text(
@@ -228,7 +239,7 @@ class _HeroStat extends StatelessWidget {
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
+              color: palette.textSecondary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -242,11 +253,7 @@ class _DoorKeyPanel extends StatelessWidget {
   const _DoorKeyPanel({
     required this.door,
     required this.model,
-    required this.foreground,
-    required this.surface,
-    required this.surfaceText,
-    required this.statusOk,
-    required this.statusCrit,
+    required this.palette,
     required this.onOpenDoor,
     required this.onShowQr,
     required this.onGuestPass,
@@ -254,11 +261,7 @@ class _DoorKeyPanel extends StatelessWidget {
 
   final DoorRecord? door;
   final IndividualDoorCardModel? model;
-  final Color foreground;
-  final Color surface;
-  final Color surfaceText;
-  final Color statusOk;
-  final Color statusCrit;
+  final AppPalette palette;
   final VoidCallback? onOpenDoor;
   final VoidCallback? onShowQr;
   final VoidCallback? onGuestPass;
@@ -266,16 +269,17 @@ class _DoorKeyPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final th = Theme.of(context).textTheme;
+    final p = palette;
     final m = model;
-    final statusColor = m?.isOnline == true ? statusOk : statusCrit;
+    final statusColor = m?.isOnline == true ? p.statusOk : p.statusCrit;
     final canOpen = m?.openKind != IndividualDoorOpenKind.none;
 
     return Container(
       padding: const EdgeInsets.all(AppSpace.lg),
       decoration: BoxDecoration(
-        color: foreground.withValues(alpha: 0.08),
+        color: p.isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(AppRadius.lg),
-        border: Border.all(color: foreground.withValues(alpha: 0.2)),
+        border: Border.all(color: p.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -286,7 +290,7 @@ class _DoorKeyPanel extends StatelessWidget {
               Text(
                 'HIZLI ERİŞİM',
                 style: th.labelSmall?.copyWith(
-                  color: foreground,
+                  color: p.textMuted,
                   fontWeight: FontWeight.w800,
                   letterSpacing: 1.1,
                 ),
@@ -299,7 +303,7 @@ class _DoorKeyPanel extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: th.titleMedium?.copyWith(
-                  color: foreground,
+                  color: p.text,
                   fontWeight: FontWeight.w800,
                 ),
               ),
@@ -312,8 +316,11 @@ class _DoorKeyPanel extends StatelessWidget {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withValues(alpha: 0.16),
+                    color: statusColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(AppRadius.pill),
+                    border: Border.all(
+                      color: statusColor.withValues(alpha: 0.28),
+                    ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -326,7 +333,7 @@ class _DoorKeyPanel extends StatelessWidget {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: th.labelSmall?.copyWith(
-                            color: foreground,
+                            color: statusColor,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -340,15 +347,15 @@ class _DoorKeyPanel extends StatelessWidget {
           const SizedBox(height: AppSpace.lg),
           if (canOpen)
             SizedBox(
-              height: 58,
+              height: 52,
               child: FilledButton.icon(
                 key: const ValueKey('resident_primary_door_action'),
                 onPressed: m!.isOpening ? null : onOpenDoor,
                 style: FilledButton.styleFrom(
-                  backgroundColor: surface,
-                  foregroundColor: surfaceText,
-                  disabledBackgroundColor: surface.withValues(alpha: 0.65),
-                  disabledForegroundColor: surfaceText.withValues(alpha: 0.65),
+                  backgroundColor: p.action,
+                  foregroundColor: p.onAction,
+                  disabledBackgroundColor: p.action.withValues(alpha: 0.65),
+                  disabledForegroundColor: p.onAction.withValues(alpha: 0.65),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(AppRadius.md),
                   ),
@@ -369,7 +376,10 @@ class _DoorKeyPanel extends StatelessWidget {
               door == null
                   ? 'Yöneticiniz kapı yetkisi verdiğinde burada görünecek.'
                   : 'Bu kapı QR ile geçiş için yapılandırılmış.',
-              style: th.bodyMedium?.copyWith(color: foreground, height: 1.4),
+              style: th.bodyMedium?.copyWith(
+                color: p.textSecondary,
+                height: 1.4,
+              ),
             ),
           if (m?.showShowQr == true || m?.showGuestPass == true) ...[
             const SizedBox(height: AppSpace.sm),
@@ -381,14 +391,14 @@ class _DoorKeyPanel extends StatelessWidget {
                   _HeroSecondaryAction(
                     label: 'QR Göster',
                     icon: Icons.qr_code_rounded,
-                    color: foreground,
+                    palette: p,
                     onPressed: onShowQr,
                   ),
                 if (m?.showGuestPass == true)
                   _HeroSecondaryAction(
                     label: 'Misafir Geçişi',
                     icon: Icons.person_add_alt_1_rounded,
-                    color: foreground,
+                    palette: p,
                     onPressed: onGuestPass,
                   ),
               ],
@@ -404,21 +414,22 @@ class _HeroSecondaryAction extends StatelessWidget {
   const _HeroSecondaryAction({
     required this.label,
     required this.icon,
-    required this.color,
+    required this.palette,
     required this.onPressed,
   });
 
   final String label;
   final IconData icon;
-  final Color color;
+  final AppPalette palette;
   final VoidCallback? onPressed;
 
   @override
   Widget build(BuildContext context) => OutlinedButton.icon(
     onPressed: onPressed,
     style: OutlinedButton.styleFrom(
-      foregroundColor: color,
-      side: BorderSide(color: color.withValues(alpha: 0.34)),
+      foregroundColor: palette.text,
+      backgroundColor: palette.surface,
+      side: BorderSide(color: palette.border),
       minimumSize: const Size(0, 44),
     ),
     icon: Icon(icon, size: 18),
