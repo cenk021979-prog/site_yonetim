@@ -75,9 +75,9 @@ for i in 1 2; do
   # Boru (| tail) node'un cikis kodunu yutardi: ciktiyi degiskene al, kodu ve ENSURE_OK satirini AYRI denetle.
   ensure_out=$(node --input-type=module -e "const m = await import('./src/db.js'); await m.ensureDbSchema(); console.log('ENSURE_OK tur $i'); process.exit(0)" 2>&1); ensure_rc=$?
   printf '%s\n' "$ensure_out" | cut -c1-220 | tail -n 6
-  if [ "$ensure_rc" -ne 0 ] || ! printf '%s\n' "$ensure_out" | grep -qx "ENSURE_OK tur $i"; then
+  if [ "$ensure_rc" -ne 0 ] || ! grep -qx "ENSURE_OK tur $i" <<<"$ensure_out"; then
     ENSURE_OK_ALL=f
-    echo "   HATA: ensureDbSchema tur $i BASARISIZ (node cikis kodu=$ensure_rc, 'ENSURE_OK tur $i' satiri $(printf '%s\n' "$ensure_out" | grep -qx "ENSURE_OK tur $i" && echo VAR || echo YOK))"
+    echo "   HATA: ensureDbSchema tur $i BASARISIZ (node cikis kodu=$ensure_rc, 'ENSURE_OK tur $i' satiri $(grep -qx "ENSURE_OK tur $i" <<<"$ensure_out" && echo VAR || echo YOK))"
   fi
   if [ "$i" = 1 ]; then FP1="$(schema_fp)"; else FP2="$(schema_fp)"; fi
 done

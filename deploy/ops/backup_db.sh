@@ -268,15 +268,15 @@ info="$(gzip -dc "$TMP_DUMP" | awk '
   inu                      { u++ }
   /^-- PostgreSQL database dump complete/ { done=1 }
   END { printf "N=%d\nDONE=%d\nU=%d\n", n, done+0, u+0; for (t in tables) printf "T:%s\n", t; for (c in copy) printf "C:%s\n", c }')"
-n_tables="$(printf '%s\n' "$info" | sed -n 's/^N=//p')"
-done_mark="$(printf '%s\n' "$info" | sed -n 's/^DONE=//p')"
-n_users="$(num "$(printf '%s\n' "$info" | sed -n 's/^U=//p')" 0)"
+n_tables="$(sed -n 's/^N=//p' <<<"$info")"
+done_mark="$(sed -n 's/^DONE=//p' <<<"$info")"
+n_users="$(num "$(sed -n 's/^U=//p' <<<"$info")" 0)"
 [ "${done_mark:-0}" = "1" ] || fail 1 "dokumun sonunda 'dump complete' isareti yok (kesik yedek)"
 [ "${n_tables:-0}" -ge "$MIN_TABLES" ] || fail 1 "tablo sayisi beklenenden az (${n_tables:-0} < $MIN_TABLES)"
 for t in $REQUIRED_TABLES; do
-  printf '%s\n' "$info" | grep -qx "T:$t" || fail 1 "beklenen tablo yedekte yok: $t"
+  grep -qx "T:$t" <<<"$info" || fail 1 "beklenen tablo yedekte yok: $t"
 done
-printf '%s\n' "$info" | grep -qx "C:users" || fail 1 "users tablosunun veri bolumu (COPY) yok"
+grep -qx "C:users" <<<"$info" || fail 1 "users tablosunun veri bolumu (COPY) yok"
 if [ "$n_users" -eq 0 ] && [ "${ALLOW_EMPTY_USERS:-0}" != "1" ]; then
   fail 1 "users tablosunda 0 satir: bos/hatali veritabani yedegi olabilir (bilerek ise ALLOW_EMPTY_USERS=1)"
 fi
@@ -373,9 +373,9 @@ config_backup() {
   chmod 600 "$CFG_TMP"
   local listing
   listing="$(dec_cmd -in "$CFG_TMP" 2>/dev/null | tar -tzf - 2>/dev/null)"
-  printf '%s\n' "$listing" | grep -qx "$srv/\.env" || { REASON="yapilandirma yedegi dogrulamasi basarisiz (.env arsivde yok)"; return 1; }
-  printf '%s\n' "$listing" | grep -q 'globals\.sql$' || { REASON="yapilandirma yedegi dogrulamasi basarisiz (globals.sql yok)"; return 1; }
-  printf '%s\n' "$listing" | grep -q 'deleted_accounts\.csv$' || { REASON="yapilandirma yedegi dogrulamasi basarisiz (deleted_accounts.csv yok)"; return 1; }
+  grep -qx "$srv/\.env" <<<"$listing" || { REASON="yapilandirma yedegi dogrulamasi basarisiz (.env arsivde yok)"; return 1; }
+  grep -q 'globals\.sql$' <<<"$listing" || { REASON="yapilandirma yedegi dogrulamasi basarisiz (globals.sql yok)"; return 1; }
+  grep -q 'deleted_accounts\.csv$' <<<"$listing" || { REASON="yapilandirma yedegi dogrulamasi basarisiz (deleted_accounts.csv yok)"; return 1; }
   mv -- "$CFG_TMP" "$CFG_OUT"
   log "   tamam: kapi_config_${TS}.tgz.enc $(human_bytes "$(stat -c %s "$CFG_OUT")") (arsiv girdisi: $(printf '%s\n' "$listing" | wc -l), silinmis hesap kaydi: $(($(wc -l <"$STAGE/deleted_accounts.csv") - 1)))"
   return 0
@@ -411,7 +411,7 @@ firmware_backup() {
     return 1
   fi
   listing="$(dec_cmd -in "$FW_TMP" 2>/dev/null | tar -tzf - 2>/dev/null)"
-  printf '%s\n' "$listing" | grep -q '/firmware/' || { REASON="firmware arsivi dogrulamasi basarisiz"; return 1; }
+  grep -q '/firmware/' <<<"$listing" || { REASON="firmware arsivi dogrulamasi basarisiz"; return 1; }
   chmod 600 "$FW_TMP"
   mv -- "$FW_TMP" "$FW_OUT"
   link_or_copy "$FW_OUT" "$OFFSITE/kapi_firmware_${TS}.tgz.enc" || warn "firmware arsivi dis kopya dizinine baglanamadi/kopyalanamadi"
@@ -482,7 +482,7 @@ documents_backup() {
     return 1
   fi
   listing="$(dec_cmd -in "$DOC_TMP" 2>/dev/null | tar -tzf - 2>/dev/null)"
-  if [ "$(printf '%s\n' "$listing" | grep -vc '/$')" -lt 1 ] || printf '%s\n' "$listing" | grep -qE '(^/|\.\./)'; then
+  if [ "$(grep -vc '/$' <<<"$listing")" -lt 1 ] || grep -qE '(^/|\.\./)' <<<"$listing"; then
     REASON="belge arsivi dogrulamasi basarisiz (liste bos ya da guvensiz yol)"
     return 1
   fi
@@ -571,7 +571,7 @@ work_attachments_backup() {
     return 1
   fi
   listing="$(dec_cmd -in "$WA_TMP" 2>/dev/null | tar -tzf - 2>/dev/null)"
-  if [ "$(printf '%s\n' "$listing" | grep -vc '/$')" -lt 1 ] || printf '%s\n' "$listing" | grep -qE '(^/|\.\./)'; then
+  if [ "$(grep -vc '/$' <<<"$listing")" -lt 1 ] || grep -qE '(^/|\.\./)' <<<"$listing"; then
     REASON="fotograf arsivi dogrulamasi basarisiz (liste bos ya da guvensiz yol)"
     return 1
   fi
