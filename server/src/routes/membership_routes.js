@@ -163,7 +163,7 @@ membershipRouter.get('/membership/join-info/:token', authRequired, async (req, r
  */
 membershipRouter.post('/membership/join-request', authRequired, async (req, res) => {
   try {
-    const { token, blockId, apartmentId, notes } = req.body || {};
+    const { token, blockId, apartmentId, notes, confirmDistinctPerson, distinctPersonReason } = req.body || {};
 
     const result = await createJoinRequest({
       userCode: sessionUserCode(req),
@@ -171,6 +171,8 @@ membershipRouter.post('/membership/join-request', authRequired, async (req, res)
       blockId,
       apartmentId,
       notes,
+      confirmDistinctPerson: confirmDistinctPerson === true,
+      distinctPersonReason,
     });
 
     return res.status(201).json(result);

@@ -1295,6 +1295,8 @@ managerRouter.post('/manager/join-requests/:requestId/approve', authRequired, re
     const result = await approveJoinRequest({
       requestId,
       authUser: req.authUser,
+      confirmDistinctPerson: req.body?.confirmDistinctPerson === true,
+      distinctPersonReason: req.body?.distinctPersonReason,
     });
     return res.status(200).json(result);
   } catch (error) {

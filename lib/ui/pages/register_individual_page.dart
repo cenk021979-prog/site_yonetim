@@ -177,6 +177,48 @@ class _RegisterIndividualPageState extends State<RegisterIndividualPage> {
                         textAlign: TextAlign.center,
                         style: th.bodyMedium,
                       ),
+                      const SizedBox(height: AppSpace.lg),
+
+                      Container(
+                        key: const ValueKey<String>('managed_account_login_card'),
+                        padding: const EdgeInsets.all(AppSpace.lg),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primaryContainer.withValues(alpha: 0.42),
+                          borderRadius: BorderRadius.circular(AppRadius.lg),
+                          border: Border.all(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.22)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.vpn_key_rounded, size: 22),
+                                const SizedBox(width: AppSpace.sm),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('Yönetim size kullanıcı adı verdi mi?', style: th.titleSmall),
+                                      const SizedBox(height: AppSpace.xs),
+                                      Text(
+                                        'Yeni hesap açmayın. Verilen kullanıcı adı ve başlangıç şifresiyle mevcut hesabınızı etkinleştirin.',
+                                        style: th.bodySmall,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: AppSpace.md),
+                            OutlinedButton.icon(
+                              onPressed: _isLoading ? null : () => Navigator.pop(context),
+                              icon: const Icon(Icons.login_rounded),
+                              label: const Text('Mevcut Hesapla Giriş Yap'),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: AppSpace.xl),
 
                       // Hata Mesajı

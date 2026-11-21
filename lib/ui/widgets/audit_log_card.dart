@@ -66,6 +66,8 @@ AppTone auditToneOf(String action) {
     case 'user.password_set':
     case 'site.deletion_requested':
     case 'site.deletion_code_locked':
+    case 'join_request.duplicate_override':
+    case 'join_request.duplicate_override_approved':
     case 'door_permission.denied':
     case 'door_permission.bulk_denied':
     case 'device.ownership_released':

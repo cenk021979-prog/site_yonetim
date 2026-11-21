@@ -114,7 +114,99 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     });
   }
 
-  Future<void> _submit() async {
+  Future<String?> _askDistinctPersonReason() async {
+    final controller = TextEditingController();
+    String? validation;
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AppDialog(
+          title: 'Farklı Kişi Doğrulaması',
+          icon: Icons.person_search_rounded,
+          tone: AppTone.warning,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+            ElevatedButton(
+              onPressed: () {
+                final reason = controller.text.trim();
+                if (reason.length < 10) {
+                  setDialogState(() => validation = 'En az 10 karakterlik açıklama yazın.');
+                  return;
+                }
+                Navigator.pop(ctx, reason);
+              },
+              child: const Text('Doğrula ve Gönder'),
+            ),
+          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const Text('Bu hesabın bulunan mevcut kişiden neden farklı olduğunu kısaca açıklayın. Yönetici de onay sırasında kontrol edecektir.'),
+              const SizedBox(height: AppSpace.md),
+              TextField(
+                controller: controller,
+                maxLength: 300,
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(labelText: 'Açıklama', errorText: validation),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    return result;
+  }
+
+  Future<void> _resolvePossibleExistingAccount(Map<String, dynamic>? payload) async {
+    final candidate = payload?['candidate_name'] as String? ?? 'Mevcut sakin';
+    final hint = payload?['candidate_login_hint'] as String?;
+    final apartments = (payload?['candidate_apartments'] as List<dynamic>?)
+            ?.whereType<String>()
+            .where((item) => item.trim().isNotEmpty)
+            .join(', ') ??
+        '';
+    final choice = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AppDialog(
+        title: 'Mevcut Hesap Bulundu',
+        icon: Icons.manage_accounts_rounded,
+        tone: AppTone.warning,
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+          OutlinedButton(
+            onPressed: () => Navigator.pop(ctx, 'different'),
+            child: const Text('Farklı Kişiyim'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, 'existing'),
+            child: const Text('Mevcut Hesapla Giriş'),
+          ),
+        ],
+        child: Text(
+          '$candidate${apartments.isEmpty ? '' : ' — $apartments'} kaydı sizinle eşleşiyor.'
+          '${hint == null ? '' : '\nKullanıcı adı: $hint'}\n\nYönetimin verdiği kullanıcı adı ve başlangıç şifresiyle giriş yaparsanız ikinci kişi kaydı oluşmaz.',
+        ),
+      ),
+    );
+    if (!mounted || choice == null) return;
+    if (choice == 'existing') {
+      await widget.authService.logout();
+      if (mounted) Navigator.pop(context, false);
+      return;
+    }
+    final reason = await _askDistinctPersonReason();
+    if (reason != null && mounted) {
+      await _submit(confirmDistinctPerson: true, distinctPersonReason: reason);
+    }
+  }
+
+  Future<void> _submit({
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
     if (_siteInfo == null || _selectedApartment == null) {
       setState(() => _errorMessage = 'Lütfen blok ve daire seçiniz.');
       return;
@@ -125,20 +217,24 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
       _errorMessage = null;
     });
 
-    final (res, error) = await widget.authService.submitJoinRequest(
+    final attempt = await widget.authService.submitJoinRequestDetailed(
       joinToken: _siteInfo!.token,
       blockId: _selectedBlock?.id,
       apartmentId: _selectedApartment!.id,
       notes: _notesController.text.trim(),
+      confirmDistinctPerson: confirmDistinctPerson,
+      distinctPersonReason: distinctPersonReason,
     );
 
     if (!mounted) return;
     setState(() => _isSubmitting = false);
 
-    if (error != null) {
-      setState(() => _errorMessage = error);
+    if (attempt.code == 'ACCOUNT_CLAIM_REQUIRED') {
+      await _resolvePossibleExistingAccount(attempt.payload);
+    } else if (attempt.error != null) {
+      setState(() => _errorMessage = attempt.error);
     } else {
-      final msg = res?['message'] as String? ?? 'Katılım başvurunuz site yöneticisine iletildi.';
+      final msg = attempt.result?['message'] as String? ?? 'Katılım başvurunuz site yöneticisine iletildi.';
       HapticFeedback.lightImpact();
       AppSnack.show(context, msg, kind: AppSnackKind.success);
       Navigator.pop(context, true);

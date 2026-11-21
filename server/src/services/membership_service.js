@@ -5,6 +5,7 @@ import { sendIndividualVerificationEmail, sendJoinRequestNotificationEmail } fro
 import { currentPasswordLockedError } from '../middlewares/login_throttle.js';
 import { verifyCurrentPassword } from '../modules/account_password_guard.js';
 import { recordAudit } from '../modules/audit_service.js';
+import { assertJoinIdentitySafe } from '../modules/identity_duplicate_service.js';
 import { mapUserRow, normalizeEmail } from '../utils/helpers.js';
 import { PG_INT4_MAX, isValidEmail, parsePositiveId } from '../utils/validators.js';
 import { rotateTokensForDevices, rotateTokensForSite } from './local_token_service.js';
@@ -1013,6 +1014,8 @@ export async function createJoinRequest({
   blockId,
   apartmentId,
   notes,
+  confirmDistinctPerson = false,
+  distinctPersonReason = null,
 }) {
   const cleanToken = String(token || '').replace(/^SITE_JOIN:/i, '').trim().toUpperCase();
   if (!cleanToken || cleanToken.length > 128) {
@@ -1054,7 +1057,7 @@ export async function createJoinRequest({
     // bekler; silme commit ettiyse satır dönmez (404) -> tombstone hesaba AKTİF başvuru yazılmaz (R2 F-3). KEY SHARE, INSERT'in FK kilidiyle aynıdır
     // (yeni bir kilit sırası getirmez); FOR NO KEY UPDATE tutan akışlarla (role güncelleme) çakışmaz.
     const userRes = await client.query(
-      `SELECT user_code, full_name, email, email_verified, is_active FROM users WHERE user_code = $1 AND deleted_at IS NULL LIMIT 1 FOR KEY SHARE`,
+      `SELECT user_code, full_name, email, email_verified, is_active, role FROM users WHERE user_code = $1 AND deleted_at IS NULL LIMIT 1 FOR KEY SHARE`,
       [uCode],
     );
     if (userRes.rowCount === 0) {
@@ -1100,6 +1103,14 @@ export async function createJoinRequest({
       throw httpError(400, 'Seçilen daire belirtilen bloğa ait değil.');
     }
 
+    const duplicateOverride = await assertJoinIdentitySafe(client, {
+      siteCode,
+      userCode: uCode,
+      confirmedDistinctPerson: confirmDistinctPerson === true,
+      confirmationReason: distinctPersonReason,
+      audience: 'resident',
+    });
+
     // Site yönetiminin kapı erişimini askıya aldığı kişi, katılım QR'ı ile de bu daireye başvuramaz (onaylanınca erişim geri gelirdi).
     // Neden gösterilmez (mahkeme kararı vb. gizli kalır); yönetim askıyı kaldırana dek başvuru alınmaz.
     if (await hasOpenAccessSuspension(client, aptId, user.user_code)) {
@@ -1140,6 +1151,25 @@ export async function createJoinRequest({
       [siteCode, Number(apt.block_id), aptId, user.user_code, cleanNotes],
     );
     insertedRequest = insertRes.rows[0];
+
+    if (duplicateOverride) {
+      await recordAudit(
+        client,
+        {
+          actor: { id: uCode, role: user.role, full_name: user.full_name },
+          action: 'join_request.duplicate_override',
+          siteCode,
+          targetType: 'join_request',
+          targetId: String(insertedRequest.id),
+          details: {
+            candidate_user_code: duplicateOverride.userCode,
+            match_reasons: duplicateOverride.reasons,
+            has_reason: true,
+          },
+        },
+        { inTransaction: true },
+      );
+    }
 
     await client.query('COMMIT');
     committed = true;
@@ -1395,7 +1425,12 @@ export async function getSiteJoinRequests({ siteCode, authUser, status }) {
 /**
  * Site Yöneticisi: Katılım Başvurusunu Onayla
  */
-export async function approveJoinRequest({ requestId, authUser }) {
+export async function approveJoinRequest({
+  requestId,
+  authUser,
+  confirmDistinctPerson = false,
+  distinctPersonReason = null,
+}) {
   const reqId = parsePositiveId(requestId);
   if (reqId === null) {
     throw httpError(400, 'Geçersiz talep kimliği.');
@@ -1444,6 +1479,14 @@ export async function approveJoinRequest({ requestId, authUser }) {
     if (req.status !== 'PENDING') {
       throw httpError(409, `Bu talep zaten "${req.status}" durumunda, tekrar işlem yapılamaz.`);
     }
+
+    const duplicateOverride = await assertJoinIdentitySafe(client, {
+      siteCode: Number(req.site_code),
+      userCode: Number(req.user_code),
+      confirmedDistinctPerson: confirmDistinctPerson === true,
+      confirmationReason: distinctPersonReason,
+      audience: 'manager',
+    });
 
     // Aynı dairede eşzamanlı onaylar çift APARTMENT_ADMIN üretmesin: daire satırını kilitle
     await client.query(`SELECT id FROM apartments WHERE id = $1 FOR UPDATE`, [Number(req.apartment_id)]);
@@ -1520,6 +1563,26 @@ export async function approveJoinRequest({ requestId, authUser }) {
       },
       { inTransaction: true },
     );
+
+    if (duplicateOverride) {
+      await recordAudit(
+        client,
+        {
+          actor: authUser,
+          action: 'join_request.duplicate_override_approved',
+          siteCode: Number(req.site_code),
+          targetType: 'join_request',
+          targetId: String(reqId),
+          details: {
+            user_code: Number(req.user_code),
+            candidate_user_code: duplicateOverride.userCode,
+            match_reasons: duplicateOverride.reasons,
+            has_reason: true,
+          },
+        },
+        { inTransaction: true },
+      );
+    }
 
     await client.query('COMMIT');
 

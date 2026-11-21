@@ -68,6 +68,25 @@ class _FakeAuth extends AuthService {
     submitted.add(apartmentId);
     return (<String, dynamic>{'message': 'Başvurunuz iletildi.'}, null);
   }
+
+  @override
+  Future<({Map<String, dynamic>? result, String? error, String? code, Map<String, dynamic>? payload})>
+      submitJoinRequestDetailed({
+    required String joinToken,
+    int? blockId,
+    required int apartmentId,
+    String? notes,
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
+    final (result, submitError) = await submitJoinRequest(
+      joinToken: joinToken,
+      blockId: blockId,
+      apartmentId: apartmentId,
+      notes: notes,
+    );
+    return (result: result, error: submitError, code: null, payload: null);
+  }
 }
 
 /// Site bilgisi isteği [gate] açılana kadar bekler (yükleniyor durumu sınanır).

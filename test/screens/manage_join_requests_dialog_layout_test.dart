@@ -78,6 +78,17 @@ class _FakeAuth extends AuthService {
   }
 
   @override
+  Future<({bool success, String? message, String? code, Map<String, dynamic>? payload})>
+      approveJoinRequestDetailed(
+    int requestId, {
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
+    final (success, message) = await approveJoinRequest(requestId);
+    return (success: success, message: message, code: null, payload: null);
+  }
+
+  @override
   Future<(bool, String?)> rejectJoinRequest(
     int requestId, {
     String? reason,

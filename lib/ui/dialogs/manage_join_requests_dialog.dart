@@ -75,25 +75,92 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
     });
   }
 
-  Future<void> _approve(JoinRequestRecord request) async {
+  Future<String?> _askDuplicateApprovalReason(String message) async {
+    final controller = TextEditingController();
+    String? validation;
+    final reason = await showDialog<String>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setDialogState) => AppDialog(
+          title: 'Olası Mükerrer Kişi',
+          icon: Icons.person_search_rounded,
+          tone: AppTone.warning,
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
+            ElevatedButton(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (text.length < 10) {
+                  setDialogState(() => validation = 'En az 10 karakterlik açıklama yazın.');
+                  return;
+                }
+                Navigator.pop(ctx, text);
+              },
+              child: const Text('Farklı Kişi Olarak Onayla'),
+            ),
+          ],
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(message),
+              const SizedBox(height: AppSpace.md),
+              const Text('Aynı kişiyse başvuruyu onaylamayın; sakini yönetimin daha önce verdiği hesapla giriş yapmaya yönlendirin.'),
+              const SizedBox(height: AppSpace.md),
+              TextField(
+                controller: controller,
+                maxLength: 300,
+                minLines: 2,
+                maxLines: 4,
+                decoration: InputDecoration(labelText: 'Farklı kişi olma gerekçesi', errorText: validation),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+    controller.dispose();
+    return reason;
+  }
+
+  Future<void> _approve(
+    JoinRequestRecord request, {
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
     HapticFeedback.lightImpact();
     setState(() => _busyRequestIds.add(request.id));
 
-    final (success, message) = await widget.authService.approveJoinRequest(request.id);
+    final decision = await widget.authService.approveJoinRequestDetailed(
+      request.id,
+      confirmDistinctPerson: confirmDistinctPerson,
+      distinctPersonReason: distinctPersonReason,
+    );
     if (!mounted) return;
     setState(() => _busyRequestIds.remove(request.id));
 
-    if (success) {
+    if (decision.success) {
       AppSnack.show(
         context,
-        message ?? 'Başvuru başarıyla onaylandı.',
+        decision.message ?? 'Başvuru başarıyla onaylandı.',
         kind: AppSnackKind.success,
       );
       _loadRequests();
+    } else if (decision.code == 'ACCOUNT_CLAIM_REQUIRED') {
+      final reason = await _askDuplicateApprovalReason(
+        decision.message ?? 'Bu başvuru sitedeki mevcut bir kişiyle eşleşiyor.',
+      );
+      if (reason != null && mounted) {
+        await _approve(
+          request,
+          confirmDistinctPerson: true,
+          distinctPersonReason: reason,
+        );
+      }
     } else {
       AppSnack.show(
         context,
-        message ?? 'Başvuru onaylanamadı.',
+        decision.message ?? 'Başvuru onaylanamadı.',
         kind: AppSnackKind.error,
       );
     }

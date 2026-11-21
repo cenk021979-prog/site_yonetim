@@ -3928,9 +3928,27 @@ class AuthService extends ChangeNotifier {
     required int apartmentId,
     String? notes,
   }) async {
+    final detail = await submitJoinRequestDetailed(
+      joinToken: joinToken,
+      blockId: blockId,
+      apartmentId: apartmentId,
+      notes: notes,
+    );
+    return (detail.result, detail.error);
+  }
+
+  Future<({Map<String, dynamic>? result, String? error, String? code, Map<String, dynamic>? payload})>
+      submitJoinRequestDetailed({
+    required String joinToken,
+    int? blockId,
+    required int apartmentId,
+    String? notes,
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
     final active = session;
     if (active == null) {
-      return (null, 'Oturum bulunamadı.');
+      return (result: null, error: 'Oturum bulunamadı.', code: null, payload: null);
     }
     try {
       final result = await api.submitJoinRequest(
@@ -3939,13 +3957,15 @@ class AuthService extends ChangeNotifier {
         blockId: blockId,
         apartmentId: apartmentId,
         notes: notes,
+        confirmDistinctPerson: confirmDistinctPerson,
+        distinctPersonReason: distinctPersonReason,
       );
-      return (result, null);
+      return (result: result, error: null, code: null, payload: null);
     } on ApiException catch (e) {
       _handleSessionError(e, usedToken: active.token);
-      return (null, e.message);
+      return (result: null, error: e.message, code: e.code, payload: e.payload);
     } catch (_) {
-      return (null, 'Katılım başvurusu gönderilemedi.');
+      return (result: null, error: 'Katılım başvurusu gönderilemedi.', code: null, payload: null);
     }
   }
 
@@ -4000,21 +4020,33 @@ class AuthService extends ChangeNotifier {
   }
 
   Future<(bool, String?)> approveJoinRequest(int requestId) async {
+    final detail = await approveJoinRequestDetailed(requestId);
+    return (detail.success, detail.message);
+  }
+
+  Future<({bool success, String? message, String? code, Map<String, dynamic>? payload})>
+      approveJoinRequestDetailed(
+    int requestId, {
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
+  }) async {
     final active = session;
     if (active == null) {
-      return (false, 'Oturum bulunamadı.');
+      return (success: false, message: 'Oturum bulunamadı.', code: null, payload: null);
     }
     try {
       final res = await api.approveJoinRequest(
         token: active.token,
         requestId: requestId,
+        confirmDistinctPerson: confirmDistinctPerson,
+        distinctPersonReason: distinctPersonReason,
       );
-      return (true, res['message'] as String? ?? 'Başvuru onaylandı.');
+      return (success: true, message: res['message'] as String? ?? 'Başvuru onaylandı.', code: null, payload: null);
     } on ApiException catch (e) {
       _handleSessionError(e, usedToken: active.token);
-      return (false, e.message);
+      return (success: false, message: e.message, code: e.code, payload: e.payload);
     } catch (_) {
-      return (false, 'Başvuru onaylanamadı.');
+      return (success: false, message: 'Başvuru onaylanamadı.', code: null, payload: null);
     }
   }
 

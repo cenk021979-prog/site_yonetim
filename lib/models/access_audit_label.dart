@@ -57,6 +57,10 @@ String? accessAuditActionLabel(String action) {
       return 'Katılım başvurusu onaylandı';
     case 'join_request.rejected':
       return 'Katılım başvurusu reddedildi';
+    case 'join_request.duplicate_override':
+      return 'Katılımda farklı kişi beyanı verildi';
+    case 'join_request.duplicate_override_approved':
+      return 'Olası mükerrer kişi yönetici tarafından doğrulandı';
     // Kapı özel izni
     case 'door_permission.granted':
       return 'Kapı özel izni verildi';

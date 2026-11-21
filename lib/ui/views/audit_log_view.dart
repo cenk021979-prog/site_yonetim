@@ -128,6 +128,8 @@ class AuditLogView extends StatefulWidget {
     ('apartment.resident_cleared', 'Daire hesabı sıfırlandı'),
     ('join_request.approved', 'Katılım başvurusu onaylandı'),
     ('join_request.rejected', 'Katılım başvurusu reddedildi'),
+    ('join_request.duplicate_override', 'Katılımda farklı kişi beyanı'),
+    ('join_request.duplicate_override_approved', 'Olası mükerrer kişi doğrulandı'),
     ('door_permission.granted', 'Kapı özel izni verildi'),
     ('door_permission.denied', 'Kapı erişimi engellendi (özel izin)'),
     ('door_permission.removed', 'Kapı özel izni kaldırıldı'),

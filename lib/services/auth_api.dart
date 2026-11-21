@@ -4120,6 +4120,10 @@ class AuthApi {
       case 'USE_PROFILE_PASSWORD_CHANGE':
         // PATCH /admin/users/:id kendi hesabında parola gelirse 400 döner (mevcut şifre doğrulaması yok).
         return 'Kendi şifrenizi Profilim ekranından değiştirin.';
+      case 'ACCOUNT_CLAIM_REQUIRED':
+        return 'Bu sitede size ait olabilecek mevcut bir hesap bulundu. Yönetimin verdiği kullanıcı adıyla giriş yapın veya gerçekten farklı kişiyseniz bunu doğrulayın.';
+      case 'DUPLICATE_CONFIRMATION_REASON_REQUIRED':
+        return 'Farklı kişi doğrulaması için en az 10 karakterlik bir açıklama yazın.';
 
       // --- Konum doğrulaması (C3)
       case 'GEOFENCE_LOCATION_REQUIRED':
@@ -4692,6 +4696,8 @@ class AuthApi {
     int? blockId,
     required int apartmentId,
     String? notes,
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
   }) async {
     final response = await _authorizedRequest(
       method: 'POST',
@@ -4703,6 +4709,9 @@ class AuthApi {
         if (blockId != null) 'blockId': blockId,
         'apartmentId': apartmentId,
         if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+        if (confirmDistinctPerson) 'confirmDistinctPerson': true,
+        if (confirmDistinctPerson && distinctPersonReason != null)
+          'distinctPersonReason': distinctPersonReason.trim(),
       },
     );
     _ensureStatus(response, 201);
@@ -4757,11 +4766,18 @@ class AuthApi {
   Future<Map<String, dynamic>> approveJoinRequest({
     required String token,
     required int requestId,
+    bool confirmDistinctPerson = false,
+    String? distinctPersonReason,
   }) async {
     final response = await _authorizedRequest(
       method: 'POST',
       path: '/manager/join-requests/$requestId/approve',
       token: token,
+      body: {
+        if (confirmDistinctPerson) 'confirmDistinctPerson': true,
+        if (confirmDistinctPerson && distinctPersonReason != null)
+          'distinctPersonReason': distinctPersonReason.trim(),
+      },
     );
     _ensureStatus(response, 200);
     return _decodePayload(response);

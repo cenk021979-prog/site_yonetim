@@ -5561,6 +5561,16 @@ Yeni kayıt olan veya daireye eklenen sakinlere kullanıcı adı atanırken `318
 - [ ] **192.1. Modern sakin karşılama alanı:** Daire kullanıcısıyla giriş yapın; karşılama alanında ad, site/daire, yetkili kapı sayısı, çevrimiçi kapı sayısı ve bekleyen talep sayısının güncel göründüğünü doğrulayın. Ana kapı düğmesine dokununca seçili kapının açılması; QR ve Misafir Geçişi eylemlerinin doğru akışları açması beklenir. 320 px genişlikte ve büyük yazı ayarında taşma olmamalıdır.
 - [ ] **192.2. Android ana ekran widget'ı:** SmartKeyPass widget'ını ana ekrana 3×2 boyutta ekleyin. Site ve kapı adının kesilmeden/üç noktayla, çevrimiçi durumun doğru renkle, kapı sayacının ve önceki/sonraki düğmelerin doğru çalıştığını doğrulayın. `KAPIYI AÇ` mevcut kapıyı açmalı; QR destekli kapıda `QR` uygulamadaki doğru QR ekranını açmalıdır. Çevrimdışı kapı yeşil görünmemeli ve `ÇEVRİMDIŞI - DENE` yazmalıdır.
 
+---
+
+## 193. Katılım Başvurularında Mükerrer Kişi Koruması (2026-11-21)
+
+- [ ] **193.1. Yönetimin verdiği hesaba yönlendirme:** Kayıt ekranını açın. “Yönetim size kullanıcı adı verdi mi?” kartının görünür olduğunu ve “Mevcut Hesapla Giriş Yap” düğmesinin kayıt açmadan giriş ekranına döndürdüğünü doğrulayın.
+- [ ] **193.2. Sakin başvurusu koruması:** Bir sitede `Şuayip Kaymaz` / `suayip.kaymaz` benzeri mevcut hesabı oluşturun. Farklı e-postalı bireysel hesapla aynı siteye katılım başvurusu gönderin. Başvurunun `ACCOUNT_CLAIM_REQUIRED` ile durması, mevcut kullanıcı adının yalnız maskeli gösterilmesi ve daire bilgilerinin başvurana sızmaması beklenir.
+- [ ] **193.3. Farklı kişi beyanı:** Uyarıda “Farklı Kişiyim” seçeneğini açın. On karakterden kısa gerekçenin kabul edilmediğini; geçerli gerekçeyle talebin gönderildiğini ve `join_request.duplicate_override` denetim kaydının oluştuğunu doğrulayın.
+- [ ] **193.4. Yönetici ikinci güvenlik kapısı:** Olası mükerrer talebi yönetici hesabıyla onaylamayı deneyin. Mevcut kişi ve daire uyarısı çıkmalı; gerekçesiz onay mümkün olmamalıdır. Geçerli gerekçeyle farklı kişi olarak onaylandığında `join_request.duplicate_override_approved` kaydı oluşmalıdır.
+- [ ] **193.5. Normal başvuruların geriye uyumu:** E-posta, telefon, normalize ad veya kullanıcı adı eşleşmesi bulunmayan yeni bir sakinle katılım başvurusu gönderip onaylayın. Akışın önceki gibi kesintisiz tamamlandığını doğrulayın.
+
 
 
 
