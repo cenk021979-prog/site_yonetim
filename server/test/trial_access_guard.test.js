@@ -399,7 +399,7 @@ describe('rota tablosu taraması: gerçek server.js uygulaması', () => {
       'card-payments', 'cctv', 'concierge-requests', 'contract-vendors', 'contracts', 'decisions', 'directory', 'documents', 'doors', 'drive', 'emergency', 'equipment',
       'exports', 'feedback', 'finance', 'history', 'imports', 'invitations', 'join-requests', 'join-token', 'managers', 'meter-apartments', 'meter-billings',
       'meter-readings', 'meter-tariffs', 'menu-layout', 'messaging', 'meters', 'module-requests', 'modules', 'neighbor-board', 'people', 'payment-provider', 'plate-events', 'plate-recognition', 'quote-requests', 'quotes',
-      'reject-deletion', 'reservation-areas', 'reservations', 'residencies', 'residency-log', 'rules', 'safety-requests', 'security-policy',
+      'reject-deletion', 'reservation-areas', 'reservations', 'residencies', 'residency-log', 'resident-usernames', 'rules', 'safety-requests', 'security-policy',
       'signing-roster', 'staff-roles', 'structure', 'surveys', 'team', 'trial-access', 'vehicles', 'visitor-entries', 'work-categories', 'work-items',
     ],
     app: [
@@ -407,7 +407,7 @@ describe('rota tablosu taraması: gerçek server.js uygulaması', () => {
       'management-types', 'manager-contact', 'modules', 'my-doors', 'my-finance', 'my-modules', 'my-records', 'neighbor-board', 'notification-preferences', 'notifications',
       'plate-permits', 'push', 'reservation-areas', 'reservations', 'surveys', 'visitor-entries', 'web-push', 'work-categories', 'work-items',
     ],
-    membership: ['apartments', 'claim-device', 'doors', 'join-info', 'join-request', 'my-apartments', 'my-devices', 'my-join-requests', 'setup-site', 'site-applications', 'sites'],
+    membership: ['apartments', 'claim-device', 'claim-existing-account', 'doors', 'join-info', 'join-request', 'my-apartments', 'my-devices', 'my-join-requests', 'setup-site', 'site-applications', 'sites'],
     me: ['account-deletion', 'consents', 'data-export'],
   };
 

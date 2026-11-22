@@ -101,7 +101,6 @@ describe('site başvurusu uçları: kayıt ve ara katman sırası', () => {
 describe('site başvurusu uçları: HTTP', () => {
   let server;
   let baseUrl;
-  let currentUser;
 
   before(async () => {
     for (const layer of siteApplicationRouter.stack) {
@@ -127,7 +126,7 @@ describe('site başvurusu uçları: HTTP', () => {
     await new Promise((resolve) => server.close(resolve));
   });
 
-  const call = async (method, path, user = currentUser, body) => {
+  const call = async (method, path, user = undefined, body) => {
     const response = await fetch(`${baseUrl}${path}`, {
       method,
       headers: { 'content-type': 'application/json', ...(user ? { 'x-test-user': user } : {}) },

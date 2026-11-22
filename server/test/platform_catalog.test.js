@@ -118,20 +118,20 @@ describe('platform katalog: sozlesme tablosu', () => {
     for (const m of core) {
       assert.equal(m.status, 'available', m.code);
       assert.equal(m.defaultEnabled, true, m.code);
-      assert.equal(isToggleable(m), true, m.code);
+      assert.equal(isToggleable(m), false, m.code);
       assert.equal(computeModuleEnabled(m, undefined), true, m.code);
-      assert.equal(computeModuleEnabled(m, { enabled: false }), false, m.code);
+      assert.equal(computeModuleEnabled(m, { enabled: false }), true, m.code);
     }
   });
 
-  it('toggleable = status === available (temel moduller de site bazinda acilip kapatilabilir)', () => {
+  it('toggleable = available ve temel olmayan modul', () => {
     const table = Object.fromEntries(MODULE_CATALOG.map((m) => [m.code, [m.core, m.status]]));
     const expected = Object.entries(table)
-      .filter(([, [, status]]) => status === 'available')
+      .filter(([, [core, status]]) => !core && status === 'available')
       .map(([code]) => code);
     assert.deepEqual(MODULE_CATALOG.filter(isToggleable).map((m) => m.code), expected);
     for (const code of ['finance', 'survey', 'drive_storage', 'neighbor_board', 'annual_report', 'equipment']) {
-      assert.equal(expected.includes(code), true, `${code} temel modul: toggleable olmali`);
+      assert.equal(expected.includes(code), false, `${code} temel modul: toggleable olmamali`);
     }
     assert.equal(isToggleable(null), false);
   });
@@ -192,44 +192,44 @@ describe('platform katalog: enabled hesabi', () => {
     }
   });
 
-  it('finance temel modul (Kural 25): core + available + varsayilan ACIK (satir yoksa acik, satir false ise kapatilabilir)', () => {
+  it('finance temel modul (Kural 25): core + available + her zaman ACIK', () => {
     assert.equal(def('finance').status, 'available');
     assert.equal(def('finance').core, true);
     assert.equal(def('finance').defaultEnabled, true);
-    assert.equal(isToggleable(def('finance')), true);
+    assert.equal(isToggleable(def('finance')), false);
     assert.equal(computeModuleEnabled(def('finance'), undefined), true);
     assert.equal(computeModuleEnabled(def('finance'), null), true);
     assert.equal(computeModuleEnabled(def('finance'), {}), true);
     assert.equal(computeModuleEnabled(def('finance'), { enabled: true }), true);
-    assert.equal(computeModuleEnabled(def('finance'), { enabled: false }), false);
+    assert.equal(computeModuleEnabled(def('finance'), { enabled: false }), true);
     assert.equal(computeEnabledMap([]).finance, true);
-    assert.equal(computeEnabledMap([{ module_code: 'finance', enabled: false }]).finance, false);
+    assert.equal(computeEnabledMap([{ module_code: 'finance', enabled: false }]).finance, true);
   });
 
-  it('people: core + available -> varsayilan ACIK (satir yoksa acik, satir false ise kapali)', () => {
+  it('people: core + available -> her zaman ACIK', () => {
     assert.equal(def('people').core, true);
     assert.equal(def('people').status, 'available');
     assert.equal(computeModuleEnabled(def('people'), undefined), true);
-    assert.equal(computeModuleEnabled(def('people'), { enabled: false }), false);
-    assert.equal(isToggleable(def('people')), true);
+    assert.equal(computeModuleEnabled(def('people'), { enabled: false }), true);
+    assert.equal(isToggleable(def('people')), false);
     assert.equal(computeEnabledMap([]).people, true);
-    assert.equal(computeEnabledMap([{ module_code: 'people', enabled: false }]).people, false);
+    assert.equal(computeEnabledMap([{ module_code: 'people', enabled: false }]).people, true);
   });
 
-  it('announcements: core + available -> varsayilan ACIK (satir yoksa acik, satir false ise kapali)', () => {
+  it('announcements: core + available -> her zaman ACIK', () => {
     assert.equal(def('announcements').core, true);
     assert.equal(def('announcements').status, 'available');
     assert.equal(computeModuleEnabled(def('announcements'), undefined), true);
-    assert.equal(computeModuleEnabled(def('announcements'), { enabled: false }), false);
-    assert.equal(isToggleable(def('announcements')), true);
+    assert.equal(computeModuleEnabled(def('announcements'), { enabled: false }), true);
+    assert.equal(isToggleable(def('announcements')), false);
     assert.equal(computeEnabledMap([]).announcements, true);
-    assert.equal(computeEnabledMap([{ module_code: 'announcements', enabled: false }]).announcements, false);
+    assert.equal(computeEnabledMap([{ module_code: 'announcements', enabled: false }]).announcements, true);
   });
 
-  it('core + available ise satir yoksa varsayilan true, satir varsa satirin degeri', () => {
+  it('core + available ise satirdan bagimsiz true', () => {
     const futureCore = { code: 'x', core: true, status: 'available', defaultEnabled: true };
     assert.equal(computeModuleEnabled(futureCore, undefined), true);
-    assert.equal(computeModuleEnabled(futureCore, { enabled: false }), false);
+    assert.equal(computeModuleEnabled(futureCore, { enabled: false }), true);
     const comingCore = { code: 'y', core: true, status: 'coming_soon', defaultEnabled: true };
     assert.equal(computeModuleEnabled(comingCore, undefined), false);
   });
@@ -277,16 +277,16 @@ describe('platform katalog: enabled hesabi', () => {
     const people = list.find((m) => m.code === 'people');
     assert.equal(people.enabled, true, 'people çekirdek + available: varsayılan açık');
     assert.equal(people.status, 'available');
-    assert.equal(people.toggleable, true);
+    assert.equal(people.toggleable, false);
     assert.equal(people.updated_at, null);
     assert.equal(people.updated_by, null);
     const finance = list.find((m) => m.code === 'finance');
     assert.equal(finance.core, true, 'Kural 25: finance temel modül');
-    assert.equal(finance.toggleable, true, 'finance temel modül: site bazında kapatılıp açılabilir');
+    assert.equal(finance.toggleable, false, 'finance temel modül: kapatılamaz');
     assert.equal(finance.status, 'available');
     assert.equal(finance.enabled, true, 'satır olmasa da her sitede açık');
     const reservation = list.find((m) => m.code === 'reservation');
-    assert.equal(reservation.toggleable, true, 'Rezervasyon temel modüldür, toggleable true');
+    assert.equal(reservation.toggleable, false, 'Rezervasyon temel modüldür, kapatılamaz');
     assert.equal(reservation.status, 'available');
     assert.equal(reservation.enabled, true, 'temel modül her sitede açıktır');
     const metering = list.find((m) => m.code === 'metering');

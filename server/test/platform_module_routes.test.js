@@ -7,7 +7,7 @@ import { pool } from '../src/db.js';
 import { authRequired, requireSiteManager, requireSuperUser } from '../src/middlewares/auth_middleware.js';
 import { readFileSync } from 'node:fs';
 import { moduleRouter, moduleToggleLimiter, staffRoleLimiter } from '../src/modules/module_routes.js';
-import { MODULE_CATALOG } from '../src/modules/catalog.js';
+import { MODULE_CATALOG, publicCatalog } from '../src/modules/catalog.js';
 
 const SITE_1 = 1000000001;
 const SITE_2 = 1000000002;
@@ -521,7 +521,7 @@ describe('GET /app/modules/catalog', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.modules.length, MODULE_CATALOG.length);
     assert.deepEqual(Object.keys(res.body.modules[0]), ['code', 'name', 'description', 'core', 'status']);
-    assert.equal(res.body.modules[0].code, MODULE_CATALOG[0].code);
+    assert.equal(res.body.modules[0].code, publicCatalog()[0].code);
   });
 });
 
@@ -578,7 +578,9 @@ describe('GET /manager/sites/:siteCode/modules: yetki matrisi', () => {
     assert.equal(asSuper.status, 200);
     assert.deepEqual(
       asSuper.body.modules.map((m) => [m.code, m.toggleable, m.can_toggle]),
-      MODULE_CATALOG.map((m) => [m.code, !m.core && m.status === 'available', !m.core && m.status === 'available']),
+      [...MODULE_CATALOG]
+        .sort((a, b) => a.name.localeCompare(b.name, 'tr'))
+        .map((m) => [m.code, !m.core && m.status === 'available', !m.core && m.status === 'available']),
     );
     // bekleyen talep: yalnizca o sitenin o modulu 'pending' olur; baska site / sonuclanmis talep etkilemez
     state.moduleRequests = [
@@ -786,34 +788,29 @@ describe('PUT modul: onay zorunlulugu ve denetim kaydi', () => {
     assert.equal(state.rotations.length, 0);
   });
 
-  it('site yöneticisi kendi sitesinde temel modülleri açıp kapatabilir (finance enabled: false/true)', async () => {
-    // Başka sitenin yöneticisi kapatamaz
+  it('site yöneticisi temel modülleri açıp kapatamaz', async () => {
     const resForbidden = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
       user: users.mgrB,
       body: { enabled: false },
     });
     assert.equal(resForbidden.status, 403);
-    assert.equal(resForbidden.body.code, 'FORBIDDEN_SITE');
+    assert.equal(resForbidden.body.code, 'MODULE_ADMIN_ONLY');
 
-    // Kendi sitesinin yöneticisi kapatabilir
     const resOff = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
       user: users.mgrA,
       body: { enabled: false },
     });
-    assert.equal(resOff.status, 200);
-    const financeOff = resOff.body.modules.find((m) => m.code === 'finance');
-    assert.equal(financeOff.enabled, false);
-    assert.equal(financeOff.can_toggle, true);
+    assert.equal(resOff.status, 403);
+    assert.equal(resOff.body.code, 'MODULE_ADMIN_ONLY');
 
-    // Kendi sitesinin yöneticisi tekrar açabilir
     const resOn = await call('PUT', `/manager/sites/${SITE_1}/modules/finance`, {
       user: users.mgrA,
       body: { enabled: true },
     });
-    assert.equal(resOn.status, 200);
-    const financeOn = resOn.body.modules.find((m) => m.code === 'finance');
-    assert.equal(financeOn.enabled, true);
-    assert.equal(financeOn.can_toggle, true);
+    assert.equal(resOn.status, 403);
+    assert.equal(resOn.body.code, 'MODULE_ADMIN_ONLY');
+    assert.equal(state.siteModules.size, 0);
+    assert.equal(state.audit.length, 0);
   });
 
   it('sakin ve STAFF: mevcut requireSiteManager 403\'u (code YOK); hicbir sey yazilmaz', async () => {

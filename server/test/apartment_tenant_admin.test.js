@@ -285,7 +285,7 @@ describe('kablolama: kiracı ilişkisi oluşan TÜM yollar kiracıyı admin yapa
     assert.match(people, /if \(relation === 'tenant'\) \{[\s\S]*?ensureTenantIsAdmin\(client, \{ apartmentIds: \[apartmentId\], overrideManager: true, via: 'residency_added', actor \}\)/);
     assert.match(people, /if \(relation === 'tenant' && row\.is_current === true\) \{[\s\S]*?via: 'residency_changed'/);
     // kilit sırası: daire, ilişki satırından ÖNCE (updateResidency kiracıya çevirirken)
-    assert.match(people, /if \(relation === 'tenant'\) \{\n      \/\/ Kiracıya çevirme daire adminini değiştirebilir[\s\S]*?FOR UPDATE`, \[Number\(pre\.rows\[0\]\.apartment_id\)\]\);\n      \}\n    \}\n    const row = await loadResidencyForSite/);
+    assert.match(people, /if \(relation === 'tenant'\) \{\n {6}\/\/ Kiracıya çevirme daire adminini değiştirebilir[\s\S]*?FOR UPDATE`, \[Number\(pre\.rows\[0\]\.apartment_id\)\]\);\n {6}\}\n {4}\}\n {4}const row = await loadResidencyForSite/);
   });
 
   it('provisionResidentAndLinkPerson (hesap hesapsız kiracıya bağlanır), toplu yükleme (commit sonu)', () => {
@@ -301,7 +301,7 @@ describe('kablolama: kiracı ilişkisi oluşan TÜM yollar kiracıyı admin yapa
   it('malikin "Kiracı ekle"si: delegate_management gelse de (false dahil) yok sayılır; hesapsız kiracıda bekleyen devir HER ZAMAN yazılır; davet kabulünde kanca + açık ezme', () => {
     assert.doesNotMatch(mgmt, /body\?\.delegate_management !== false/);
     assert.match(mgmt, /const delegate = true;/);
-    assert.doesNotMatch(mgmt, /if \(delegate\) \{\n      await recordDelegation/);
+    assert.doesNotMatch(mgmt, /if \(delegate\) \{\n {6}await recordDelegation/);
     assert.match(mgmt, /state: 'pending_account',/);
     assert.doesNotMatch(mgmt, /request\.payload\?\.delegate_management === true/);
     assert.match(mgmt, /ensureTenantIsAdmin\(client, \{ apartmentIds: \[state\.apartment\.id\], userCode: uc, overrideManager: true, via: 'tenant_invite_accepted'/);

@@ -36,17 +36,17 @@ describe('temel modüller (Kural 25): katalog', () => {
     );
   });
 
-  it('her temel modül: core + available + varsayılan açık; satır yokken açık, satır kapalı ise kapatılabilir; toggleable true', () => {
+  it('her temel modül: core + available + varsayılan açık; kapalı satır yok sayılır; toggleable false', () => {
     for (const code of ALL_CORE_CODES) {
       const definition = getModuleDefinition(code);
       assert.equal(definition.core, true, code);
       assert.equal(definition.status, 'available', code);
       assert.equal(definition.defaultEnabled, true, code);
-      assert.equal(isToggleable(definition), true, code);
+      assert.equal(isToggleable(definition), false, code);
       assert.equal(computeModuleEnabled(definition, undefined), true, code);
-      assert.equal(computeModuleEnabled(definition, { enabled: false }), false, code);
+      assert.equal(computeModuleEnabled(definition, { enabled: false }), true, code);
       assert.equal(computeEnabledMap([])[code], true, code);
-      assert.equal(computeEnabledMap([{ module_code: code, enabled: false }])[code], false, code);
+      assert.equal(computeEnabledMap([{ module_code: code, enabled: false }])[code], true, code);
     }
   });
 

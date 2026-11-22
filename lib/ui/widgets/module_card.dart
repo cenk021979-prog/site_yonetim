@@ -19,7 +19,11 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
     // `enabled`, `requestStatus`'tan ÖNCELİKLİDİR: açık modülde (örn. süper kullanıcı doğrudan açtı,
     // bekleyen talep henüz kapanmadı) "Talep gönderildi" gösterilmez.
     if (m.enabled) {
-      return (label: 'Tanımlı', tone: AppTone.success, icon: Icons.check_circle_rounded);
+      return (
+        label: 'Tanımlı',
+        tone: AppTone.success,
+        icon: Icons.check_circle_rounded,
+      );
     }
     if (m.hasPendingRequest) {
       return (
@@ -28,12 +32,18 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
         icon: Icons.hourglass_top_rounded,
       );
     }
-    return (label: 'Tanımlı değil', tone: AppTone.neutral, icon: Icons.block_rounded);
+    return (
+      label: 'Tanımlı değil',
+      tone: AppTone.neutral,
+      icon: Icons.block_rounded,
+    );
   }
   if (m.core) {
-    return m.enabled
-        ? (label: 'Her sitede açık', tone: AppTone.info, icon: Icons.verified_rounded)
-        : (label: 'Kapalı', tone: AppTone.warning, icon: Icons.pause_circle_rounded);
+    return (
+      label: 'Her sitede açık',
+      tone: AppTone.info,
+      icon: Icons.verified_rounded,
+    );
   }
   if (!m.isAvailable) {
     return (
@@ -44,7 +54,11 @@ import 'package:site_kapi_kontrol/ui/widgets/list_parts.dart';
   }
   return m.enabled
       ? (label: 'Açık', tone: AppTone.success, icon: Icons.check_circle_rounded)
-      : (label: 'Kapalı', tone: AppTone.warning, icon: Icons.pause_circle_rounded);
+      : (
+          label: 'Kapalı',
+          tone: AppTone.warning,
+          icon: Icons.pause_circle_rounded,
+        );
 }
 
 IconData moduleIconOf(String code) {
@@ -113,7 +127,8 @@ class ModuleCard extends StatelessWidget {
     final status = moduleStatusOf(module, requestMode: requestMode);
 
     // Süper kullanıcı: bekleyen talep varsa kartta ayrıca belirtilir.
-    final showPendingChip = !requestMode && module.hasPendingRequest && !module.core;
+    final showPendingChip =
+        !requestMode && module.hasPendingRequest && !module.core;
 
     // Talep düğmesi (YALNIZ site yöneticisi; süper kullanıcıda gizli): yalnız `toggleable && !core && !enabled`
     // modülde; bekleyen talep varsa "Talebi Geri Çek", yoksa "Modül Talep Et".
@@ -151,7 +166,7 @@ class ModuleCard extends StatelessWidget {
     }
 
     Widget? control;
-    final canShowSwitch = module.canToggle && (!requestMode || module.core);
+    final canShowSwitch = !requestMode && module.canToggle;
     if (canShowSwitch) {
       control = busy
           ? const SizedBox(
@@ -181,7 +196,7 @@ class ModuleCard extends StatelessWidget {
             children: [
               IconTile(
                 icon: moduleIconOf(module.code),
-                tone: module.enabled
+                tone: module.enabled || module.core
                     ? AppTone.success
                     : AppTone.neutral,
                 gap: AppSpace.md,
@@ -240,7 +255,10 @@ class ModuleCard extends StatelessWidget {
           ],
           if (requestAction != null) ...[
             const SizedBox(height: AppSpace.md),
-            Align(alignment: AlignmentDirectional.centerStart, child: requestAction),
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: requestAction,
+            ),
           ],
         ],
       ),

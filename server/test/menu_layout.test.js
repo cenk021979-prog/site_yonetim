@@ -494,10 +494,12 @@ describe('PUT /manager/sites/:siteCode/menu-layout', () => {
     assert.equal(state.siteModules.size, 0);
   });
 
-  it('temel modul site bazinda kapatilabilir ve site_modules e yazilir', async () => {
-    const result = await setSiteModuleEnabled({ siteCode: SITE_1, moduleCode: 'finance', enabled: false, actor: users.superUser });
-    assert.equal(result.changed, true);
-    assert.equal(state.siteModules.get(`${SITE_1}:finance`)?.enabled, false);
+  it('temel modul site bazinda kapatilamaz ve site_modules e yazilmaz', async () => {
+    await assert.rejects(
+      setSiteModuleEnabled({ siteCode: SITE_1, moduleCode: 'finance', enabled: false, actor: users.superUser }),
+      { code: 'MODULE_NOT_TOGGLEABLE', statusCode: 400 },
+    );
+    assert.equal(state.siteModules.has(`${SITE_1}:finance`), false);
   });
 
   it('varsayilanla ayni kume ozellestirme sayilmaz: satir silinir (sonradan acilan moduller varsayilani izler)', async () => {

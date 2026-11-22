@@ -238,7 +238,7 @@ class PlatformModule {
     final status = json['status']?.toString() ?? 'available';
     final toggleable = json['toggleable'] is bool
         ? json['toggleable'] as bool
-        : (status == 'available');
+        : (!core && status == 'available');
     return PlatformModule(
       code: code,
       name: json['name']?.toString() ?? code,

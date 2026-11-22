@@ -278,7 +278,7 @@ export function retiredModuleName(code) {
 }
 
 export function isToggleable(definition) {
-  return Boolean(definition) && definition.status === MODULE_STATUS_AVAILABLE;
+  return Boolean(definition) && !definition.core && definition.status === MODULE_STATUS_AVAILABLE;
 }
 
 /**
@@ -290,11 +290,11 @@ export function computeModuleEnabled(definition, row) {
   if (!definition || definition.status !== MODULE_STATUS_AVAILABLE) {
     return false;
   }
-  if (row && typeof row.enabled === 'boolean') {
-    return row.enabled;
-  }
   if (definition.core) {
     return true;
+  }
+  if (row && typeof row.enabled === 'boolean') {
+    return row.enabled;
   }
   return definition.defaultEnabled === true;
 }

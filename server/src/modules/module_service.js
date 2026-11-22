@@ -96,11 +96,10 @@ export async function getSiteModulesView(siteCode, db = pool, { canToggle = fals
     management_type_label: managementTypeLabel(managementType),
     modules: filteredList.map((entry) => {
       const isPlatformActive = platformMap.get(entry.code) !== false;
-      const isCore = entry.core === true;
       const entryCanToggle = canToggle === true &&
+        isSuper &&
         entry.toggleable === true &&
-        isPlatformActive &&
-        (isSuper || isCore);
+        isPlatformActive;
 
       return {
         ...entry,
