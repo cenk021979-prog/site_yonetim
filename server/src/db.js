@@ -62,6 +62,7 @@ import { ensureManagementCompanySchema } from './modules/management_company_sche
 import { ensureNotifyChannelsSchema } from './modules/notify_channels_schema.js';
 import { ensureBankImportSchema } from './modules/bank_import_schema.js';
 import { ensureOAuthSchema } from './modules/oauth_schema.js';
+import { ensureIdentityResolutionSchema } from './modules/identity_resolution_schema.js';
 import { ensureIntegritySchema } from './modules/integrity_schema.js';
 import { ensureFinanceFundsSchema } from './modules/finance_funds_schema.js';
 import { ensureFinanceRefundsSchema } from './modules/finance_refunds_schema.js';
@@ -2046,6 +2047,8 @@ export async function ensureDbSchema() {
     await ensureApartmentOwnersSchema(client);
     // 076 (Google ve Apple / iCloud OAuth kimlik baglantilari): katalog kontrolu (oauth_schema.js = migrations/076).
     await ensureOAuthSchema(client);
+    // 138 (merkezi kimlik cozumleme ve hesap sahiplenme dogrulamasi): katalog kontrolu.
+    await ensureIdentityResolutionSchema(client);
     // 077 (butunluk sertlestirme): site_name_key() islevi + site adi tekillik indeksleri (uq_sites_name_key, uq_site_applications_pending_name_key;
     // eski idx_sites_unique_name / idx_site_applications_pending_unique_name yenileri kurulunca duser; mukerrer ad varsa kurulmaz, acilista loglanir),
     // user_oauth_identities / web_push_subscriptions -> users(user_code) FK (CASCADE; yetimler silinir) ve users.must_change_password (katalog kontrollu):

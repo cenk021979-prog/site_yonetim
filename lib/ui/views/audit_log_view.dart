@@ -129,7 +129,12 @@ class AuditLogView extends StatefulWidget {
     ('join_request.approved', 'Katılım başvurusu onaylandı'),
     ('join_request.rejected', 'Katılım başvurusu reddedildi'),
     ('join_request.duplicate_override', 'Katılımda farklı kişi beyanı'),
-    ('join_request.duplicate_override_approved', 'Olası mükerrer kişi doğrulandı'),
+    (
+      'join_request.duplicate_override_approved',
+      'Olası mükerrer kişi doğrulandı',
+    ),
+    ('identity.account_claimed', 'Daire hesabı doğrulandı ve bağlandı'),
+    ('identity.account_merged', 'Mevcut daire hesabı birleştirildi'),
     ('door_permission.granted', 'Kapı özel izni verildi'),
     ('door_permission.denied', 'Kapı erişimi engellendi (özel izin)'),
     ('door_permission.removed', 'Kapı özel izni kaldırıldı'),
@@ -308,7 +313,8 @@ class AuditLogViewState extends State<AuditLogView> {
         title: _filtered
             ? 'Bu filtre için denetim kaydı yok.'
             : 'Henüz denetim kaydı yok.',
-        message: 'Modül, ek rol, hesap, yönetici, başvuru ve kapı izni işlemleri burada listelenir.',
+        message:
+            'Modül, ek rol, hesap, yönetici, başvuru ve kapı izni işlemleri burada listelenir.',
       );
     } else {
       list = Column(
@@ -353,7 +359,10 @@ class AuditLogViewState extends State<AuditLogView> {
       header: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const PageHeaderCard(title: 'Sistem Logları', icon: Icons.fact_check_rounded),
+          const PageHeaderCard(
+            title: 'Sistem Logları',
+            icon: Icons.fact_check_rounded,
+          ),
           const SizedBox(height: AppSpace.sm),
           Text(
             'Yönetim işlemleri (modül açma/kapama, ek rol atama, hesap ve yönetici yetkileri, kapı izinleri) değiştirilemez bir kayıt olarak tutulur.',
@@ -384,7 +393,11 @@ class AuditLogViewState extends State<AuditLogView> {
                   for (final (value, label) in AuditLogView.actionFilters)
                     DropdownMenuItem<String>(
                       value: value ?? _allActions,
-                      child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                 ],
                 onChanged: (value) {
@@ -394,7 +407,9 @@ class AuditLogViewState extends State<AuditLogView> {
               if (_sites.isNotEmpty) ...[
                 const SizedBox(height: AppSpace.md),
                 DropdownButtonFormField<int>(
-                  key: ValueKey<String>('audit_site_${_siteFilter}_${_sites.length}'),
+                  key: ValueKey<String>(
+                    'audit_site_${_siteFilter}_${_sites.length}',
+                  ),
                   isExpanded: true,
                   initialValue: _siteFilter ?? _allSites,
                   dropdownColor: p.surface,
@@ -406,7 +421,11 @@ class AuditLogViewState extends State<AuditLogView> {
                   items: [
                     const DropdownMenuItem<int>(
                       value: _allSites,
-                      child: Text('Tüm siteler', maxLines: 1, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        'Tüm siteler',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                     for (final site in _sites)
                       DropdownMenuItem<int>(

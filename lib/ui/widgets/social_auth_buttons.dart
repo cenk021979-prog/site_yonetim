@@ -4,6 +4,8 @@ import 'dart:math';
 import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/models/identity_claim.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/account_claim_dialog.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import 'package:site_kapi_kontrol/models/legal_document.dart';
@@ -21,7 +23,8 @@ String generateOAuthNonce([Random? random]) {
 
 /// Sağlayıcıya verilen nonce: ham değerin SHA-256 özeti (onaltılı, küçük harf). Belirteçteki `nonce` talebi bu özettir; sunucu ham değeri özetleyip
 /// karşılaştırır. Ham değer belirteçte görünmediği için ele geçirilen belirteç tek başına yeniden oynatılamaz.
-String oauthNonceHash(String rawNonce) => sha256.convert(utf8.encode(rawNonce)).toString();
+String oauthNonceHash(String rawNonce) =>
+    sha256.convert(utf8.encode(rawNonce)).toString();
 
 class SocialAuthCredentials {
   const SocialAuthCredentials({
@@ -61,7 +64,8 @@ class SocialAuthButtons extends StatefulWidget {
   final bool Function()? onBeforeSubmit;
   final VoidCallback? onSuccess;
   final void Function(String message)? onError;
-  final Future<SocialAuthCredentials?> Function(String provider)? onProvideCredentials;
+  final Future<SocialAuthCredentials?> Function(String provider)?
+  onProvideCredentials;
 
   @override
   State<SocialAuthButtons> createState() => _SocialAuthButtonsState();
@@ -79,6 +83,64 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
     }
   }
 
+  void _showClaimBanner(String message) {
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    messenger?.hideCurrentSnackBar();
+    messenger?.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _handleOAuthOutcome(IdentityAuthResult outcome) async {
+    if (!mounted) return;
+    if (_busyProvider != null) {
+      setState(() => _busyProvider = null);
+    }
+    if (outcome.claimChallenge != null) {
+      final verified = await AccountClaimDialog.showForChallenge(
+        context,
+        authService: widget.authService,
+        challenge: outcome.claimChallenge!,
+      );
+      if (!mounted) return;
+      if (verified != null && verified.ok) {
+        _showClaimBanner(
+          verified.claimMessage ??
+              'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.',
+        );
+        widget.onSuccess?.call();
+      }
+      return;
+    }
+
+    if (!outcome.ok) {
+      _reportError(outcome.error ?? 'Sosyal giriş tamamlanamadı.');
+      return;
+    }
+
+    if (outcome.claimedExistingAccount) {
+      _showClaimBanner(
+        outcome.claimMessage ??
+            'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.',
+      );
+    } else if (outcome.canClaimExistingAccount) {
+      final claimed = await AccountClaimDialog.showForAuthenticatedSession(
+        context,
+        authService: widget.authService,
+        title: 'Daire hesabınız varsa bağlayın',
+        subtitle:
+            'Apple "E-postamı Gizle" kullandığınız için mevcut site/daire hesabınız otomatik eşleştirilmedi. Varsa kullanıcı adı+PIN veya telefonunuzla şimdi bağlayabilirsiniz.',
+        showSkipButton: true,
+      );
+      if (!mounted) return;
+      if (claimed != null && claimed.ok) {
+        _showClaimBanner(
+          claimed.claimMessage ?? 'Daire hesabınız güvenli biçimde bağlandı.',
+        );
+      }
+    }
+
+    widget.onSuccess?.call();
+  }
+
   Future<void> _handleGoogleTap() async {
     if (_busyProvider != null || !widget.enabled) return;
     if (widget.onBeforeSubmit != null && !widget.onBeforeSubmit!()) return;
@@ -91,7 +153,7 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
       if (widget.onProvideCredentials != null) {
         final creds = await widget.onProvideCredentials!('google');
         if (!mounted || creds == null || creds.idToken.trim().isEmpty) return;
-        final error = await widget.authService.loginWithOAuth(
+        final outcome = await widget.authService.loginWithOAuthWithResult(
           provider: 'google',
           idToken: creds.idToken.trim(),
           fullName: creds.fullName,
@@ -100,21 +162,18 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
           acceptedDocuments: acceptedDocs,
           nonce: creds.nonce,
         );
-        if (!mounted) return;
-        if (error != null) {
-          _reportError(error);
-          return;
-        }
-        widget.onSuccess?.call();
+        await _handleOAuthOutcome(outcome);
         return;
       }
 
       // Google Web Client ID: Sunucudan alinir; yoksa projenin tanimli web client id'si kullanilir.
       final status = await widget.authService.oauthStatus();
-      final String? serverClientId = (status['google'] as Map?)?['client_id'] as String?;
+      final String? serverClientId =
+          (status['google'] as Map?)?['client_id'] as String?;
       const String defaultGoogleWebClientId =
           '1062190295142-2lj8rc45844i81prg8rcb5u23uh2qlib.apps.googleusercontent.com';
-      final String effectiveClientId = (serverClientId != null && serverClientId.trim().isNotEmpty)
+      final String effectiveClientId =
+          (serverClientId != null && serverClientId.trim().isNotEmpty)
           ? serverClientId.trim()
           : defaultGoogleWebClientId;
 
@@ -157,7 +216,8 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
       // girişinde nonce GÖNDERİLMEZ (sunucu OAUTH_REQUIRE_NONCE=apple gibi sağlayıcı bazlı açılır). google_sign_in ^7 ile
       // `GoogleSignIn.instance.initialize(nonce: oauthNonceHash(ham))` + loginWithOAuth(nonce: ham) eklenmeli.
       final GoogleSignInAuthentication auth = await account.authentication;
-      final String tokenToSend = (auth.idToken != null && auth.idToken!.isNotEmpty)
+      final String tokenToSend =
+          (auth.idToken != null && auth.idToken!.isNotEmpty)
           ? auth.idToken!
           : (auth.accessToken ?? '');
 
@@ -166,20 +226,14 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         return;
       }
 
-      final error = await widget.authService.loginWithOAuth(
+      final outcome = await widget.authService.loginWithOAuthWithResult(
         provider: 'google',
         idToken: tokenToSend,
         fullName: account.displayName,
         acceptedDocuments: acceptedDocs,
       );
 
-      if (!mounted) return;
-      if (error != null) {
-        _reportError(error);
-        return;
-      }
-
-      widget.onSuccess?.call();
+      await _handleOAuthOutcome(outcome);
     } catch (e) {
       if (!mounted) return;
       final errStr = e.toString();
@@ -214,7 +268,7 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
       if (widget.onProvideCredentials != null) {
         final creds = await widget.onProvideCredentials!('apple');
         if (!mounted || creds == null || creds.idToken.trim().isEmpty) return;
-        final error = await widget.authService.loginWithOAuth(
+        final outcome = await widget.authService.loginWithOAuthWithResult(
           provider: 'apple',
           idToken: creds.idToken.trim(),
           fullName: creds.fullName,
@@ -223,17 +277,16 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
           acceptedDocuments: acceptedDocs,
           nonce: creds.nonce,
         );
-        if (!mounted) return;
-        if (error != null) {
-          _reportError(error);
-          return;
-        }
-        widget.onSuccess?.call();
+        await _handleOAuthOutcome(outcome);
         return;
       }
 
-      if (kIsWeb || (defaultTargetPlatform != TargetPlatform.iOS && defaultTargetPlatform != TargetPlatform.macOS)) {
-        _reportError('iCloud ile giriş yalnızca Apple (iOS / macOS) cihazlarında desteklenmektedir.');
+      if (kIsWeb ||
+          (defaultTargetPlatform != TargetPlatform.iOS &&
+              defaultTargetPlatform != TargetPlatform.macOS)) {
+        _reportError(
+          'iCloud ile giriş yalnızca Apple (iOS / macOS) cihazlarında desteklenmektedir.',
+        );
         return;
       }
 
@@ -264,7 +317,7 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         credential.familyName,
       ].where((s) => s != null && s.isNotEmpty).join(' ');
 
-      final error = await widget.authService.loginWithOAuth(
+      final outcome = await widget.authService.loginWithOAuthWithResult(
         provider: 'apple',
         idToken: idToken,
         fullName: fullName.isNotEmpty ? fullName : null,
@@ -274,13 +327,7 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
         nonce: rawNonce,
       );
 
-      if (!mounted) return;
-      if (error != null) {
-        _reportError(error);
-        return;
-      }
-
-      widget.onSuccess?.call();
+      await _handleOAuthOutcome(outcome);
     } catch (e) {
       if (!mounted) return;
       _reportError('iCloud ile giriş yapılamadı: $e');
@@ -305,7 +352,8 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
     // Google ile giriş resmi olarak Android, iOS, macOS ve Web platformlarında desteklenir.
     // Windows ve Linux masaüstü ortamında resmi google_sign_in eklentisi bulunmadığı için
     // MissingPluginException hatasını engellemek amacıyla bu platformlarda gösterilmez.
-    final bool isGoogleSupported = kIsWeb ||
+    final bool isGoogleSupported =
+        kIsWeb ||
         defaultTargetPlatform == TargetPlatform.android ||
         defaultTargetPlatform == TargetPlatform.iOS ||
         defaultTargetPlatform == TargetPlatform.macOS;
@@ -314,7 +362,8 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
 
     // Apple ile giriş (iCloud) yalnızca iOS ve macOS cihazlarında sunulur.
     // Android, Web veya Windows üzerinde gösterilmez (test mock'ları hariç).
-    final bool showAppleButton = widget.onProvideCredentials != null ||
+    final bool showAppleButton =
+        widget.onProvideCredentials != null ||
         (!kIsWeb &&
             (defaultTargetPlatform == TargetPlatform.iOS ||
                 defaultTargetPlatform == TargetPlatform.macOS));
@@ -334,7 +383,9 @@ class _SocialAuthButtonsState extends State<SocialAuthButtons> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: AppSpace.sm),
                 child: Text(
-                  widget.isRegisterMode ? 'veya hızlı kaydol' : 'veya sosyal hesapla',
+                  widget.isRegisterMode
+                      ? 'veya hızlı kaydol'
+                      : 'veya sosyal hesapla',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: th.bodySmall,
@@ -399,7 +450,10 @@ class _SocialButton extends StatelessWidget {
           foregroundColor: p.text,
           backgroundColor: p.surfaceMuted,
           side: BorderSide(color: p.border),
-          padding: const EdgeInsets.symmetric(horizontal: AppSpace.md, vertical: AppSpace.md),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AppSpace.md,
+            vertical: AppSpace.md,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppRadius.md),
           ),
@@ -422,9 +476,7 @@ class _SocialButton extends StatelessWidget {
                 label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
             ),
           ],
@@ -443,11 +495,7 @@ class _ProviderBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (provider == 'apple') {
-      return Icon(
-        Icons.apple_rounded,
-        size: 20,
-        color: palette.text,
-      );
+      return Icon(Icons.apple_rounded, size: 20, color: palette.text);
     }
     return Container(
       width: 20,

@@ -9,7 +9,7 @@ import express from 'express';
 import { authRequired } from '../middlewares/auth_middleware.js';
 import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { HOUR_MS, ipKey, respondError, userKey } from './route_helpers.js';
-import { requestSmsCode, smsStatus, verifySmsCode } from './sms_login.js';
+import { requestSmsCode, smsStatus, verifySmsCode, verifySmsSelection } from './sms_login.js';
 import { deleteSubscription, getWebPushConfig, saveSubscription } from './web_push.js';
 
 export const notifyChannelsRouter = express.Router();
@@ -55,7 +55,16 @@ notifyChannelsRouter.post(
 notifyChannelsRouter.post(
   '/auth/sms/verify',
   smsVerifyLimiter,
-  handler({ context: 'sms_verify', fallback: 'Giriş yapılamadı.' }, (req) => verifySmsCode(bodyOf(req).phone, bodyOf(req).code)),
+  handler({ context: 'sms_verify', fallback: 'Giriş yapılamadı.' }, (req) => {
+    const body = bodyOf(req);
+    if (body.selection_token || body.selectionToken) {
+      return verifySmsSelection({
+        selectionToken: body.selection_token ?? body.selectionToken,
+        candidateRef: body.candidate_ref ?? body.candidateRef,
+      });
+    }
+    return verifySmsCode(body.phone, body.code);
+  }),
 );
 
 notifyChannelsRouter.get(

@@ -34,6 +34,7 @@ JoinRequestRecord _req(
   String status, {
   String? notes,
   String? rejection,
+  JoinIdentityMatch? identityMatch,
 }) => JoinRequestRecord(
   id: id,
   siteCode: 101,
@@ -47,6 +48,7 @@ JoinRequestRecord _req(
   notes: notes,
   rejectionReason: rejection,
   createdAt: DateTime(2026, 1, 1, 10, 30),
+  identityMatch: identityMatch,
 );
 
 class _FakeAuth extends AuthService {
@@ -78,8 +80,15 @@ class _FakeAuth extends AuthService {
   }
 
   @override
-  Future<({bool success, String? message, String? code, Map<String, dynamic>? payload})>
-      approveJoinRequestDetailed(
+  Future<
+    ({
+      bool success,
+      String? message,
+      String? code,
+      Map<String, dynamic>? payload,
+    })
+  >
+  approveJoinRequestDetailed(
     int requestId, {
     bool confirmDistinctPerson = false,
     String? distinctPersonReason,
@@ -301,7 +310,10 @@ void main() {
 
       // Başlık + ilk kart(lar): cilalı ikon rozetleri.
       expect(find.byType(IconOrb), findsAtLeastNWidgets(2));
-      expect(find.textContaining('Not: Annem adına başvuruyorum'), findsOneWidget);
+      expect(
+        find.textContaining('Not: Annem adına başvuruyorum'),
+        findsOneWidget,
+      );
 
       // Alttaki (reddedilmiş) karta kadar kaydır.
       await scrollIntoBuilt(
@@ -315,6 +327,35 @@ void main() {
       );
       expect(find.text('Reddedildi'), findsOneWidget);
       expect(find.text('Onaylandı'), findsOneWidget);
+      expect(t.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'ManageJoinRequestsDialog: zayıf ad benzerliği bilgilendirme rozeti engellemeden gösterilir',
+    (t) async {
+      final auth = _FakeAuth(
+        requests: [
+          _req(
+            10,
+            'PENDING',
+            identityMatch: const JoinIdentityMatch(
+              strength: 'weak',
+              isStrongMatch: false,
+              isBlocking: false,
+              reasons: ['name'],
+              maskedName: 'A*** Y*****',
+              maskedLoginName: 'ays***z',
+            ),
+          ),
+        ],
+      );
+      await _open(t, auth, width: 320, height: 640, scale: 2.0, dark: false);
+
+      expect(
+        find.textContaining('Yalnız isim benzerliği onayı engellemez'),
+        findsOneWidget,
+      );
       expect(t.takeException(), isNull);
     },
   );

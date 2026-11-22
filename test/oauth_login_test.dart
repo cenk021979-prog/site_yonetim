@@ -5,6 +5,7 @@ import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:site_kapi_kontrol/models/identity_claim.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:site_kapi_kontrol/models/legal_document.dart';
@@ -22,6 +23,57 @@ class _FakeSocialAuth extends AuthService {
 
   final List<Map<String, dynamic>> oauthCalls = <Map<String, dynamic>>[];
   String? nextError;
+  IdentityAuthResult? nextIdentityResult;
+  IdentityAuthResult? nextChallengeVerifyResult;
+
+  @override
+  Future<IdentityAuthResult> verifyIdentityClaimChallenge({
+    required String challengeToken,
+    required String method,
+    String? identifier,
+    String? password,
+    String? phone,
+    String? code,
+    String? candidateRef,
+  }) async {
+    return nextChallengeVerifyResult ??
+        const IdentityAuthResult(
+          claimedExistingAccount: true,
+          claimMessage:
+              'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.',
+        );
+  }
+
+  @override
+  Future<IdentityAuthResult> loginWithOAuthWithResult({
+    required String provider,
+    required String idToken,
+    String? fullName,
+    String? firstName,
+    String? lastName,
+    List<AcceptedDocument>? acceptedDocuments,
+    String? nonce,
+  }) async {
+    if (nextIdentityResult != null) {
+      oauthCalls.add(<String, dynamic>{
+        'provider': provider,
+        'idToken': idToken,
+        'fullName': fullName,
+        'nonce': nonce,
+      });
+      return nextIdentityResult!;
+    }
+    final err = await loginWithOAuth(
+      provider: provider,
+      idToken: idToken,
+      fullName: fullName,
+      firstName: firstName,
+      lastName: lastName,
+      acceptedDocuments: acceptedDocuments,
+      nonce: nonce,
+    );
+    return IdentityAuthResult(error: err);
+  }
 
   @override
   Future<String?> loginWithOAuth({
@@ -41,7 +93,8 @@ class _FakeSocialAuth extends AuthService {
       'firstName': firstName,
       'lastName': lastName,
       'accepted': <String>[
-        for (final d in acceptedDocuments ?? const <AcceptedDocument>[]) '${d.id}@${d.version}',
+        for (final d in acceptedDocuments ?? const <AcceptedDocument>[])
+          '${d.id}@${d.version}',
       ],
     });
     return nextError;
@@ -49,217 +102,205 @@ class _FakeSocialAuth extends AuthService {
 }
 
 void main() {
-  test('AuthApi.oauthStatus ve AuthApi.loginWithOAuth dogru uc noktalari cagirir', () async {
-    late String lastPath;
-    late Map<String, dynamic> lastBody;
+  test(
+    'AuthApi.oauthStatus ve AuthApi.loginWithOAuth dogru uc noktalari cagirir',
+    () async {
+      late String lastPath;
+      late Map<String, dynamic> lastBody;
 
-    final client = MockClient((request) async {
-      lastPath = request.url.path;
-      if (request.url.path == '/auth/oauth/status') {
+      final client = MockClient((request) async {
+        lastPath = request.url.path;
+        if (request.url.path == '/auth/oauth/status') {
+          return http.Response(
+            jsonEncode({
+              'google': {'enabled': true, 'client_id': 'g-client'},
+              'apple': {'enabled': true, 'client_id': 'a-client'},
+            }),
+            200,
+            headers: {'content-type': 'application/json'},
+          );
+        }
+        lastBody = jsonDecode(request.body) as Map<String, dynamic>;
         return http.Response(
           jsonEncode({
-            'google': {'enabled': true, 'client_id': 'g-client'},
-            'apple': {'enabled': true, 'client_id': 'a-client'},
+            'ok': true,
+            'is_new_user': true,
+            'provider': 'google',
+            'token': 'jwt-social-123',
+            'user': {
+              'id': 501,
+              'full_name': 'Deniz Kaya',
+              'email': 'deniz@gmail.com',
+              'role': 'individual',
+              'is_active': true,
+            },
           }),
           200,
           headers: {'content-type': 'application/json'},
         );
+      });
+
+      final api = AuthApi(baseUrl: 'http://localhost', client: client);
+      final status = await api.oauthStatus();
+      expect((status['google'] as Map)['enabled'], isTrue);
+      expect((status['apple'] as Map)['enabled'], isTrue);
+
+      final session = await api.loginWithOAuth(
+        provider: 'google',
+        idToken: 'id-token-xyz',
+        firstName: 'Deniz',
+        lastName: 'Kaya',
+      );
+      expect(lastPath, '/auth/oauth/google');
+      expect(lastBody['id_token'], 'id-token-xyz');
+      expect(lastBody['first_name'], 'Deniz');
+      expect(lastBody['last_name'], 'Kaya');
+      expect(session.id, 501);
+      expect(session.fullName, 'Deniz Kaya');
+      expect(session.email, 'deniz@gmail.com');
+      expect(session.token, 'jwt-social-123');
+    },
+  );
+
+  test(
+    'AuthApi.loginWithOAuth nonce verilirse govdeye HAM nonce alanini koyar, verilmezse hic koymaz',
+    () async {
+      final bodies = <Map<String, dynamic>>[];
+      final client = MockClient((request) async {
+        bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
+        return http.Response(
+          jsonEncode({
+            'ok': true,
+            'is_new_user': false,
+            'provider': 'apple',
+            'token': 'jwt-social-456',
+            'user': {
+              'id': 502,
+              'full_name': 'Selin Demir',
+              'email': 'selin@icloud.com',
+              'role': 'individual',
+              'is_active': true,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      });
+      final api = AuthApi(baseUrl: 'http://localhost', client: client);
+
+      await api.loginWithOAuth(
+        provider: 'apple',
+        idToken: 'tok',
+        nonce: 'ham-nonce-degeri-0123456789',
+      );
+      await api.loginWithOAuth(provider: 'google', idToken: 'tok');
+      await api.loginWithOAuth(provider: 'apple', idToken: 'tok', nonce: '');
+
+      expect(bodies[0]['nonce'], 'ham-nonce-degeri-0123456789');
+      expect(
+        bodies[1].containsKey('nonce'),
+        isFalse,
+        reason: 'Google 6.x nonce iletemez: alan hic gonderilmez',
+      );
+      expect(
+        bodies[2].containsKey('nonce'),
+        isFalse,
+        reason: 'bos nonce gonderilmez',
+      );
+    },
+  );
+
+  test(
+    'generateOAuthNonce: her cagrida farkli, base64url, sunucu desenine (16-128, A-Za-z0-9._~-) uyar; oauthNonceHash = SHA-256 onaltili',
+    () {
+      final seen = <String>{};
+      for (var i = 0; i < 50; i++) {
+        final nonce = generateOAuthNonce();
+        expect(
+          RegExp(r'^[A-Za-z0-9._~-]{16,128}$').hasMatch(nonce),
+          isTrue,
+          reason: nonce,
+        );
+        expect(nonce.length, 43, reason: '32 bayt -> dolgusuz base64url');
+        seen.add(nonce);
       }
-      lastBody = jsonDecode(request.body) as Map<String, dynamic>;
-      return http.Response(
-        jsonEncode({
-          'ok': true,
-          'is_new_user': true,
-          'provider': 'google',
-          'token': 'jwt-social-123',
-          'user': {
-            'id': 501,
-            'full_name': 'Deniz Kaya',
-            'email': 'deniz@gmail.com',
-            'role': 'individual',
-            'is_active': true,
-          },
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
+      expect(seen.length, 50, reason: 'kriptografik rastgele: tekrar yok');
+
+      // Ayni tohumlu Random ayni degeri uretir (belirlenimli uretim yalniz testte); varsayilan Random.secure()'dur.
+      expect(generateOAuthNonce(Random(7)), generateOAuthNonce(Random(7)));
+
+      const raw = 'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP';
+      final hashed = oauthNonceHash(raw);
+      expect(hashed, sha256.convert(utf8.encode(raw)).toString());
+      expect(hashed, matches(RegExp(r'^[0-9a-f]{64}$')));
+      expect(
+        hashed,
+        isNot(raw),
+        reason: 'saglayiciya ham deger degil ozet verilir',
       );
-    });
-
-    final api = AuthApi(baseUrl: 'http://localhost', client: client);
-    final status = await api.oauthStatus();
-    expect((status['google'] as Map)['enabled'], isTrue);
-    expect((status['apple'] as Map)['enabled'], isTrue);
-
-    final session = await api.loginWithOAuth(
-      provider: 'google',
-      idToken: 'id-token-xyz',
-      firstName: 'Deniz',
-      lastName: 'Kaya',
-    );
-    expect(lastPath, '/auth/oauth/google');
-    expect(lastBody['id_token'], 'id-token-xyz');
-    expect(lastBody['first_name'], 'Deniz');
-    expect(lastBody['last_name'], 'Kaya');
-    expect(session.id, 501);
-    expect(session.fullName, 'Deniz Kaya');
-    expect(session.email, 'deniz@gmail.com');
-    expect(session.token, 'jwt-social-123');
-  });
-
-  test('AuthApi.loginWithOAuth nonce verilirse govdeye HAM nonce alanini koyar, verilmezse hic koymaz', () async {
-    final bodies = <Map<String, dynamic>>[];
-    final client = MockClient((request) async {
-      bodies.add(jsonDecode(request.body) as Map<String, dynamic>);
-      return http.Response(
-        jsonEncode({
-          'ok': true,
-          'is_new_user': false,
-          'provider': 'apple',
-          'token': 'jwt-social-456',
-          'user': {'id': 502, 'full_name': 'Selin Demir', 'email': 'selin@icloud.com', 'role': 'individual', 'is_active': true},
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
+      // Bilinen SHA-256 test vektoru (sunucu node:crypto ile ayni ozeti uretmeli).
+      expect(
+        oauthNonceHash('abc'),
+        'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad',
       );
-    });
-    final api = AuthApi(baseUrl: 'http://localhost', client: client);
+    },
+  );
 
-    await api.loginWithOAuth(provider: 'apple', idToken: 'tok', nonce: 'ham-nonce-degeri-0123456789');
-    await api.loginWithOAuth(provider: 'google', idToken: 'tok');
-    await api.loginWithOAuth(provider: 'apple', idToken: 'tok', nonce: '');
-
-    expect(bodies[0]['nonce'], 'ham-nonce-degeri-0123456789');
-    expect(bodies[1].containsKey('nonce'), isFalse, reason: 'Google 6.x nonce iletemez: alan hic gonderilmez');
-    expect(bodies[2].containsKey('nonce'), isFalse, reason: 'bos nonce gonderilmez');
-  });
-
-  test('generateOAuthNonce: her cagrida farkli, base64url, sunucu desenine (16-128, A-Za-z0-9._~-) uyar; oauthNonceHash = SHA-256 onaltili', () {
-    final seen = <String>{};
-    for (var i = 0; i < 50; i++) {
-      final nonce = generateOAuthNonce();
-      expect(RegExp(r'^[A-Za-z0-9._~-]{16,128}$').hasMatch(nonce), isTrue, reason: nonce);
-      expect(nonce.length, 43, reason: '32 bayt -> dolgusuz base64url');
-      seen.add(nonce);
-    }
-    expect(seen.length, 50, reason: 'kriptografik rastgele: tekrar yok');
-
-    // Ayni tohumlu Random ayni degeri uretir (belirlenimli uretim yalniz testte); varsayilan Random.secure()'dur.
-    expect(generateOAuthNonce(Random(7)), generateOAuthNonce(Random(7)));
-
-    const raw = 'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP';
-    final hashed = oauthNonceHash(raw);
-    expect(hashed, sha256.convert(utf8.encode(raw)).toString());
-    expect(hashed, matches(RegExp(r'^[0-9a-f]{64}$')));
-    expect(hashed, isNot(raw), reason: 'saglayiciya ham deger degil ozet verilir');
-    // Bilinen SHA-256 test vektoru (sunucu node:crypto ile ayni ozeti uretmeli).
-    expect(oauthNonceHash('abc'), 'ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad');
-  });
-
-  testWidgets('LoginPage Google ve iCloud (Apple) butonlarini tasma olmadan gosterir ve tetikler', (tester) async {
-    final auth = _FakeSocialAuth();
-    await pumpAt(
-      tester,
-      SizedBox(
-        width: 320,
-        height: 640,
-        child: LoginPage(
-          authService: auth,
-          onProvideSocialCredentials: (provider) async => SocialAuthCredentials(
-            idToken: 'token-$provider',
-          ),
-        ),
-      ),
-      width: 320,
-      height: 640,
-      scale: 2.0,
-    );
-
-    final googleBtn = find.byKey(const Key('social-auth-google-button'));
-    final appleBtn = find.byKey(const Key('social-auth-apple-button'));
-    expect(googleBtn, findsOneWidget);
-    expect(appleBtn, findsOneWidget);
-
-    await tester.ensureVisible(googleBtn);
-    await tester.pumpAndSettle();
-    await tester.tap(googleBtn);
-    await tester.pumpAndSettle();
-
-    expect(auth.oauthCalls.length, 1);
-    expect(auth.oauthCalls.first['provider'], 'google');
-    expect(auth.oauthCalls.first['idToken'], 'token-google');
-
-    await tester.ensureVisible(appleBtn);
-    await tester.pumpAndSettle();
-    await tester.tap(appleBtn);
-    await tester.pumpAndSettle();
-
-    expect(auth.oauthCalls.length, 2);
-    expect(auth.oauthCalls.last['provider'], 'apple');
-    expect(auth.oauthCalls.last['idToken'], 'token-apple');
-    expect(auth.oauthCalls.last['nonce'], isNull, reason: 'enjekte kimlik bilgisinde nonce yoksa gonderilmez (eski davranis)');
-  });
-
-  testWidgets('enjekte kimlik bilgisindeki HAM nonce loginWithOAuth a aynen iletilir (Apple akisi sozlesmesi)', (tester) async {
-    final auth = _FakeSocialAuth();
-    await pumpAt(
-      tester,
-      SizedBox(
-        width: 360,
-        height: 640,
-        child: LoginPage(
-          authService: auth,
-          onProvideSocialCredentials: (provider) async => SocialAuthCredentials(
-            idToken: 'apple-token',
-            nonce: 'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP',
-          ),
-        ),
-      ),
-      width: 360,
-      height: 640,
-      scale: 1.0,
-    );
-    final appleBtn = find.byKey(const Key('social-auth-apple-button'));
-    await tester.ensureVisible(appleBtn);
-    await tester.pumpAndSettle();
-    await tester.tap(appleBtn);
-    await tester.pumpAndSettle();
-
-    expect(auth.oauthCalls.length, 1);
-    expect(auth.oauthCalls.single['provider'], 'apple');
-    expect(auth.oauthCalls.single['nonce'], 'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP');
-  });
-
-  testWidgets('Android ve web ortaminda iCloud (Apple) butonu gosterilmez, yalniz Google gosterilir', (tester) async {
-    final auth = _FakeSocialAuth();
-    debugDefaultTargetPlatformOverride = TargetPlatform.android;
-    try {
+  testWidgets(
+    'LoginPage Google ve iCloud (Apple) butonlarini tasma olmadan gosterir ve tetikler',
+    (tester) async {
+      final auth = _FakeSocialAuth();
       await pumpAt(
         tester,
         SizedBox(
-          width: 360,
+          width: 320,
           height: 640,
           child: LoginPage(
             authService: auth,
+            onProvideSocialCredentials: (provider) async =>
+                SocialAuthCredentials(idToken: 'token-$provider'),
           ),
         ),
-        width: 360,
+        width: 320,
         height: 640,
-        scale: 1.0,
+        scale: 2.0,
       );
 
       final googleBtn = find.byKey(const Key('social-auth-google-button'));
       final appleBtn = find.byKey(const Key('social-auth-apple-button'));
       expect(googleBtn, findsOneWidget);
-      expect(appleBtn, findsNothing);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+      expect(appleBtn, findsOneWidget);
 
-  testWidgets('Windows masaustu ortaminda Google ve Apple butonlari gosterilmez (MissingPluginException onlenir)', (tester) async {
-    final auth = _FakeSocialAuth();
-    debugDefaultTargetPlatformOverride = TargetPlatform.windows;
-    try {
+      await tester.ensureVisible(googleBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(googleBtn);
+      await tester.pumpAndSettle();
+
+      expect(auth.oauthCalls.length, 1);
+      expect(auth.oauthCalls.first['provider'], 'google');
+      expect(auth.oauthCalls.first['idToken'], 'token-google');
+
+      await tester.ensureVisible(appleBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(appleBtn);
+      await tester.pumpAndSettle();
+
+      expect(auth.oauthCalls.length, 2);
+      expect(auth.oauthCalls.last['provider'], 'apple');
+      expect(auth.oauthCalls.last['idToken'], 'token-apple');
+      expect(
+        auth.oauthCalls.last['nonce'],
+        isNull,
+        reason:
+            'enjekte kimlik bilgisinde nonce yoksa gonderilmez (eski davranis)',
+      );
+    },
+  );
+
+  testWidgets(
+    'enjekte kimlik bilgisindeki HAM nonce loginWithOAuth a aynen iletilir (Apple akisi sozlesmesi)',
+    (tester) async {
+      final auth = _FakeSocialAuth();
       await pumpAt(
         tester,
         SizedBox(
@@ -267,6 +308,105 @@ void main() {
           height: 640,
           child: LoginPage(
             authService: auth,
+            onProvideSocialCredentials: (provider) async =>
+                SocialAuthCredentials(
+                  idToken: 'apple-token',
+                  nonce: 'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP',
+                ),
+          ),
+        ),
+        width: 360,
+        height: 640,
+        scale: 1.0,
+      );
+      final appleBtn = find.byKey(const Key('social-auth-apple-button'));
+      await tester.ensureVisible(appleBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(appleBtn);
+      await tester.pumpAndSettle();
+
+      expect(auth.oauthCalls.length, 1);
+      expect(auth.oauthCalls.single['provider'], 'apple');
+      expect(
+        auth.oauthCalls.single['nonce'],
+        'Zk3-q_Wl9xT0aB7cD1eF2gH4iJ5kL6mN8oP',
+      );
+    },
+  );
+
+  testWidgets(
+    'Android ve web ortaminda iCloud (Apple) butonu gosterilmez, yalniz Google gosterilir',
+    (tester) async {
+      final auth = _FakeSocialAuth();
+      debugDefaultTargetPlatformOverride = TargetPlatform.android;
+      try {
+        await pumpAt(
+          tester,
+          SizedBox(
+            width: 360,
+            height: 640,
+            child: LoginPage(authService: auth),
+          ),
+          width: 360,
+          height: 640,
+          scale: 1.0,
+        );
+
+        final googleBtn = find.byKey(const Key('social-auth-google-button'));
+        final appleBtn = find.byKey(const Key('social-auth-apple-button'));
+        expect(googleBtn, findsOneWidget);
+        expect(appleBtn, findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'Windows masaustu ortaminda Google ve Apple butonlari gosterilmez (MissingPluginException onlenir)',
+    (tester) async {
+      final auth = _FakeSocialAuth();
+      debugDefaultTargetPlatformOverride = TargetPlatform.windows;
+      try {
+        await pumpAt(
+          tester,
+          SizedBox(
+            width: 360,
+            height: 640,
+            child: LoginPage(authService: auth),
+          ),
+          width: 360,
+          height: 640,
+          scale: 1.0,
+        );
+
+        final googleBtn = find.byKey(const Key('social-auth-google-button'));
+        final appleBtn = find.byKey(const Key('social-auth-apple-button'));
+        expect(googleBtn, findsNothing);
+        expect(appleBtn, findsNothing);
+        expect(find.text('veya sosyal hesapla'), findsNothing);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    },
+  );
+
+  testWidgets(
+    'Google ile giris dogrudan tek dokunusla calisir, id_token veya kod sormaz',
+    (tester) async {
+      final auth = _FakeSocialAuth();
+      await pumpAt(
+        tester,
+        SizedBox(
+          width: 360,
+          height: 640,
+          child: LoginPage(
+            authService: auth,
+            onProvideSocialCredentials: (provider) async =>
+                SocialAuthCredentials(
+                  idToken: 'google-oauth-token-123',
+                  fullName: 'Mehmet Yılmaz',
+                ),
           ),
         ),
         width: 360,
@@ -275,94 +415,201 @@ void main() {
       );
 
       final googleBtn = find.byKey(const Key('social-auth-google-button'));
+      await tester.ensureVisible(googleBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(googleBtn);
+      await tester.pumpAndSettle();
+
+      // id_token / Doğrulama Belirteci veya kod isteme pencereleri asla açılmamalı
+      expect(find.textContaining('id_token'), findsNothing);
+      expect(find.textContaining('Doğrulama Belirteci'), findsNothing);
+      expect(find.textContaining('6 Haneli Doğrulama Kodu'), findsNothing);
+
+      expect(auth.oauthCalls.length, 1);
+      expect(auth.oauthCalls.first['provider'], 'google');
+      expect(auth.oauthCalls.first['idToken'], 'google-oauth-token-123');
+      expect(auth.oauthCalls.first['fullName'], 'Mehmet Yılmaz');
+    },
+  );
+
+  testWidgets(
+    'RegisterIndividualPage yasal onay sonrasi Google ve iCloud ile kaydolmayi destekler',
+    (tester) async {
+      final auth = _FakeSocialAuth();
+      final legal = FakeLegalServer();
+
+      await pumpAt(
+        tester,
+        SizedBox(
+          width: 360,
+          height: 640,
+          child: RegisterIndividualPage(
+            authService: auth,
+            legalApi: legal.api,
+            onProvideSocialCredentials: (provider) async =>
+                SocialAuthCredentials(
+                  idToken: 'reg-token-$provider',
+                  firstName: 'Selin',
+                  lastName: 'Demir',
+                ),
+          ),
+        ),
+        width: 360,
+        height: 640,
+        scale: 1.0,
+      );
+      await tester.pumpAndSettle();
+
+      // Yasal onay kutusunu işaretle
+      final checkbox = find.byType(Checkbox);
+      await tester.ensureVisible(checkbox);
+      await tester.pumpAndSettle();
+      await tester.tap(checkbox);
+      await tester.pumpAndSettle();
+
       final appleBtn = find.byKey(const Key('social-auth-apple-button'));
-      expect(googleBtn, findsNothing);
-      expect(appleBtn, findsNothing);
-      expect(find.text('veya sosyal hesapla'), findsNothing);
-    } finally {
-      debugDefaultTargetPlatformOverride = null;
-    }
-  });
+      await tester.ensureVisible(appleBtn);
+      await tester.pumpAndSettle();
+      await tester.tap(appleBtn);
+      await tester.pumpAndSettle();
 
-  testWidgets('Google ile giris dogrudan tek dokunusla calisir, id_token veya kod sormaz', (tester) async {
-    final auth = _FakeSocialAuth();
-    await pumpAt(
-      tester,
-      SizedBox(
-        width: 360,
-        height: 640,
-        child: LoginPage(
-          authService: auth,
-          onProvideSocialCredentials: (provider) async => SocialAuthCredentials(
-            idToken: 'google-oauth-token-123',
-            fullName: 'Mehmet Yılmaz',
+      expect(auth.oauthCalls.length, 1);
+      expect(auth.oauthCalls.first['provider'], 'apple');
+      expect(auth.oauthCalls.first['idToken'], 'reg-token-apple');
+      expect(auth.oauthCalls.first['firstName'], 'Selin');
+      expect((auth.oauthCalls.first['accepted'] as List).isNotEmpty, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Google tekil otomatik bağlamada başarı mesajı gösterilir ve giriş tamamlanır',
+    (tester) async {
+      final auth = _FakeSocialAuth()
+        ..nextIdentityResult = const IdentityAuthResult(
+          claimedExistingAccount: true,
+          claimMessage:
+              'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.',
+        );
+      var succeeded = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SocialAuthButtons(
+              authService: auth,
+              onSuccess: () => succeeded = true,
+              onProvideCredentials: (_) async =>
+                  const SocialAuthCredentials(idToken: 'claim-tok'),
+            ),
           ),
         ),
-      ),
-      width: 360,
-      height: 640,
-      scale: 1.0,
-    );
+      );
+      await tester.tap(find.byKey(const Key('social-auth-google-button')));
+      await tester.pumpAndSettle();
 
-    final googleBtn = find.byKey(const Key('social-auth-google-button'));
-    await tester.ensureVisible(googleBtn);
-    await tester.pumpAndSettle();
-    await tester.tap(googleBtn);
-    await tester.pumpAndSettle();
+      expect(succeeded, isTrue);
+      expect(
+        find.textContaining('Daire hesabınız güvenli biçimde bağlandı'),
+        findsOneWidget,
+      );
+    },
+  );
 
-    // id_token / Doğrulama Belirteci veya kod isteme pencereleri asla açılmamalı
-    expect(find.textContaining('id_token'), findsNothing);
-    expect(find.textContaining('Doğrulama Belirteci'), findsNothing);
-    expect(find.textContaining('6 Haneli Doğrulama Kodu'), findsNothing);
-
-    expect(auth.oauthCalls.length, 1);
-    expect(auth.oauthCalls.first['provider'], 'google');
-    expect(auth.oauthCalls.first['idToken'], 'google-oauth-token-123');
-    expect(auth.oauthCalls.first['fullName'], 'Mehmet Yılmaz');
-  });
-
-  testWidgets('RegisterIndividualPage yasal onay sonrasi Google ve iCloud ile kaydolmayi destekler', (tester) async {
-    final auth = _FakeSocialAuth();
-    final legal = FakeLegalServer();
-
-    await pumpAt(
-      tester,
-      SizedBox(
-        width: 360,
-        height: 640,
-        child: RegisterIndividualPage(
-          authService: auth,
-          legalApi: legal.api,
-          onProvideSocialCredentials: (provider) async => SocialAuthCredentials(
-            idToken: 'reg-token-$provider',
-            firstName: 'Selin',
-            lastName: 'Demir',
+  testWidgets(
+    'Çoklu güçlü eşleşmede AccountClaimDialog açılır ve doğrulamayla giriş tamamlanır',
+    (tester) async {
+      final auth = _FakeSocialAuth()
+        ..nextIdentityResult = const IdentityAuthResult(
+          error: 'Doğrulama gerekli.',
+          claimChallenge: IdentityClaimChallenge(
+            challengeToken: 'ch-1',
+            provider: 'google',
+            candidates: [
+              IdentityCandidate(
+                candidateRef: '1',
+                maskedName: 'A*** Y***',
+                maskedLoginName: 'ays***z',
+              ),
+              IdentityCandidate(
+                candidateRef: '2',
+                maskedName: 'B*** Y***',
+                maskedLoginName: 'ber***z',
+              ),
+            ],
+            verificationMethods: ['credentials'],
+          ),
+        );
+      var succeeded = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SocialAuthButtons(
+              authService: auth,
+              onSuccess: () => succeeded = true,
+              onProvideCredentials: (_) async =>
+                  const SocialAuthCredentials(idToken: 'ambig-tok'),
+            ),
           ),
         ),
-      ),
-      width: 360,
-      height: 640,
-      scale: 1.0,
-    );
-    await tester.pumpAndSettle();
+      );
+      await tester.tap(find.byKey(const Key('social-auth-google-button')));
+      await tester.pumpAndSettle();
 
-    // Yasal onay kutusunu işaretle
-    final checkbox = find.byType(Checkbox);
-    await tester.ensureVisible(checkbox);
-    await tester.pumpAndSettle();
-    await tester.tap(checkbox);
-    await tester.pumpAndSettle();
+      expect(find.text('Mevcut hesabınız bulundu'), findsOneWidget);
+      expect(
+        find.text('Hesabınızı doğrulamak için bir yöntem seçin'),
+        findsOneWidget,
+      );
 
-    final appleBtn = find.byKey(const Key('social-auth-apple-button'));
-    await tester.ensureVisible(appleBtn);
-    await tester.pumpAndSettle();
-    await tester.tap(appleBtn);
-    await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byKey(const ValueKey('claim_identifier_field')),
+        'ayse.yilmaz',
+      );
+      await tester.enterText(
+        find.byKey(const ValueKey('claim_password_field')),
+        '1234',
+      );
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('claim_submit_btn')),
+      );
+      await tester.tap(find.byKey(const ValueKey('claim_submit_btn')));
+      await tester.pumpAndSettle();
 
-    expect(auth.oauthCalls.length, 1);
-    expect(auth.oauthCalls.first['provider'], 'apple');
-    expect(auth.oauthCalls.first['idToken'], 'reg-token-apple');
-    expect(auth.oauthCalls.first['firstName'], 'Selin');
-    expect((auth.oauthCalls.first['accepted'] as List).isNotEmpty, isTrue);
-  });
+      expect(succeeded, isTrue);
+    },
+  );
+
+  testWidgets(
+    'Apple Hide My Email ilk girişinde isteğe bağlı daire bağlama atlanabilir',
+    (tester) async {
+      final auth = _FakeSocialAuth()
+        ..nextIdentityResult = const IdentityAuthResult(
+          isApplePrivateRelay: true,
+          canClaimExistingAccount: true,
+        );
+      var succeeded = false;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SocialAuthButtons(
+              authService: auth,
+              onSuccess: () => succeeded = true,
+              onProvideCredentials: (_) async =>
+                  const SocialAuthCredentials(idToken: 'apple-relay-tok'),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const Key('social-auth-apple-button')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Daire hesabınız varsa bağlayın'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('claim_cancel_btn')),
+      );
+      await tester.tap(find.byKey(const ValueKey('claim_cancel_btn')));
+      await tester.pumpAndSettle();
+
+      expect(succeeded, isTrue);
+    },
+  );
 }

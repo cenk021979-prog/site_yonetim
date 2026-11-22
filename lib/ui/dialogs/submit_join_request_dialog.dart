@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/ui/dialogs/account_claim_dialog.dart';
 import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/models/site_join_info.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
@@ -38,7 +39,8 @@ class SubmitJoinRequestDialog extends StatefulWidget {
   }
 
   @override
-  State<SubmitJoinRequestDialog> createState() => _SubmitJoinRequestDialogState();
+  State<SubmitJoinRequestDialog> createState() =>
+      _SubmitJoinRequestDialogState();
 }
 
 class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
@@ -76,13 +78,17 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     );
     if (!mounted || scanned == null || scanned.trim().isEmpty) return;
 
-    final clean = scanned.replaceAll(RegExp(r'^SITE_JOIN:', caseSensitive: false), '').trim();
+    final clean = scanned
+        .replaceAll(RegExp(r'^SITE_JOIN:', caseSensitive: false), '')
+        .trim();
     _tokenController.text = clean;
     _fetchInfo(clean);
   }
 
   Future<void> _fetchInfo(String token) async {
-    final clean = token.replaceAll(RegExp(r'^SITE_JOIN:', caseSensitive: false), '').trim();
+    final clean = token
+        .replaceAll(RegExp(r'^SITE_JOIN:', caseSensitive: false), '')
+        .trim();
     if (clean.isEmpty) return;
 
     setState(() {
@@ -105,7 +111,9 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
         if (info != null && info.blocks.isNotEmpty) {
           _selectedBlock = info.blocks.first;
           // İlk bloğun ilk dairesini seç
-          final blockApts = info.apartments.where((a) => a.blockId == _selectedBlock!.id).toList();
+          final blockApts = info.apartments
+              .where((a) => a.blockId == _selectedBlock!.id)
+              .toList();
           if (blockApts.isNotEmpty) {
             _selectedApartment = blockApts.first;
           }
@@ -125,12 +133,17 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
           icon: Icons.person_search_rounded,
           tone: AppTone.warning,
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Vazgeç'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final reason = controller.text.trim();
                 if (reason.length < 10) {
-                  setDialogState(() => validation = 'En az 10 karakterlik açıklama yazın.');
+                  setDialogState(
+                    () => validation = 'En az 10 karakterlik açıklama yazın.',
+                  );
                   return;
                 }
                 Navigator.pop(ctx, reason);
@@ -142,14 +155,19 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              const Text('Bu hesabın bulunan mevcut kişiden neden farklı olduğunu kısaca açıklayın. Yönetici de onay sırasında kontrol edecektir.'),
+              const Text(
+                'Bu hesabın bulunan mevcut kişiden neden farklı olduğunu kısaca açıklayın. Yönetici de onay sırasında kontrol edecektir.',
+              ),
               const SizedBox(height: AppSpace.md),
               TextField(
                 controller: controller,
                 maxLength: 300,
                 minLines: 2,
                 maxLines: 4,
-                decoration: InputDecoration(labelText: 'Açıklama', errorText: validation),
+                decoration: InputDecoration(
+                  labelText: 'Açıklama',
+                  errorText: validation,
+                ),
               ),
             ],
           ),
@@ -160,10 +178,22 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     return result;
   }
 
-  Future<void> _resolvePossibleExistingAccount(Map<String, dynamic>? payload) async {
-    final candidate = payload?['candidate_name'] as String? ?? 'Mevcut sakin';
-    final hint = payload?['candidate_login_hint'] as String?;
-    final apartments = (payload?['candidate_apartments'] as List<dynamic>?)
+  Future<void> _resolvePossibleExistingAccount(
+    Map<String, dynamic>? payload,
+  ) async {
+    final existing = payload?['existing_account'] is Map
+        ? Map<String, dynamic>.from(payload!['existing_account'] as Map)
+        : null;
+    final candidate =
+        (existing?['masked_name'] ??
+                payload?['candidate_name'] ??
+                'Mevcut sakin')
+            .toString();
+    final hint =
+        (existing?['masked_login_name'] ?? payload?['candidate_login_hint'])
+            as String?;
+    final apartments =
+        (payload?['candidate_apartments'] as List<dynamic>?)
             ?.whereType<String>()
             .where((item) => item.trim().isNotEmpty)
             .join(', ') ??
@@ -171,27 +201,72 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     final choice = await showDialog<String>(
       context: context,
       builder: (ctx) => AppDialog(
-        title: 'Mevcut Hesap Bulundu',
+        title: 'Mevcut hesabınız bulundu',
         icon: Icons.manage_accounts_rounded,
         tone: AppTone.warning,
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-          OutlinedButton(
-            onPressed: () => Navigator.pop(ctx, 'different'),
-            child: const Text('Farklı Kişiyim'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, 'existing'),
-            child: const Text('Mevcut Hesapla Giriş'),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Vazgeç'),
           ),
         ],
-        child: Text(
-          '$candidate${apartments.isEmpty ? '' : ' — $apartments'} kaydı sizinle eşleşiyor.'
-          '${hint == null ? '' : '\nKullanıcı adı: $hint'}\n\nYönetimin verdiği kullanıcı adı ve başlangıç şifresiyle giriş yaparsanız ikinci kişi kaydı oluşmaz.',
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Text(
+              '$candidate${apartments.isEmpty ? '' : ' — $apartments'} kaydı sizinle eşleşiyor.'
+              '${hint == null ? '' : '\nKullanıcı adı: $hint'}\n\nMevcut daire hesabınızı doğrudan bu oturuma bağlayabilir veya farklı bir kişiyseniz açıklama yazarak devam edebilirsiniz.',
+            ),
+            const SizedBox(height: AppSpace.md),
+            ElevatedButton.icon(
+              key: const ValueKey('join_claim_in_place_btn'),
+              onPressed: () => Navigator.pop(ctx, 'claim'),
+              icon: const Icon(Icons.link_rounded),
+              label: const Text('Daire Hesabımı Bağla'),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            OutlinedButton(
+              onPressed: () => Navigator.pop(ctx, 'existing'),
+              child: const Text('Mevcut Hesapla Giriş'),
+            ),
+            const SizedBox(height: AppSpace.sm),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, 'different'),
+              child: const Text('Farklı Kişiyim'),
+            ),
+          ],
         ),
       ),
     );
     if (!mounted || choice == null) return;
+    if (choice == 'claim') {
+      setState(() {
+        _isSubmitting = true;
+        _errorMessage = null;
+      });
+      var claimRes = await widget.authService.claimExistingAccountInPlace();
+      if (!mounted) return;
+      setState(() => _isSubmitting = false);
+      if (!claimRes.ok) {
+        final verified = await AccountClaimDialog.showForAuthenticatedSession(
+          context,
+          authService: widget.authService,
+          title: 'Daire Hesabını Doğrula ve Bağla',
+          subtitle: claimRes.error,
+          showSkipButton: false,
+        );
+        if (!mounted || verified == null || !verified.ok) return;
+        claimRes = verified;
+      }
+      AppSnack.show(
+        context,
+        claimRes.claimMessage ?? 'Daire hesabınız güvenli biçimde bağlandı.',
+        kind: AppSnackKind.success,
+      );
+      if (mounted) Navigator.pop(context, true);
+      return;
+    }
     if (choice == 'existing') {
       await widget.authService.logout();
       if (mounted) Navigator.pop(context, false);
@@ -234,7 +309,9 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     } else if (attempt.error != null) {
       setState(() => _errorMessage = attempt.error);
     } else {
-      final msg = attempt.result?['message'] as String? ?? 'Katılım başvurunuz site yöneticisine iletildi.';
+      final msg =
+          attempt.result?['message'] as String? ??
+          'Katılım başvurunuz site yöneticisine iletildi.';
       HapticFeedback.lightImpact();
       AppSnack.show(context, msg, kind: AppSnackKind.success);
       Navigator.pop(context, true);
@@ -246,18 +323,26 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
     final p = context.palette;
     final th = Theme.of(context).textTheme;
     final availableApts = _selectedBlock != null && _siteInfo != null
-        ? _siteInfo!.apartments.where((a) => a.blockId == _selectedBlock!.id).toList()
+        ? _siteInfo!.apartments
+              .where((a) => a.blockId == _selectedBlock!.id)
+              .toList()
         : (_siteInfo?.apartments ?? const []);
     final site = _siteInfo;
     // Şehir / ilçe metni (boş taraf atılır); yoksa konum rozeti çizilmez.
     final location = site == null
         ? ''
         : ((site.city ?? '').isNotEmpty || (site.district ?? '').isNotEmpty)
-            ? '${site.city ?? ''} / ${site.district ?? ''}'.replaceAll(RegExp(r'^ / | / $'), '')
-            : '';
+        ? '${site.city ?? ''} / ${site.district ?? ''}'.replaceAll(
+            RegExp(r'^ / | / $'),
+            '',
+          )
+        : '';
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xl),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.xl,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 480),
         child: SingleChildScrollView(
@@ -280,15 +365,25 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                     top: AppSpace.sm,
                     end: AppSpace.sm,
                     child: IconButton(
-                      onPressed: _isSubmitting ? null : () => Navigator.pop(context, false),
+                      onPressed: _isSubmitting
+                          ? null
+                          : () => Navigator.pop(context, false),
                       icon: const Icon(Icons.close_rounded),
-                      constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                      constraints: const BoxConstraints(
+                        minWidth: 44,
+                        minHeight: 44,
+                      ),
                     ),
                   ),
                 ],
               ),
               Padding(
-                padding: const EdgeInsets.fromLTRB(AppSpace.xl, AppSpace.sm, AppSpace.xl, AppSpace.xl),
+                padding: const EdgeInsets.fromLTRB(
+                  AppSpace.xl,
+                  AppSpace.sm,
+                  AppSpace.xl,
+                  AppSpace.xl,
+                ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -308,14 +403,20 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                             decoration: const InputDecoration(
                               labelText: 'Katılım Kodu veya QR',
                               hintText: 'SJT-XXXXXX...',
-                              prefixIcon: Icon(Icons.qr_code_2_rounded, size: 20),
+                              prefixIcon: Icon(
+                                Icons.qr_code_2_rounded,
+                                size: 20,
+                              ),
                               isDense: true,
                             ),
                             onSubmitted: (val) => _fetchInfo(val),
                           );
                           final scanButton = ElevatedButton.icon(
                             onPressed: _isLoadingInfo ? null : _scanQr,
-                            icon: const Icon(Icons.qr_code_scanner_rounded, size: 18),
+                            icon: const Icon(
+                              Icons.qr_code_scanner_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Tara'),
                           );
                           if (stacked) {
@@ -342,7 +443,10 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
-                            onPressed: _isLoadingInfo ? null : () => _fetchInfo(_tokenController.text.trim()),
+                            onPressed: _isLoadingInfo
+                                ? null
+                                : () =>
+                                      _fetchInfo(_tokenController.text.trim()),
                             icon: const Icon(Icons.search_rounded, size: 18),
                             label: const Text('Site Bilgilerini Getir'),
                           ),
@@ -434,7 +538,10 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                       if (site.blocks.isNotEmpty) ...[
                         Text(
                           'Blok Seçiniz',
-                          style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: p.text),
+                          style: th.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: p.text,
+                          ),
                         ),
                         const SizedBox(height: AppSpace.sm),
                         DropdownButtonFormField<SiteJoinBlockInfo>(
@@ -443,7 +550,10 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                           value: _selectedBlock,
                           decoration: const InputDecoration(
                             isDense: true,
-                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            contentPadding: EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 12,
+                            ),
                             prefixIcon: Icon(Icons.apartment_rounded),
                           ),
                           borderRadius: BorderRadius.circular(AppRadius.md),
@@ -454,14 +564,21 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                           items: site.blocks.map((b) {
                             return DropdownMenuItem(
                               value: b,
-                              child: Text(b.blockName, overflow: TextOverflow.ellipsis),
+                              child: Text(
+                                b.blockName,
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             );
                           }).toList(),
                           onChanged: (b) {
                             setState(() {
                               _selectedBlock = b;
-                              final apts = _siteInfo!.apartments.where((a) => a.blockId == b?.id).toList();
-                              _selectedApartment = apts.isNotEmpty ? apts.first : null;
+                              final apts = _siteInfo!.apartments
+                                  .where((a) => a.blockId == b?.id)
+                                  .toList();
+                              _selectedApartment = apts.isNotEmpty
+                                  ? apts.first
+                                  : null;
                             });
                           },
                         ),
@@ -471,7 +588,10 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                       // Daire Seçimi
                       Text(
                         'Daire Seçiniz',
-                        style: th.bodyMedium?.copyWith(fontWeight: FontWeight.w700, color: p.text),
+                        style: th.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: p.text,
+                        ),
                       ),
                       const SizedBox(height: AppSpace.sm),
                       DropdownButtonFormField<SiteJoinApartmentInfo>(
@@ -480,7 +600,10 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                         value: _selectedApartment,
                         decoration: const InputDecoration(
                           isDense: true,
-                          contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          contentPadding: EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 12,
+                          ),
                           prefixIcon: Icon(Icons.home_rounded),
                         ),
                         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -491,10 +614,14 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                         items: availableApts.map((a) {
                           return DropdownMenuItem(
                             value: a,
-                            child: Text(a.unitLabel, overflow: TextOverflow.ellipsis),
+                            child: Text(
+                              a.unitLabel,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           );
                         }).toList(),
-                        onChanged: (a) => setState(() => _selectedApartment = a),
+                        onChanged: (a) =>
+                            setState(() => _selectedApartment = a),
                       ),
                       const SizedBox(height: AppSpace.lg),
 
@@ -517,10 +644,17 @@ class _SubmitJoinRequestDialogState extends State<SubmitJoinRequestDialog> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
                               )
                             : const Icon(Icons.send_rounded, size: 18),
-                        label: Text(_isSubmitting ? 'Başvuru Gönderiliyor...' : 'Katılım Başvurusunu Gönder'),
+                        label: Text(
+                          _isSubmitting
+                              ? 'Başvuru Gönderiliyor...'
+                              : 'Katılım Başvurusunu Gönder',
+                        ),
                       ),
                     ],
                   ],

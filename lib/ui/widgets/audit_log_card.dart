@@ -42,6 +42,8 @@ AppTone auditToneOf(String action) {
     case 'site.created':
     case 'site.approved':
     case 'join_request.approved':
+    case 'identity.account_claimed':
+    case 'identity.account_merged':
     case 'door_permission.granted':
     case 'door_permission.bulk_granted':
       return AppTone.success;
@@ -155,13 +157,20 @@ class _AuditLogCardState extends State<AuditLogCard> {
   bool _expanded = false;
 
   IconData _iconForAction(String action) {
-    if (action.contains('deleted') || action.contains('purged') || action.contains('rejected')) {
+    if (action.contains('deleted') ||
+        action.contains('purged') ||
+        action.contains('rejected')) {
       return Icons.cancel_rounded;
     }
-    if (action.contains('disabled') || action.contains('deactivated') || action.contains('warning')) {
+    if (action.contains('disabled') ||
+        action.contains('deactivated') ||
+        action.contains('warning')) {
       return Icons.pause_circle_filled_rounded;
     }
-    if (action.contains('created') || action.contains('enabled') || action.contains('approved') || action.contains('added')) {
+    if (action.contains('created') ||
+        action.contains('enabled') ||
+        action.contains('approved') ||
+        action.contains('added')) {
       return Icons.check_circle_rounded;
     }
     if (action.contains('updated') || action.contains('corrected')) {
@@ -204,11 +213,15 @@ class _AuditLogCardState extends State<AuditLogCard> {
     final actorRole = auditActorRoleLabel(entry.actorRole);
     final who = actor.isEmpty
         ? (actorRole.isEmpty ? 'Sistem' : actorRole)
-        : (actorRole.isEmpty || actorRole == actor ? actor : '$actor • $actorRole');
+        : (actorRole.isEmpty || actorRole == actor
+              ? actor
+              : '$actor • $actorRole');
     final site = (entry.siteName ?? '').trim();
 
     final cardBg = isDark ? const Color(0xFF222834) : Colors.white;
-    final expandedBg = isDark ? const Color(0xFF1A1F28) : const Color(0xFFF7F8FA);
+    final expandedBg = isDark
+        ? const Color(0xFF1A1F28)
+        : const Color(0xFFF7F8FA);
     final borderColor = isDark
         ? toneColor.withValues(alpha: 0.35)
         : toneColor.withValues(alpha: 0.3);
@@ -260,7 +273,10 @@ class _AuditLogCardState extends State<AuditLogCard> {
                           children: [
                             Flexible(
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 7,
+                                  vertical: 2,
+                                ),
                                 decoration: BoxDecoration(
                                   color: toneColor.withValues(alpha: 0.12),
                                   borderRadius: BorderRadius.circular(6),
@@ -375,8 +391,12 @@ class _AuditLogCardState extends State<AuditLogCard> {
                     icon: Icons.apartment_rounded,
                     label: 'Site',
                     value: site.isNotEmpty
-                        ? (entry.siteCode != null ? '$site (Kod: ${entry.siteCode})' : site)
-                        : (entry.siteCode != null ? 'Site Kodu: ${entry.siteCode}' : 'Genel / Site Yok'),
+                        ? (entry.siteCode != null
+                              ? '$site (Kod: ${entry.siteCode})'
+                              : site)
+                        : (entry.siteCode != null
+                              ? 'Site Kodu: ${entry.siteCode}'
+                              : 'Genel / Site Yok'),
                   ),
                   const SizedBox(height: 8),
                   _buildDetailRow(
@@ -421,9 +441,14 @@ class _AuditLogCardState extends State<AuditLogCard> {
                             ? e.value.toString()
                             : '${e.value}';
                         return Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
                           decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF282F3A) : Colors.white,
+                            color: isDark
+                                ? const Color(0xFF282F3A)
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(6),
                             border: Border.all(
                               color: isDark ? Colors.white12 : Colors.black12,
@@ -431,7 +456,10 @@ class _AuditLogCardState extends State<AuditLogCard> {
                           ),
                           child: Text(
                             '${e.key}: $valStr',
-                            style: const TextStyle(fontSize: 11, fontFamily: 'monospace'),
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         );
                       }).toList(),
@@ -470,14 +498,10 @@ class _AuditLogCardState extends State<AuditLogCard> {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
+            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
           ),
         ),
       ],
     );
   }
 }
-

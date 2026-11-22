@@ -26,7 +26,7 @@ Betikler sır içermez. Parola/anahtar yazılmaz; `.env` dosyası dağıtım pak
    ```bash
    cd server
    TS=$(date +%Y%m%d_%H%M%S)
-   tar czf /tmp/kapi_deploy_$TS.tgz src scripts migrations package.json package-lock.json ecosystem.config.cjs .env.example
+   tar czf /tmp/kapi_deploy_$TS.tgz src scripts migrations legal package.json package-lock.json ecosystem.config.cjs .env.example
    sha256sum /tmp/kapi_deploy_$TS.tgz
    ```
    (`tar` Windows yolundaki `C:` önekini uzak sunucu sanır: `/c/...` biçimini kullanın veya `--force-local` verin.)

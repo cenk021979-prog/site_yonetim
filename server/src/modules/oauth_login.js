@@ -1,6 +1,16 @@
 import crypto from 'node:crypto';
 import bcrypt from 'bcryptjs';
 import { pool } from '../db.js';
+import {
+  isApplePrivateRelayEmail,
+  isIdentityResolverEnabled,
+  isInternalEmail,
+} from './identity_resolution_helpers.js';
+import {
+  claimSingleStrongCandidate,
+  createIdentityClaimChallenge,
+  findEmailIdentityCandidates,
+} from './identity_resolution_service.js';
 import { signAccessToken } from '../jwt.js';
 import { sendIndividualVerificationEmail } from '../mailer.js';
 import { BCRYPT_COST } from '../security/password_hashing.js';
@@ -483,6 +493,8 @@ async function completeVerifiedSocialLogin({
   let isNewUser = false;
   let wasUnverified = false;
   let passwordRotated = false;
+  let claimedExistingAccount = false;
+  let isApplePrivateRelay = false;
 
   try {
     await client.query('BEGIN');
@@ -528,13 +540,49 @@ async function completeVerifiedSocialLogin({
         );
       }
 
-      const existingRes = await client.query(
-        `SELECT ${USER_SELECT_COLUMNS}, ${MUST_CHANGE_SQL} FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL ORDER BY user_code FOR UPDATE`,
-        [cleanEmail],
-      );
+      isApplePrivateRelay = cleanProvider === 'apple' && isApplePrivateRelayEmail(cleanEmail);
+      const candidates =
+        isApplePrivateRelay
+          ? (
+              await client.query(
+                `SELECT ${USER_SELECT_COLUMNS}, ${MUST_CHANGE_SQL} FROM users WHERE LOWER(email) = LOWER($1) AND deleted_at IS NULL ORDER BY user_code FOR UPDATE`,
+                [cleanEmail],
+              )
+            ).rows.map((r) => ({ ...r, _matchedVia: 'users_email' }))
+          : await findEmailIdentityCandidates(client, {
+              email: cleanEmail,
+              emailVerified: claims.emailVerified,
+              userColumns: USER_SELECT_COLUMNS,
+              mustChangeSql: MUST_CHANGE_SQL,
+              lockForUpdate: true,
+            });
+      const existingRes = { rows: candidates, rowCount: candidates.length };
 
-      // E-posta eşleşmesi TEKİL olmalı: aynı adresin büyük/küçük harf farkıyla birden çok hesabı varsa hangisine bağlanacağı belirsizdir (fail-closed).
+      // E-posta eşleşmesi TEKİL olmalı: birden çok hesap eşleştiyse maskeli self-servis doğrulama (challenge) başlatılır.
       if (existingRes.rowCount > 1) {
+        if (isIdentityResolverEnabled()) {
+          const challenge = await createIdentityClaimChallenge(db, {
+            kind: 'oauth_ambiguous',
+            provider: cleanProvider,
+            providerSub: claims.sub,
+            verifiedEmail: cleanEmail,
+            fullName: claims.fullName ?? fullName ?? null,
+            candidates,
+          });
+          throw new PlatformError(
+            409,
+            'OAUTH_ACCOUNT_AMBIGUOUS',
+            'Bu e-posta adresiyle birden fazla hesap kayıtlı. Hesabınızı doğrulayarak devam edebilirsiniz.',
+            {
+              claim_verification_required: true,
+              challenge_token: challenge.token,
+              expires_in_seconds: challenge.expiresInSeconds,
+              candidates: challenge.candidates,
+              verification_methods: challenge.verificationMethods,
+              provider: cleanProvider,
+            },
+          );
+        }
         throw httpError(
           409,
           'Bu e-posta adresiyle birden fazla hesap kayıtlı; giriş yapılamadı. Lütfen destek ile iletişime geçin.',
@@ -633,6 +681,26 @@ async function completeVerifiedSocialLogin({
       throw httpError(403, 'Hesabiniz pasif durumda. Yonetici ile iletisime gecin.');
     }
 
+    if (
+      !isNewUser &&
+      isIdentityResolverEnabled() &&
+      (isInternalEmail(user.email) || (user._matchedVia && user._matchedVia !== 'users_email'))
+    ) {
+      const claimRes = await claimSingleStrongCandidate(client, {
+        candidate: user,
+        provider: cleanProvider,
+        providerSub: sub,
+        verifiedEmail: cleanEmail,
+        fullName: claims.fullName ?? fullName ?? null,
+        clearTemporaryPin: false,
+      });
+      if (claimRes.claimed || claimRes.upgradedEmail) {
+        claimedExistingAccount = true;
+        // Parola rotasyonu ve post-commit resident_pin_issued temizligi alttaki standart blokta tek elden yapilsin.
+        wasUnverified = true;
+      }
+    }
+
     // Yönetimin verdiği geçici parola (must_change_password) ya da doğrulanmamış hesabın parolası: sağlayıcı e-posta sahipliğini kanıtladığı için
     // parola RASTGELE bir değerle değiştirilir (yönetimin / kayıt öncesi sahte kaydın bildiği parola artık işe yaramaz), bayrak kapanır, e-posta doğrulanır.
     // Açık oturumlar ve güvenilir cihaz belirteçleri parola özeti değiştiği için geçersizleşir; bu girişin jetonu yeni özetle imzalanır.
@@ -699,12 +767,26 @@ async function completeVerifiedSocialLogin({
     ok: true,
     is_new_user: isNewUser,
     provider: cleanProvider,
-    message: isNewUser
-      ? `${cleanProvider === 'apple' ? 'iCloud (Apple)' : 'Google'} hesabınızla kaydınız tamamlandı.`
-      : 'Giriş başarılı.',
+    message: claimedExistingAccount
+      ? 'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.'
+      : isNewUser
+        ? `${cleanProvider === 'apple' ? 'iCloud (Apple)' : 'Google'} hesabınızla kaydınız tamamlandı.`
+        : 'Giriş başarılı.',
     token,
     user: mapUserRow(user),
     ...(deviceToken ? { device_token: deviceToken } : {}),
+    ...(claimedExistingAccount
+      ? {
+          claimed_existing_account: true,
+          claim_message: 'Mevcut hesabınız bulundu. Daire hesabınız güvenli biçimde bağlandı.',
+        }
+      : {}),
+    ...(isNewUser && isApplePrivateRelay
+      ? {
+          is_apple_private_relay: true,
+          can_claim_existing_account: true,
+        }
+      : {}),
   };
 }
 

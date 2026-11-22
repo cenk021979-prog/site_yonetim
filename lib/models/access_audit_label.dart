@@ -61,6 +61,11 @@ String? accessAuditActionLabel(String action) {
       return 'Katılımda farklı kişi beyanı verildi';
     case 'join_request.duplicate_override_approved':
       return 'Olası mükerrer kişi yönetici tarafından doğrulandı';
+    // Kimlik çözümleme / hesap sahiplenme
+    case 'identity.account_claimed':
+      return 'Daire hesabı doğrulandı ve bağlandı';
+    case 'identity.account_merged':
+      return 'Mevcut daire hesabı birleştirildi';
     // Kapı özel izni
     case 'door_permission.granted':
       return 'Kapı özel izni verildi';

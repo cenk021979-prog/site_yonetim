@@ -2,6 +2,11 @@
 // Kullanici varligi sizmaz: kayitli/kayitsiz telefon ayni 200 yanitini alir. Kod yalniz HMAC ozeti olarak saklanir, tek kullanimliktir.
 import crypto from 'node:crypto';
 import { pool } from '../db.js';
+import {
+  createIdentityClaimChallenge,
+  findPhoneIdentityCandidates,
+  verifyIdentityClaimChallenge,
+} from './identity_resolution_service.js';
 import { signAccessToken } from '../jwt.js';
 import { mapUserRow } from '../utils/helpers.js';
 import {
@@ -66,13 +71,19 @@ export async function requestSmsCode(rawPhone, db = pool) {
   if (Number(recent.rows[0].n) >= MAX_CODES_PER_WINDOW) {
     throw new PlatformError(429, 'SMS_RATE_LIMITED', 'Çok fazla kod istediniz. Biraz sonra tekrar deneyin.');
   }
-  const userCode = await findUserByPhone(phone, db);
+  let userCode = await findUserByPhone(phone, db);
+  const multiCandidates = await findPhoneIdentityCandidates(phone, db);
+  if (multiCandidates.length > 1) {
+    userCode = null;
+  } else if (userCode === null && multiCandidates.length === 1) {
+    userCode = Number(multiCandidates[0].user_code);
+  }
   const code = generateCode();
   await db.query(
     `INSERT INTO sms_login_codes (phone, user_code, code_hash, expires_at) VALUES ($1, $2, $3, NOW() + make_interval(secs => $4))`,
     [phone, userCode, hashCode(phone, code), CODE_TTL_SECONDS],
   );
-  if (userCode !== null) {
+  if (userCode !== null || multiCandidates.length > 1) {
     try {
       await provider.send(phone, `Giriş kodunuz: ${code}. 5 dakika geçerlidir, kimseyle paylaşmayın.`);
     } catch (error) {
@@ -100,7 +111,7 @@ export async function verifySmsCode(rawPhone, rawCode, db = pool) {
     [phone, MAX_ATTEMPTS],
   );
   const row = claimed.rows?.[0];
-  if (!row || row.user_code === null || !safeEqual(row.code_hash, hashCode(phone, code))) {
+  if (!row || !safeEqual(row.code_hash, hashCode(phone, code))) {
     // Yalniz GERCEKTEN karsilastirilan (acik kod bulunan) yanlis deneme birikimli sayaca yazilir: kod istemeden gonderilen bos denemeler
     // baskasinin SMS girisini kilitleyemez. Kilidi koyan yanlis 423 alir (kayitli / kayitsiz telefon ayni davranir: kullanici varligi sizmaz).
     if (row) {
@@ -109,10 +120,46 @@ export async function verifySmsCode(rawPhone, rawCode, db = pool) {
     }
     throw badCode();
   }
+  let targetUserCode = row.user_code !== null && row.user_code !== undefined ? Number(row.user_code) : null;
+  let phoneCandidates = null;
+  if (targetUserCode === null) {
+    phoneCandidates = await findPhoneIdentityCandidates(phone, db);
+    if (phoneCandidates.length === 0) {
+      // Kayitsiz telefon icin dogru kod bilgisi dahi hesap varligini sizdirmamali:
+      // eski davranis gibi basarisiz deneme sayilir ve kod tuketilmez.
+      const failure = await registerAttemptFailure(ATTEMPT_POLICIES.smsCode, limitTarget, db);
+      if (failure.locked) throw codeLockedError('sms', failure.retryAfterSeconds);
+      throw badCode();
+    }
+    if (phoneCandidates.length === 1) {
+      targetUserCode = Number(phoneCandidates[0].user_code);
+    }
+  }
+
   const used = await db.query(`UPDATE sms_login_codes SET consumed_at = NOW() WHERE id = $1 AND consumed_at IS NULL RETURNING id`, [row.id]);
   if (!used.rows?.length) throw badCode();
   // Dogru kod: birikimli sayac ve kilit seviyesi sifirlanir.
   await resetAttempts(ATTEMPT_POLICIES.smsCode, limitTarget, db);
+
+  if (targetUserCode === null) {
+    if (phoneCandidates.length > 1) {
+      const challenge = await createIdentityClaimChallenge(db, {
+        kind: 'sms_account_select',
+        provider: 'sms',
+        verifiedPhone: phone,
+        candidates: phoneCandidates,
+      });
+      return {
+        ok: false,
+        account_selection_required: true,
+        selection_token: challenge.token,
+        expires_in_seconds: challenge.expiresInSeconds,
+        candidates: challenge.candidates,
+        message: 'Bu telefon numarasına bağlı birden fazla hesap bulundu. Giriş yapmak istediğiniz hesabı seçin.',
+      };
+    }
+  }
+
   // deleted_at IS NULL: kimliksizleştirilmiş (silinmiş) hesaba SMS ile oturum açılmaz. must_change_password: yönetimin verdiği geçici parola / PIN
   // henüz değişmediyse bayrak oturum yanıtına girer (POST /auth/login, OAuth ve auth_middleware ile AYNI tanım: bayrak VEYA dairede "PIN verildi").
   const userRes = await db.query(
@@ -121,11 +168,23 @@ export async function verifySmsCode(rawPhone, rawCode, db = pool) {
               SELECT 1 FROM apartments a WHERE a.resident_user_code = users.user_code AND a.resident_pin_issued = TRUE
             )) AS must_change_password
      FROM users WHERE user_code = $1 AND deleted_at IS NULL`,
-    [row.user_code],
+    [targetUserCode],
   );
   const user = userRes.rows?.[0];
-  if (!user || !user.is_active || !user.email_verified || (user.approval_status && user.approval_status !== 'approved')) throw badCode();
+  if (!user || !user.is_active || (!user.email_verified && !String(user.email || '').toLowerCase().endsWith('@ahbu.local')) || (user.approval_status && user.approval_status !== 'approved')) throw badCode();
   return { token: signAccessToken(mapUserRow(user), { passwordHash: user.password_hash }), user: mapUserRow(user) };
+}
+
+export async function verifySmsSelection({ selectionToken, candidateRef, rawDeviceToken = null }, deps = {}) {
+  return verifyIdentityClaimChallenge(
+    {
+      selectionToken,
+      method: 'selection',
+      candidateRef,
+      rawDeviceToken,
+    },
+    deps,
+  );
 }
 
 /** Bakim: bir gunden eski kodlari siler. */

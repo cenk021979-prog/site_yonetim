@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/models/identity_claim.dart';
 import 'package:flutter/services.dart';
 import 'package:site_kapi_kontrol/services/auth_service.dart';
 import 'package:site_kapi_kontrol/ui/helpers/phone_input.dart';
@@ -25,6 +26,8 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
   bool _enabled = false;
   bool _busy = false;
   bool _codeSent = false;
+  SmsSelectionChallenge? _selectionChallenge;
+  String? _selectedCandidateRef;
 
   @override
   void initState() {
@@ -51,7 +54,11 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
   Future<void> _requestCode() async {
     final phone = phoneToApi(_phoneController.text);
     if (phone == null) {
-      AppSnack.show(context, 'Telefon numaranızı yazın (ör. +90 555 123 45 67).', kind: AppSnackKind.error);
+      AppSnack.show(
+        context,
+        'Telefon numaranızı yazın (ör. +90 555 123 45 67).',
+        kind: AppSnackKind.error,
+      );
       return;
     }
     final phoneError = validatePhoneField(_phoneController.text);
@@ -81,15 +88,68 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
   Future<void> _verify() async {
     final code = _codeController.text.trim();
     if (!RegExp(r'^\d{6}$').hasMatch(code)) {
-      AppSnack.show(context, 'Kod 6 haneli olmalıdır.', kind: AppSnackKind.error);
+      AppSnack.show(
+        context,
+        'Kod 6 haneli olmalıdır.',
+        kind: AppSnackKind.error,
+      );
       return;
     }
     setState(() => _busy = true);
-    final error = await widget.authService.loginWithSms(phone: phoneToApi(_phoneController.text) ?? '', code: code);
+    final outcome = await widget.authService.loginWithSmsWithResult(
+      phone: phoneToApi(_phoneController.text) ?? '',
+      code: code,
+    );
+    if (!mounted) return;
+    if (outcome.smsSelection != null) {
+      setState(() {
+        _busy = false;
+        _selectionChallenge = outcome.smsSelection;
+        _selectedCandidateRef = outcome.smsSelection!.candidates.isNotEmpty
+            ? outcome.smsSelection!.candidates.first.candidateRef
+            : null;
+      });
+      return;
+    }
+    setState(() => _busy = false);
+    if (!outcome.ok) {
+      AppSnack.show(
+        context,
+        outcome.error ?? 'Doğrulama başarısız.',
+        kind: AppSnackKind.error,
+        maxLines: 6,
+      );
+      return;
+    }
+    HapticFeedback.lightImpact();
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _completeSelection() async {
+    final challenge = _selectionChallenge;
+    final ref = _selectedCandidateRef;
+    if (challenge == null || ref == null || ref.isEmpty) {
+      AppSnack.show(
+        context,
+        'Lütfen listeden giriş yapmak istediğiniz hesabı seçin.',
+        kind: AppSnackKind.error,
+      );
+      return;
+    }
+    setState(() => _busy = true);
+    final outcome = await widget.authService.completeSmsAccountSelection(
+      selectionToken: challenge.selectionToken,
+      candidateRef: ref,
+    );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (error != null) {
-      AppSnack.show(context, error, kind: AppSnackKind.error, maxLines: 6);
+    if (!outcome.ok) {
+      AppSnack.show(
+        context,
+        outcome.error ?? 'Giriş tamamlanamadı.',
+        kind: AppSnackKind.error,
+        maxLines: 6,
+      );
       return;
     }
     HapticFeedback.lightImpact();
@@ -113,21 +173,103 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
                 else if (!_enabled) ...[
                   const Align(
                     alignment: Alignment.centerLeft,
-                    child: StatusChip(label: 'Yakında…', tone: AppTone.neutral, icon: Icons.schedule_rounded),
+                    child: StatusChip(
+                      label: 'Yakında…',
+                      tone: AppTone.neutral,
+                      icon: Icons.schedule_rounded,
+                    ),
                   ),
                   const SizedBox(height: AppSpace.md),
-                  Text('SMS ile giriş şu an kullanılamıyor. E-posta ve parolanızla giriş yapabilirsiniz.', style: th.bodyMedium),
+                  Text(
+                    'SMS ile giriş şu an kullanılamıyor. E-posta ve parolanızla giriş yapabilirsiniz.',
+                    style: th.bodyMedium,
+                  ),
                 ] else ...[
                   TextField(
                     controller: _phoneController,
                     enabled: !_codeSent && !_busy,
                     keyboardType: TextInputType.phone,
                     inputFormatters: const [PhoneInputFormatter()],
-                    decoration: const InputDecoration(labelText: 'Telefon numarası', hintText: phoneFieldHint),
+                    decoration: const InputDecoration(
+                      labelText: 'Telefon numarası',
+                      hintText: phoneFieldHint,
+                    ),
                   ),
                   const SizedBox(height: AppSpace.md),
-                  if (!_codeSent)
-                    PrimaryActionButton(label: 'Kod Gönder', onPressed: _busy ? null : _requestCode, loading: _busy)
+                  if (_selectionChallenge != null) ...[
+                    Text(
+                      _selectionChallenge!.message ??
+                          'Bu numaraya kayıtlı birden fazla hesap bulundu. Giriş yapmak istediğiniz hesabı seçin:',
+                      style: th.bodyMedium,
+                    ),
+                    const SizedBox(height: AppSpace.sm),
+                    for (final cand in _selectionChallenge!.candidates)
+                      Card(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        child: InkWell(
+                          key: ValueKey(
+                            'sms_select_candidate_${cand.candidateRef}',
+                          ),
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _busy
+                              ? null
+                              : () => setState(
+                                  () =>
+                                      _selectedCandidateRef = cand.candidateRef,
+                                ),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _selectedCandidateRef == cand.candidateRef
+                                      ? Icons.radio_button_checked
+                                      : Icons.radio_button_off,
+                                  color:
+                                      _selectedCandidateRef == cand.candidateRef
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Theme.of(
+                                          context,
+                                        ).colorScheme.onSurfaceVariant,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    cand.displayLabel,
+                                    style: th.bodyMedium,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    const SizedBox(height: AppSpace.sm),
+                    PrimaryActionButton(
+                      key: const ValueKey('sms_complete_selection_btn'),
+                      label: 'Seçili Hesaba Giriş Yap',
+                      onPressed: _busy ? null : _completeSelection,
+                      loading: _busy,
+                    ),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() {
+                              _selectionChallenge = null;
+                              _codeSent = false;
+                              _codeController.clear();
+                            }),
+                      child: const Text('Numarayı değiştir / yeni kod iste'),
+                    ),
+                  ] else if (!_codeSent)
+                    PrimaryActionButton(
+                      label: 'Kod Gönder',
+                      onPressed: _busy ? null : _requestCode,
+                      loading: _busy,
+                    )
                   else ...[
                     TextField(
                       controller: _codeController,
@@ -135,12 +277,20 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
                       keyboardType: TextInputType.number,
                       maxLength: 6,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      decoration: const InputDecoration(labelText: 'SMS kodu (6 hane)'),
+                      decoration: const InputDecoration(
+                        labelText: 'SMS kodu (6 hane)',
+                      ),
                     ),
                     const SizedBox(height: AppSpace.sm),
-                    PrimaryActionButton(label: 'Giriş Yap', onPressed: _busy ? null : _verify, loading: _busy),
+                    PrimaryActionButton(
+                      label: 'Giriş Yap',
+                      onPressed: _busy ? null : _verify,
+                      loading: _busy,
+                    ),
                     TextButton(
-                      onPressed: _busy ? null : () => setState(() => _codeSent = false),
+                      onPressed: _busy
+                          ? null
+                          : () => setState(() => _codeSent = false),
                       child: const Text('Numarayı değiştir / yeni kod iste'),
                     ),
                   ],
@@ -152,8 +302,14 @@ class _SmsLoginPageState extends State<SmsLoginPage> {
                   children: [
                     const Icon(Icons.chat_rounded, size: 20),
                     const SizedBox(width: AppSpace.md),
-                    Expanded(child: Text('WhatsApp ile giriş', style: th.bodyLarge)),
-                    const StatusChip(label: 'Yakında…', tone: AppTone.neutral, icon: Icons.schedule_rounded),
+                    Expanded(
+                      child: Text('WhatsApp ile giriş', style: th.bodyLarge),
+                    ),
+                    const StatusChip(
+                      label: 'Yakında…',
+                      tone: AppTone.neutral,
+                      icon: Icons.schedule_rounded,
+                    ),
                   ],
                 ),
               ],

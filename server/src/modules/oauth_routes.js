@@ -11,6 +11,11 @@ import express from 'express';
 import { createRuleLimiter } from '../middlewares/rate_limiters.js';
 import { readDeviceToken } from '../security/login_device_token.js';
 import { HOUR_MS, ipKey, respondError } from './route_helpers.js';
+import { PlatformError } from './errors.js';
+import {
+  requestIdentityClaimSmsCode,
+  verifyIdentityClaimChallenge,
+} from './identity_resolution_service.js';
 import {
   authenticateWithOAuth,
   completeOAuthWebCallback,
@@ -61,16 +66,65 @@ function handler({ context, fallback }, run) {
         if (hasRetryAfter) {
           res.setHeader('Retry-After', String(retryAfter));
         }
+        const safeClaimExtra =
+          error instanceof PlatformError &&
+          error.statusCode === 409 &&
+          error.extra?.claim_verification_required === true
+            ? {
+                claim_verification_required: true,
+                challenge_token: error.extra.challenge_token,
+                expires_in_seconds: error.extra.expires_in_seconds,
+                candidates: error.extra.candidates,
+                verification_methods: error.extra.verification_methods,
+                ...(error.extra.provider ? { provider: error.extra.provider } : {}),
+              }
+            : null;
         return res.status(error.statusCode).json({
           error: error.message,
           ...(error.code ? { code: error.code } : {}),
           ...(hasRetryAfter ? { retry_after_seconds: retryAfter } : {}),
+          ...(safeClaimExtra ?? {}),
         });
       }
       return respondError(res, context, error, fallback);
     }
   };
 }
+
+oauthRouter.post('/auth/identity/claim/request-sms', oauthCodeRequestLimiter, handler(
+  {
+    context: 'identity_claim_request_sms',
+    fallback: 'Doğrulama SMS kodu gönderilemedi.',
+  },
+  async (req) => {
+    const body = bodyOf(req);
+    return requestIdentityClaimSmsCode({
+      challengeToken: body.challenge_token ?? body.challengeToken,
+      phone: body.phone,
+    });
+  },
+));
+
+oauthRouter.post('/auth/identity/claim/verify', oauthVerifyLimiter, handler(
+  {
+    context: 'identity_claim_verify',
+    fallback: 'Hesap doğrulama işlemi tamamlanamadı.',
+  },
+  async (req) => {
+    const body = bodyOf(req);
+    return verifyIdentityClaimChallenge({
+      challengeToken: body.challenge_token ?? body.challengeToken,
+      selectionToken: body.selection_token ?? body.selectionToken,
+      method: body.method ?? 'credentials',
+      identifier: body.identifier ?? body.login_name ?? body.email,
+      password: body.password ?? body.pin,
+      phone: body.phone,
+      code: body.code,
+      candidateRef: body.candidate_ref ?? body.candidateRef,
+      rawDeviceToken: readDeviceToken(req),
+    });
+  },
+));
 
 function handleProviderAuth(provider) {
   return handler(

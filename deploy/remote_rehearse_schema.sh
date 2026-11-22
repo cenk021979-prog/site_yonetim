@@ -4,7 +4,7 @@
 # (her migration icin o migration'in olusturdugu nesne: tablo / sutun / indeks / kisit / tetikleyici / islev) varlik kontrolleri + IDEMPOTANS:
 # ensureDbSchema turlarinda node CIKIS KODU ve "ENSURE_OK tur N" satiri ZORUNLUDUR; yoksa (migration/sema coktuyse) PROVA_SORUNLU basar.
 # ikinci ensureDbSchema turundan sonra TUM public semasinin parmak izi (kolon, kisit, indeks, tetikleyici, islev) ilk turla AYNI olmali.
-# 085, 088-091, 096-100, 102, 103, 110, 111 (okNNN, ok085-111 grubu): her migration'in nesneleri (tablo / sutun / indeks / kisit / tetikleyici / islev) varlik + (088 / 090) kisitlarin DOGRULANMIS olmasi;
+# 085, 088-091, 096-100, 102, 103, 110, 111, 138 (okNNN, ok085-138 grubu): her migration'in nesneleri (tablo / sutun / indeks / kisit / tetikleyici / islev) varlik + (088 / 090) kisitlarin DOGRULANMIS olmasi;
 # ayrica yukseltme bu migration'larin tablolarina satir ekler / silerse once/sonra sayim parmak izi (ok085data) uyusmaz ve PROVA_SORUNLU basar.
 # Kullanim: bash remote_rehearse_schema.sh <TS>   (once remote_deploy.sh <TS> prepare calismis olmali)
 set -u
@@ -41,7 +41,7 @@ before_owners=$($PSQL -d "$RDB" -Atc "select count(*) from apartment_residencies
 cnt() { local v; v=$($PSQL -d "$RDB" -Atc "select count(*) from $1" 2>/dev/null); echo "${v:-0}"; }
 snap085() {
   local t s=""
-  for t in auth_attempt_limits finance_refunds finance_refund_counters finance_liability_transfers work_categories site_menu_layouts feedback_reports feedback_attachments expense_check_marks payment_notice_check_marks equipment_quotes drive_files fee_runs work_items; do
+  for t in auth_attempt_limits finance_refunds finance_refund_counters finance_liability_transfers work_categories site_menu_layouts feedback_reports feedback_attachments expense_check_marks payment_notice_check_marks equipment_quotes drive_files fee_runs work_items identity_claim_challenges; do
     s="$s $t=$(cnt "$t")"
   done
   s="$s iade_hareketi=$(cnt "account_movements where kind = 'refund'")"
@@ -249,11 +249,13 @@ ok103=$(q "select $(tb "'feedback_reports','feedback_attachments'" 2) and $(ks "
 ok110=$(q "select $(tb "'expense_check_marks','payment_notice_check_marks'" 2) and $(ks "'expense_check_marks_expense_id_fkey','expense_check_marks_site_code_fkey','expense_check_marks_checked_by_fkey','payment_notice_check_marks_notice_id_fkey','payment_notice_check_marks_site_code_fkey','payment_notice_check_marks_checked_by_fkey'" 6) and $(ix "'idx_expense_check_marks_site','idx_expense_check_marks_by','idx_payment_notice_check_marks_site','idx_payment_notice_check_marks_by'" 4)")
 # 111 (is kaydi <-> firma yonlendirmesi): work_items 5 sutun, 2 CHECK, durum kisiti firmada kabul eder.
 ok111=$(q "select $(cl "'work_items.vendor_name','work_items.vendor_contact','work_items.vendor_phone','work_items.vendor_amount_kurus','work_items.vendor_referred_at'" 5) and $(ks "'chk_work_items_vendor','chk_work_items_firmada_vendor'" 2) and $(kd chk_work_items_status firmada)")
-# 085-111 veri parmak izi: ensureDbSchema (2 tur) sonrasi sayilar ONCEKINE esit olmali (hepsi ekleyici; satir eklemez / silmez).
+# 138 (merkezi kimlik cozumleme): challenge tablosu, alanlar, tekillik/CHECK ve iki indeks.
+ok138=$(q "select $(tb "'identity_claim_challenges'" 1) and $(cl "'identity_claim_challenges.token_hash','identity_claim_challenges.challenge_kind','identity_claim_challenges.provider','identity_claim_challenges.provider_sub','identity_claim_challenges.verified_email','identity_claim_challenges.verified_phone','identity_claim_challenges.full_name','identity_claim_challenges.candidate_user_codes','identity_claim_challenges.attempts','identity_claim_challenges.max_attempts','identity_claim_challenges.expires_at','identity_claim_challenges.consumed_at','identity_claim_challenges.consumed_user_code','identity_claim_challenges.created_at'" 14) and $(ks "'identity_claim_challenges_pkey','identity_claim_challenges_token_hash_key','chk_identity_claim_kind'" 3) and $(ix "'idx_identity_claim_challenges_expires','idx_identity_claim_challenges_sub'" 2)")
+# 085-138 veri parmak izi: ensureDbSchema (2 tur) sonrasi sayilar ONCEKINE esit olmali (hepsi ekleyici; satir eklemez / silmez).
 SNAP085_AFTER="$(snap085)"
 ok085data=f; [ -n "$SNAP085_BEFORE" ] && [ "$SNAP085_BEFORE" = "$SNAP085_AFTER" ] && ok085data=t
-echo "   [085-111] varlik kontrolleri: ok085=$ok085 ok088=$ok088 ok089=$ok089 ok090=$ok090 ok091=$ok091 ok096=$ok096 ok097=$ok097 ok098=$ok098 ok099=$ok099 ok100=$ok100 ok102=$ok102 ok103=$ok103 ok110=$ok110 ok111=$ok111 ok085data=$ok085data"
-echo "   [085-111] veri sayilari once/sonra: $([ "$ok085data" = t ] && echo "AYNI (esit olmali): $SNAP085_AFTER" || echo "FARKLI-SORUNLU once={$SNAP085_BEFORE} sonra={$SNAP085_AFTER}")"
+echo "   [085-138] varlik kontrolleri: ok085=$ok085 ok088=$ok088 ok089=$ok089 ok090=$ok090 ok091=$ok091 ok096=$ok096 ok097=$ok097 ok098=$ok098 ok099=$ok099 ok100=$ok100 ok102=$ok102 ok103=$ok103 ok110=$ok110 ok111=$ok111 ok138=$ok138 ok085data=$ok085data"
+echo "   [085-138] veri sayilari once/sonra: $([ "$ok085data" = t ] && echo "AYNI (esit olmali): $SNAP085_AFTER" || echo "FARKLI-SORUNLU once={$SNAP085_BEFORE} sonra={$SNAP085_AFTER}")"
 echo "   [091] aidat dagitim kisiti person_count iceriyor: $(q "select count(*) from pg_constraint where conname='chk_fee_definitions_distribution' and position('person_count' in pg_get_constraintdef(oid)) > 0") (1 olmali; db.js 091 hatasini yalniz loglar, acilisi durdurmaz)"
 echo "   [052-084] varlik kontrolleri: ok052=$ok052 ok053=$ok053 ok054=$ok054 ok055=$ok055 ok056=$ok056 ok057=$ok057 ok058=$ok058 ok059=$ok059 ok060=$ok060 ok061=$ok061 ok062=$ok062 ok063=$ok063 ok064=$ok064 ok065=$ok065 ok066=$ok066 ok067=$ok067 ok068=$ok068 ok069=$ok069 ok070=$ok070 ok071=$ok071 ok072=$ok072 ok073=$ok073 ok074=$ok074 ok075=$ok075 ok076=$ok076 ok077=$ok077 ok078=$ok078 ok079=$ok079 ok080=$ok080 ok081=$ok081 ok082=$ok082 ok083=$ok083 ok084=$ok084 ok136=$ok136 ok137=$ok137"
 echo "   [077] site_name_key('X'||NBSP||'  I-nokta-ustte'||'ZM'||tab||'Y') = $(q "select site_name_key('X'||chr(160)||'  '||chr(304)||'ZM'||chr(9)||'Y')") ('x izm y' olmali); yeni indeks: $(q "select string_agg(indexname, ',' order by indexname) from pg_indexes where indexname in ('uq_sites_name_key','uq_site_applications_pending_name_key')") (2 olmali); eski indeks kalan: $(q "select count(*) from pg_indexes where indexname in ('idx_sites_unique_name','idx_site_applications_pending_unique_name')") (0 olmali; mukerrer ad varsa yeni kurulamaz ve eski KALIR: acilis gunlugundaki UYARI satirlarina bak)"
@@ -268,9 +270,9 @@ for v in "$ok052" "$ok053" "$ok054" "$ok055" "$ok056" "$ok057" "$ok058" "$ok059"
 all104=t
 for v in "$ok104" "$ok106" "$ok107"; do [ "$v" = "t" ] || all104=f; done
 all085=t
-for v in "$ok085" "$ok088" "$ok089" "$ok090" "$ok091" "$ok096" "$ok097" "$ok098" "$ok099" "$ok100" "$ok102" "$ok103" "$ok110" "$ok111" "$ok085data"; do [ "$v" = "t" ] || all085=f; done
+for v in "$ok085" "$ok088" "$ok089" "$ok090" "$ok091" "$ok096" "$ok097" "$ok098" "$ok099" "$ok100" "$ok102" "$ok103" "$ok110" "$ok111" "$ok138" "$ok085data"; do [ "$v" = "t" ] || all085=f; done
 idem=f; [ -n "$FP1" ] && [ "$FP1" = "$FP2" ] && idem=t
-echo "   ok035=$ok035 ok038=$ok038 ok039=$ok039 ok040=$ok040 ok041=$ok041 ok044=$ok044 ok047=$ok047 ok049=$ok049 ok051=$ok051 ok052-084=$all052 ok104-107=$all104 ok085-111=$all085 ensure=$ENSURE_OK_ALL idempotent=$idem"
+echo "   ok035=$ok035 ok038=$ok038 ok039=$ok039 ok040=$ok040 ok041=$ok041 ok044=$ok044 ok047=$ok047 ok049=$ok049 ok051=$ok051 ok052-084=$all052 ok104-107=$all104 ok085-138=$all085 ensure=$ENSURE_OK_ALL idempotent=$idem"
 if [ "$before_sites" = "$after_sites" ] && [ "$before_users" = "$after_users" ] && [ "$before_sm" = "$after_sm" ] && [ "$before_am" = "$after_am" ] && [ "$typed" = "$after_sites" ] && [ "$ok035" = "t" ] && [ "$ok038" = "t" ] && [ "$ok039" = "t" ] && [ "$ok040" = "t" ] && [ "$ok041" = "t" ] && [ "$ok044" = "t" ] && [ "$ok047" = "t" ] && [ "$ok049" = "t" ] && [ "$ok051" = "t" ] && [ "$all052" = "t" ] && [ "$all104" = "t" ] && [ "$all085" = "t" ] && [ "$ENSURE_OK_ALL" = "t" ] && [ "$idem" = "t" ]; then
   echo "PROVA_OK"
 else

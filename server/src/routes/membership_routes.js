@@ -1,3 +1,6 @@
+import {
+  claimExistingAccountForSession,
+} from '../modules/identity_resolution_service.js';
 import express from 'express';
 import { authRequired, getAuthUserCode } from '../middlewares/auth_middleware.js';
 import { respondWithServiceError } from '../middlewares/error_handler.js';
@@ -41,6 +44,15 @@ export const setupSiteLimiter = createRuleLimiter({
     { windowMs: 10 * 60 * 1000, max: 60, key: (req) => `ip:${clientIp(req)}` },
   ],
   message: 'Cok fazla site kurulum denemesi. Biraz sonra tekrar deneyin.',
+  includeRetryBody: true,
+});
+
+const claimExistingAccountLimiter = createRuleLimiter({
+  rules: [
+    { windowMs: 10 * 60 * 1000, max: 10, key: (req) => `u:${authUserKeyOf(req) ?? clientIp(req)}` },
+    { windowMs: 10 * 60 * 1000, max: 60, key: (req) => `ip:${clientIp(req)}` },
+  ],
+  message: 'Çok fazla hesap bağlama denemesi. Biraz sonra tekrar deneyin.',
   includeRetryBody: true,
 });
 
@@ -435,5 +447,28 @@ membershipRouter.get('/membership/sites/:id/residents-tree', authRequired, async
     return res.status(200).json(result);
   } catch (error) {
     return respondError(res, 'residents_tree', error, 'Sakin listesi alınamadı.');
+  }
+});
+
+/**
+ * POST /membership/claim-existing-account
+ * Oturumdaki bireysel kullanıcının mevcut daire hesabını güvenli biçimde sahiplenmesini sağlar.
+ */
+membershipRouter.post('/membership/claim-existing-account', authRequired, claimExistingAccountLimiter, async (req, res) => {
+  try {
+    const body = req.body && typeof req.body === 'object' ? req.body : {};
+    const result = await claimExistingAccountForSession(req.authUser, {
+      targetUserCode: body.target_user_code ?? body.targetUserCode ?? null,
+      method: body.method ?? null,
+      identifier: body.identifier ?? body.login_name ?? body.email ?? null,
+      password: body.password ?? body.pin ?? null,
+      phone: body.phone ?? null,
+      code: body.code ?? null,
+      rawDeviceToken: readDeviceToken(req),
+    });
+    res.setHeader('Cache-Control', 'no-store');
+    return res.status(200).json(result);
+  } catch (error) {
+    return respondError(res, 'claim_existing_account', error, 'Mevcut hesap bağlanamadı.');
   }
 });

@@ -31,15 +31,14 @@ class ManageJoinRequestsDialog extends StatefulWidget {
     return showDialog<bool>(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) => ManageJoinRequestsDialog(
-        site: site,
-        authService: authService,
-      ),
+      builder: (ctx) =>
+          ManageJoinRequestsDialog(site: site, authService: authService),
     );
   }
 
   @override
-  State<ManageJoinRequestsDialog> createState() => _ManageJoinRequestsDialogState();
+  State<ManageJoinRequestsDialog> createState() =>
+      _ManageJoinRequestsDialogState();
 }
 
 class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
@@ -86,12 +85,17 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
           icon: Icons.person_search_rounded,
           tone: AppTone.warning,
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('İptal')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('İptal'),
+            ),
             ElevatedButton(
               onPressed: () {
                 final text = controller.text.trim();
                 if (text.length < 10) {
-                  setDialogState(() => validation = 'En az 10 karakterlik açıklama yazın.');
+                  setDialogState(
+                    () => validation = 'En az 10 karakterlik açıklama yazın.',
+                  );
                   return;
                 }
                 Navigator.pop(ctx, text);
@@ -105,14 +109,19 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
             children: [
               Text(message),
               const SizedBox(height: AppSpace.md),
-              const Text('Aynı kişiyse başvuruyu onaylamayın; sakini yönetimin daha önce verdiği hesapla giriş yapmaya yönlendirin.'),
+              const Text(
+                'Aynı kişiyse başvuruyu onaylamayın; sakini yönetimin daha önce verdiği hesapla giriş yapmaya yönlendirin.',
+              ),
               const SizedBox(height: AppSpace.md),
               TextField(
                 controller: controller,
                 maxLength: 300,
                 minLines: 2,
                 maxLines: 4,
-                decoration: InputDecoration(labelText: 'Farklı kişi olma gerekçesi', errorText: validation),
+                decoration: InputDecoration(
+                  labelText: 'Farklı kişi olma gerekçesi',
+                  errorText: validation,
+                ),
               ),
             ],
           ),
@@ -175,7 +184,10 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
         icon: Icons.person_off_rounded,
         tone: AppTone.danger,
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('İptal')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('İptal'),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTone.danger.a,
@@ -241,7 +253,10 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
     final compactHeader = MediaQuery.textScalerOf(context).scale(1) > 1.3;
 
     return Dialog(
-      insetPadding: const EdgeInsets.symmetric(horizontal: AppSpace.lg, vertical: AppSpace.xl),
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: AppSpace.lg,
+        vertical: AppSpace.xl,
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 580, maxHeight: 680),
         child: Column(
@@ -265,14 +280,22 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                   child: IconButton(
                     onPressed: () => Navigator.pop(context, false),
                     icon: const Icon(Icons.close_rounded),
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                   ),
                 ),
               ],
             ),
             // Bekleyen sayısı + yenile
             Padding(
-              padding: const EdgeInsets.fromLTRB(AppSpace.xl, 0, AppSpace.sm, AppSpace.sm),
+              padding: const EdgeInsets.fromLTRB(
+                AppSpace.xl,
+                0,
+                AppSpace.sm,
+                AppSpace.sm,
+              ),
               child: Row(
                 children: [
                   Expanded(
@@ -284,14 +307,19 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                         children: [
                           if (compactHeader)
                             Padding(
-                              padding: const EdgeInsets.only(bottom: AppSpace.xs),
+                              padding: const EdgeInsets.only(
+                                bottom: AppSpace.xs,
+                              ),
                               child: Text(
                                 widget.site.name,
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ),
                           if (pendingCount > 0)
-                            StatusChip(label: '$pendingCount Bekleyen', tone: AppTone.warning),
+                            StatusChip(
+                              label: '$pendingCount Bekleyen',
+                              tone: AppTone.warning,
+                            ),
                         ],
                       ),
                     ),
@@ -299,7 +327,10 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                   IconButton(
                     tooltip: 'Yenile',
                     onPressed: _isLoading ? null : _loadRequests,
-                    constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                    constraints: const BoxConstraints(
+                      minWidth: 44,
+                      minHeight: 44,
+                    ),
                     icon: const Icon(Icons.refresh_rounded, size: 20),
                   ),
                 ],
@@ -316,34 +347,35 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                       child: DialogRowsSkeleton(),
                     )
                   : _errorMessage != null
-                      ? SingleChildScrollView(
-                          padding: const EdgeInsets.all(AppSpace.lg + AppSpace.xs),
-                          child: InlineNotice(
-                            message: _errorMessage!,
-                            onRetry: _loadRequests,
-                          ),
-                        )
-                      : _requests.isEmpty
-                          ? const EmptyState(
-                              icon: Icons.inbox_outlined,
-                              title: 'Henüz katılım talebi bulunmuyor.',
-                              message:
-                                  'Site Katılım QR kodu okutan sakinlerin başvuruları burada listelenecektir.',
-                            )
-                          : RefreshIndicator(
-                              onRefresh: _loadRequests,
-                              // Tembel liste (geçmiş talepler uzun olabilir): kademeli giriş yok.
-                              child: ListView.separated(
-                                padding: const EdgeInsets.all(AppSpace.lg),
-                                itemCount: _requests.length,
-                                separatorBuilder: (_, _) => const SizedBox(height: AppSpace.md),
-                                itemBuilder: (context, index) {
-                                  final req = _requests[index];
-                                  final isBusy = _busyRequestIds.contains(req.id);
-                                  return _buildRequestCard(context, req, isBusy);
-                                },
-                              ),
-                            ),
+                  ? SingleChildScrollView(
+                      padding: const EdgeInsets.all(AppSpace.lg + AppSpace.xs),
+                      child: InlineNotice(
+                        message: _errorMessage!,
+                        onRetry: _loadRequests,
+                      ),
+                    )
+                  : _requests.isEmpty
+                  ? const EmptyState(
+                      icon: Icons.inbox_outlined,
+                      title: 'Henüz katılım talebi bulunmuyor.',
+                      message:
+                          'Site Katılım QR kodu okutan sakinlerin başvuruları burada listelenecektir.',
+                    )
+                  : RefreshIndicator(
+                      onRefresh: _loadRequests,
+                      // Tembel liste (geçmiş talepler uzun olabilir): kademeli giriş yok.
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(AppSpace.lg),
+                        itemCount: _requests.length,
+                        separatorBuilder: (_, _) =>
+                            const SizedBox(height: AppSpace.md),
+                        itemBuilder: (context, index) {
+                          final req = _requests[index];
+                          final isBusy = _busyRequestIds.contains(req.id);
+                          return _buildRequestCard(context, req, isBusy);
+                        },
+                      ),
+                    ),
             ),
           ],
         ),
@@ -366,7 +398,9 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
         : (req.isRejected ? AppTone.danger : AppTone.warning);
     final statusIcon = req.isApproved
         ? Icons.how_to_reg_rounded
-        : (req.isRejected ? Icons.person_off_rounded : Icons.person_add_alt_1_rounded);
+        : (req.isRejected
+              ? Icons.person_off_rounded
+              : Icons.person_add_alt_1_rounded);
 
     final statusText = req.isApproved
         ? 'Onaylandı'
@@ -382,10 +416,7 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
           runSpacing: AppSpace.xs,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            Text(
-              req.fullName ?? 'İsimsiz Kullanıcı',
-              style: th.titleMedium,
-            ),
+            Text(req.fullName ?? 'İsimsiz Kullanıcı', style: th.titleMedium),
             StatusChip(label: statusText, tone: statusTone),
           ],
         ),
@@ -426,6 +457,36 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
           ],
         ),
 
+        // Olası mevcut hesap eşleşme bilgisi (yalnız zayıf eşleşme engellemez, bilgi rozeti olarak gösterilir)
+        if (req.identityMatch != null) ...[
+          const SizedBox(height: AppSpace.sm),
+          DialogPanel(
+            padding: const EdgeInsets.all(AppSpace.sm),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(
+                  req.identityMatch!.isStrongMatch
+                      ? Icons.warning_amber_rounded
+                      : Icons.info_outline_rounded,
+                  size: 18,
+                  color: req.identityMatch!.isStrongMatch
+                      ? Theme.of(context).colorScheme.error
+                      : Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    req.identityMatch!.isStrongMatch
+                        ? 'Aynı e-posta/telefonla kayıtlı başka bir hesap tespit edildi (${req.identityMatch!.maskedName ?? req.identityMatch!.maskedLoginName ?? 'kayıtlı hesap'}). Onay için farklı kişi gerekçesi gerekir.'
+                        : 'Benzer adla başka bir kayıt bulunuyor (${req.identityMatch!.maskedName ?? req.identityMatch!.maskedLoginName ?? 'benzer kayıt'}). Yalnız isim benzerliği onayı engellemez.',
+                    style: th.bodySmall,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
         // Kullanıcı Notu
         if ((req.notes ?? '').isNotEmpty) ...[
           const SizedBox(height: AppSpace.sm),
@@ -508,7 +569,9 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                   onPressed: isBusy ? null : () => _reject(req),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppTone.danger.ink(p),
-                    side: BorderSide(color: AppTone.danger.hue.withValues(alpha: 0.6)),
+                    side: BorderSide(
+                      color: AppTone.danger.hue.withValues(alpha: 0.6),
+                    ),
                   ),
                   icon: const Icon(Icons.close_rounded, size: 16),
                   label: const Text('Reddet'),
@@ -523,7 +586,10 @@ class _ManageJoinRequestsDialogState extends State<ManageJoinRequestsDialog> {
                       ? const SizedBox(
                           width: 14,
                           height: 14,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
                         )
                       : const Icon(Icons.check_rounded, size: 16),
                   label: const Text('Onayla'),

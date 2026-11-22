@@ -46,6 +46,7 @@ import 'package:site_kapi_kontrol/models/subscription_request.dart';
 import 'package:site_kapi_kontrol/models/subscription_request_page.dart';
 import 'package:site_kapi_kontrol/models/user_role.dart';
 import 'package:site_kapi_kontrol/models/user_session.dart';
+import 'package:site_kapi_kontrol/models/identity_claim.dart';
 import 'package:site_kapi_kontrol/services/api_exception.dart';
 import 'package:site_kapi_kontrol/services/background_work.dart';
 import 'package:site_kapi_kontrol/services/login_device_token_store.dart';
@@ -58,11 +59,11 @@ class AuthApi {
     Duration? readTimeout,
     Duration? doorOpenTimeout,
     Duration? retryDelay,
-  })  : _client = client ?? http.Client(),
-        _requestTimeout = requestTimeout ?? const Duration(seconds: 45),
-        _readTimeout = readTimeout ?? _defaultReadTimeout(requestTimeout),
-        _doorOpenTimeout = doorOpenTimeout ?? const Duration(seconds: 10),
-        _retryDelay = retryDelay ?? const Duration(milliseconds: 350);
+  }) : _client = client ?? http.Client(),
+       _requestTimeout = requestTimeout ?? const Duration(seconds: 45),
+       _readTimeout = readTimeout ?? _defaultReadTimeout(requestTimeout),
+       _doorOpenTimeout = doorOpenTimeout ?? const Duration(seconds: 10),
+       _retryDelay = retryDelay ?? const Duration(milliseconds: 350);
 
   final String baseUrl;
   final http.Client _client;
@@ -108,7 +109,8 @@ class AuthApi {
         'email': email,
         'password': password,
         if (role != null) 'role': role.apiValue,
-        if (deviceToken != null && deviceToken.isNotEmpty) 'device_token': deviceToken,
+        if (deviceToken != null && deviceToken.isNotEmpty)
+          'device_token': deviceToken,
       },
       expectedCode: 200,
       onDeviceToken: onDeviceToken,
@@ -149,10 +151,7 @@ class AuthApi {
   }) async {
     return _authRequest(
       path: '/auth/verify-code',
-      body: {
-        'email': email,
-        'code': code,
-      },
+      body: {'email': email, 'code': code},
       expectedCode: 200,
     );
   }
@@ -165,25 +164,19 @@ class AuthApi {
       method: 'POST',
       uri: uri,
       headers: const {'Content-Type': 'application/json'},
-      body: {
-        'email': email,
-      },
+      body: {'email': email},
     );
     _ensureStatus(response, 200, unauthorizedIsSession: false);
     return _decodePayload(response);
   }
 
-  Future<Map<String, dynamic>> forgotPassword({
-    required String email,
-  }) async {
+  Future<Map<String, dynamic>> forgotPassword({required String email}) async {
     final uri = Uri.parse('$baseUrl/auth/forgot-password');
     final response = await _sendRequest(
       method: 'POST',
       uri: uri,
       headers: const {'Content-Type': 'application/json'},
-      body: {
-        'email': email,
-      },
+      body: {'email': email},
     );
     _ensureStatus(response, 200, unauthorizedIsSession: false);
     return _decodePayload(response);
@@ -244,6 +237,7 @@ class AuthApi {
     List<AcceptedDocument>? acceptedDocuments,
     String? deviceToken,
     void Function(String deviceToken)? onDeviceToken,
+    void Function(Map<String, dynamic> payload)? onPayload,
     // Yerel giriş nonce'u (HAM değer): sağlayıcıya bunun SHA-256 özeti verilmiştir; sunucu belirteçteki nonce talebini özetle karşılaştırır.
     String? nonce,
   }) {
@@ -253,14 +247,19 @@ class AuthApi {
       body: {
         'id_token': idToken,
         if (nonce != null && nonce.isNotEmpty) 'nonce': nonce,
-        if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
-        if (firstName != null && firstName.trim().isNotEmpty) 'first_name': firstName.trim(),
-        if (lastName != null && lastName.trim().isNotEmpty) 'last_name': lastName.trim(),
-        if (deviceToken != null && deviceToken.isNotEmpty) 'device_token': deviceToken,
+        if (fullName != null && fullName.trim().isNotEmpty)
+          'full_name': fullName.trim(),
+        if (firstName != null && firstName.trim().isNotEmpty)
+          'first_name': firstName.trim(),
+        if (lastName != null && lastName.trim().isNotEmpty)
+          'last_name': lastName.trim(),
+        if (deviceToken != null && deviceToken.isNotEmpty)
+          'device_token': deviceToken,
         ..._acceptedDocumentsBody(acceptedDocuments),
       },
       expectedCode: 200,
       onDeviceToken: onDeviceToken,
+      onPayload: onPayload,
     );
   }
 
@@ -279,9 +278,12 @@ class AuthApi {
       headers: const {'Content-Type': 'application/json'},
       body: {
         'email': email.trim(),
-        if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
-        if (firstName != null && firstName.trim().isNotEmpty) 'first_name': firstName.trim(),
-        if (lastName != null && lastName.trim().isNotEmpty) 'last_name': lastName.trim(),
+        if (fullName != null && fullName.trim().isNotEmpty)
+          'full_name': fullName.trim(),
+        if (firstName != null && firstName.trim().isNotEmpty)
+          'first_name': firstName.trim(),
+        if (lastName != null && lastName.trim().isNotEmpty)
+          'last_name': lastName.trim(),
       },
       retryOnTransportError: false,
     );
@@ -300,6 +302,7 @@ class AuthApi {
     List<AcceptedDocument>? acceptedDocuments,
     String? deviceToken,
     void Function(String deviceToken)? onDeviceToken,
+    void Function(Map<String, dynamic> payload)? onPayload,
   }) {
     final cleanProvider = provider.trim().toLowerCase();
     return _authRequest(
@@ -307,14 +310,19 @@ class AuthApi {
       body: {
         'email': email.trim(),
         'code': code.trim(),
-        if (fullName != null && fullName.trim().isNotEmpty) 'full_name': fullName.trim(),
-        if (firstName != null && firstName.trim().isNotEmpty) 'first_name': firstName.trim(),
-        if (lastName != null && lastName.trim().isNotEmpty) 'last_name': lastName.trim(),
-        if (deviceToken != null && deviceToken.isNotEmpty) 'device_token': deviceToken,
+        if (fullName != null && fullName.trim().isNotEmpty)
+          'full_name': fullName.trim(),
+        if (firstName != null && firstName.trim().isNotEmpty)
+          'first_name': firstName.trim(),
+        if (lastName != null && lastName.trim().isNotEmpty)
+          'last_name': lastName.trim(),
+        if (deviceToken != null && deviceToken.isNotEmpty)
+          'device_token': deviceToken,
         ..._acceptedDocumentsBody(acceptedDocuments),
       },
       expectedCode: 200,
       onDeviceToken: onDeviceToken,
+      onPayload: onPayload,
     );
   }
 
@@ -329,9 +337,7 @@ class AuthApi {
         method: 'POST',
         uri: Uri.parse('$baseUrl/auth/oauth/$cleanProvider/start'),
         headers: const {'Content-Type': 'application/json'},
-        body: {
-          ..._acceptedDocumentsBody(acceptedDocuments),
-        },
+        body: {..._acceptedDocumentsBody(acceptedDocuments)},
         retryOnTransportError: false,
       );
       _ensureStatus(response, 200, unauthorizedIsSession: false);
@@ -351,7 +357,9 @@ class AuthApi {
   }) async {
     final response = await _sendRequest(
       method: 'GET',
-      uri: Uri.parse('$baseUrl/auth/oauth/session/${Uri.encodeComponent(sessionId)}'),
+      uri: Uri.parse(
+        '$baseUrl/auth/oauth/session/${Uri.encodeComponent(sessionId)}',
+      ),
       headers: const {'Content-Type': 'application/json'},
     );
     _ensureStatus(response, 200, unauthorizedIsSession: false);
@@ -370,7 +378,10 @@ class AuthApi {
   }
 
   /// `POST /auth/sms/verify`: kod doğruysa oturum açar.
-  Future<UserSession> verifySmsCode({required String phone, required String code}) {
+  Future<UserSession> verifySmsCode({
+    required String phone,
+    required String code,
+  }) {
     return _authRequest(
       path: '/auth/sms/verify',
       body: {'phone': phone, 'code': code},
@@ -402,10 +413,16 @@ class AuthApi {
   /// eklenen isteğe bağlı `accepted_documents:[{id,version}]` (docs/PLATFORM_SATISA_HAZIRLIK.md §1.4). Onay yoksa
   /// alan hiç gönderilmez (eski sunucu/istemci uyumu). `/auth/register` ve `/auth/site-manager/register` sunucuda
   /// kalıcı 410 (kapalı): oralara gönderilmez.
-  static Map<String, dynamic> _acceptedDocumentsBody(List<AcceptedDocument>? documents) {
-    if (documents == null || documents.isEmpty) return const <String, dynamic>{};
+  static Map<String, dynamic> _acceptedDocumentsBody(
+    List<AcceptedDocument>? documents,
+  ) {
+    if (documents == null || documents.isEmpty) {
+      return const <String, dynamic>{};
+    }
     return <String, dynamic>{
-      'accepted_documents': <Map<String, dynamic>>[for (final d in documents) d.toJson()],
+      'accepted_documents': <Map<String, dynamic>>[
+        for (final d in documents) d.toJson(),
+      ],
     };
   }
 
@@ -423,8 +440,7 @@ class AuthApi {
         if (excludeRole != null) 'exclude_role': excludeRole.apiValue,
         'page': '$page',
         'page_size': '$pageSize',
-        if (search != null && search.trim().isNotEmpty)
-          'search': search.trim(),
+        if (search != null && search.trim().isNotEmpty) 'search': search.trim(),
       },
     );
 
@@ -850,13 +866,18 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Modül durumu', () => MyModulesResult.fromJson(payload));
+    return _parsePayload(
+      'Modül durumu',
+      () => MyModulesResult.fromJson(payload),
+    );
   }
 
   /// Yönetim türleri: terimler, önerilen modüller ve tek cümlelik açıklama (`GET /app/management-types`,
   /// F9). Eski sunucuda uç yoktur (404 -> ApiException): çağıran yerleşik tanımlara düşer
   /// ([ManagementTypeInfo.builtInAll]); bilinmeyen tür kodu `apartment_site` sayılmaz, atlanır.
-  Future<List<ManagementTypeInfo>> getManagementTypes({required String token}) async {
+  Future<List<ManagementTypeInfo>> getManagementTypes({
+    required String token,
+  }) async {
     final response = await _authorizedRequest(
       method: 'GET',
       path: '/app/management-types',
@@ -868,8 +889,14 @@ class AuthApi {
       'Yönetim türleri',
       () => (payload['items'] as List<dynamic>? ?? <dynamic>[])
           .whereType<Map>()
-          .where((item) => ManagementType.values.any((t) => t.apiValue == item['code']))
-          .map((item) => ManagementTypeInfo.fromJson(Map<String, dynamic>.from(item)))
+          .where(
+            (item) =>
+                ManagementType.values.any((t) => t.apiValue == item['code']),
+          )
+          .map(
+            (item) =>
+                ManagementTypeInfo.fromJson(Map<String, dynamic>.from(item)),
+          )
           .toList(growable: false),
     );
   }
@@ -902,7 +929,8 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'PUT',
-      path: '/manager/sites/$siteCode/modules/${Uri.encodeComponent(moduleCode)}',
+      path:
+          '/manager/sites/$siteCode/modules/${Uri.encodeComponent(moduleCode)}',
       token: token,
       body: {'enabled': enabled, 'confirm': confirm},
     );
@@ -977,7 +1005,10 @@ class AuthApi {
       'limit': '$limit',
       if (beforeId != null) 'before_id': '$beforeId',
     };
-    final path = Uri(path: '/admin/audit-log', queryParameters: query).toString();
+    final path = Uri(
+      path: '/admin/audit-log',
+      queryParameters: query,
+    ).toString();
     final response = await _authorizedRequest(
       method: 'GET',
       path: path,
@@ -1060,8 +1091,16 @@ class AuthApi {
     return _decodePayload(response);
   }
 
-  Future<TeamData> getTeam({required String token, required int siteCode}) async {
-    final payload = await _teamJson('GET', '/manager/sites/$siteCode/team', token, 200);
+  Future<TeamData> getTeam({
+    required String token,
+    required int siteCode,
+  }) async {
+    final payload = await _teamJson(
+      'GET',
+      '/manager/sites/$siteCode/team',
+      token,
+      200,
+    );
     return _parsePayload('Yönetim kadrosu', () => TeamData.fromJson(payload));
   }
 
@@ -1095,7 +1134,12 @@ class AuthApi {
     required int siteCode,
     required int personId,
   }) async {
-    await _teamJson('DELETE', '/manager/sites/$siteCode/people/$personId/duty', token, 200);
+    await _teamJson(
+      'DELETE',
+      '/manager/sites/$siteCode/people/$personId/duty',
+      token,
+      200,
+    );
   }
 
   Future<PersonInvitationState> getPersonInvitation({
@@ -1109,7 +1153,10 @@ class AuthApi {
       token,
       200,
     );
-    return _parsePayload('Davet durumu', () => PersonInvitationState.fromJson(payload));
+    return _parsePayload(
+      'Davet durumu',
+      () => PersonInvitationState.fromJson(payload),
+    );
   }
 
   Future<PersonInvitationState> sendPersonInvitation({
@@ -1123,7 +1170,10 @@ class AuthApi {
       token,
       201,
     );
-    return _parsePayload('Davet', () => PersonInvitationState.fromJson(payload));
+    return _parsePayload(
+      'Davet',
+      () => PersonInvitationState.fromJson(payload),
+    );
   }
 
   Future<void> revokePersonInvitation({
@@ -1131,7 +1181,12 @@ class AuthApi {
     required int siteCode,
     required int personId,
   }) async {
-    await _teamJson('DELETE', '/manager/sites/$siteCode/people/$personId/invitation', token, 200);
+    await _teamJson(
+      'DELETE',
+      '/manager/sites/$siteCode/people/$personId/invitation',
+      token,
+      200,
+    );
   }
 
   Future<Map<String, dynamic>> provisionPersonAccount({
@@ -1192,10 +1247,7 @@ class AuthApi {
       '/manager/sites/$siteCode/people/bulk-actions',
       token,
       200,
-      body: <String, dynamic>{
-        'action': action,
-        'person_ids': personIds,
-      },
+      body: <String, dynamic>{'action': action, 'person_ids': personIds},
     );
   }
 
@@ -1215,7 +1267,13 @@ class AuthApi {
       'category': category,
     };
     if (contactId == null) {
-      await _teamJson('POST', '/manager/sites/$siteCode/directory/contacts', token, 201, body: body);
+      await _teamJson(
+        'POST',
+        '/manager/sites/$siteCode/directory/contacts',
+        token,
+        201,
+        body: body,
+      );
     } else {
       await _teamJson(
         'PATCH',
@@ -1253,12 +1311,19 @@ class AuthApi {
 
   /// Sakin "Yöneticiyi ara": bağı olunan her sitenin yönetici adı ve profil telefonu (`GET /app/manager-contact`). Eski
   /// sunucuda uç yoktur (404): çağıran bunu "özellik yok" sayar.
-  Future<List<ManagerContact>> getManagerContacts({required String token}) async {
+  Future<List<ManagerContact>> getManagerContacts({
+    required String token,
+  }) async {
     final payload = await _teamJson('GET', '/app/manager-contact', token, 200);
-    return _parsePayload('Yönetici bilgisi', () => ManagerContact.listFromJson(payload));
+    return _parsePayload(
+      'Yönetici bilgisi',
+      () => ManagerContact.listFromJson(payload),
+    );
   }
 
-  Future<List<PendingInvitation>> listMyInvitations({required String token}) async {
+  Future<List<PendingInvitation>> listMyInvitations({
+    required String token,
+  }) async {
     final payload = await _teamJson('GET', '/app/invitations', token, 200);
     return _parsePayload(
       'Davetler',
@@ -1363,11 +1428,21 @@ class AuthApi {
       'limit': '$limit',
       if (beforeId != null) 'before_id': '$beforeId',
     };
-    final path = Uri(path: '/admin/module-requests', queryParameters: query).toString();
-    final response = await _authorizedRequest(method: 'GET', path: path, token: token);
+    final path = Uri(
+      path: '/admin/module-requests',
+      queryParameters: query,
+    ).toString();
+    final response = await _authorizedRequest(
+      method: 'GET',
+      path: path,
+      token: token,
+    );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Modül talepleri', () => ModuleRequestPage.fromJson(payload));
+    return _parsePayload(
+      'Modül talepleri',
+      () => ModuleRequestPage.fromJson(payload),
+    );
   }
 
   /// Süper kullanıcı: talebi onaylar (`approve`) ya da reddeder (`reject`); [note] isteğe bağlı gerekçe.
@@ -1422,7 +1497,9 @@ class AuthApi {
     } on ApiException catch (e) {
       String? rewritten;
       if (e.code == 'USER_NOT_FOUND') {
-        rewritten = admin ? siteApplicationApplicantNotFoundMessage : siteApplicationAccountNotFoundMessage;
+        rewritten = admin
+            ? siteApplicationApplicantNotFoundMessage
+            : siteApplicationAccountNotFoundMessage;
       } else if (applicantCreate && e.code == 'ALREADY_SITE_MANAGER') {
         rewritten = siteApplicationAlreadyManagerMessage;
       } else if (applicantCreate && e.code == 'DEVICE_NOT_FOUND') {
@@ -1449,7 +1526,8 @@ class AuthApi {
   static const String siteApplicationAccountNotFoundMessage =
       'Hesap bilgileriniz bulunamadı. Çıkış yapıp yeniden giriş yapın.';
 
-  static const String siteApplicationApplicantNotFoundMessage = 'Başvuran hesap bulunamadı.';
+  static const String siteApplicationApplicantNotFoundMessage =
+      'Başvuran hesap bulunamadı.';
 
   /// Site başvurusu gönderir (201). Gövde `setup-site` ile aynıdır; [deviceUid] ve [note] isteğe bağlıdır.
   Future<SiteApplication> createSiteApplication({
@@ -1479,11 +1557,14 @@ class AuthApi {
           if (address != null && address.isNotEmpty) 'address': address,
           'blocks': blocks,
           if (doors != null && doors.isNotEmpty) 'doors': doors,
-          'doorCount': doors != null && doors.isNotEmpty ? doors.length : doorCount,
+          'doorCount': doors != null && doors.isNotEmpty
+              ? doors.length
+              : doorCount,
           if (deviceUid != null && deviceUid.isNotEmpty) 'deviceUid': deviceUid,
           if (managementType != null && managementType.isNotEmpty)
             'management_type': managementType,
-          if (trimmedNote != null && trimmedNote.isNotEmpty) 'note': trimmedNote,
+          if (trimmedNote != null && trimmedNote.isNotEmpty)
+            'note': trimmedNote,
           ..._acceptedDocumentsBody(acceptedDocuments),
         },
       );
@@ -1491,7 +1572,9 @@ class AuthApi {
       final payload = _decodePayload(response);
       final application = _parsePayload(
         'Site başvurusu',
-        () => SiteApplication.fromJson(payload['application'] as Map<String, dynamic>),
+        () => SiteApplication.fromJson(
+          payload['application'] as Map<String, dynamic>,
+        ),
       );
       return application;
     });
@@ -1512,7 +1595,9 @@ class AuthApi {
         try {
           return MySiteApplications.fromJson(payload);
         } on FormatException {
-          throw ApiException('Başvuru durumu yanıtı anlaşılamadı. Tekrar deneyin.');
+          throw ApiException(
+            'Başvuru durumu yanıtı anlaşılamadı. Tekrar deneyin.',
+          );
         }
       });
       return mine;
@@ -1534,7 +1619,9 @@ class AuthApi {
       final payload = _decodePayload(response);
       final application = _parsePayload(
         'Site başvurusu',
-        () => SiteApplication.fromJson(payload['application'] as Map<String, dynamic>),
+        () => SiteApplication.fromJson(
+          payload['application'] as Map<String, dynamic>,
+        ),
       );
       return application;
     });
@@ -1555,12 +1642,22 @@ class AuthApi {
       'limit': '$limit',
       'offset': '$offset',
     };
-    final path = Uri(path: '/admin/site-applications', queryParameters: params).toString();
+    final path = Uri(
+      path: '/admin/site-applications',
+      queryParameters: params,
+    ).toString();
     return _siteApplicationCall(admin: true, () async {
-      final response = await _authorizedRequest(method: 'GET', path: path, token: token);
+      final response = await _authorizedRequest(
+        method: 'GET',
+        path: path,
+        token: token,
+      );
       _ensureStatus(response, 200);
       final payload = _decodePayload(response);
-      final page = _parsePayload('Site başvuruları', () => SiteApplicationPage.fromJson(payload));
+      final page = _parsePayload(
+        'Site başvuruları',
+        () => SiteApplicationPage.fromJson(payload),
+      );
       return page;
     });
   }
@@ -1577,7 +1674,9 @@ class AuthApi {
       final payload = _decodePayload(response);
       final count = _parsePayload('Site başvuru özeti', () {
         final raw = payload['pending'];
-        final value = raw is num ? raw.toInt() : int.tryParse(raw?.toString() ?? '');
+        final value = raw is num
+            ? raw.toInt()
+            : int.tryParse(raw?.toString() ?? '');
         if (value == null) throw const FormatException('pending yok');
         return value < 0 ? 0 : value;
       });
@@ -1601,7 +1700,9 @@ class AuthApi {
       final application = _parsePayload('Site başvurusu', () {
         // Sözleşme: gövde doğrudan `Application`; bazı sürümler `{ application }` sarar — ikisi de okunur.
         final wrapped = payload['application'];
-        return SiteApplication.fromJson(wrapped is Map<String, dynamic> ? wrapped : payload);
+        return SiteApplication.fromJson(
+          wrapped is Map<String, dynamic> ? wrapped : payload,
+        );
       });
       return application;
     });
@@ -1624,7 +1725,10 @@ class AuthApi {
       );
       _ensureCreatedOrOk(response);
       final payload = _decodePayload(response);
-      final decision = _parsePayload('Site başvurusu', () => SiteApplicationDecision.fromJson(payload));
+      final decision = _parsePayload(
+        'Site başvurusu',
+        () => SiteApplicationDecision.fromJson(payload),
+      );
       return decision;
     });
   }
@@ -1647,7 +1751,9 @@ class AuthApi {
       final payload = _decodePayload(response);
       final application = _parsePayload(
         'Site başvurusu',
-        () => SiteApplication.fromJson(payload['application'] as Map<String, dynamic>),
+        () => SiteApplication.fromJson(
+          payload['application'] as Map<String, dynamic>,
+        ),
       );
       return application;
     });
@@ -1711,7 +1817,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Kullanıcı adları listesi', () => ExportEnvelope.fromJson(payload));
+    return _parsePayload(
+      'Kullanıcı adları listesi',
+      () => ExportEnvelope.fromJson(payload),
+    );
   }
 
   Future<PersonDetail> getPerson({
@@ -1752,7 +1861,8 @@ class AuthApi {
         if (email != null && email.trim().isNotEmpty) 'email': email.trim(),
         if (note != null && note.trim().isNotEmpty) 'note': note.trim(),
         'apartment_id': ?apartmentId,
-        if (apartmentId != null && relation != null) 'relation': relation.apiValue,
+        if (apartmentId != null && relation != null)
+          'relation': relation.apiValue,
         if (apartmentId != null && moveInDate != null)
           'move_in_date': crmDateParam(moveInDate),
       },
@@ -1845,7 +1955,9 @@ class AuthApi {
       method: 'POST',
       path: _peoplePath(siteCode, 'residencies/$residencyId/end'),
       token: token,
-      body: {if (moveOutDate != null) 'move_out_date': crmDateParam(moveOutDate)},
+      body: {
+        if (moveOutDate != null) 'move_out_date': crmDateParam(moveOutDate),
+      },
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
@@ -2043,7 +2155,8 @@ class AuthApi {
     final response = await _authorizedRequest(
       method: 'GET',
       path: _peoplePath(siteCode, 'history', {
-        if (targetType != null && targetType.isNotEmpty) 'target_type': targetType,
+        if (targetType != null && targetType.isNotEmpty)
+          'target_type': targetType,
         if (targetId != null) 'target_id': '$targetId',
         'limit': '$limit',
         if (beforeId != null) 'before_id': '$beforeId',
@@ -2064,7 +2177,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Kayıtlarım', () => MyRecord.listFrom(payload['records']));
+    return _parsePayload(
+      'Kayıtlarım',
+      () => MyRecord.listFrom(payload['records']),
+    );
   }
 
   // --- Duyuru ve Bildirim (Faz 3a) ----------------------------------------------------------
@@ -2072,7 +2188,11 @@ class AuthApi {
   // (sözleşme: docs/PLATFORM_DUYURU.md). Okuma yönetici / süper kullanıcı / kurul üyesine, yazma yalnız
   // yönetici / süper kullanıcıya açıktır; yetki sunucuda doğrulanır (403 FORBIDDEN_ROLE / FORBIDDEN_SITE).
 
-  String _announcementPath(int siteCode, [String tail = '', Map<String, String>? query]) {
+  String _announcementPath(
+    int siteCode, [
+    String tail = '',
+    Map<String, String>? query,
+  ]) {
     final path =
         '/manager/sites/$siteCode/announcements${tail.isEmpty ? '' : '/$tail'}';
     if (query == null || query.isEmpty) return path;
@@ -2164,7 +2284,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Kitle önizlemesi', () => AudiencePreview.fromJson(payload));
+    return _parsePayload(
+      'Kitle önizlemesi',
+      () => AudiencePreview.fromJson(payload),
+    );
   }
 
   /// Duyuru oluşturur (201). [publish]: `draft|now|schedule`; `schedule` iken [publishAt] verilir ve
@@ -2195,7 +2318,8 @@ class AuthApi {
         if (publish == 'schedule' && publishAt != null)
           'publish_at': publishAt.toUtc().toIso8601String(),
         // Belge ekleri (Faz 3b-A; en çok 5, yalnız sakinlere açık belgeler).
-        if (documentIds != null && documentIds.isNotEmpty) 'document_ids': documentIds,
+        if (documentIds != null && documentIds.isNotEmpty)
+          'document_ids': documentIds,
       },
     );
     _ensureStatus(response, 201);
@@ -2290,7 +2414,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Duyurular', () => ResidentAnnouncementPage.fromJson(payload));
+    return _parsePayload(
+      'Duyurular',
+      () => ResidentAnnouncementPage.fromJson(payload),
+    );
   }
 
   /// Sakin için tam kayıt. OKUNDU YAZMAZ ([markAnnouncementRead] ayrıdır).
@@ -2305,7 +2432,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Duyuru', () => ResidentAnnouncement.fromJson(payload));
+    return _parsePayload(
+      'Duyuru',
+      () => ResidentAnnouncement.fromJson(payload),
+    );
   }
 
   /// Duyuruyu okundu işaretler (idempotent). Dönüş: ilk okuma zamanı (alan yoksa null).
@@ -2325,7 +2455,10 @@ class AuthApi {
   }
 
   /// Duyuruyu KENDİ listemden kaldırır (DELETE /app/announcements/:id; idempotent, okundu bilgisine dokunmaz).
-  Future<void> hideAnnouncement({required String token, required int announcementId}) async {
+  Future<void> hideAnnouncement({
+    required String token,
+    required int announcementId,
+  }) async {
     final response = await _authorizedRequest(
       method: 'DELETE',
       path: '/app/announcements/$announcementId',
@@ -2335,7 +2468,10 @@ class AuthApi {
   }
 
   /// "Geri al": [hideAnnouncement] ile kaldırılan duyuruyu listeye döndürür.
-  Future<void> restoreAnnouncement({required String token, required int announcementId}) async {
+  Future<void> restoreAnnouncement({
+    required String token,
+    required int announcementId,
+  }) async {
     final response = await _authorizedRequest(
       method: 'POST',
       path: '/app/announcements/$announcementId/restore',
@@ -2346,7 +2482,10 @@ class AuthApi {
   }
 
   /// Tümünü okundu yapar ([siteCode] verilirse yalnız o site). Dönüş: işaretlenen adet.
-  Future<int> markAllAnnouncementsRead({required String token, int? siteCode}) async {
+  Future<int> markAllAnnouncementsRead({
+    required String token,
+    int? siteCode,
+  }) async {
     final response = await _authorizedRequest(
       method: 'POST',
       path: '/app/announcements/read-all',
@@ -2359,7 +2498,9 @@ class AuthApi {
   }
 
   /// Hafif bildirim özeti (uygulama bunu yoklar).
-  Future<NotificationSummary> getNotificationSummary({required String token}) async {
+  Future<NotificationSummary> getNotificationSummary({
+    required String token,
+  }) async {
     final response = await _authorizedRequest(
       method: 'GET',
       path: '/app/notifications/summary',
@@ -2367,10 +2508,15 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Bildirim özeti', () => NotificationSummary.fromJson(payload));
+    return _parsePayload(
+      'Bildirim özeti',
+      () => NotificationSummary.fromJson(payload),
+    );
   }
 
-  Future<NotificationPrefs> getNotificationPreferences({required String token}) async {
+  Future<NotificationPrefs> getNotificationPreferences({
+    required String token,
+  }) async {
     final response = await _authorizedRequest(
       method: 'GET',
       path: '/app/notification-preferences',
@@ -2378,7 +2524,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Bildirim tercihleri', () => NotificationPrefs.fromJson(payload));
+    return _parsePayload(
+      'Bildirim tercihleri',
+      () => NotificationPrefs.fromJson(payload),
+    );
   }
 
   /// E-posta tercihlerini yazar: yalnız VERİLEN anahtar(lar) gövdeye girer (`email_announcements` ve/veya
@@ -2447,7 +2596,10 @@ class AuthApi {
           'active': ?active?.toString(),
           // İlk istek sunucunun varsayılan sayfasını ister (eski sunucuyla uyumlu); `total` daha fazlasını
           // bildirirse sonraki sayfalar `offset` ile istenir.
-          if (offset > 0) ...{'limit': '$_definitionPageSize', 'offset': '$offset'},
+          if (offset > 0) ...{
+            'limit': '$_definitionPageSize',
+            'offset': '$offset',
+          },
         }),
         token: token,
       );
@@ -2464,8 +2616,14 @@ class AuthApi {
       for (final item in pageItems) {
         byId.putIfAbsent(item.id, () => item);
       }
-      final total = payload['total'] is num ? (payload['total'] as num).toInt() : null;
-      if (total == null || pageItems.isEmpty || offset + pageItems.length >= total) break;
+      final total = payload['total'] is num
+          ? (payload['total'] as num).toInt()
+          : null;
+      if (total == null ||
+          pageItems.isEmpty ||
+          offset + pageItems.length >= total) {
+        break;
+      }
       offset += pageItems.length;
     }
     return List<FeeDefinition>.unmodifiable(byId.values);
@@ -2487,7 +2645,10 @@ class AuthApi {
     );
     _ensureCreatedOrOk(response);
     final payload = _decodePayload(response);
-    return _parsePayload('Tanım', () => FeeDefinition.fromJson(_unwrapKey(payload, 'definition')));
+    return _parsePayload(
+      'Tanım',
+      () => FeeDefinition.fromJson(_unwrapKey(payload, 'definition')),
+    );
   }
 
   /// Tanımı günceller: yalnız [fields] içindekiler gönderilir. Borçlandırılmış tanımda yalnız `name`,
@@ -2506,7 +2667,10 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Tanım', () => FeeDefinition.fromJson(_unwrapKey(payload, 'definition')));
+    return _parsePayload(
+      'Tanım',
+      () => FeeDefinition.fromJson(_unwrapKey(payload, 'definition')),
+    );
   }
 
   /// Borçlandırma önizlemesi (YAZMAZ). Aylık tanımda [period], tek seferlikte isteğe bağlı [dueDate].
@@ -2564,7 +2728,8 @@ class AuthApi {
         if (skipMissing) 'skip_missing': true,
         'idempotency_key': ?idempotencyKey,
         'decision_id': ?decisionId,
-        if (decisionReason != null && decisionReason.trim().isNotEmpty) 'decision_reason': decisionReason.trim(),
+        if (decisionReason != null && decisionReason.trim().isNotEmpty)
+          'decision_reason': decisionReason.trim(),
       },
     );
     _ensureCreatedOrOk(response);
@@ -2822,11 +2987,17 @@ class AuthApi {
     );
     _ensureStatus(response, 200);
     final payload = _decodePayload(response);
-    return _parsePayload('Finans özeti', () => FinanceSummary.fromJson(payload));
+    return _parsePayload(
+      'Finans özeti',
+      () => FinanceSummary.fromJson(payload),
+    );
   }
 
   /// Yönetici ana sayfası "Bu ay" özeti (`GET .../finance/home`).
-  Future<FinanceHome> getFinanceHome({required String token, required int siteCode}) async {
+  Future<FinanceHome> getFinanceHome({
+    required String token,
+    required int siteCode,
+  }) async {
     final response = await _authorizedRequest(
       method: 'GET',
       path: _financePath(siteCode, 'home'),
@@ -2961,8 +3132,9 @@ class AuthApi {
       if (endDate != null) 'end_date': endDate.toUtc().toIso8601String(),
     };
 
-    final uri = Uri.parse('$baseUrl${_managementPrefix(role)}/door-logs')
-        .replace(queryParameters: query);
+    final uri = Uri.parse(
+      '$baseUrl${_managementPrefix(role)}/door-logs',
+    ).replace(queryParameters: query);
 
     final response = await _sendRequest(
       method: 'GET',
@@ -2992,8 +3164,9 @@ class AuthApi {
       'page_size': pageSize.toString(),
     };
 
-    final uri = Uri.parse('$baseUrl/admin/devices/${Uri.encodeComponent(deviceUid)}/connectivity-logs')
-        .replace(queryParameters: query);
+    final uri = Uri.parse(
+      '$baseUrl/admin/devices/${Uri.encodeComponent(deviceUid)}/connectivity-logs',
+    ).replace(queryParameters: query);
 
     final response = await _sendRequest(
       method: 'GET',
@@ -3026,10 +3199,7 @@ class AuthApi {
         if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
         'X-Ahbu-Device-Uid': deviceUid,
       },
-      body: {
-        'device_uid': deviceUid,
-        'logs': logs,
-      },
+      body: {'device_uid': deviceUid, 'logs': logs},
     );
 
     _ensureStatus(response, 200);
@@ -3193,9 +3363,9 @@ class AuthApi {
       );
     }
 
-    final uri = Uri.parse('$baseUrl/admin/devices').replace(
-      queryParameters: {'page': '$page', 'page_size': '$pageSize'},
-    );
+    final uri = Uri.parse(
+      '$baseUrl/admin/devices',
+    ).replace(queryParameters: {'page': '$page', 'page_size': '$pageSize'});
 
     final response = await _sendRequest(
       method: 'GET',
@@ -3429,7 +3599,6 @@ class AuthApi {
     return _decodePayload(response);
   }
 
-
   Future<List<DoorRecord>> listMyDoors({required String token}) async {
     final response = await _authorizedRequest(
       method: 'GET',
@@ -3471,7 +3640,8 @@ class AuthApi {
       'Abonelik talepleri',
       () => (payload['requests'] as List<dynamic>? ?? <dynamic>[])
           .map(
-            (item) => SubscriptionRequest.fromJson(item as Map<String, dynamic>),
+            (item) =>
+                SubscriptionRequest.fromJson(item as Map<String, dynamic>),
           )
           .toList(),
     );
@@ -3583,6 +3753,7 @@ class AuthApi {
     required Map<String, dynamic> body,
     required int expectedCode,
     void Function(String deviceToken)? onDeviceToken,
+    void Function(Map<String, dynamic> payload)? onPayload,
   }) async {
     final uri = Uri.parse('$baseUrl$path');
     final response = await _sendRequest(
@@ -3594,6 +3765,9 @@ class AuthApi {
 
     _ensureStatus(response, expectedCode, unauthorizedIsSession: false);
     final payload = _decodePayload(response);
+    if (onPayload != null) {
+      onPayload(payload);
+    }
     final session = _parsePayload('Oturum bilgisi', () {
       final user = payload['user'] as Map<String, dynamic>;
       return _toUserSession(
@@ -3609,14 +3783,187 @@ class AuthApi {
     return session;
   }
 
+  Future<
+    ({
+      UserSession? session,
+      SmsSelectionChallenge? selectionRequired,
+      Map<String, dynamic> rawPayload,
+    })
+  >
+  verifySmsCodeDetailed({
+    required String phone,
+    required String code,
+    void Function(String deviceToken)? onDeviceToken,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/sms/verify');
+    final response = await _sendRequest(
+      method: 'POST',
+      uri: uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: {'phone': phone, 'code': code},
+    );
+    _ensureStatus(response, 200, unauthorizedIsSession: false);
+    final payload = _decodePayload(response);
+    if (payload['account_selection_required'] == true) {
+      return (
+        session: null,
+        selectionRequired: SmsSelectionChallenge.fromPayload(payload),
+        rawPayload: payload,
+      );
+    }
+    final session = _parsePayload('Oturum bilgisi', () {
+      final user = payload['user'] as Map<String, dynamic>;
+      return _toUserSession(
+        user: user,
+        token: payload['token'] as String,
+        fallbackId: user['id'] as int,
+        fallbackRole: UserRole.fromApi(user['role'] as String),
+        fallbackIsActive: user['is_active'] as bool? ?? true,
+      );
+    });
+    _emitDeviceToken(payload, onDeviceToken);
+    return (session: session, selectionRequired: null, rawPayload: payload);
+  }
+
+  Future<UserSession> verifySmsSelection({
+    required String selectionToken,
+    required String candidateRef,
+    void Function(String deviceToken)? onDeviceToken,
+  }) {
+    return _authRequest(
+      path: '/auth/sms/verify',
+      body: {'selection_token': selectionToken, 'candidate_ref': candidateRef},
+      expectedCode: 200,
+      onDeviceToken: onDeviceToken,
+    );
+  }
+
+  Future<Map<String, dynamic>> requestIdentityClaimSmsCode({
+    required String challengeToken,
+    required String phone,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/identity/claim/request-sms');
+    final response = await _sendRequest(
+      method: 'POST',
+      uri: uri,
+      headers: const {'Content-Type': 'application/json'},
+      body: {'challenge_token': challengeToken, 'phone': phone},
+    );
+    _ensureStatus(response, 200, unauthorizedIsSession: false);
+    return _decodePayload(response);
+  }
+
+  Future<
+    ({
+      UserSession? session,
+      SmsSelectionChallenge? selectionRequired,
+      Map<String, dynamic> rawPayload,
+    })
+  >
+  verifyIdentityClaimChallenge({
+    required String challengeToken,
+    required String method,
+    String? identifier,
+    String? password,
+    String? phone,
+    String? code,
+    String? candidateRef,
+    String? deviceToken,
+    void Function(String deviceToken)? onDeviceToken,
+  }) async {
+    final uri = Uri.parse('$baseUrl/auth/identity/claim/verify');
+    final response = await _sendRequest(
+      method: 'POST',
+      uri: uri,
+      headers: {
+        'Content-Type': 'application/json',
+        ...?_deviceTokenHeader(deviceToken),
+      },
+      body: {
+        'challenge_token': challengeToken,
+        'method': method,
+        'identifier': ?identifier,
+        'password': ?password,
+        'phone': ?phone,
+        'code': ?code,
+        'candidate_ref': ?candidateRef,
+      },
+    );
+    _ensureStatus(response, 200, unauthorizedIsSession: false);
+    final payload = _decodePayload(response);
+    if (payload['account_selection_required'] == true) {
+      return (
+        session: null,
+        selectionRequired: SmsSelectionChallenge.fromPayload(payload),
+        rawPayload: payload,
+      );
+    }
+    final session = _parsePayload('Oturum bilgisi', () {
+      final user = payload['user'] as Map<String, dynamic>;
+      return _toUserSession(
+        user: user,
+        token: payload['token'] as String,
+        fallbackId: user['id'] as int,
+        fallbackRole: UserRole.fromApi(user['role'] as String),
+        fallbackIsActive: user['is_active'] as bool? ?? true,
+      );
+    });
+    _emitDeviceToken(payload, onDeviceToken);
+    return (session: session, selectionRequired: null, rawPayload: payload);
+  }
+
+  Future<({UserSession session, Map<String, dynamic> rawPayload})>
+  claimExistingAccount({
+    required String token,
+    int? targetUserCode,
+    String? method,
+    String? identifier,
+    String? password,
+    String? phone,
+    String? code,
+  }) async {
+    final response = await _authorizedRequest(
+      method: 'POST',
+      path: '/membership/claim-existing-account',
+      token: token,
+      body: {
+        'target_user_code': ?targetUserCode,
+        'method': ?method,
+        'identifier': ?identifier,
+        'password': ?password,
+        'phone': ?phone,
+        'code': ?code,
+      },
+    );
+    _ensureStatus(response, 200);
+    final payload = _decodePayload(response);
+    final session = _parsePayload('Oturum bilgisi', () {
+      final user = payload['user'] as Map<String, dynamic>;
+      return _toUserSession(
+        user: user,
+        token: (payload['token'] as String?) ?? token,
+        fallbackId: user['id'] as int,
+        fallbackRole: UserRole.fromApi(user['role'] as String),
+        fallbackIsActive: user['is_active'] as bool? ?? true,
+      );
+    });
+    return (session: session, rawPayload: payload);
+  }
+
   /// Yanıttaki `device_token` boş olmayan bir metinse (kırpılmış, <= 512) [onDeviceToken]'a verir; yok / null /
   /// metin değil / boş / çok uzun ise HİÇBİR ŞEY yapmaz. Geri çağrının hatası çağıranı etkilemez.
-  static void _emitDeviceToken(Map<String, dynamic> payload, void Function(String deviceToken)? onDeviceToken) {
+  static void _emitDeviceToken(
+    Map<String, dynamic> payload,
+    void Function(String deviceToken)? onDeviceToken,
+  ) {
     if (onDeviceToken == null) return;
     final raw = payload['device_token'];
     if (raw is! String) return;
     final trimmed = raw.trim();
-    if (trimmed.isEmpty || trimmed.length > LoginDeviceTokenStore.maxTokenLength) return;
+    if (trimmed.isEmpty ||
+        trimmed.length > LoginDeviceTokenStore.maxTokenLength) {
+      return;
+    }
     try {
       onDeviceToken(trimmed);
     } catch (_) {
@@ -3778,8 +4125,9 @@ class AuthApi {
               response.body,
               debugLabel: 'authApi.jsonDecode',
             );
-      _offloadedPayloads[response] =
-          raw is Map<String, dynamic> ? raw : <String, dynamic>{};
+      _offloadedPayloads[response] = raw is Map<String, dynamic>
+          ? raw
+          : <String, dynamic>{};
     } catch (_) {
       // Geçersiz JSON / gönderilemeyen hata: _decodePayload eşzamanlı çözümleyip eski hata
       // eşlemesini (ApiException) uygular.
@@ -3868,7 +4216,11 @@ class AuthApi {
     if (status == 401) {
       // Buraya yalnızca kimlik bilgisi doğrulayan uçlar düşer (hatalı şifre vb.): oturum bozulmaz.
       throw ApiException(
-        messageForErrorCode(code, retryAfterSeconds: retryAfter, payload: payload) ??
+        messageForErrorCode(
+              code,
+              retryAfterSeconds: retryAfter,
+              payload: payload,
+            ) ??
             errorMsg ??
             'Yetkisiz erişim (401)',
         statusCode: 401,
@@ -3878,12 +4230,20 @@ class AuthApi {
       );
     }
 
-    final mappedMessage =
-        messageForErrorCode(code, retryAfterSeconds: retryAfter, payload: payload);
+    final mappedMessage = messageForErrorCode(
+      code,
+      retryAfterSeconds: retryAfter,
+      payload: payload,
+    );
     final statusMessage = genericMessageForStatus(status, code: code);
     // Sunucu hiçbir kullanılabilir metin vermediyse mesaj yalnız teknik yedektir ("İşlem başarısız (502)").
-    final genericFallback = mappedMessage == null && errorMsg == null && statusMessage == null;
-    var message = mappedMessage ?? errorMsg ?? statusMessage ?? 'İşlem başarısız ($status)';
+    final genericFallback =
+        mappedMessage == null && errorMsg == null && statusMessage == null;
+    var message =
+        mappedMessage ??
+        errorMsg ??
+        statusMessage ??
+        'İşlem başarısız ($status)';
 
     if (status == 429 && mappedMessage == null) {
       // Genel hız sınırı: bekleme süresini kullanıcıya göster (kapı açma dahil).
@@ -3949,7 +4309,10 @@ class AuthApi {
   }
 
   /// Bekleme süresi: önce gövdedeki `retry_after_seconds`, yoksa `Retry-After` başlığı (saniye).
-  int? _retryAfterSeconds(http.Response response, Map<String, dynamic> payload) {
+  int? _retryAfterSeconds(
+    http.Response response,
+    Map<String, dynamic> payload,
+  ) {
     final body = payload['retry_after_seconds'] ?? payload['retryAfterSeconds'];
     if (body is num && body.isFinite && body > 0) {
       return body.ceil();
@@ -3986,7 +4349,8 @@ class AuthApi {
   /// gösterilmez; yerine [jargonFallbackMessage] gelir. Temiz metin olduğu gibi döner.
   static String? sanitizeServerMessage(String? message) {
     if (message == null) return null;
-    final jargon = RegExp(r'[a-z][a-z0-9]*(?:_[a-z0-9]+)+').hasMatch(message) ||
+    final jargon =
+        RegExp(r'[a-z][a-z0-9]*(?:_[a-z0-9]+)+').hasMatch(message) ||
         message.contains('YYYY-AA-GG') ||
         message.contains('YYYY-MM-DD');
     return jargon ? jargonFallbackMessage : message;
@@ -4088,7 +4452,9 @@ class AuthApi {
       if (value is num && value.isFinite && value >= 0) return value.round();
       if (value is String) {
         final parsed = double.tryParse(value.trim());
-        if (parsed != null && parsed.isFinite && parsed >= 0) return parsed.round();
+        if (parsed != null && parsed.isFinite && parsed >= 0) {
+          return parsed.round();
+        }
       }
       return null;
     }
@@ -4331,7 +4697,10 @@ class AuthApi {
       // 5xx (502/503/504 dahil) "modem" sezgisinden ÖNCE sınıflandırılır: gateway/proxy
       // sayfaları 'gateway' gibi kelimeler içerir ama sorun kullanıcının internetinde değildir.
       if (status >= 500) {
-        throw ApiException(_serverUnavailableMessage(status), statusCode: status);
+        throw ApiException(
+          _serverUnavailableMessage(status),
+          statusCode: status,
+        );
       }
       // Proxy (nginx) tarafından üretilen JSON olmayan 413/429 yanıtları da sınıflandırılır.
       if (status == 413) {
@@ -4341,7 +4710,10 @@ class AuthApi {
         );
       }
       if (status == 429) {
-        final retryAfter = _retryAfterSeconds(response, const <String, dynamic>{});
+        final retryAfter = _retryAfterSeconds(
+          response,
+          const <String, dynamic>{},
+        );
         throw ApiException(
           _withRetryHint('Çok fazla istek gönderildi.', retryAfter),
           statusCode: status,
@@ -4432,9 +4804,7 @@ class AuthApi {
     );
   }
 
-  Future<List<GuestPassRecord>> listGuestPasses({
-    required String token,
-  }) async {
+  Future<List<GuestPassRecord>> listGuestPasses({required String token}) async {
     final response = await _authorizedRequest(
       method: 'GET',
       path: '/app/guest-passes',
@@ -4446,9 +4816,7 @@ class AuthApi {
     return _parsePayload(
       'Gecisler',
       () => (payload['passes'] as List<dynamic>? ?? <dynamic>[])
-          .map(
-            (item) => GuestPassRecord.fromJson(item as Map<String, dynamic>),
-          )
+          .map((item) => GuestPassRecord.fromJson(item as Map<String, dynamic>))
           .toList(),
     );
   }
@@ -4474,9 +4842,7 @@ class AuthApi {
       method: 'POST',
       path: '/membership/claim-device',
       token: token,
-      body: {
-        'deviceInput': deviceInput,
-      },
+      body: {'deviceInput': deviceInput},
     );
 
     _ensureStatus(response, 200);
@@ -4521,7 +4887,9 @@ class AuthApi {
         if (address != null && address.isNotEmpty) 'address': address,
         'blocks': blocks,
         if (doors != null && doors.isNotEmpty) 'doors': doors,
-        'doorCount': doors != null && doors.isNotEmpty ? doors.length : doorCount,
+        'doorCount': doors != null && doors.isNotEmpty
+            ? doors.length
+            : doorCount,
         if (deviceUid != null && deviceUid.isNotEmpty) 'deviceUid': deviceUid,
         // Yönetim türü (Faz 1: yalnız apartment_site); verilmezse alan hiç gönderilmez.
         if (managementType != null && managementType.isNotEmpty)
@@ -4580,10 +4948,7 @@ class AuthApi {
     return _decodePayload(response);
   }
 
-  Future<void> deleteDoor({
-    required String token,
-    required int doorId,
-  }) async {
+  Future<void> deleteDoor({required String token, required int doorId}) async {
     final response = await _authorizedRequest(
       method: 'DELETE',
       path: '/manager/doors/$doorId',
@@ -4729,7 +5094,9 @@ class AuthApi {
     _ensureStatus(response, 200);
     final data = _decodePayload(response);
     final list = data['requests'] as List<dynamic>? ?? [];
-    return list.map((item) => JoinRequestRecord.fromJson(item as Map<String, dynamic>)).toList();
+    return list
+        .map((item) => JoinRequestRecord.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<void> dismissJoinRequest({
@@ -4760,7 +5127,9 @@ class AuthApi {
     _ensureStatus(response, 200);
     final data = _decodePayload(response);
     final list = data['requests'] as List<dynamic>? ?? [];
-    return list.map((item) => JoinRequestRecord.fromJson(item as Map<String, dynamic>)).toList();
+    return list
+        .map((item) => JoinRequestRecord.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> approveJoinRequest({
@@ -4811,7 +5180,9 @@ class AuthApi {
     _ensureStatus(response, 200);
     final data = _decodePayload(response);
     final list = data['apartments'] as List<dynamic>? ?? [];
-    return list.map((item) => MyApartmentRecord.fromJson(item as Map<String, dynamic>)).toList();
+    return list
+        .map((item) => MyApartmentRecord.fromJson(item as Map<String, dynamic>))
+        .toList();
   }
 
   Future<Map<String, dynamic>> removeApartmentMember({
@@ -4821,7 +5192,8 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'POST',
-      path: '/membership/apartments/$apartmentId/members/$targetUserCode/remove',
+      path:
+          '/membership/apartments/$apartmentId/members/$targetUserCode/remove',
       token: token,
     );
     _ensureStatus(response, 200);
@@ -4874,9 +5246,7 @@ class AuthApi {
     bool? isAllowed,
     String? notes,
   }) async {
-    final body = <String, dynamic>{
-      'isAllowed': isAllowed,
-    };
+    final body = <String, dynamic>{'isAllowed': isAllowed};
     if (blockId != null) body['blockId'] = blockId;
     if (apartmentId != null) body['apartmentId'] = apartmentId;
     if (userCodes != null) body['userCodes'] = userCodes;
@@ -4913,7 +5283,8 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'PATCH',
-      path: '/membership/apartments/$apartmentId/members/$targetUserCode/status',
+      path:
+          '/membership/apartments/$apartmentId/members/$targetUserCode/status',
       token: token,
       body: {'is_active': isActive},
     );
@@ -4948,12 +5319,10 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'POST',
-      path: '/membership/apartments/$apartmentId/members/$targetUserCode/change-password',
+      path:
+          '/membership/apartments/$apartmentId/members/$targetUserCode/change-password',
       token: token,
-      body: {
-        'new_password': newPassword,
-        'current_password': currentPassword,
-      },
+      body: {'new_password': newPassword, 'current_password': currentPassword},
       extraHeaders: _deviceTokenHeader(deviceToken),
     );
     _ensureStatus(response, 200);
@@ -4969,7 +5338,8 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'POST',
-      path: '/membership/apartments/$apartmentId/members/$targetUserCode/set-primary-admin',
+      path:
+          '/membership/apartments/$apartmentId/members/$targetUserCode/set-primary-admin',
       token: token,
     );
     _ensureStatus(response, 200);
@@ -5017,7 +5387,8 @@ class AuthApi {
   }) async {
     final response = await _authorizedRequest(
       method: 'DELETE',
-      path: '/manager/sites/$siteCode/managers/${Uri.encodeComponent(userCode)}',
+      path:
+          '/manager/sites/$siteCode/managers/${Uri.encodeComponent(userCode)}',
       token: token,
     );
     _ensureStatus(response, 200);
@@ -5068,8 +5439,7 @@ class AuthApi {
       path: '/admin/devices/$deviceId/release-ownership',
       token: token,
       body: {
-        if (reason != null && reason.trim().isNotEmpty)
-          'reason': reason.trim(),
+        if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
       },
     );
     _ensureStatus(response, 200);

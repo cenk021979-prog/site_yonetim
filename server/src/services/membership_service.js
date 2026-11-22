@@ -5,7 +5,7 @@ import { sendIndividualVerificationEmail, sendJoinRequestNotificationEmail } fro
 import { currentPasswordLockedError } from '../middlewares/login_throttle.js';
 import { verifyCurrentPassword } from '../modules/account_password_guard.js';
 import { recordAudit } from '../modules/audit_service.js';
-import { assertJoinIdentitySafe } from '../modules/identity_duplicate_service.js';
+import { assertJoinIdentitySafe, findPossibleExistingAccount } from '../modules/identity_duplicate_service.js';
 import { mapUserRow, normalizeEmail } from '../utils/helpers.js';
 import { PG_INT4_MAX, isValidEmail, parsePositiveId } from '../utils/validators.js';
 import { rotateTokensForDevices, rotateTokensForSite } from './local_token_service.js';
@@ -1399,26 +1399,60 @@ export async function getSiteJoinRequests({ siteCode, authUser, status }) {
     queryStatus ? [parsedSiteCode, queryStatus] : [parsedSiteCode],
   );
 
+  // Kimlik eslestirme sorgulari pahali olabilir; cok sayida bekleyen talepte
+  // veritabani havuzunu sinirsiz Promise.all ile doldurma.
+  const requests = new Array(result.rows.length);
+  let nextRequestIndex = 0;
+  const workerCount = Math.min(4, result.rows.length);
+  await Promise.all(
+    Array.from({ length: workerCount }, async () => {
+      while (nextRequestIndex < result.rows.length) {
+        const index = nextRequestIndex;
+        nextRequestIndex += 1;
+        const r = result.rows[index];
+      let identityMatch = null;
+      if (r.status === 'PENDING') {
+        const match = await findPossibleExistingAccount(pool, {
+          siteCode: parsedSiteCode,
+          userCode: Number(r.user_code),
+        });
+        if (match) {
+          identityMatch = {
+            strength: match.strength,
+            isStrongMatch: match.is_strong_match,
+            isBlocking: match.is_strong_match && match.user_code !== null,
+            reasons: match.reasons,
+            maskedName: match.masked_name,
+            maskedLoginName: match.masked_login_name,
+          };
+        }
+      }
+        requests[index] = {
+        id: Number(r.id),
+        siteCode: Number(r.site_code),
+        userCode: Number(r.user_code),
+        fullName: r.full_name,
+        email: r.email,
+        phoneNumber: r.phone_number,
+        blockId: r.block_id ? Number(r.block_id) : null,
+        blockName: r.block_name,
+        apartmentId: Number(r.apartment_id),
+        unitLabel: r.unit_label,
+        status: r.status,
+        notes: r.notes,
+        rejectionReason: r.rejection_reason,
+        createdAt: r.created_at,
+        reviewedAt: r.reviewed_at,
+        reviewedByName: r.reviewed_by_name,
+        ...(identityMatch ? { identityMatch } : {}),
+        };
+      }
+    }),
+  );
+
   return {
     ok: true,
-    requests: result.rows.map((r) => ({
-      id: Number(r.id),
-      siteCode: Number(r.site_code),
-      userCode: Number(r.user_code),
-      fullName: r.full_name,
-      email: r.email,
-      phoneNumber: r.phone_number,
-      blockId: r.block_id ? Number(r.block_id) : null,
-      blockName: r.block_name,
-      apartmentId: Number(r.apartment_id),
-      unitLabel: r.unit_label,
-      status: r.status,
-      notes: r.notes,
-      rejectionReason: r.rejection_reason,
-      createdAt: r.created_at,
-      reviewedAt: r.reviewed_at,
-      reviewedByName: r.reviewed_by_name,
-    })),
+    requests,
   };
 }
 
@@ -1530,6 +1564,50 @@ export async function approveJoinRequest({
     await client.query(
       `UPDATE apartments SET resident_user_code = $1 WHERE id = $2 AND resident_user_code IS NULL`,
       [Number(req.user_code), Number(req.apartment_id)],
+    );
+
+    // 3b. Aynı sitede hesabı henüz bağlanmamış (user_code IS NULL) ve bu kişinin doğrulanmış iletişim bilgisiyle
+    // eşleşen aktif bir CRM kaydı varsa ikinci site_people satırı açılmaması için doğrudan bu kullanıcıya bağla.
+    const applicantRealEmail =
+      req.email && !String(req.email).toLowerCase().endsWith('@ahbu.local') && !String(req.email).toLowerCase().endsWith('@privaterelay.appleid.com')
+        ? String(req.email).trim().toLowerCase()
+        : null;
+    await client.query(
+      `
+        UPDATE site_people
+        SET user_code = $1, email = NULL, updated_at = NOW()
+        WHERE id = (
+          SELECT sp.id
+          FROM site_people sp
+          WHERE sp.site_code = $2
+            AND sp.user_code IS NULL
+            AND sp.is_active = TRUE
+            AND NOT EXISTS (
+              SELECT 1 FROM site_people other
+              WHERE other.site_code = $2 AND other.user_code = $1
+            )
+            AND (
+              ($3::text IS NOT NULL AND sp.email IS NOT NULL AND LOWER(sp.email) = LOWER($3::text))
+              OR (
+                EXISTS (
+                  SELECT 1 FROM apartment_residencies ar
+                  WHERE ar.person_id = sp.id AND ar.apartment_id = $4 AND ar.is_current = TRUE
+                )
+                AND EXISTS (
+                  SELECT 1 FROM users app_u
+                  WHERE app_u.user_code = $1
+                    AND app_u.deleted_at IS NULL
+                    AND app_u.phone_number IS NOT NULL
+                    AND sp.phone IS NOT NULL
+                    AND RIGHT(regexp_replace(sp.phone, '\\D', '', 'g'), 10) = RIGHT(regexp_replace(app_u.phone_number, '\\D', '', 'g'), 10)
+                )
+              )
+            )
+          ORDER BY sp.id ASC
+          LIMIT 1
+        )
+      `,
+      [Number(req.user_code), Number(req.site_code), applicantRealEmail, Number(req.apartment_id)],
     );
 
     // 4. Talebi APPROVED olarak işaretle

@@ -5,6 +5,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:site_kapi_kontrol/models/identity_claim.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:site_kapi_kontrol/models/site_join_info.dart';
 import 'package:site_kapi_kontrol/services/auth_api.dart';
@@ -25,6 +26,24 @@ class _FakeAuth extends AuthService {
 
   final String? error;
   final List<int> submitted = [];
+  bool simulateClaimRequired = false;
+  int claimCalls = 0;
+
+  @override
+  Future<IdentityAuthResult> claimExistingAccountInPlace({
+    int? targetUserCode,
+    String? method,
+    String? identifier,
+    String? password,
+    String? phone,
+    String? code,
+  }) async {
+    claimCalls += 1;
+    return const IdentityAuthResult(
+      claimedExistingAccount: true,
+      claimMessage: 'Daire hesabınız güvenli biçimde bağlandı.',
+    );
+  }
 
   @override
   Future<(SiteJoinInfo?, String?)> fetchSiteJoinInfo(String joinToken) async {
@@ -70,8 +89,15 @@ class _FakeAuth extends AuthService {
   }
 
   @override
-  Future<({Map<String, dynamic>? result, String? error, String? code, Map<String, dynamic>? payload})>
-      submitJoinRequestDetailed({
+  Future<
+    ({
+      Map<String, dynamic>? result,
+      String? error,
+      String? code,
+      Map<String, dynamic>? payload,
+    })
+  >
+  submitJoinRequestDetailed({
     required String joinToken,
     int? blockId,
     required int apartmentId,
@@ -79,6 +105,22 @@ class _FakeAuth extends AuthService {
     bool confirmDistinctPerson = false,
     String? distinctPersonReason,
   }) async {
+    if (simulateClaimRequired && !confirmDistinctPerson) {
+      return (
+        result: null,
+        error: 'Mevcut hesabınız bulundu.',
+        code: 'ACCOUNT_CLAIM_REQUIRED',
+        payload: <String, dynamic>{
+          'existing_account': <String, dynamic>{
+            'masked_name': 'A*** Y*****',
+            'masked_login_name': 'ays***z',
+            'reasons': <String>['email'],
+            'match_strength': 'strong',
+            'can_claim_in_place': true,
+          },
+        },
+      );
+    }
     final (result, submitError) = await submitJoinRequest(
       joinToken: joinToken,
       blockId: blockId,
@@ -239,15 +281,25 @@ void main() {
       final palette = t.element(find.byType(Dialog)).palette;
       final body = Theme.of(t.element(find.byType(Dialog))).textTheme.bodyLarge;
       void expectSharedStyle(DropdownButton<Object?> dropdown, String which) {
-        expect(dropdown.borderRadius, BorderRadius.circular(AppRadius.md), reason: which);
+        expect(
+          dropdown.borderRadius,
+          BorderRadius.circular(AppRadius.md),
+          reason: which,
+        );
         expect(dropdown.dropdownColor, palette.surface, reason: which);
         expect(dropdown.menuMaxHeight, 320, reason: which);
-        expect((dropdown.icon! as Icon).icon, Icons.keyboard_arrow_down_rounded, reason: which);
+        expect(
+          (dropdown.icon! as Icon).icon,
+          Icons.keyboard_arrow_down_rounded,
+          reason: which,
+        );
         expect(dropdown.style, body, reason: which);
       }
 
       expectSharedStyle(
-        t.widget<DropdownButton<SiteJoinBlockInfo>>(find.byType(DropdownButton<SiteJoinBlockInfo>)),
+        t.widget<DropdownButton<SiteJoinBlockInfo>>(
+          find.byType(DropdownButton<SiteJoinBlockInfo>),
+        ),
         'blok',
       );
       expectSharedStyle(
@@ -293,7 +345,11 @@ void main() {
         find.text('Güneş Sitesi Uzun İsimli Konutları Yönetimi'),
         findsOneWidget,
       );
-      expect(t.binding.transientCallbackCount, 0, reason: 'iskelet kalkınca shimmer ticker kalmaz');
+      expect(
+        t.binding.transientCallbackCount,
+        0,
+        reason: 'iskelet kalkınca shimmer ticker kalmaz',
+      );
       expect(t.takeException(), isNull);
     },
   );
@@ -331,6 +387,45 @@ void main() {
       await settleFor(t, 800);
       expect(auth.submitted, [501]);
       expect(haptics, ['HapticFeedbackType.lightImpact']);
+      expect(find.byType(Dialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'SubmitJoinRequestDialog: ACCOUNT_CLAIM_REQUIRED durumunda Daire Hesabımı Bağla akışı yerinde tamamlanır',
+    (t) async {
+      final auth = _FakeAuth()..simulateClaimRequired = true;
+      await _open(
+        t,
+        auth,
+        initialToken: 'SJT-ABC123',
+        width: 360,
+        height: 900,
+        scale: 1.0,
+        dark: false,
+      );
+
+      await scrollTo(t, find.text('Katılım Başvurusunu Gönder'));
+      await t.tap(find.text('Katılım Başvurusunu Gönder'));
+      await settleFor(t, 400);
+
+      expect(find.text('Mevcut hesabınız bulundu'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('join_claim_in_place_btn')),
+        findsOneWidget,
+      );
+
+      await t.ensureVisible(
+        find.byKey(const ValueKey('join_claim_in_place_btn')),
+      );
+      await t.tap(find.byKey(const ValueKey('join_claim_in_place_btn')));
+      await settleFor(t, 600);
+
+      expect(auth.claimCalls, 1);
+      expect(
+        find.textContaining('Daire hesabınız güvenli biçimde bağlandı'),
+        findsOneWidget,
+      );
       expect(find.byType(Dialog), findsNothing);
     },
   );
